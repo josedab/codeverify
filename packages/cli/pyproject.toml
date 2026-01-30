@@ -1,0 +1,33 @@
+[project]
+name = "codeverify-cli"
+version = "0.2.0"
+description = "CodeVerify CLI - Local code analysis tool"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+dependencies = [
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0",
+    "httpx>=0.25.0",
+    "codeverify-core>=0.2.0",
+    "codeverify-verifier>=0.2.0",
+    "codeverify-agents>=0.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.scripts]
+codeverify = "codeverify_cli.main:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codeverify_cli"]
