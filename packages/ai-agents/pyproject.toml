@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codeverify-agents"
+version = "0.2.0"
+description = "CodeVerify AI Agents for code analysis"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.10.0",
+    "anthropic>=0.18.0",
+    "httpx>=0.26.0",
+    "structlog>=24.1.0",
+    "codeverify-core>=0.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codeverify_agents"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
