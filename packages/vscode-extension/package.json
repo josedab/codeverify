@@ -1,0 +1,337 @@
+{
+  "name": "codeverify",
+  "displayName": "CodeVerify",
+  "description": "AI-powered code analysis with formal verification - real-time verification as you code",
+  "version": "0.1.0",
+  "publisher": "codeverify",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "code review",
+    "static analysis",
+    "formal verification",
+    "security",
+    "ai",
+    "copilot",
+    "trust score"
+  ],
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codeverify/codeverify"
+  },
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:typescript",
+    "onLanguage:javascript",
+    "onLanguage:go",
+    "onLanguage:java",
+    "onLanguage:rust",
+    "workspaceContains:.codeverify.yml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeverify.analyze",
+        "title": "CodeVerify: Analyze Current File"
+      },
+      {
+        "command": "codeverify.analyzeWorkspace",
+        "title": "CodeVerify: Analyze Workspace"
+      },
+      {
+        "command": "codeverify.analyzeSelection",
+        "title": "CodeVerify: Analyze Selection"
+      },
+      {
+        "command": "codeverify.showFindings",
+        "title": "CodeVerify: Show Findings"
+      },
+      {
+        "command": "codeverify.applyFix",
+        "title": "CodeVerify: Apply Fix"
+      },
+      {
+        "command": "codeverify.dismissFinding",
+        "title": "CodeVerify: Dismiss Finding"
+      },
+      {
+        "command": "codeverify.openDashboard",
+        "title": "CodeVerify: Open Dashboard"
+      },
+      {
+        "command": "codeverify.refreshFindings",
+        "title": "CodeVerify: Refresh Findings"
+      },
+      {
+        "command": "codeverify.showTrustScore",
+        "title": "CodeVerify: Show Trust Score"
+      },
+      {
+        "command": "codeverify.explainFinding",
+        "title": "CodeVerify: Explain Finding"
+      },
+      {
+        "command": "codeverify.debugVerification",
+        "title": "CodeVerify: Debug Verification"
+      },
+      {
+        "command": "codeverify.toggleRealTime",
+        "title": "CodeVerify: Toggle Real-time Verification"
+      },
+      {
+        "command": "codeverify.toggleContinuousMode",
+        "title": "CodeVerify: Toggle Continuous Verification"
+      },
+      {
+        "command": "codeverify.setContinuousMode",
+        "title": "CodeVerify: Set Verification Mode"
+      },
+      {
+        "command": "codeverify.showHeatMap",
+        "title": "CodeVerify: Show Verification Heat Map"
+      },
+      {
+        "command": "codeverify.hideHeatMap",
+        "title": "CodeVerify: Hide Verification Heat Map"
+      },
+      {
+        "command": "codeverify.showConstraints",
+        "title": "CodeVerify: Show Constraints at Cursor"
+      }
+    ],
+    "configuration": {
+      "title": "CodeVerify",
+      "properties": {
+        "codeverify.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CodeVerify analysis"
+        },
+        "codeverify.analyzeOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically analyze files on save"
+        },
+        "codeverify.realTimeVerification": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable real-time verification as you type"
+        },
+        "codeverify.realTimeDelay": {
+          "type": "number",
+          "default": 1500,
+          "description": "Delay in milliseconds before real-time verification triggers"
+        },
+        "codeverify.apiEndpoint": {
+          "type": "string",
+          "default": "https://api.codeverify.io",
+          "description": "CodeVerify API endpoint"
+        },
+        "codeverify.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "CodeVerify API key (leave empty for local-only analysis)"
+        },
+        "codeverify.severityFilter": {
+          "type": "string",
+          "enum": ["all", "critical", "high", "medium", "low"],
+          "default": "all",
+          "description": "Minimum severity level to display"
+        },
+        "codeverify.showInlineAnnotations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline annotations for findings"
+        },
+        "codeverify.showTrustScore": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show trust score in status bar"
+        },
+        "codeverify.localAnalysisEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable local analysis (without API)"
+        },
+        "codeverify.cliPath": {
+          "type": "string",
+          "default": "codeverify",
+          "description": "Path to CodeVerify CLI executable"
+        },
+        "codeverify.showVerificationDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show line decorations for verified/unverified code"
+        },
+        "codeverify.continuousVerification": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable continuous verification mode for real-time analysis"
+        },
+        "codeverify.continuousVerificationMode": {
+          "type": "string",
+          "enum": ["quick", "standard", "deep"],
+          "default": "standard",
+          "description": "Continuous verification mode: quick (~100ms), standard (~300ms), or deep (~500ms+)"
+        },
+        "codeverify.cacheTTL": {
+          "type": "number",
+          "default": 300000,
+          "description": "Cache TTL for verification results in milliseconds (default: 5 minutes)"
+        },
+        "codeverify.maxCacheSize": {
+          "type": "number",
+          "default": 1000,
+          "description": "Maximum number of cached verification results"
+        }
+      }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "codeverifyFindings",
+          "name": "CodeVerify Findings"
+        }
+      ],
+      "codeverify": [
+        {
+          "id": "codeverifyFindings",
+          "name": "Findings"
+        },
+        {
+          "type": "webview",
+          "id": "codeverify.constraintVisualization",
+          "name": "Constraints"
+        },
+        {
+          "type": "webview",
+          "id": "codeverify.heatMap",
+          "name": "Heat Map"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codeverify",
+          "title": "CodeVerify",
+          "icon": "images/icon.svg"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "codeverify.analyze",
+          "group": "codeverify"
+        },
+        {
+          "command": "codeverify.analyzeSelection",
+          "group": "codeverify",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "codeverify.explainFinding",
+          "group": "codeverify"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "codeverify.refreshFindings",
+          "when": "view == codeverifyFindings",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "codeverify.analyze",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeverify.showTrustScore",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeverify.toggleContinuousMode",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeverify.showConstraints",
+        "key": "ctrl+shift+k",
+        "mac": "cmd+shift+k",
+        "when": "editorTextFocus"
+      }
+    ],
+    "languages": [
+      {
+        "id": "codeverify-config",
+        "aliases": ["CodeVerify Config"],
+        "filenames": [".codeverify.yml", ".codeverify.yaml"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "colors": [
+      {
+        "id": "codeverify.verified",
+        "description": "Background color for verified code",
+        "defaults": {
+          "dark": "#2ecc7110",
+          "light": "#27ae6010"
+        }
+      },
+      {
+        "id": "codeverify.unverified",
+        "description": "Background color for unverified code",
+        "defaults": {
+          "dark": "#f39c1210",
+          "light": "#e67e2210"
+        }
+      },
+      {
+        "id": "codeverify.error",
+        "description": "Background color for code with verification errors",
+        "defaults": {
+          "dark": "#e74c3c10",
+          "light": "#c0392b10"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/test-electron": "^2.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
