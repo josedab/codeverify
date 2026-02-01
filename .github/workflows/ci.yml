@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit on packages
+        run: |
+          pip-audit --desc on --fix --dry-run -r packages/core/requirements.txt || true
+          pip-audit --desc on --fix --dry-run -r packages/verifier/requirements.txt || true
+          pip-audit --desc on --fix --dry-run -r packages/ai-agents/requirements.txt || true
+        continue-on-error: true
+
+      - name: Run npm audit on GitHub App
+        working-directory: apps/github-app
+        run: npm audit --audit-level=high || true
+        continue-on-error: true
+
+      - name: Run npm audit on Web
+        working-directory: apps/web
+        run: npm audit --audit-level=high || true
+        continue-on-error: true
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+          format: 'table'
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install ruff mypy
+
+      - name: Run Ruff
+        run: ruff check .
+
+      - name: Run Ruff format check
+        run: ruff format --check .
+
+  test-python:
+    name: Test Python
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: codeverify
+          POSTGRES_PASSWORD: codeverify
+          POSTGRES_DB: codeverify_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -e "packages/core[dev]"
+          pip install -e "packages/verifier[dev]"
+          pip install -e "packages/ai-agents[dev]"
+          pip install -e "apps/api[dev]"
+          pip install -e "apps/worker[dev]"
+
+      - name: Run tests with coverage threshold
+        env:
+          DATABASE_URL: postgresql://codeverify:codeverify@localhost:5432/codeverify_test
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          pytest packages/ apps/ --cov --cov-report=xml --cov-fail-under=50
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  test-node:
+    name: Test Node.js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install GitHub App dependencies
+        working-directory: apps/github-app
+        run: npm ci
+
+      - name: Run GitHub App tests
+        working-directory: apps/github-app
+        run: npm test
+
+      - name: Install Web dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Run Web tests
+        working-directory: apps/web
+        run: npm test
+
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [lint, test-python]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: false
+          tags: codeverify/api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.worker
+          push: false
+          tags: codeverify/worker:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan API image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'codeverify/api:test'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+          format: 'table'
+
+      - name: Scan Worker image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'codeverify/worker:test'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+          format: 'table'

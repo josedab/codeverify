@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://docs.codeverify.dev
+    about: Check out our documentation for guides and API reference
+  - name: GitHub Discussions
+    url: https://github.com/codeverify/codeverify/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: Security Vulnerabilities
+    url: https://github.com/codeverify/codeverify/security/advisories/new
+    about: Report security vulnerabilities privately (do not open public issues)

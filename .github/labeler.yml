@@ -1,0 +1,111 @@
+# PR Labeler Configuration
+# Automatically labels PRs based on changed files
+
+# Package labels
+"pkg:core":
+  - changed-files:
+    - any-glob-to-any-file: 'packages/core/**/*'
+
+"pkg:verifier":
+  - changed-files:
+    - any-glob-to-any-file: 'packages/verifier/**/*'
+
+"pkg:ai-agents":
+  - changed-files:
+    - any-glob-to-any-file: 'packages/ai-agents/**/*'
+
+"pkg:cli":
+  - changed-files:
+    - any-glob-to-any-file: 'packages/cli/**/*'
+
+"pkg:vscode":
+  - changed-files:
+    - any-glob-to-any-file: 'packages/vscode-extension/**/*'
+
+"pkg:z3-mcp":
+  - changed-files:
+    - any-glob-to-any-file: 'packages/z3-mcp/**/*'
+
+# App labels
+"app:api":
+  - changed-files:
+    - any-glob-to-any-file: 'apps/api/**/*'
+
+"app:worker":
+  - changed-files:
+    - any-glob-to-any-file: 'apps/worker/**/*'
+
+"app:web":
+  - changed-files:
+    - any-glob-to-any-file: 'apps/web/**/*'
+
+"app:github-app":
+  - changed-files:
+    - any-glob-to-any-file: 'apps/github-app/**/*'
+
+# Language labels
+python:
+  - changed-files:
+    - any-glob-to-any-file: '**/*.py'
+
+javascript:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/*.jsx'
+
+# Infrastructure labels
+docker:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docker/**/*'
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+
+infrastructure:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'deploy/**/*'
+      - 'docker/**/*'
+
+github-actions:
+  - changed-files:
+    - any-glob-to-any-file: '.github/workflows/**/*'
+
+# Documentation
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**/*'
+
+# Tests
+tests:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'tests/**/*'
+      - '**/*_test.py'
+      - '**/test_*.py'
+      - '**/*.test.ts'
+      - '**/*.spec.ts'
+
+# Configuration
+configuration:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '*.yml'
+      - '*.yaml'
+      - '*.json'
+      - '*.toml'
+      - '.env*'
+
+# Dependencies
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'pyproject.toml'
+      - 'requirements*.txt'

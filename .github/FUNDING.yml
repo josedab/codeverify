@@ -1,0 +1,13 @@
+# These are supported funding model platforms
+
+github: [codeverify]
+# patreon: codeverify
+# open_collective: codeverify
+# ko_fi: codeverify
+# tidelift: npm/codeverify
+# community_bridge: codeverify
+# liberapay: codeverify
+# issuehunt: codeverify
+# lfx_crowdfunding: codeverify
+# polar: codeverify
+custom: ['https://codeverify.dev/sponsor']

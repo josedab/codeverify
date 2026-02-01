@@ -1,0 +1,45 @@
+# CodeVerify CODEOWNERS
+# These owners will be automatically requested for review on PRs
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything
+* @codeverify/core-team
+
+# Python packages
+/packages/core/ @codeverify/python-team
+/packages/verifier/ @codeverify/python-team @codeverify/verification-team
+/packages/ai-agents/ @codeverify/python-team @codeverify/ai-team
+/packages/z3-mcp/ @codeverify/verification-team
+/packages/cli/ @codeverify/python-team
+
+# Backend services
+/apps/api/ @codeverify/backend-team
+/apps/worker/ @codeverify/backend-team @codeverify/verification-team
+
+# Frontend
+/apps/web/ @codeverify/frontend-team
+/packages/vscode-extension/ @codeverify/frontend-team
+
+# GitHub App
+/apps/github-app/ @codeverify/integrations-team
+
+# Infrastructure & DevOps
+/docker/ @codeverify/devops-team
+/deploy/ @codeverify/devops-team
+/.github/workflows/ @codeverify/devops-team
+/scripts/ @codeverify/devops-team
+
+# Documentation
+/docs/ @codeverify/docs-team
+*.md @codeverify/docs-team
+README.md @codeverify/core-team
+
+# Configuration files
+pyproject.toml @codeverify/python-team
+docker-compose.yml @codeverify/devops-team
+.env.example @codeverify/devops-team
+
+# Security-sensitive files
+/apps/api/src/codeverify_api/auth/ @codeverify/security-team
+/apps/api/src/codeverify_api/middleware/ @codeverify/security-team
+SECURITY.md @codeverify/security-team
