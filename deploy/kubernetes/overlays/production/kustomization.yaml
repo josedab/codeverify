@@ -1,0 +1,77 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../codeverify.yaml
+
+namespace: codeverify
+
+commonLabels:
+  environment: production
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: codeverify-api
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 5
+    target:
+      kind: Deployment
+      name: codeverify-worker
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+    target:
+      kind: Deployment
+      name: codeverify-web
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+    target:
+      kind: Deployment
+      name: codeverify-api
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            memory: "1Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "4000m"
+    target:
+      kind: Deployment
+      name: codeverify-worker
+
+configMapGenerator:
+  - name: codeverify-config
+    behavior: merge
+    literals:
+      - LOG_LEVEL=info
+      - ENVIRONMENT=production
+
+images:
+  - name: codeverify/api
+    newName: ghcr.io/codeverify/codeverify-api
+    newTag: latest
+  - name: codeverify/worker
+    newName: ghcr.io/codeverify/codeverify-worker
+    newTag: latest
+  - name: codeverify/web
+    newName: ghcr.io/codeverify/codeverify-web
+    newTag: latest

@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../codeverify.yaml
+
+namespace: codeverify-staging
+
+namePrefix: staging-
+
+commonLabels:
+  environment: staging
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+
+configMapGenerator:
+  - name: codeverify-config
+    behavior: merge
+    literals:
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=staging
+
+secretGenerator:
+  - name: codeverify-secrets
+    behavior: merge
+    literals:
+      - DATABASE_URL=postgresql://codeverify:staging-pass@postgres-staging:5432/codeverify_staging
+
+images:
+  - name: codeverify/api
+    newName: ghcr.io/codeverify/codeverify-api
+    newTag: staging
+  - name: codeverify/worker
+    newName: ghcr.io/codeverify/codeverify-worker
+    newTag: staging
+  - name: codeverify/web
+    newName: ghcr.io/codeverify/codeverify-web
+    newTag: staging
