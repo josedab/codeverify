@@ -1,0 +1,130 @@
+# CodeVerify Example Configuration
+# This is a comprehensive example of all available options
+
+version: "1"
+
+# Languages to analyze
+# Supported: python, typescript, javascript
+languages:
+  - python
+  - typescript
+
+# File patterns to include (glob syntax)
+include:
+  - "src/**/*.py"
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
+  - "lib/**/*.py"
+  - "api/**/*.py"
+
+# File patterns to exclude (processed first)
+exclude:
+  - "node_modules/**"
+  - "venv/**"
+  - ".venv/**"
+  - "__pycache__/**"
+  - "dist/**"
+  - "build/**"
+  - "*.min.js"
+  - "*.generated.*"
+  - "*.d.ts"
+  - "migrations/**"
+
+# Formal verification with Z3 SMT solver
+verification:
+  enabled: true
+  timeout: 30  # Max seconds per check
+  checks:
+    - null_safety       # Detect null/undefined access
+    - array_bounds      # Detect out-of-bounds access
+    - integer_overflow  # Detect arithmetic overflow
+    - division_by_zero  # Detect divide-by-zero
+
+# AI-powered analysis
+ai:
+  enabled: true
+  semantic: true   # Understand code intent
+  security: true   # Detect vulnerabilities
+  model: gpt-4     # or claude-3-sonnet
+  
+  # Custom prompts for specific categories
+  prompts:
+    security: |
+      Focus on:
+      - Authentication and authorization
+      - Input validation
+      - SQL injection and XSS
+    
+    performance: |
+      Look for:
+      - N+1 queries
+      - Memory leaks
+      - Inefficient algorithms
+
+# Severity thresholds for pass/fail determination
+# Analysis fails if ANY threshold is exceeded
+thresholds:
+  critical: 0  # Max critical issues (default: 0)
+  high: 0      # Max high issues (default: 0)
+  medium: 5    # Max medium issues (default: 5)
+  low: 10      # Max low issues (default: 10)
+
+# Rules to ignore certain findings
+ignore:
+  # Ignore all findings in migrations
+  - pattern: "migrations/**"
+    reason: "Auto-generated migration files"
+  
+  # Ignore security findings in tests
+  - pattern: "tests/**"
+    categories:
+      - security
+    reason: "Test code may use test credentials"
+  
+  # Ignore specific file
+  - pattern: "src/legacy/old_api.py"
+    reason: "Deprecated code, scheduled for removal"
+
+# Custom analysis rules
+rules:
+  # Pattern-based rule
+  - id: no-print
+    name: "No print statements"
+    description: "Use proper logging instead of print()"
+    severity: low
+    pattern: "\\bprint\\s*\\("
+    enabled: true
+  
+  # AI prompt-based rule
+  - id: require-docstrings
+    name: "Functions require docstrings"
+    description: "All public functions should have docstrings"
+    severity: low
+    prompt: "Check if public functions have docstrings"
+    enabled: true
+  
+  # Pattern for TODO comments
+  - id: no-todo-in-main
+    name: "No TODO in main branch"
+    description: "TODO comments should be resolved before merge"
+    severity: medium
+    pattern: "#\\s*TODO|//\\s*TODO"
+    enabled: true
+
+# Pull request behavior
+auto_approve: false         # Never auto-approve PRs
+comment_on_pass: true       # Post comment even when passing
+collapse_findings: true     # Collapse finding details by default
+max_inline_comments: 10     # Max inline comments per PR
+
+# Notifications (requires integration setup)
+notifications:
+  slack:
+    enabled: false
+    channel: "#code-reviews"
+    on_failure_only: true
+  
+  email:
+    enabled: false
+    recipients:
+      - team@example.com

@@ -1,0 +1,81 @@
+# TypeScript/Node.js Project Configuration
+# Optimized for Express/Next.js projects
+
+version: "1"
+
+languages:
+  - typescript
+  - javascript
+
+include:
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
+  - "src/**/*.js"
+  - "lib/**/*.ts"
+  - "pages/**/*.tsx"
+  - "app/**/*.tsx"
+
+exclude:
+  - "node_modules/**"
+  - "dist/**"
+  - "build/**"
+  - ".next/**"
+  - "coverage/**"
+  - "*.min.js"
+  - "*.d.ts"
+  - "*.test.ts"
+  - "*.spec.ts"
+  - "__tests__/**"
+
+verification:
+  enabled: true
+  timeout: 30
+  checks:
+    - null_safety
+    - array_bounds
+
+ai:
+  enabled: true
+  semantic: true
+  security: true
+  prompts:
+    security: |
+      Focus on Node.js/Express specific issues:
+      - Prototype pollution
+      - NoSQL injection
+      - Server-side request forgery
+      - Insecure dependencies
+      - XSS in React components
+
+thresholds:
+  critical: 0
+  high: 0
+  medium: 5
+  low: 15
+
+ignore:
+  - pattern: "**/*.test.ts"
+    reason: "Test files"
+  - pattern: "**/*.spec.ts"
+    reason: "Test files"
+  - pattern: "scripts/**"
+    reason: "Build/deploy scripts"
+
+rules:
+  - id: no-console-log
+    name: "No console.log in production"
+    severity: low
+    pattern: "console\\.log\\s*\\("
+    enabled: true
+  
+  - id: no-any-type
+    name: "Avoid 'any' type"
+    severity: low
+    pattern: ":\\s*any\\b"
+    enabled: true
+  
+  - id: require-error-handling
+    name: "Async functions need error handling"
+    severity: medium
+    prompt: "Check if async functions have proper try/catch or error handling"
+    enabled: true

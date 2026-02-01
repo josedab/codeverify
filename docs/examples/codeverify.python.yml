@@ -1,0 +1,68 @@
+# Python Project Configuration
+# Optimized for Django/Flask projects
+
+version: "1"
+
+languages:
+  - python
+
+include:
+  - "**/*.py"
+
+exclude:
+  - "venv/**"
+  - ".venv/**"
+  - "__pycache__/**"
+  - "migrations/**"
+  - "*.pyc"
+  - "manage.py"
+  - "wsgi.py"
+  - "asgi.py"
+
+verification:
+  enabled: true
+  timeout: 30
+  checks:
+    - null_safety
+    - division_by_zero
+
+ai:
+  enabled: true
+  semantic: true
+  security: true
+  prompts:
+    security: |
+      Focus on Django/Flask specific issues:
+      - CSRF protection
+      - SQL injection via raw queries
+      - XSS in templates
+      - Insecure direct object references
+
+thresholds:
+  critical: 0
+  high: 0
+  medium: 5
+  low: 20
+
+ignore:
+  - pattern: "migrations/**"
+    reason: "Auto-generated Django migrations"
+  - pattern: "tests/**"
+    categories:
+      - security
+    reason: "Test fixtures may have dummy credentials"
+  - pattern: "**/conftest.py"
+    reason: "Pytest configuration"
+
+rules:
+  - id: no-print
+    name: "Use logging instead of print"
+    severity: low
+    pattern: "\\bprint\\s*\\("
+    enabled: true
+  
+  - id: no-hardcoded-secrets
+    name: "No hardcoded secrets"
+    severity: critical
+    pattern: "(password|secret|api_key)\\s*=\\s*['\"][^'\"]+['\"]"
+    enabled: true

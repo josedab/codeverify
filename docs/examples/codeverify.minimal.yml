@@ -1,0 +1,22 @@
+# Minimal CodeVerify Configuration
+# Just the essentials to get started
+
+version: "1"
+
+languages:
+  - python
+  - typescript
+
+# Fail only on critical/high issues
+thresholds:
+  critical: 0
+  high: 0
+  medium: 10
+  low: 50
+
+# Exclude common directories
+exclude:
+  - "node_modules/**"
+  - "venv/**"
+  - "tests/**"
+  - "dist/**"
