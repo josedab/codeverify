@@ -1,0 +1,59 @@
+# CodeVerify API Dockerfile
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies and Z3
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libz3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy package files
+COPY packages/core /app/packages/core
+COPY packages/verifier /app/packages/verifier
+COPY packages/ai-agents /app/packages/ai-agents
+COPY apps/api /app/apps/api
+
+# Install packages
+RUN pip install --no-cache-dir \
+    /app/packages/core \
+    /app/packages/verifier \
+    /app/packages/ai-agents \
+    /app/apps/api
+
+# Production image
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libz3-4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY apps/api/src /app/apps/api/src
+COPY packages/core/src /app/packages/core/src
+COPY packages/verifier/src /app/packages/verifier/src
+COPY packages/ai-agents/src /app/packages/ai-agents/src
+
+# Set Python path
+ENV PYTHONPATH=/app/apps/api/src:/app/packages/core/src:/app/packages/verifier/src:/app/packages/ai-agents/src
+ENV PYTHONUNBUFFERED=1
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+EXPOSE 8000
+
+CMD ["uvicorn", "codeverify_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

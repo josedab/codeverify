@@ -1,0 +1,130 @@
+version: "3.9"
+
+# =============================================================================
+# WARNING: This docker-compose.yml is for LOCAL DEVELOPMENT ONLY.
+# DO NOT use these default credentials in production environments.
+# For production deployments, see deploy/kubernetes/ or deploy/terraform/
+# =============================================================================
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: codeverify-postgres
+    environment:
+      # WARNING: Development credentials only - use strong passwords in production!
+      POSTGRES_USER: codeverify
+      POSTGRES_PASSWORD: codeverify
+      POSTGRES_DB: codeverify
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codeverify"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for queuing and caching
+  redis:
+    image: redis:7-alpine
+    container_name: codeverify-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # API Service
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: codeverify-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://codeverify:codeverify@postgres:5432/codeverify
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./packages:/app/packages
+    command: uvicorn codeverify_api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Worker Service
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: codeverify-worker
+    environment:
+      - DATABASE_URL=postgresql://codeverify:codeverify@postgres:5432/codeverify
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/worker:/app/apps/worker
+      - ./packages:/app/packages
+    command: celery -A codeverify_worker.main worker --loglevel=info
+
+  # GitHub App webhook handler
+  github-app:
+    build:
+      context: ./apps/github-app
+      dockerfile: Dockerfile
+    container_name: codeverify-github-app
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - API_URL=http://api:8000
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - api
+      - redis
+    volumes:
+      - ./apps/github-app:/app
+      - /app/node_modules
+
+  # Web Dashboard
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: codeverify-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - api
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: codeverify-network
