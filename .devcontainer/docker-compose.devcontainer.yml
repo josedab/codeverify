@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  devcontainer:
+    image: mcr.microsoft.com/devcontainers/base:ubuntu
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    environment:
+      - DATABASE_URL=postgresql://codeverify:codeverify@postgres:5432/codeverify
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - codeverify-network
+
+  postgres:
+    extends:
+      file: ../docker-compose.yml
+      service: postgres
+    networks:
+      - codeverify-network
+
+  redis:
+    extends:
+      file: ../docker-compose.yml
+      service: redis
+    networks:
+      - codeverify-network
+
+networks:
+  codeverify-network:
+    driver: bridge
