@@ -16,6 +16,7 @@ from codeverify_api.routers import feedback, usage, export, sso, trust_score, de
 from codeverify_api.routers import collaboration, formal_specs, cross_repo, regression, replay, nl_queries, network
 # Next-gen feature routers (v0.3.0)
 from codeverify_api.routers import threat_modeling, risk_prediction, consensus, compliance, cost_optimization, cross_language
+from codeverify_api.routers import verification_api
 from codeverify_api.middleware.rate_limit import setup_rate_limiting
 from codeverify_api.middleware.security import setup_security_headers
 from codeverify_api.middleware.metrics import setup_metrics
@@ -94,6 +95,9 @@ app.include_router(consensus.router, prefix="/api/v1/consensus", tags=["consensu
 app.include_router(compliance.router, prefix="/api/v1/compliance", tags=["compliance-attestation"])
 app.include_router(cost_optimization.router, prefix="/api/v1/cost", tags=["cost-optimization"])
 app.include_router(cross_language.router, prefix="/api/v1/cross-language", tags=["cross-language"])
+
+# Public Verification API Marketplace
+app.include_router(verification_api.router, tags=["verification-api"])
 
 
 # Global exception handler
