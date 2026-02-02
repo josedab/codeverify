@@ -105,6 +105,26 @@
       {
         "command": "codeverify.showConstraints",
         "title": "CodeVerify: Show Constraints at Cursor"
+      },
+      {
+        "command": "codeverify.toggleCopilotPlugin",
+        "title": "CodeVerify: Toggle Copilot Verification"
+      },
+      {
+        "command": "codeverify.verifyCurrentCode",
+        "title": "CodeVerify: Verify Current Code"
+      },
+      {
+        "command": "codeverify.showAlternativeFixes",
+        "title": "CodeVerify: Show Alternative Fixes"
+      },
+      {
+        "command": "codeverify.acceptWithFix",
+        "title": "CodeVerify: Accept Code with Best Fix"
+      },
+      {
+        "command": "codeverify.showCopilotStatus",
+        "title": "CodeVerify: Show Copilot Plugin Status"
       }
     ],
     "configuration": {
@@ -155,6 +175,26 @@
           "type": "boolean",
           "default": true,
           "description": "Show trust score in status bar"
+        },
+        "codeverify.copilotPlugin.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Copilot verification plugin"
+        },
+        "codeverify.copilotPlugin.showBadges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show verification badges inline"
+        },
+        "codeverify.copilotPlugin.autoFix": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically apply fixes for critical issues"
+        },
+        "codeverify.copilotPlugin.minTrustScore": {
+          "type": "number",
+          "default": 80,
+          "description": "Minimum trust score for auto-accept (0-100)"
         },
         "codeverify.localAnalysisEnabled": {
           "type": "boolean",
