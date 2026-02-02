@@ -1,0 +1,122 @@
+<idea-plugin>
+    <id>dev.codeverify.plugin</id>
+    <name>CodeVerify</name>
+    <vendor email="support@codeverify.dev" url="https://codeverify.dev">CodeVerify</vendor>
+
+    <description><![CDATA[
+    AI-powered code verification with formal proofs for JetBrains IDEs.
+    
+    <b>Features:</b>
+    <ul>
+        <li>Real-time code verification</li>
+        <li>Formal proofs using Z3 SMT solver</li>
+        <li>AI-powered semantic analysis</li>
+        <li>Trust scoring for code changes</li>
+        <li>One-click fix suggestions</li>
+    </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends optional="true" config-file="java-plugin.xml">com.intellij.modules.java</depends>
+    <depends optional="true" config-file="python-plugin.xml">com.intellij.modules.python</depends>
+    <depends optional="true" config-file="javascript-plugin.xml">JavaScript</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Settings -->
+        <applicationService 
+            serviceImplementation="dev.codeverify.plugin.settings.CodeVerifySettings"/>
+        <applicationConfigurable 
+            parentId="tools" 
+            instance="dev.codeverify.plugin.settings.CodeVerifyConfigurable"
+            id="dev.codeverify.plugin.settings.CodeVerifyConfigurable"
+            displayName="CodeVerify"/>
+        
+        <!-- Services -->
+        <projectService 
+            serviceImplementation="dev.codeverify.plugin.services.VerificationService"/>
+        <projectService 
+            serviceImplementation="dev.codeverify.plugin.services.FindingsManager"/>
+        
+        <!-- Annotators and Inspections -->
+        <externalAnnotator 
+            language="" 
+            implementationClass="dev.codeverify.plugin.services.CodeVerifyAnnotator"/>
+        
+        <!-- Tool Window -->
+        <toolWindow 
+            id="CodeVerify" 
+            secondary="true" 
+            icon="/icons/codeverify.svg" 
+            anchor="bottom"
+            factoryClass="dev.codeverify.plugin.ui.CodeVerifyToolWindowFactory"/>
+        
+        <!-- Status Bar -->
+        <statusBarWidgetFactory 
+            id="CodeVerifyStatus" 
+            implementation="dev.codeverify.plugin.ui.StatusBarWidgetFactory"/>
+        
+        <!-- Notifications -->
+        <notificationGroup 
+            id="CodeVerify Notifications" 
+            displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <!-- Editor Actions -->
+        <group id="CodeVerify.EditorPopupMenu" text="CodeVerify" popup="true">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <action 
+                id="CodeVerify.VerifyFile" 
+                class="dev.codeverify.plugin.actions.VerifyFileAction"
+                text="Verify This File" 
+                description="Run CodeVerify on current file"
+                icon="/icons/verify.svg"/>
+            <action 
+                id="CodeVerify.VerifySelection" 
+                class="dev.codeverify.plugin.actions.VerifySelectionAction"
+                text="Verify Selection" 
+                description="Run CodeVerify on selected code"/>
+            <separator/>
+            <action 
+                id="CodeVerify.ApplyFix" 
+                class="dev.codeverify.plugin.actions.ApplyFixAction"
+                text="Apply CodeVerify Fix" 
+                description="Apply suggested fix"/>
+            <action 
+                id="CodeVerify.ShowProof" 
+                class="dev.codeverify.plugin.actions.ShowProofAction"
+                text="Show Verification Proof" 
+                description="Show formal verification proof"/>
+        </group>
+        
+        <!-- Main Menu Actions -->
+        <group id="CodeVerify.MainMenu" text="CodeVerify" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action 
+                id="CodeVerify.VerifyProject" 
+                class="dev.codeverify.plugin.actions.VerifyProjectAction"
+                text="Verify Project" 
+                description="Run verification on entire project"/>
+            <action 
+                id="CodeVerify.ViewDashboard" 
+                class="dev.codeverify.plugin.actions.ViewDashboardAction"
+                text="View Coverage Dashboard" 
+                description="Open proof coverage dashboard"/>
+            <separator/>
+            <action 
+                id="CodeVerify.Settings" 
+                class="dev.codeverify.plugin.actions.OpenSettingsAction"
+                text="Settings" 
+                description="Open CodeVerify settings"/>
+        </group>
+        
+        <!-- Keyboard Shortcuts -->
+        <action 
+            id="CodeVerify.QuickVerify" 
+            class="dev.codeverify.plugin.actions.QuickVerifyAction"
+            text="Quick Verify"
+            description="Quickly verify code at cursor">
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt V"/>
+        </action>
+    </actions>
+</idea-plugin>
