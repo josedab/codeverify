@@ -145,17 +145,17 @@ from codeverify_core.cost_optimizer import (
 
 # Next-Gen Feature 1: Monorepo Intelligence
 from codeverify_core.monorepo import (
-    DependencyGraph,
+    DependencyEdge,
     MonorepoAnalyzer,
-    MonorepoType,
-    Package,
-    PackageDependency,
+    WorkspaceType,
+    PackageInfo,
+    InterfaceContract,
 )
 
 # Next-Gen Feature 3: Proof-Carrying PRs
 from codeverify_core.proof_carrying import (
     ProofAttestation,
-    ProofCarryingManager,
+    ProofCarryingPRManager,
     ProofSerializer,
     VerificationProof,
 )
@@ -204,6 +204,72 @@ from codeverify_core.repositories import (
     set_scan_result_repository,
     set_scheduled_scan_repository,
     set_notification_config_repository,
+)
+
+# New: Compliance Evidence Vault
+from codeverify_core.evidence_vault import (
+    ComplianceFramework,
+    ComplianceReportGenerator,
+    EvidenceType,
+    EvidenceVault,
+    StoredEvidence,
+    get_evidence_vault,
+    reset_evidence_vault,
+)
+
+# New: Organization Dependencies
+from codeverify_core.org_dependencies import (
+    OrgDependencyAnalyzer,
+    OrgDependencyGraph,
+    OrgRepository,
+    RepositoryConnection,
+    TransitiveRisk,
+    get_org_dependency_analyzer,
+    reset_org_dependency_analyzer,
+)
+
+# New: Offline Mode
+from codeverify_core.offline_mode import (
+    LocalModelConfig,
+    LocalModelType,
+    LocalZ3Verifier,
+    OfflineAnalysisResult,
+    OfflineCapability,
+    OfflineModeConfig,
+    OfflineModeManager,
+    OllamaClient,
+    get_offline_manager,
+    reset_offline_manager,
+)
+
+# New: Natural Language Bug Queries
+from codeverify_core.nl_bug_queries import (
+    BugCategory,
+    FindingsIndex,
+    NLQueryEngine,
+    QueryIntent,
+    QueryParser,
+    QueryResponse,
+    SearchResult as NLSearchResult,
+    SemanticQuery,
+    get_nl_query_engine,
+    reset_nl_query_engine,
+)
+
+# New: Proof Coverage Dashboard
+from codeverify_core.proof_coverage import (
+    CoverageTrend,
+    DashboardData,
+    FileCoverage,
+    FunctionCoverage,
+    LineCoverage,
+    ProofCoverageCalculator,
+    ProofCoverageDashboard,
+    ProofStatus as ProofCoverageStatus,
+    RepositoryCoverage,
+    VerificationCategory,
+    get_proof_coverage_dashboard,
+    reset_proof_coverage_dashboard,
 )
 
 __all__ = [
@@ -357,4 +423,55 @@ __all__ = [
     "set_scan_result_repository",
     "set_scheduled_scan_repository",
     "set_notification_config_repository",
+    # Compliance Evidence Vault
+    "ComplianceFramework",
+    "ComplianceReportGenerator",
+    "EvidenceType",
+    "EvidenceVault",
+    "StoredEvidence",
+    "get_evidence_vault",
+    "reset_evidence_vault",
+    # Organization Dependencies
+    "OrgDependencyAnalyzer",
+    "OrgDependencyGraph",
+    "OrgRepository",
+    "RepositoryConnection",
+    "TransitiveRisk",
+    "get_org_dependency_analyzer",
+    "reset_org_dependency_analyzer",
+    # Offline Mode
+    "LocalModelConfig",
+    "LocalModelType",
+    "LocalZ3Verifier",
+    "OfflineAnalysisResult",
+    "OfflineCapability",
+    "OfflineModeConfig",
+    "OfflineModeManager",
+    "OllamaClient",
+    "get_offline_manager",
+    "reset_offline_manager",
+    # Natural Language Bug Queries
+    "BugCategory",
+    "FindingsIndex",
+    "NLQueryEngine",
+    "QueryIntent",
+    "QueryParser",
+    "QueryResponse",
+    "NLSearchResult",
+    "SemanticQuery",
+    "get_nl_query_engine",
+    "reset_nl_query_engine",
+    # Proof Coverage Dashboard
+    "CoverageTrend",
+    "DashboardData",
+    "FileCoverage",
+    "FunctionCoverage",
+    "LineCoverage",
+    "ProofCoverageCalculator",
+    "ProofCoverageDashboard",
+    "ProofCoverageStatus",
+    "RepositoryCoverage",
+    "VerificationCategory",
+    "get_proof_coverage_dashboard",
+    "reset_proof_coverage_dashboard",
 ]
