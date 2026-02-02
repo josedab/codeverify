@@ -154,6 +154,39 @@ from codeverify_agents.model_arbitrator import (
     VotingMethod,
 )
 
+# Feature: LLM Fine-Tuning Pipeline
+from codeverify_agents.fine_tuning import (
+    DataCollector,
+    DataSourceType,
+    FineTunedModel,
+    FineTuningManager,
+    ModelServer,
+    ModelType,
+    TrainingConfig,
+    TrainingDataset,
+    TrainingExample,
+    TrainingJob,
+    TrainingMetrics,
+    TrainingPipeline,
+    TrainingStatus,
+    get_fine_tuning_manager,
+    reset_fine_tuning_manager,
+)
+
+# Feature: Self-Healing Code Suggestions
+from codeverify_agents.self_healing import (
+    BugReport,
+    FixCategory,
+    FixGenerationResult,
+    FixVerifier,
+    ProofStatus,
+    SelfHealingAgent,
+    SelfHealingManager,
+    VerifiedFix,
+    get_self_healing_manager,
+    reset_self_healing_manager,
+)
+
 __all__ = [
     # Base
     "AgentConfig",
@@ -278,4 +311,31 @@ __all__ = [
     "ModelProfile",
     "ModelSpecialization",
     "VotingMethod",
+    # LLM Fine-Tuning Pipeline
+    "DataCollector",
+    "DataSourceType",
+    "FineTunedModel",
+    "FineTuningManager",
+    "ModelServer",
+    "ModelType",
+    "TrainingConfig",
+    "TrainingDataset",
+    "TrainingExample",
+    "TrainingJob",
+    "TrainingMetrics",
+    "TrainingPipeline",
+    "TrainingStatus",
+    "get_fine_tuning_manager",
+    "reset_fine_tuning_manager",
+    # Self-Healing Code Suggestions
+    "BugReport",
+    "FixCategory",
+    "FixGenerationResult",
+    "FixVerifier",
+    "ProofStatus",
+    "SelfHealingAgent",
+    "SelfHealingManager",
+    "VerifiedFix",
+    "get_self_healing_manager",
+    "reset_self_healing_manager",
 ]
