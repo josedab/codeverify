@@ -1521,5 +1521,621 @@ def ramp_end(ctx: click.Context, repository: str, confirm: bool) -> None:
         console.print(f"[red]No ramp found for {repository}[/red]")
 
 
+# ============================================================================
+# Self-Healing Commands
+# ============================================================================
+
+
+@cli.group()
+def heal():
+    """Self-healing code suggestions.
+    
+    Automatically detect and fix code issues with verified corrections.
+    """
+    pass
+
+
+@heal.command("analyze")
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option("--verify", is_flag=True, help="Verify fixes with Z3 before suggesting")
+@click.option("--format", "-f", "output_format",
+              type=click.Choice(["rich", "json"]),
+              default="rich", help="Output format")
+@click.pass_context
+def heal_analyze(ctx: click.Context, path: str, verify: bool, output_format: str) -> None:
+    """Analyze code for self-healing opportunities.
+    
+    Scans code for issues that can be automatically fixed with
+    verified corrections.
+    
+    Examples:
+    
+        codeverify heal analyze src/
+        codeverify heal analyze file.py --verify
+    """
+    from codeverify_agents import SelfHealingAgent
+    
+    verbose = ctx.obj.get("verbose", False)
+    
+    console.print(Panel.fit(
+        "[bold blue]CodeVerify[/bold blue] - Self-Healing Analysis",
+        subtitle="Verified Code Fixes"
+    ))
+    
+    path_obj = Path(path)
+    
+    if path_obj.is_file():
+        files = [path_obj]
+    else:
+        files = list(path_obj.rglob("*.py"))[:20]  # Limit for CLI
+    
+    if not files:
+        console.print("[yellow]No Python files found[/yellow]")
+        return
+    
+    agent = SelfHealingAgent()
+    all_fixes = []
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task("Analyzing...", total=len(files))
+        
+        for file in files:
+            try:
+                code = file.read_text()
+                fixes = asyncio.run(agent.analyze_and_suggest_fixes(
+                    code,
+                    str(file),
+                    verify_fixes=verify,
+                ))
+                for fix in fixes:
+                    fix["file"] = str(file)
+                    all_fixes.append(fix)
+                progress.advance(task)
+            except Exception as e:
+                if verbose:
+                    console.print(f"[dim]Error in {file}: {e}[/dim]")
+    
+    if output_format == "json":
+        import json
+        click.echo(json.dumps(all_fixes, indent=2, default=str))
+        return
+    
+    if not all_fixes:
+        console.print("[green]✓ No fixable issues found[/green]")
+        return
+    
+    console.print(f"\nFound [bold]{len(all_fixes)}[/bold] fixable issues:\n")
+    
+    for i, fix in enumerate(all_fixes, 1):
+        verified = "✓" if fix.get("verified") else "?"
+        console.print(f"[bold]{i}. [{verified}] {fix.get('category', 'unknown')}[/bold]")
+        console.print(f"   File: {fix.get('file')}:{fix.get('line')}")
+        console.print(f"   Issue: {fix.get('issue')}")
+        if fix.get("fix"):
+            console.print(f"   [green]Fix: {fix.get('fix')[:80]}...[/green]")
+        if fix.get("confidence"):
+            console.print(f"   Confidence: {fix.get('confidence'):.0%}")
+        console.print()
+
+
+@heal.command("apply")
+@click.argument("path", type=click.Path(exists=True))
+@click.option("--all", "apply_all", is_flag=True, help="Apply all fixes without prompting")
+@click.option("--category", type=str, help="Only apply fixes of this category")
+@click.option("--min-confidence", type=float, default=0.8, help="Minimum confidence threshold")
+@click.pass_context
+def heal_apply(ctx: click.Context, path: str, apply_all: bool, category: str, min_confidence: float) -> None:
+    """Apply self-healing fixes to code.
+    
+    Examples:
+    
+        codeverify heal apply src/module.py --all
+        codeverify heal apply . --category null_safety --min-confidence 0.9
+    """
+    from codeverify_agents import SelfHealingAgent
+    
+    console.print("[bold]Scanning for fixable issues...[/bold]")
+    
+    path_obj = Path(path)
+    agent = SelfHealingAgent()
+    
+    if path_obj.is_file():
+        files = [path_obj]
+    else:
+        files = list(path_obj.rglob("*.py"))[:20]
+    
+    applied = 0
+    skipped = 0
+    
+    for file in files:
+        try:
+            code = file.read_text()
+            fixes = asyncio.run(agent.analyze_and_suggest_fixes(code, str(file), verify_fixes=True))
+            
+            for fix in fixes:
+                # Filter by category
+                if category and fix.get("category") != category:
+                    continue
+                
+                # Filter by confidence
+                if fix.get("confidence", 0) < min_confidence:
+                    skipped += 1
+                    continue
+                
+                if not apply_all:
+                    console.print(f"\n[bold]{fix.get('category')}[/bold] in {file}:{fix.get('line')}")
+                    console.print(f"Issue: {fix.get('issue')}")
+                    console.print(f"Fix: {fix.get('fix')}")
+                    if not click.confirm("Apply this fix?"):
+                        skipped += 1
+                        continue
+                
+                # Apply fix
+                new_code = asyncio.run(agent.apply_fix(code, fix))
+                file.write_text(new_code)
+                code = new_code  # Update for subsequent fixes
+                applied += 1
+                console.print(f"[green]✓ Applied fix to {file}:{fix.get('line')}[/green]")
+                
+        except Exception as e:
+            console.print(f"[red]Error processing {file}: {e}[/red]")
+    
+    console.print(f"\n[bold]Summary:[/bold] Applied {applied} fixes, skipped {skipped}")
+
+
+# ============================================================================
+# Offline Mode Commands
+# ============================================================================
+
+
+@cli.group()
+def offline():
+    """Offline/air-gapped mode commands.
+    
+    Run analysis without cloud connectivity using local models.
+    """
+    pass
+
+
+@offline.command("status")
+@click.pass_context
+def offline_status(ctx: click.Context) -> None:
+    """Check offline mode readiness.
+    
+    Shows availability of local components (Z3, Ollama, cached models).
+    
+    Examples:
+    
+        codeverify offline status
+    """
+    from codeverify_core import get_offline_manager
+    
+    console.print(Panel.fit(
+        "[bold blue]CodeVerify[/bold blue] - Offline Mode Status",
+    ))
+    
+    manager = get_offline_manager()
+    status = asyncio.run(manager.check_offline_readiness())
+    
+    # Show readiness
+    ready_icon = "✓" if status.get("ready") else "✗"
+    ready_color = "green" if status.get("ready") else "red"
+    console.print(f"[{ready_color}]{ready_icon} Overall Ready: {status.get('ready')}[/{ready_color}]")
+    
+    console.print("\n[bold]Components:[/bold]")
+    
+    # Z3
+    z3_icon = "✓" if status.get("z3_available") else "✗"
+    z3_color = "green" if status.get("z3_available") else "yellow"
+    console.print(f"  [{z3_color}]{z3_icon} Z3 Solver[/{z3_color}]")
+    
+    # Ollama
+    ollama_icon = "✓" if status.get("ollama_available") else "✗"
+    ollama_color = "green" if status.get("ollama_available") else "yellow"
+    console.print(f"  [{ollama_color}]{ollama_icon} Ollama LLM[/{ollama_color}]")
+    
+    # Models
+    models = status.get("models_available", [])
+    if models:
+        console.print(f"\n[bold]Available Models:[/bold]")
+        for model in models:
+            console.print(f"  • {model}")
+    else:
+        console.print("\n[yellow]No local models cached[/yellow]")
+        console.print("[dim]Run 'codeverify offline setup' to download models[/dim]")
+
+
+@offline.command("setup")
+@click.option("--model", default="codellama:7b-instruct", help="Model to download")
+@click.option("--force", is_flag=True, help="Force re-download")
+@click.pass_context
+def offline_setup(ctx: click.Context, model: str, force: bool) -> None:
+    """Setup offline mode (download models).
+    
+    Downloads required models for offline analysis.
+    
+    Examples:
+    
+        codeverify offline setup
+        codeverify offline setup --model llama3.2:1b
+    """
+    from codeverify_core import get_offline_manager
+    
+    console.print(Panel.fit(
+        "[bold blue]CodeVerify[/bold blue] - Offline Mode Setup",
+    ))
+    
+    manager = get_offline_manager()
+    
+    console.print(f"[bold]Downloading model: {model}[/bold]")
+    console.print("[dim]This may take several minutes...[/dim]\n")
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task(f"Downloading {model}...", total=None)
+        
+        try:
+            result = asyncio.run(manager.download_model(model, force=force))
+            
+            if result.get("success"):
+                progress.update(task, description=f"✓ Downloaded {model}")
+                console.print(f"\n[green]✓ Model {model} ready for offline use[/green]")
+            else:
+                console.print(f"\n[red]✗ Failed to download: {result.get('error')}[/red]")
+                
+        except Exception as e:
+            console.print(f"\n[red]Error: {e}[/red]")
+            console.print("[dim]Make sure Ollama is installed and running[/dim]")
+
+
+@offline.command("analyze")
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option("--format", "-f", "output_format",
+              type=click.Choice(["rich", "json"]),
+              default="rich", help="Output format")
+@click.pass_context
+def offline_analyze(ctx: click.Context, path: str, output_format: str) -> None:
+    """Run offline analysis (no cloud required).
+    
+    Uses local Z3 and Ollama for analysis.
+    
+    Examples:
+    
+        codeverify offline analyze src/
+        codeverify offline analyze file.py -f json
+    """
+    from codeverify_core import get_offline_manager
+    
+    verbose = ctx.obj.get("verbose", False)
+    
+    console.print(Panel.fit(
+        "[bold blue]CodeVerify[/bold blue] - Offline Analysis",
+        subtitle="Air-Gapped Mode"
+    ))
+    
+    manager = get_offline_manager()
+    
+    # Check readiness
+    status = asyncio.run(manager.check_offline_readiness())
+    if not status.get("z3_available"):
+        console.print("[yellow]⚠ Z3 not available - limited analysis[/yellow]")
+    
+    path_obj = Path(path)
+    
+    if path_obj.is_file():
+        files = [path_obj]
+    else:
+        files = list(path_obj.rglob("*.py"))[:20]
+    
+    if not files:
+        console.print("[yellow]No Python files found[/yellow]")
+        return
+    
+    all_findings = []
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task("Analyzing...", total=len(files))
+        
+        for file in files:
+            try:
+                code = file.read_text()
+                result = asyncio.run(manager.analyze_code_offline(
+                    code,
+                    language="python",
+                    include_llm_analysis=status.get("ollama_available", False),
+                ))
+                
+                for finding in result.findings:
+                    finding["file"] = str(file)
+                    all_findings.append(finding)
+                
+                progress.advance(task)
+            except Exception as e:
+                if verbose:
+                    console.print(f"[dim]Error in {file}: {e}[/dim]")
+    
+    if output_format == "json":
+        import json
+        click.echo(json.dumps({
+            "offline_mode": True,
+            "findings": all_findings,
+            "capabilities_used": result.capabilities_used if 'result' in dir() else [],
+        }, indent=2, default=str))
+        return
+    
+    console.print(f"\n[bold]Offline Analysis Complete[/bold]")
+    console.print(f"[dim]Capabilities: Z3={status.get('z3_available')}, LLM={status.get('ollama_available')}[/dim]\n")
+    
+    if not all_findings:
+        console.print("[green]✓ No issues found[/green]")
+        return
+    
+    console.print(f"Found [bold]{len(all_findings)}[/bold] issues:\n")
+    
+    for finding in all_findings[:20]:  # Limit output
+        severity = finding.get("severity", "medium")
+        color = {"critical": "red bold", "high": "red", "medium": "yellow", "low": "blue"}.get(severity, "white")
+        console.print(f"[{color}]• {finding.get('category', 'unknown')}[/{color}] - {finding.get('file')}:{finding.get('line', '?')}")
+        console.print(f"  {finding.get('message', '')}")
+
+
+# ============================================================================
+# Proof Coverage Commands
+# ============================================================================
+
+
+@cli.group()
+def coverage():
+    """Proof coverage dashboard.
+    
+    Track verification coverage across your codebase.
+    """
+    pass
+
+
+@coverage.command("show")
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option("--format", "-f", "output_format",
+              type=click.Choice(["rich", "json"]),
+              default="rich", help="Output format")
+@click.pass_context
+def coverage_show(ctx: click.Context, path: str, output_format: str) -> None:
+    """Show proof coverage for code.
+    
+    Displays verification coverage metrics including line, function,
+    and file coverage.
+    
+    Examples:
+    
+        codeverify coverage show src/
+        codeverify coverage show . -f json
+    """
+    from codeverify_core import get_proof_coverage_dashboard, ProofCoverageCalculator
+    
+    verbose = ctx.obj.get("verbose", False)
+    
+    console.print(Panel.fit(
+        "[bold blue]CodeVerify[/bold blue] - Proof Coverage",
+        subtitle="Verification Metrics"
+    ))
+    
+    path_obj = Path(path)
+    calculator = ProofCoverageCalculator()
+    
+    if path_obj.is_file():
+        files = [path_obj]
+    else:
+        files = list(path_obj.rglob("*.py"))[:50]
+    
+    if not files:
+        console.print("[yellow]No Python files found[/yellow]")
+        return
+    
+    # Calculate coverage for each file
+    file_coverages = []
+    total_lines = 0
+    verified_lines = 0
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task("Calculating coverage...", total=len(files))
+        
+        for file in files:
+            try:
+                content = file.read_text()
+                # Get any existing verifications (would come from database in production)
+                verifications = []  # Placeholder - would load from storage
+                
+                file_coverage = calculator.calculate_file_coverage(
+                    str(file),
+                    content,
+                    verifications,
+                )
+                file_coverages.append(file_coverage)
+                total_lines += file_coverage.total_lines
+                verified_lines += file_coverage.verified_lines
+                
+                progress.advance(task)
+            except Exception as e:
+                if verbose:
+                    console.print(f"[dim]Error in {file}: {e}[/dim]")
+    
+    # Calculate overall percentage
+    overall_pct = (verified_lines / total_lines * 100) if total_lines > 0 else 0
+    
+    if output_format == "json":
+        import json
+        click.echo(json.dumps({
+            "total_files": len(file_coverages),
+            "total_lines": total_lines,
+            "verified_lines": verified_lines,
+            "overall_percentage": overall_pct,
+            "files": [
+                {
+                    "path": fc.file_path,
+                    "total_lines": fc.total_lines,
+                    "verified_lines": fc.verified_lines,
+                    "status": fc.status.value,
+                }
+                for fc in file_coverages
+            ]
+        }, indent=2))
+        return
+    
+    # Rich output
+    console.print(f"\n[bold]Overall Coverage: {overall_pct:.1f}%[/bold]")
+    console.print(_coverage_bar(overall_pct))
+    console.print(f"\nFiles: {len(file_coverages)} | Lines: {verified_lines}/{total_lines}\n")
+    
+    # Show file breakdown
+    table = Table(title="File Coverage")
+    table.add_column("File", style="cyan")
+    table.add_column("Lines", justify="right")
+    table.add_column("Verified", justify="right")
+    table.add_column("Coverage", justify="right")
+    table.add_column("Status")
+    
+    for fc in sorted(file_coverages, key=lambda x: x.verified_lines / max(x.total_lines, 1), reverse=True)[:15]:
+        pct = (fc.verified_lines / fc.total_lines * 100) if fc.total_lines > 0 else 0
+        
+        if pct >= 80:
+            pct_str = f"[green]{pct:.0f}%[/green]"
+            status = "[green]✓[/green]"
+        elif pct >= 50:
+            pct_str = f"[yellow]{pct:.0f}%[/yellow]"
+            status = "[yellow]~[/yellow]"
+        else:
+            pct_str = f"[red]{pct:.0f}%[/red]"
+            status = "[red]✗[/red]"
+        
+        # Truncate long paths
+        file_path = fc.file_path
+        if len(file_path) > 40:
+            file_path = "..." + file_path[-37:]
+        
+        table.add_row(
+            file_path,
+            str(fc.total_lines),
+            str(fc.verified_lines),
+            pct_str,
+            status,
+        )
+    
+    console.print(table)
+
+
+@coverage.command("report")
+@click.argument("repository", default=".")
+@click.option("--output", "-o", type=click.Path(), help="Output file path")
+@click.option("--format", "-f", "output_format",
+              type=click.Choice(["html", "json", "markdown"]),
+              default="html", help="Report format")
+@click.pass_context
+def coverage_report(ctx: click.Context, repository: str, output: str, output_format: str) -> None:
+    """Generate proof coverage report.
+    
+    Creates a detailed coverage report with trends and heatmaps.
+    
+    Examples:
+    
+        codeverify coverage report --output coverage.html
+        codeverify coverage report -f json -o coverage.json
+    """
+    from codeverify_core import get_proof_coverage_dashboard
+    
+    console.print(Panel.fit(
+        "[bold blue]CodeVerify[/bold blue] - Coverage Report",
+    ))
+    
+    dashboard = get_proof_coverage_dashboard()
+    
+    # Generate report
+    report = dashboard.export_report(repository, format=output_format)
+    
+    if output:
+        output_path = Path(output)
+        if isinstance(report, dict):
+            import json
+            output_path.write_text(json.dumps(report, indent=2, default=str))
+        else:
+            output_path.write_text(report)
+        console.print(f"[green]✓ Report saved to {output}[/green]")
+    else:
+        if output_format == "json":
+            import json
+            click.echo(json.dumps(report, indent=2, default=str))
+        else:
+            click.echo(report)
+
+
+@coverage.command("trends")
+@click.argument("repository", default=".")
+@click.option("--days", type=int, default=30, help="Number of days to show")
+@click.pass_context
+def coverage_trends(ctx: click.Context, repository: str, days: int) -> None:
+    """Show coverage trends over time.
+    
+    Examples:
+    
+        codeverify coverage trends --days 90
+    """
+    from codeverify_core import get_proof_coverage_dashboard
+    
+    console.print(Panel.fit(
+        "[bold blue]CodeVerify[/bold blue] - Coverage Trends",
+    ))
+    
+    dashboard = get_proof_coverage_dashboard()
+    trends = dashboard.get_trends(repository, days=days)
+    
+    if not trends:
+        console.print("[yellow]No trend data available yet[/yellow]")
+        console.print("[dim]Trends are calculated from verification history[/dim]")
+        return
+    
+    console.print(f"\n[bold]Coverage over last {days} days:[/bold]\n")
+    
+    # Simple ASCII chart
+    for trend in trends[-10:]:  # Show last 10 data points
+        pct = trend.coverage_percentage
+        bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
+        date_str = trend.date.strftime("%Y-%m-%d")
+        console.print(f"{date_str} [{_pct_color(pct)}]{bar}[/] {pct:.1f}%")
+
+
+def _coverage_bar(pct: float, width: int = 30) -> str:
+    """Generate a coverage progress bar."""
+    filled = int(pct / 100 * width)
+    empty = width - filled
+    color = _pct_color(pct)
+    return f"[{color}]{'█' * filled}{'░' * empty}[/] {pct:.1f}%"
+
+
+def _pct_color(pct: float) -> str:
+    """Get color for percentage."""
+    if pct >= 80:
+        return "green"
+    elif pct >= 50:
+        return "yellow"
+    return "red"
+
+
 if __name__ == "__main__":
     cli()
