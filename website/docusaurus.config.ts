@@ -5,7 +5,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'CodeVerify',
   tagline: 'AI-powered code review with formal verification',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
 
   future: {
     v4: true,
@@ -25,7 +25,12 @@ const config: Config = {
     locales: ['en'],
   },
 
+  markdown: {
+    mermaid: true,
+  },
+
   themes: [
+    '@docusaurus/theme-mermaid',
     [
       '@easyops-cn/docusaurus-search-local',
       {
@@ -65,10 +70,11 @@ const config: Config = {
   ],
 
   themeConfig: {
-    image: 'img/codeverify-social-card.png',
+    image: 'img/social-card.png',
     metadata: [
       {name: 'keywords', content: 'code review, formal verification, AI, static analysis, GitHub, Z3, security'},
       {name: 'twitter:card', content: 'summary_large_image'},
+      {name: 'og:image', content: 'https://docs.codeverify.dev/img/social-card.png'},
     ],
     colorMode: {
       defaultMode: 'dark',
