@@ -14,6 +14,7 @@ from codeverify_api.config import settings
 from codeverify_api.routers import analyses, auth, health, organizations, repositories, stats, webhooks
 from codeverify_api.routers import feedback, usage, export, sso, trust_score, debugger, rules, diff_summarizer, scanning, notifications, public_api, internal, badges, marketplace, continuous_verification
 from codeverify_api.routers import collaboration, formal_specs, cross_repo, regression, replay, nl_queries, network
+from codeverify_api.routers import audit_logs
 # Next-gen feature routers (v0.3.0)
 from codeverify_api.routers import threat_modeling, risk_prediction, consensus, compliance, cost_optimization, cross_language
 from codeverify_api.routers import verification_api
@@ -87,6 +88,7 @@ app.include_router(regression.router, tags=["regression-learning"])
 app.include_router(replay.router, tags=["verification-replay"])
 app.include_router(nl_queries.router, tags=["nl-queries"])
 app.include_router(network.router, tags=["distributed-network"])
+app.include_router(audit_logs.router, prefix="/api/v1", tags=["audit-logs"])
 
 # Next-gen features (v0.3.0)
 app.include_router(threat_modeling.router, prefix="/api/v1/threat-model", tags=["threat-modeling"])
