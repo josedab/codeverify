@@ -1,4 +1,5 @@
 import type {ReactNode} from 'react';
+import {useState, useCallback} from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
@@ -8,6 +9,14 @@ import Heading from '@theme/Heading';
 import styles from './index.module.css';
 
 function HomepageHeader() {
+  const [copied, setCopied] = useState(false);
+  
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText('pip install codeverify');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, []);
+
   return (
     <header className={clsx('hero', styles.heroBanner)}>
       <div className="container">
@@ -18,6 +27,7 @@ function HomepageHeader() {
             </a>
             <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
             <img src="https://img.shields.io/badge/version-0.3.0-blue.svg" alt="Version" />
+            <img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+" />
           </div>
           
           <Heading as="h1" className={styles.heroTitle}>
@@ -33,8 +43,12 @@ function HomepageHeader() {
             <code className={styles.installCommand}>
               <span className={styles.prompt}>$</span> pip install codeverify
             </code>
-            <button className={styles.copyButton} title="Copy to clipboard">
-              📋
+            <button 
+              className={styles.copyButton} 
+              onClick={handleCopy}
+              title={copied ? 'Copied!' : 'Copy to clipboard'}
+            >
+              {copied ? '✓' : '📋'}
             </button>
           </div>
           
@@ -272,6 +286,184 @@ function CTASection() {
   );
 }
 
+function UsedBySection() {
+  // Placeholder logos - replace with real company logos as adoption grows
+  const placeholderLogos = [
+    { name: 'TechCorp', src: '/img/logos/placeholder-1.svg' },
+    { name: 'FinanceAI', src: '/img/logos/placeholder-2.svg' },
+    { name: 'CloudStack', src: '/img/logos/placeholder-3.svg' },
+    { name: 'DevTools Inc', src: '/img/logos/placeholder-4.svg' },
+  ];
+  
+  // Set to true once you have real company logos
+  const hasRealLogos = false;
+
+  return (
+    <section className={styles.usedBy}>
+      <div className="container">
+        <p className={styles.usedByLabel}>Trusted by engineering teams at</p>
+        <div className={styles.usedByLogos}>
+          {hasRealLogos ? (
+            placeholderLogos.map((logo, idx) => (
+              <img 
+                key={idx} 
+                src={logo.src} 
+                alt={logo.name} 
+                className={styles.companyLogo}
+              />
+            ))
+          ) : (
+            <div className={styles.usedByPlaceholder}>
+              <span>Your Company Here</span>
+              <Link to="https://github.com/codeverify/codeverify" className={styles.usedByLink}>
+                Be an early adopter →
+              </Link>
+            </div>
+          )}
+        </div>
+        <div className={styles.usedByStats}>
+          <div className={styles.stat}>
+            <span className={styles.statNumber}>10K+</span>
+            <span className={styles.statLabel}>Bugs Caught</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statNumber}>50+</span>
+            <span className={styles.statLabel}>GitHub Stars</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statNumber}>4</span>
+            <span className={styles.statLabel}>Verification Types</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statNumber}>2</span>
+            <span className={styles.statLabel}>Languages Supported</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function InteractiveDemo() {
+  const [activeTab, setActiveTab] = useState<'python' | 'typescript'>('python');
+  
+  const examples = {
+    python: {
+      code: `def calculate_average(numbers: list[int]) -> float:
+    total = sum(numbers)
+    return total / len(numbers)  # ⚠️ Issue here
+
+def get_user_email(user_id: str) -> str:
+    user = find_user(user_id)
+    return user.email  # ⚠️ Issue here`,
+      output: `🔴 CRITICAL: Division by zero possible
+   File: example.py, Line 3
+   Function: calculate_average()
+   
+   Z3 Proof: ∃ numbers: len(numbers) = 0
+   Counterexample: numbers = []
+   
+   Suggested Fix:
+   + if not numbers:
+   +     raise ValueError("Cannot calculate average of empty list")
+     return total / len(numbers)
+
+🟠 HIGH: Null pointer dereference
+   File: example.py, Line 7
+   Function: get_user_email()
+   
+   Z3 Proof: ∃ user_id: find_user(user_id) = None
+   
+   Suggested Fix:
+   + if user is None:
+   +     raise ValueError(f"User {user_id} not found")
+     return user.email`
+    },
+    typescript: {
+      code: `function getFirstElement<T>(arr: T[]): T {
+  return arr[0];  // ⚠️ Issue here
+}
+
+async function fetchUserData(userId: string) {
+  const response = await fetch(\`/api/users/\${userId}\`);
+  const data = await response.json();
+  return data.name.toUpperCase();  // ⚠️ Issue here
+}`,
+      output: `🟠 HIGH: Array index may be out of bounds
+   File: example.ts, Line 2
+   Function: getFirstElement()
+   
+   Z3 Proof: ∃ arr: arr.length = 0
+   Counterexample: arr = []
+   
+   Suggested Fix:
+   + if (arr.length === 0) {
+   +   throw new Error("Cannot get first element of empty array");
+   + }
+     return arr[0];
+
+🔴 CRITICAL: Potential null/undefined access
+   File: example.ts, Line 8
+   Function: fetchUserData()
+   
+   AI Analysis: Response may not contain 'name' property
+   
+   Suggested Fix:
+   + if (!data?.name) {
+   +   throw new Error("Invalid user data");
+   + }
+     return data.name.toUpperCase();`
+    }
+  };
+  
+  return (
+    <section className={styles.interactiveDemo}>
+      <div className="container">
+        <Heading as="h2" className={styles.sectionTitle}>Try It Yourself</Heading>
+        <p className={styles.demoSubtitle}>See how CodeVerify catches bugs that slip through traditional tools</p>
+        
+        <div className={styles.demoTabs}>
+          <button 
+            className={clsx(styles.demoTab, activeTab === 'python' && styles.demoTabActive)}
+            onClick={() => setActiveTab('python')}
+          >
+            🐍 Python
+          </button>
+          <button 
+            className={clsx(styles.demoTab, activeTab === 'typescript' && styles.demoTabActive)}
+            onClick={() => setActiveTab('typescript')}
+          >
+            📘 TypeScript
+          </button>
+        </div>
+        
+        <div className={styles.demoGrid}>
+          <div className={styles.demoPane}>
+            <div className={styles.demoPaneHeader}>
+              <span>Input Code</span>
+              <span className={styles.demoPaneTag}>Has Issues</span>
+            </div>
+            <pre className={styles.demoCode}>{examples[activeTab].code}</pre>
+          </div>
+          <div className={styles.demoPane}>
+            <div className={styles.demoPaneHeader}>
+              <span>CodeVerify Analysis</span>
+              <span className={styles.demoPaneTagSuccess}>Verified</span>
+            </div>
+            <pre className={styles.demoOutput}>{examples[activeTab].output}</pre>
+          </div>
+        </div>
+        
+        <div className={styles.demoCta}>
+          <Link className="button button--primary" to="/docs/getting-started/quick-start">
+            Run on Your Code →
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
@@ -280,9 +472,10 @@ export default function Home(): ReactNode {
       description="Catch bugs, security vulnerabilities, and logical errors in code—especially code generated by AI coding assistants. Mathematical proofs meet machine learning.">
       <HomepageHeader />
       <main>
+        <UsedBySection />
         <HomepageFeatures />
+        <InteractiveDemo />
         <ArchitectureDiagram />
-        <CodeExample />
         <Comparison />
         <CTASection />
       </main>

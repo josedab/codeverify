@@ -2,6 +2,9 @@
 
 FastAPI backend service for CodeVerify.
 
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green)](https://fastapi.tiangolo.com/)
+
 ## Overview
 
 The API service provides:
@@ -11,6 +14,50 @@ The API service provides:
 - Analysis results retrieval and management
 - Organization and repository configuration
 - Webhooks and API key management
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Clients["🖥️ Clients"]
+        Web[Web Dashboard]
+        CLI[CLI Tool]
+        External[External Apps]
+    end
+
+    subgraph API["⚡ FastAPI Service"]
+        direction TB
+        Auth[Auth Middleware<br/>JWT/OAuth]
+        Rate[Rate Limiter]
+        
+        subgraph Routers["Routers"]
+            AuthR[/auth]
+            AnalysesR[/analyses]
+            ReposR[/repositories]
+            OrgsR[/organizations]
+            StatsR[/stats]
+            WebhooksR[/webhooks]
+        end
+        
+        subgraph Services["Services"]
+            AnalysisSvc[Analysis Service]
+            AuthSvc[Auth Service]
+            StatsSvc[Stats Service]
+        end
+    end
+
+    subgraph Data["💾 Data Layer"]
+        PG[(PostgreSQL)]
+        Redis[(Redis Cache)]
+    end
+
+    Clients --> Auth
+    Auth --> Rate
+    Rate --> Routers
+    Routers --> Services
+    Services --> PG
+    Services --> Redis
+```
 
 ## Quick Start
 

@@ -2,6 +2,9 @@
 
 Z3 SMT solver integration for formal verification of code.
 
+[![PyPI](https://img.shields.io/pypi/v/codeverify-verifier)](https://pypi.org/project/codeverify-verifier/)
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+
 ## Installation
 
 ```bash
@@ -23,6 +26,54 @@ This package provides formal verification capabilities using the Z3 SMT solver:
 - **Array Bounds**: Catch out-of-bounds array access
 - **Integer Overflow**: Identify arithmetic overflow risks
 - **Division by Zero**: Prevent divide-by-zero errors
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Input["📥 Input"]
+        Code[Source Code]
+        Config[Verification Config]
+    end
+
+    subgraph Parsing["🔍 Parsing"]
+        direction LR
+        PY[Python Parser]
+        TS[TypeScript Parser]
+        GO[Go Parser]
+        JAVA[Java Parser]
+    end
+
+    subgraph Extraction["📋 Extraction"]
+        AST[AST Analysis]
+        Conditions[Path Conditions]
+        Constraints[Z3 Constraints]
+    end
+
+    subgraph Verification["🔬 Z3 SMT Solver"]
+        direction TB
+        Null[Null Safety]
+        Bounds[Array Bounds]
+        Overflow[Integer Overflow]
+        DivZero[Division by Zero]
+    end
+
+    subgraph Output["📤 Output"]
+        Safe["✅ Safe<br/>(UNSAT)"]
+        Vulnerable["❌ Vulnerable<br/>(SAT + Counterexample)"]
+        Unknown["⚠️ Unknown<br/>(Timeout)"]
+    end
+
+    Code --> Parsing
+    Config --> Verification
+    Parsing --> AST
+    AST --> Conditions
+    Conditions --> Constraints
+    Constraints --> Verification
+    Verification --> Safe
+    Verification --> Vulnerable
+    Verification --> Unknown
+```
 
 ## Quick Start
 

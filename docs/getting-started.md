@@ -181,6 +181,33 @@ Access your team dashboard at [dashboard.codeverify.io](https://dashboard.codeve
 - **Findings**: Search and filter all findings
 - **Settings**: Team and organization settings
 
+### Advanced Dashboard Features
+
+The dashboard includes several advanced features for power users and teams:
+
+#### Team Analytics (`/dashboard/analytics`)
+- **Activity trends**: Line and area charts showing analysis volume over time
+- **Team leaderboard**: Top contributors ranked by analyses run and findings fixed
+- **Verification metrics**: Success rates, verification times, and severity distribution
+
+#### Cross-Repository Analysis (`/dashboard/cross-repo`)
+- **Dependency graph**: Interactive visualization of cross-service dependencies
+- **Shared findings**: Common issues detected across multiple repositories
+- **Impact analysis**: Understand how changes in one repo affect others
+- **Contract viewer**: API contracts between services
+
+#### Verification Debugger (`/dashboard/debugger`)
+- **Interactive debugging**: Step through Z3 verification constraints
+- **Variable inspector**: Examine variable values at each verification step
+- **Constraint visualization**: See which constraints are satisfied, violated, or pending
+- **Counterexample viewer**: Understand failing cases with concrete examples
+
+#### Audit Logs (`/dashboard/audit-logs`)
+- **Activity tracking**: Full audit trail of all actions in your organization
+- **Filtering**: Filter by date range, user, action type, or resource
+- **Export**: Download logs in CSV or JSON format for compliance
+- **Detail view**: Examine individual log entries with full metadata
+
 ## Integrations
 
 ### Slack Notifications

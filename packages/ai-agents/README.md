@@ -2,6 +2,9 @@
 
 LLM-powered analysis agents for CodeVerify.
 
+[![PyPI](https://img.shields.io/pypi/v/codeverify-ai-agents)](https://pypi.org/project/codeverify-ai-agents/)
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+
 ## Installation
 
 ```bash
@@ -24,6 +27,57 @@ This package provides AI-powered agents for code analysis:
 - **Synthesis Agent**: Consolidates findings and generates fixes
 - **Trust Score Agent**: Assesses AI-generated code quality
 - **Diff Summarizer**: Auto-generates PR descriptions
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Input["📥 Input"]
+        Code[Code Context]
+        Metadata[Metadata]
+    end
+
+    subgraph Agents["🤖 AI Agents"]
+        direction TB
+        
+        subgraph Analysis["Analysis Agents"]
+            Semantic[Semantic Agent<br/>Intent & Contracts]
+            Security[Security Agent<br/>OWASP/CWE]
+            TrustScore[Trust Score Agent<br/>AI Code Quality]
+        end
+        
+        subgraph Support["Support Agents"]
+            Synthesis[Synthesis Agent<br/>Consolidate & Fix]
+            Diff[Diff Summarizer<br/>PR Descriptions]
+            TestGen[Test Generator<br/>From Counterexamples]
+            NLInvariants[NL Invariants<br/>English → Z3]
+        end
+        
+        subgraph Advanced["Advanced"]
+            Consensus[Multi-Model Consensus<br/>GPT-4 + Claude + ...]
+            ThreatModel[Threat Modeling<br/>STRIDE Analysis]
+            Compliance[Compliance Engine<br/>SOC2/HIPAA/GDPR]
+        end
+    end
+
+    subgraph LLMs["🧠 LLM Providers"]
+        OpenAI[OpenAI<br/>GPT-4/GPT-4-turbo]
+        Anthropic[Anthropic<br/>Claude 3]
+    end
+
+    subgraph Output["📤 Output"]
+        Findings[Findings]
+        Fixes[Fix Suggestions]
+        Reports[Reports]
+    end
+
+    Code --> Agents
+    Metadata --> Agents
+    Agents <--> LLMs
+    Agents --> Findings
+    Agents --> Fixes
+    Agents --> Reports
+```
 
 ## Quick Start
 

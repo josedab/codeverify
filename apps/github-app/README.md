@@ -2,6 +2,10 @@
 
 GitHub webhook handler and PR integration for CodeVerify.
 
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue)](https://www.typescriptlang.org/)
+[![Express](https://img.shields.io/badge/Express-4.x-lightgrey)](https://expressjs.com/)
+
 ## Overview
 
 The GitHub App service handles:
@@ -11,6 +15,48 @@ The GitHub App service handles:
 - Posting PR comments with results
 - Updating check statuses
 - App installation management
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph GitHub["🐙 GitHub"]
+        PR[Pull Request]
+        Webhooks[Webhooks]
+        Checks[Check Runs]
+        Comments[PR Comments]
+    end
+
+    subgraph App["📦 GitHub App Service"]
+        direction TB
+        Verify[Verify HMAC<br/>Signature]
+        
+        subgraph Handlers["Webhook Handlers"]
+            PRHandler[Pull Request<br/>opened/synchronize]
+            InstallHandler[Installation<br/>created/deleted]
+            CheckHandler[Check Run<br/>rerequested]
+        end
+        
+        subgraph Services["Services"]
+            GHClient[GitHub Client<br/>Octokit]
+            Queue[Queue Service<br/>Redis]
+            CommentBuilder[Comment Builder<br/>Markdown]
+        end
+    end
+
+    subgraph Worker["⚙️ Worker"]
+        AnalysisJob[Analysis Job]
+    end
+
+    PR --> Webhooks
+    Webhooks --> Verify
+    Verify --> Handlers
+    Handlers --> Services
+    Queue --> AnalysisJob
+    AnalysisJob --> GHClient
+    GHClient --> Checks
+    GHClient --> Comments
+```
 
 ## Quick Start
 

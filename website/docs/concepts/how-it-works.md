@@ -20,47 +20,74 @@ CodeVerify combines all three approaches to catch bugs that slip through.
 
 ## Architecture Overview
 
+```mermaid
+flowchart TB
+    subgraph Input["📥 Source Code"]
+        PR[GitHub PR]
+        CLI[CLI Tool]
+        IDE[VS Code]
+    end
+
+    subgraph Parser["🔍 Parser"]
+        AST[AST Extraction]
+        Types[Type Resolution]
+    end
+
+    subgraph Engines["⚡ Parallel Analysis Engines"]
+        direction LR
+        subgraph Semantic["🤖 Semantic Agent"]
+            S1[Intent Analysis]
+            S2[Logic Patterns]
+            S3[Code Smells]
+        end
+        subgraph Formal["🔬 Formal Verifier"]
+            F1[Null Safety]
+            F2[Array Bounds]
+            F3[Overflow/DivZero]
+        end
+        subgraph Security["🛡️ Security Agent"]
+            X1[OWASP Top 10]
+            X2[Injection Flaws]
+            X3[Auth Issues]
+        end
+    end
+
+    subgraph Synthesis["🧬 Synthesis Agent"]
+        Combine[Combine Results]
+        Dedupe[Deduplicate]
+        Rank[Rank by Severity]
+        Fix[Generate Fixes]
+    end
+
+    subgraph Output["📤 Output"]
+        Findings[Findings Report]
+        Comments[PR Comments]
+        Checks[GitHub Checks]
+        SARIF[SARIF Export]
+    end
+
+    PR --> AST
+    CLI --> AST
+    IDE --> AST
+    AST --> Types
+    Types --> Semantic
+    Types --> Formal
+    Types --> Security
+    Semantic --> Combine
+    Formal --> Combine
+    Security --> Combine
+    Combine --> Dedupe --> Rank --> Fix
+    Fix --> Findings
+    Fix --> Comments
+    Fix --> Checks
+    Fix --> SARIF
+
+    style Formal fill:#4338ca,color:#fff
+    style Semantic fill:#7c3aed,color:#fff
+    style Security fill:#dc2626,color:#fff
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     CodeVerify Analysis Pipeline                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   Source Code                                                        │
-│       │                                                              │
-│       ▼                                                              │
-│   ┌─────────┐                                                        │
-│   │ Parser  │  Language-specific AST extraction                      │
-│   └────┬────┘                                                        │
-│        │                                                             │
-│        ▼                                                             │
-│   ┌─────────────────────────────────────────────────────────────┐   │
-│   │              Parallel Analysis Engines                       │   │
-│   │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │   │
-│   │  │  Semantic   │  │   Formal    │  │  Security   │         │   │
-│   │  │   Agent     │  │  Verifier   │  │   Agent     │         │   │
-│   │  │   (LLM)     │  │    (Z3)     │  │   (LLM)     │         │   │
-│   │  │             │  │             │  │             │         │   │
-│   │  │ • Intent    │  │ • Null safe │  │ • OWASP     │         │   │
-│   │  │ • Logic     │  │ • Bounds    │  │ • Injection │         │   │
-│   │  │ • Patterns  │  │ • Overflow  │  │ • Auth      │         │   │
-│   │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │   │
-│   │         │                │                │                 │   │
-│   └─────────┼────────────────┼────────────────┼─────────────────┘   │
-│             │                │                │                      │
-│             └────────────────┼────────────────┘                      │
-│                              ▼                                       │
-│                      ┌─────────────┐                                 │
-│                      │  Synthesis  │  Combine, dedupe, prioritize    │
-│                      │    Agent    │                                 │
-│                      └──────┬──────┘                                 │
-│                             │                                        │
-│                             ▼                                        │
-│                      ┌─────────────┐                                 │
-│                      │  Findings   │  With fixes and counterexamples │
-│                      └─────────────┘                                 │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
+
+The diagram above shows the complete analysis pipeline. Here's how each component works:
 
 ## Stage 1: Parsing
 

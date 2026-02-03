@@ -6,7 +6,9 @@ sidebar_position: 4
 
 Complete configuration reference for self-hosted deployments.
 
-## Environment Variables
+## General Settings {#general}
+
+### Environment Variables
 
 ### Core Settings
 
@@ -18,7 +20,7 @@ Complete configuration reference for self-hosted deployments.
 | `API_URL` | No | `http://localhost:8000` | Internal API URL |
 | `PUBLIC_URL` | No | `http://localhost:3000` | Public-facing URL |
 
-### Database
+## Database {#database}
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
@@ -44,7 +46,7 @@ Format:
 redis://:password@host:6379/0
 ```
 
-### AI Providers
+## AI Providers {#ai}
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
@@ -53,6 +55,8 @@ redis://:password@host:6379/0
 | `ANTHROPIC_API_KEY` | No | - | Anthropic API key |
 | `AI_PROVIDER` | No | `openai` | Default AI provider |
 | `AI_MODEL` | No | `gpt-4` | Default AI model |
+
+## Git Integration {#git}
 
 ### GitHub Integration
 
@@ -72,7 +76,7 @@ redis://:password@host:6379/0
 | `GITLAB_APP_ID` | No | - | Application ID |
 | `GITLAB_APP_SECRET` | No | - | Application secret |
 
-### Authentication
+## Authentication {#authentication}
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|

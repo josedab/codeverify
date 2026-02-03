@@ -34,29 +34,62 @@ AI-powered code review with formal verification. Catch bugs, security vulnerabil
 
 CodeVerify combines the intelligence of large language models with the rigor of formal methods to catch bugs that traditional static analysis misses—especially important for AI-generated code.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         CodeVerify                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   GitHub PR  ──▶  Analysis Pipeline  ──▶  PR Comment + Checks   │
-│                         │                                        │
-│              ┌──────────┼──────────┐                            │
-│              ▼          ▼          ▼                            │
-│         ┌────────┐ ┌────────┐ ┌────────┐                        │
-│         │Semantic│ │ Formal │ │Security│                        │
-│         │ Agent  │ │Verifier│ │ Agent  │                        │
-│         │ (LLM)  │ │  (Z3)  │ │ (LLM)  │                        │
-│         └────────┘ └────────┘ └────────┘                        │
-│              │          │          │                            │
-│              └──────────┼──────────┘                            │
-│                         ▼                                        │
-│                   ┌──────────┐                                   │
-│                   │Synthesis │                                   │
-│                   │  Agent   │                                   │
-│                   └──────────┘                                   │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Input["📥 Input"]
+        PR[GitHub PR]
+        CLI[CLI Tool]
+        IDE[VS Code Extension]
+    end
+
+    subgraph GHA["🔗 GitHub App"]
+        WH[Webhook Handler]
+        Q[Redis Queue]
+    end
+
+    subgraph Worker["⚙️ Analysis Worker"]
+        direction TB
+        Parse[Parse Code]
+        
+        subgraph Agents["🤖 AI Agents"]
+            direction LR
+            Semantic[Semantic Agent<br/>GPT-4/Claude]
+            Security[Security Agent<br/>OWASP/CWE]
+        end
+        
+        subgraph Verifier["🔬 Formal Verifier"]
+            Z3[Z3 SMT Solver]
+        end
+        
+        Synthesis[Synthesis Agent]
+    end
+
+    subgraph Output["📤 Output"]
+        Comment[PR Comment]
+        Check[GitHub Check]
+        Dashboard[Web Dashboard]
+        SARIF[SARIF Report]
+    end
+
+    subgraph Data["💾 Data Layer"]
+        PG[(PostgreSQL)]
+        Redis[(Redis)]
+    end
+
+    PR --> WH
+    CLI --> Parse
+    IDE --> Parse
+    WH --> Q --> Parse
+    Parse --> Agents
+    Parse --> Verifier
+    Agents --> Synthesis
+    Verifier --> Synthesis
+    Synthesis --> Comment
+    Synthesis --> Check
+    Synthesis --> Dashboard
+    Synthesis --> SARIF
+    Synthesis --> PG
+    Q --> Redis
 ```
 
 ## 📦 Project Structure
@@ -232,6 +265,51 @@ pytest --cov=codeverify --cov-report=html
 - **Dashboard**: Next.js 14 with Tailwind CSS
 - **Database**: PostgreSQL with Alembic migrations
 - **Verification**: Z3 SMT solver Python bindings
+
+### Data Flow
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant GH as GitHub
+    participant App as GitHub App
+    participant Q as Redis Queue
+    participant W as Worker
+    participant AI as AI Agents
+    participant Z3 as Z3 Verifier
+    participant DB as PostgreSQL
+    participant API as API Service
+
+    Dev->>GH: Open/Update PR
+    GH->>App: Webhook (pull_request)
+    App->>App: Verify HMAC signature
+    App->>Q: Queue analysis job
+    App->>GH: Set check status: pending
+    
+    Q->>W: Dequeue job
+    W->>GH: Fetch PR diff
+    W->>W: Parse code (tree-sitter)
+    
+    par Parallel Analysis
+        W->>AI: Semantic analysis
+        AI-->>W: Intent, contracts, issues
+    and
+        W->>AI: Security analysis
+        AI-->>W: Vulnerabilities (OWASP/CWE)
+    and
+        W->>Z3: Formal verification
+        Z3-->>W: Proofs, counterexamples
+    end
+    
+    W->>W: Synthesize findings
+    W->>DB: Store results
+    W->>GH: Post PR comment
+    W->>GH: Update check status
+    
+    Dev->>API: View dashboard
+    API->>DB: Query results
+    API-->>Dev: Analysis details
+```
 
 ### Key Technologies
 

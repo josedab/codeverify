@@ -441,3 +441,87 @@ codeverify diagnose > diagnostic-report.txt
 - **GitHub Issues:** [github.com/codeverify/codeverify/issues](https://github.com/codeverify/codeverify/issues)
 - **Discord:** [discord.gg/codeverify](https://discord.gg/codeverify)
 - **Email:** support@codeverify.dev (Pro/Enterprise)
+
+## Monitoring {#monitoring}
+
+### Prometheus Metrics
+
+CodeVerify exposes metrics at `/metrics`:
+
+```bash
+# API metrics
+curl http://localhost:8000/metrics
+
+# Worker metrics
+curl http://localhost:8001/metrics
+```
+
+Key metrics:
+
+| Metric | Description |
+|--------|-------------|
+| `codeverify_analyses_total` | Total analyses run |
+| `codeverify_analyses_duration_seconds` | Analysis duration histogram |
+| `codeverify_findings_total` | Findings by severity |
+| `codeverify_z3_solver_duration_seconds` | Z3 solver time |
+| `codeverify_worker_queue_length` | Pending jobs in queue |
+
+### Grafana Dashboard
+
+Import our dashboard:
+
+1. Go to Grafana → Dashboards → Import
+2. Use dashboard ID: `18432` or import from JSON:
+
+```bash
+curl -O https://raw.githubusercontent.com/codeverify/codeverify/main/deploy/grafana/dashboard.json
+```
+
+### Health Checks
+
+```bash
+# API health
+curl http://localhost:8000/health
+
+# Worker health
+curl http://localhost:8001/health
+
+# Database connectivity
+curl http://localhost:8000/health/db
+
+# Redis connectivity
+curl http://localhost:8000/health/redis
+```
+
+### Alerting
+
+Example Prometheus alerts:
+
+```yaml
+groups:
+  - name: codeverify
+    rules:
+      - alert: CodeVerifyAPIDown
+        expr: up{job="codeverify-api"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CodeVerify API is down"
+
+      - alert: CodeVerifyHighErrorRate
+        expr: rate(codeverify_analyses_errors_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate in CodeVerify analyses"
+
+      - alert: CodeVerifyQueueBacklog
+        expr: codeverify_worker_queue_length > 100
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CodeVerify analysis queue is backing up"
+```

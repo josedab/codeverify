@@ -2,6 +2,10 @@
 
 Next.js web dashboard for CodeVerify.
 
+[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.0+-38bdf8)](https://tailwindcss.com/)
+
 ## Overview
 
 The web dashboard provides:
@@ -11,6 +15,36 @@ The web dashboard provides:
 - Repository configuration
 - Organization management
 - User settings and API keys
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Browser["🖥️ Browser"]
+        direction TB
+        Pages[Next.js Pages<br/>App Router]
+        Components[React Components<br/>shadcn/ui]
+        State[React Query<br/>State Management]
+    end
+
+    subgraph Features["📊 Features"]
+        Dashboard[Dashboard<br/>Analytics & Trends]
+        Analyses[Analyses<br/>Results & Findings]
+        Repos[Repositories<br/>Configuration]
+        Settings[Settings<br/>API Keys & Profile]
+    end
+
+    subgraph External["🔗 External"]
+        API[CodeVerify API]
+        GitHub[GitHub OAuth]
+    end
+
+    Pages --> Components
+    Components --> State
+    State <--> API
+    Pages --> Features
+    Settings --> GitHub
+```
 
 ## Quick Start
 

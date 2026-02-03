@@ -2,6 +2,9 @@
 
 Shared models, utilities, and core functionality for CodeVerify.
 
+[![PyPI](https://img.shields.io/pypi/v/codeverify-core)](https://pypi.org/project/codeverify-core/)
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+
 ## Installation
 
 ```bash
@@ -20,6 +23,33 @@ This package provides the foundational components used across all CodeVerify ser
 - **Rules Engine**: Custom rule definition and evaluation
 - **Notifications**: Slack/Teams integration
 - **VCS Abstraction**: Multi-provider version control support
+- **Advanced Features**: Monorepo support, budget optimization, proof attestations
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Core["codeverify-core"]
+        Models["📦 Models<br/>Analysis, Finding, Repository"]
+        Config["⚙️ Config<br/>.codeverify.yml parser"]
+        Rules["📋 Rules Engine<br/>Pattern, AST, Semantic"]
+        VCS["🔗 VCS Abstraction<br/>GitHub, GitLab, Bitbucket"]
+        Notifications["🔔 Notifications<br/>Slack, Teams"]
+        
+        subgraph Advanced["Advanced Features"]
+            Monorepo["📁 Monorepo<br/>Package discovery"]
+            Budget["💰 Budget<br/>Cost optimization"]
+            Proof["🔐 Proof<br/>Attestations"]
+            Ramp["📈 Gradual Ramp<br/>Enforcement"]
+        end
+    end
+    
+    API[apps/api] --> Core
+    Worker[apps/worker] --> Core
+    CLI[packages/cli] --> Core
+    Agents[packages/ai-agents] --> Core
+    Verifier[packages/verifier] --> Core
+```
 
 ## Modules
 

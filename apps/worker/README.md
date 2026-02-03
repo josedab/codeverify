@@ -2,6 +2,9 @@
 
 Celery-based analysis workers for CodeVerify.
 
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+[![Celery](https://img.shields.io/badge/Celery-5.3+-green)](https://docs.celeryq.dev/)
+
 ## Overview
 
 The worker service handles:
@@ -11,6 +14,59 @@ The worker service handles:
 - AI agent coordination
 - Z3 formal verification
 - Result storage and notification
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Queue["📬 Job Queue"]
+        Redis[(Redis)]
+    end
+
+    subgraph Worker["⚙️ Celery Worker"]
+        direction TB
+        
+        subgraph Tasks["Celery Tasks"]
+            AnalyzePR[analyze_pr]
+            VerifyCode[verify_code]
+            Notify[notify_complete]
+        end
+
+        subgraph Pipeline["Analysis Pipeline"]
+            direction TB
+            P1[1. Fetch PR Data]
+            P2[2. Parse Code]
+            P3[3. Parallel Analysis]
+            P4[4. Synthesize]
+            P5[5. Store Results]
+            P6[6. Notify]
+            
+            P1 --> P2 --> P3 --> P4 --> P5 --> P6
+        end
+        
+        subgraph Engines["Analysis Engines"]
+            Semantic[Semantic Agent<br/>GPT-4/Claude]
+            Security[Security Agent<br/>OWASP/CWE]
+            Z3[Z3 Verifier<br/>Formal Proofs]
+        end
+    end
+
+    subgraph External["🔗 External"]
+        GitHub[GitHub API]
+        OpenAI[OpenAI API]
+        Anthropic[Anthropic API]
+        DB[(PostgreSQL)]
+    end
+
+    Redis --> Tasks
+    Tasks --> Pipeline
+    P3 --> Engines
+    Engines --> P4
+    Pipeline --> GitHub
+    Engines --> OpenAI
+    Engines --> Anthropic
+    P5 --> DB
+```
 
 ## Quick Start
 
@@ -68,34 +124,37 @@ apps/worker/
 
 ## Analysis Pipeline
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Analysis Pipeline                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   1. Parse Code  ──▶  2. Extract Changes  ──▶  3. Parallel Analysis │
-│                                                       │          │
-│                                       ┌───────────────┼──────────┤
-│                                       ▼               ▼          │
-│                                  ┌─────────┐    ┌─────────┐     │
-│                                  │Semantic │    │ Formal  │     │
-│                                  │  Agent  │    │Verifier │     │
-│                                  └────┬────┘    └────┬────┘     │
-│                                       │              │          │
-│                                       ▼              ▼          │
-│                                  ┌─────────┐    ┌─────────┐     │
-│                                  │Security │    │         │     │
-│                                  │  Agent  │    │         │     │
-│                                  └────┬────┘    │         │     │
-│                                       │         │         │     │
-│                                       └────┬────┘         │     │
-│                                            │              │     │
-│   4. Synthesize  ◀─────────────────────────┘              │     │
-│         │                                                 │     │
-│         ▼                                                 │     │
-│   5. Store Results  ──▶  6. Notify  ──▶  7. Update PR    │     │
-│                                                           │     │
-└─────────────────────────────────────────────────────────────────┘
+The pipeline runs in stages with parallel execution where possible:
+
+```mermaid
+sequenceDiagram
+    participant Q as Redis Queue
+    participant W as Worker
+    participant GH as GitHub API
+    participant AI as AI Agents
+    participant Z3 as Z3 Verifier
+    participant DB as PostgreSQL
+
+    Q->>W: Dequeue job
+    W->>GH: Fetch PR diff
+    GH-->>W: Code changes
+    W->>W: Parse with tree-sitter
+    
+    par Parallel Analysis
+        W->>AI: Semantic analysis
+        AI-->>W: Intent & contracts
+    and
+        W->>AI: Security analysis
+        AI-->>W: Vulnerabilities
+    and
+        W->>Z3: Formal verification
+        Z3-->>W: Proofs & counterexamples
+    end
+    
+    W->>W: Synthesize findings
+    W->>DB: Store results
+    W->>GH: Post PR comment
+    W->>GH: Update check status
 ```
 
 ## Celery Tasks
