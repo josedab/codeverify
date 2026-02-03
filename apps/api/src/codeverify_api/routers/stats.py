@@ -5,15 +5,69 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, Query, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import func, select, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.auth.dependencies import get_current_user
 from codeverify_api.db.database import get_db
-from codeverify_api.db.models import Analysis, Finding, Organization, Repository, User
+from codeverify_api.db.models import Analysis, Finding, Organization, Repository, User, OrgMembership
 
 router = APIRouter(prefix="/stats", tags=["stats"])
+
+
+class TeamMemberStats(BaseModel):
+    """Individual team member statistics."""
+    user_id: str
+    username: str
+    avatar_url: str | None
+    analyses_triggered: int
+    findings_created: int
+    findings_dismissed: int
+    last_active: str | None
+
+
+class TeamStatsResponse(BaseModel):
+    """Team statistics response."""
+    organization_id: str
+    total_members: int
+    active_members_7d: int
+    active_members_30d: int
+    members: list[TeamMemberStats]
+    activity_by_day: list[dict[str, Any]]
+
+
+class TrendDataPoint(BaseModel):
+    """Single data point for trend charts."""
+    date: str
+    analyses: int
+    passed: int
+    failed: int
+    findings: int
+
+
+class TrendsResponse(BaseModel):
+    """Trends response for charts."""
+    period: str
+    data: list[TrendDataPoint]
+    summary: dict[str, Any]
+
+
+class LeaderboardEntry(BaseModel):
+    """Leaderboard entry."""
+    rank: int
+    user_id: str
+    username: str
+    avatar_url: str | None
+    score: int
+    metric: str
+
+
+class LeaderboardResponse(BaseModel):
+    """Leaderboard response."""
+    period: str
+    entries: list[LeaderboardEntry]
 
 
 @router.get("/dashboard")
@@ -224,3 +278,305 @@ async def get_repository_stats(
             for a in recent
         ],
     }
+
+
+@router.get("/team", response_model=TeamStatsResponse)
+async def get_team_stats(
+    organization_id: UUID = Query(..., description="Organization ID"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TeamStatsResponse:
+    """Get team-level statistics for an organization."""
+    now = datetime.utcnow()
+    seven_days_ago = now - timedelta(days=7)
+    thirty_days_ago = now - timedelta(days=30)
+    
+    # Get all members
+    members_query = (
+        select(User, OrgMembership)
+        .join(OrgMembership, User.id == OrgMembership.user_id)
+        .where(OrgMembership.org_id == organization_id)
+    )
+    members_result = await db.execute(members_query)
+    members = members_result.all()
+    
+    total_members = len(members)
+    
+    # Get repo IDs for this org
+    repo_query = select(Repository.id).where(Repository.org_id == organization_id)
+    repo_result = await db.execute(repo_query)
+    repo_ids = [r[0] for r in repo_result.all()]
+    
+    member_stats = []
+    active_7d = set()
+    active_30d = set()
+    
+    for user, membership in members:
+        # Analyses triggered by this user
+        analyses_count = await db.execute(
+            select(func.count(Analysis.id))
+            .where(
+                Analysis.triggered_by == user.id,
+                Analysis.repo_id.in_(repo_ids) if repo_ids else True
+            )
+        )
+        analyses_triggered = analyses_count.scalar() or 0
+        
+        # Findings dismissed by this user
+        dismissed_count = await db.execute(
+            select(func.count(Finding.id))
+            .where(Finding.dismissed_by == user.id)
+        )
+        findings_dismissed = dismissed_count.scalar() or 0
+        
+        # Last activity
+        last_analysis = await db.execute(
+            select(Analysis.created_at)
+            .where(Analysis.triggered_by == user.id)
+            .order_by(Analysis.created_at.desc())
+            .limit(1)
+        )
+        last_active_row = last_analysis.first()
+        last_active = last_active_row[0] if last_active_row else None
+        
+        if last_active:
+            if last_active >= seven_days_ago:
+                active_7d.add(user.id)
+            if last_active >= thirty_days_ago:
+                active_30d.add(user.id)
+        
+        member_stats.append(TeamMemberStats(
+            user_id=str(user.id),
+            username=user.username,
+            avatar_url=user.avatar_url,
+            analyses_triggered=analyses_triggered,
+            findings_created=0,  # Findings are created by system
+            findings_dismissed=findings_dismissed,
+            last_active=last_active.isoformat() if last_active else None,
+        ))
+    
+    # Activity by day (last 30 days)
+    activity_by_day = []
+    for i in range(30):
+        day = now - timedelta(days=i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        
+        day_count = await db.execute(
+            select(func.count(Analysis.id))
+            .where(
+                Analysis.created_at >= day_start,
+                Analysis.created_at < day_end,
+                Analysis.repo_id.in_(repo_ids) if repo_ids else True
+            )
+        )
+        
+        activity_by_day.append({
+            "date": day_start.strftime("%Y-%m-%d"),
+            "count": day_count.scalar() or 0,
+        })
+    
+    activity_by_day.reverse()
+    
+    return TeamStatsResponse(
+        organization_id=str(organization_id),
+        total_members=total_members,
+        active_members_7d=len(active_7d),
+        active_members_30d=len(active_30d),
+        members=member_stats,
+        activity_by_day=activity_by_day,
+    )
+
+
+@router.get("/trends", response_model=TrendsResponse)
+async def get_trends(
+    organization_id: UUID | None = Query(None, description="Filter by organization"),
+    period: str = Query("30d", description="Time period: 7d, 30d, 90d"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TrendsResponse:
+    """Get trend data for charts."""
+    period_days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 30)
+    now = datetime.utcnow()
+    start_date = now - timedelta(days=period_days)
+    
+    # Get repo IDs for filtering
+    repo_ids = None
+    if organization_id:
+        repo_query = select(Repository.id).where(Repository.org_id == organization_id)
+        repo_result = await db.execute(repo_query)
+        repo_ids = [r[0] for r in repo_result.all()]
+    
+    data_points = []
+    total_analyses = 0
+    total_passed = 0
+    total_failed = 0
+    total_findings = 0
+    
+    for i in range(period_days):
+        day = now - timedelta(days=period_days - 1 - i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        
+        # Base filter
+        base_filter = [
+            Analysis.created_at >= day_start,
+            Analysis.created_at < day_end,
+        ]
+        if repo_ids is not None:
+            base_filter.append(Analysis.repo_id.in_(repo_ids))
+        
+        # Analyses count
+        analyses_count = await db.execute(
+            select(func.count(Analysis.id)).where(and_(*base_filter))
+        )
+        analyses = analyses_count.scalar() or 0
+        
+        # Passed count
+        passed_count = await db.execute(
+            select(func.count(Analysis.id)).where(
+                and_(*base_filter, Analysis.conclusion == "passed")
+            )
+        )
+        passed = passed_count.scalar() or 0
+        
+        # Failed count
+        failed_count = await db.execute(
+            select(func.count(Analysis.id)).where(
+                and_(*base_filter, Analysis.conclusion == "failed")
+            )
+        )
+        failed = failed_count.scalar() or 0
+        
+        # Findings count
+        findings_query = (
+            select(func.count(Finding.id))
+            .join(Analysis, Finding.analysis_id == Analysis.id)
+            .where(and_(*base_filter))
+        )
+        findings_count = await db.execute(findings_query)
+        findings = findings_count.scalar() or 0
+        
+        data_points.append(TrendDataPoint(
+            date=day_start.strftime("%Y-%m-%d"),
+            analyses=analyses,
+            passed=passed,
+            failed=failed,
+            findings=findings,
+        ))
+        
+        total_analyses += analyses
+        total_passed += passed
+        total_failed += failed
+        total_findings += findings
+    
+    return TrendsResponse(
+        period=period,
+        data=data_points,
+        summary={
+            "total_analyses": total_analyses,
+            "total_passed": total_passed,
+            "total_failed": total_failed,
+            "total_findings": total_findings,
+            "pass_rate": total_passed / total_analyses if total_analyses > 0 else 0,
+            "avg_findings_per_analysis": total_findings / total_analyses if total_analyses > 0 else 0,
+        },
+    )
+
+
+@router.get("/leaderboard", response_model=LeaderboardResponse)
+async def get_leaderboard(
+    organization_id: UUID = Query(..., description="Organization ID"),
+    metric: str = Query("analyses", description="Metric: analyses, findings_fixed, activity"),
+    period: str = Query("30d", description="Time period: 7d, 30d, 90d, all"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LeaderboardResponse:
+    """Get leaderboard for gamification."""
+    period_days = {"7d": 7, "30d": 30, "90d": 90, "all": 365 * 10}.get(period, 30)
+    start_date = datetime.utcnow() - timedelta(days=period_days)
+    
+    # Get members of org
+    members_query = (
+        select(User)
+        .join(OrgMembership, User.id == OrgMembership.user_id)
+        .where(OrgMembership.org_id == organization_id)
+    )
+    members_result = await db.execute(members_query)
+    members = members_result.scalars().all()
+    
+    # Get repo IDs for this org
+    repo_query = select(Repository.id).where(Repository.org_id == organization_id)
+    repo_result = await db.execute(repo_query)
+    repo_ids = [r[0] for r in repo_result.all()]
+    
+    user_scores = []
+    
+    for user in members:
+        score = 0
+        
+        if metric == "analyses":
+            count = await db.execute(
+                select(func.count(Analysis.id))
+                .where(
+                    Analysis.triggered_by == user.id,
+                    Analysis.created_at >= start_date,
+                    Analysis.repo_id.in_(repo_ids) if repo_ids else True
+                )
+            )
+            score = count.scalar() or 0
+            
+        elif metric == "findings_fixed":
+            count = await db.execute(
+                select(func.count(Finding.id))
+                .where(
+                    Finding.dismissed_by == user.id,
+                    Finding.dismissed == True,
+                    Finding.created_at >= start_date
+                )
+            )
+            score = count.scalar() or 0
+            
+        elif metric == "activity":
+            # Composite score: analyses + findings reviewed
+            analyses = await db.execute(
+                select(func.count(Analysis.id))
+                .where(
+                    Analysis.triggered_by == user.id,
+                    Analysis.created_at >= start_date,
+                    Analysis.repo_id.in_(repo_ids) if repo_ids else True
+                )
+            )
+            dismissed = await db.execute(
+                select(func.count(Finding.id))
+                .where(
+                    Finding.dismissed_by == user.id,
+                    Finding.created_at >= start_date
+                )
+            )
+            score = (analyses.scalar() or 0) * 10 + (dismissed.scalar() or 0) * 5
+        
+        user_scores.append({
+            "user": user,
+            "score": score,
+        })
+    
+    # Sort and rank
+    user_scores.sort(key=lambda x: x["score"], reverse=True)
+    
+    entries = [
+        LeaderboardEntry(
+            rank=i + 1,
+            user_id=str(item["user"].id),
+            username=item["user"].username,
+            avatar_url=item["user"].avatar_url,
+            score=item["score"],
+            metric=metric,
+        )
+        for i, item in enumerate(user_scores[:20])
+    ]
+    
+    return LeaderboardResponse(
+        period=period,
+        entries=entries,
+    )
