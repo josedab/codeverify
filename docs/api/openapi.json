@@ -1,0 +1,1719 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CodeVerify API",
+    "version": "1.0.0",
+    "description": "\n# CodeVerify API\n\nAI-powered code verification platform with formal verification capabilities.\n\n## Features\n\n- **AI Fingerprinting**: Detect AI-generated code\n- **Vulnerability Analysis**: Reachability proofs for CVEs\n- **SBOM Generation**: CycloneDX/SPDX with verification attestations\n- **Auto-Fix**: AI-powered verified code fixes\n- **Runtime Probes**: Runtime verification from Z3 specs\n- **ROI Dashboard**: Cost and value tracking\n- **Intent Traceability**: Ticket-to-code alignment\n- **Counterexample Playground**: Interactive Z3 debugger\n\n## Authentication\n\nAll endpoints require authentication via Bearer token or API key.\n",
+    "contact": {
+      "name": "CodeVerify Team",
+      "url": "https://codeverify.dev",
+      "email": "support@codeverify.dev"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.codeverify.dev/v1",
+      "description": "Production"
+    },
+    {
+      "url": "https://staging-api.codeverify.dev/v1",
+      "description": "Staging"
+    },
+    {
+      "url": "http://localhost:8000/v1",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    {
+      "name": "fingerprinting",
+      "description": "AI Code Fingerprinting - Detect AI-generated code"
+    },
+    {
+      "name": "reachability",
+      "description": "Vulnerability Reachability Analysis"
+    },
+    {
+      "name": "sbom",
+      "description": "SBOM and SLSA Provenance"
+    },
+    {
+      "name": "autofix",
+      "description": "Agentic Auto-Fix"
+    },
+    {
+      "name": "probes",
+      "description": "Runtime Verification Probes"
+    },
+    {
+      "name": "intelligence",
+      "description": "Codebase Intelligence Engine"
+    },
+    {
+      "name": "roi",
+      "description": "ROI Dashboard"
+    },
+    {
+      "name": "traceability",
+      "description": "Intent-to-Code Traceability"
+    },
+    {
+      "name": "playground",
+      "description": "Counterexample Playground"
+    },
+    {
+      "name": "git",
+      "description": "Universal Git Support"
+    },
+    {
+      "name": "webhooks",
+      "description": "Webhook Processing"
+    }
+  ],
+  "paths": {
+    "/fingerprint": {
+      "post": {
+        "summary": "Analyze code for AI generation",
+        "description": "Analyzes source code to determine if it was AI-generated, human-written, or AI-assisted.",
+        "operationId": "analyzeFingerprint",
+        "tags": [
+          "fingerprinting"
+        ],
+        "responses": {
+          "200": {
+            "description": "Fingerprint analysis result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FingerprintResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "Code to analyze",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FingerprintRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fingerprint/{id}": {
+      "get": {
+        "summary": "Get fingerprint result",
+        "description": "Retrieve a previous fingerprint analysis by ID.",
+        "operationId": "getFingerprint",
+        "tags": [
+          "fingerprinting"
+        ],
+        "responses": {
+          "200": {
+            "description": "Fingerprint result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FingerprintResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Fingerprint analysis ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/reachability/analyze": {
+      "post": {
+        "summary": "Analyze vulnerability reachability",
+        "description": "Uses Z3 to prove or disprove whether a vulnerable code path is reachable.",
+        "operationId": "analyzeReachability",
+        "tags": [
+          "reachability"
+        ],
+        "responses": {
+          "200": {
+            "description": "Reachability analysis result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilityResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "Vulnerability and code context",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "vulnerability": {
+                    "$ref": "#/components/schemas/VulnerabilityInput"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "entry_points": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "vulnerability",
+                  "code"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sbom/generate": {
+      "post": {
+        "summary": "Generate verified SBOM",
+        "description": "Generates a CISA-compliant SBOM with embedded verification attestations.",
+        "operationId": "generateSBOM",
+        "tags": [
+          "sbom"
+        ],
+        "responses": {
+          "201": {
+            "description": "Generated SBOM",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SBOM"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "SBOM generation parameters",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SBOMRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sbom/{id}": {
+      "get": {
+        "summary": "Get SBOM by ID",
+        "description": "Retrieve a previously generated SBOM.",
+        "operationId": "getSBOM",
+        "tags": [
+          "sbom"
+        ],
+        "responses": {
+          "200": {
+            "description": "SBOM data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SBOM"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "SBOM ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Output format",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "xml"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/autofix": {
+      "post": {
+        "summary": "Generate verified code fix",
+        "description": "AI agent generates a verified fix for the identified issue.",
+        "operationId": "generateAutoFix",
+        "tags": [
+          "autofix"
+        ],
+        "responses": {
+          "200": {
+            "description": "Fix result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoFixResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unable to generate fix",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "Code and finding to fix",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoFixRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/autofix/{id}/pr": {
+      "post": {
+        "summary": "Create PR from fix",
+        "description": "Creates a pull request with the verified fix.",
+        "operationId": "createFixPR",
+        "tags": [
+          "autofix"
+        ],
+        "responses": {
+          "201": {
+            "description": "PR created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pr_url": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Fix not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Fix ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "PR details",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repository": {
+                    "type": "string"
+                  },
+                  "base_branch": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/probes/specs": {
+      "post": {
+        "summary": "Register runtime specification",
+        "description": "Register a new runtime verification specification.",
+        "operationId": "registerSpec",
+        "tags": [
+          "probes"
+        ],
+        "responses": {
+          "201": {
+            "description": "Spec registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "spec_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid spec",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "Runtime specification",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeSpec"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/probes/generate": {
+      "post": {
+        "summary": "Generate probe code",
+        "description": "Generate runtime probe code from Z3 specification.",
+        "operationId": "generateProbe",
+        "tags": [
+          "probes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Generated probe code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeCode"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "Spec and target language",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "spec": {
+                    "$ref": "#/components/schemas/RuntimeSpec"
+                  },
+                  "language": {
+                    "type": "string",
+                    "enum": [
+                      "python",
+                      "typescript",
+                      "javascript"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/probes/violations": {
+      "get": {
+        "summary": "List spec violations",
+        "description": "List runtime specification violations.",
+        "operationId": "listViolations",
+        "tags": [
+          "probes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Violations list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "violations": {
+                      "type": "array"
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "spec_name",
+            "in": "query",
+            "description": "Filter by spec name",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "description": "Filter by time",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/roi/metrics": {
+      "get": {
+        "summary": "Get ROI metrics",
+        "description": "Get ROI metrics for a time period.",
+        "operationId": "getROIMetrics",
+        "tags": [
+          "roi"
+        ],
+        "responses": {
+          "200": {
+            "description": "ROI metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ROIMetrics"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "description": "Period start",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "description": "Period end",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "repository",
+            "in": "query",
+            "description": "Filter by repository",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/roi/bugs": {
+      "post": {
+        "summary": "Record caught bug",
+        "description": "Record a bug caught by verification for ROI tracking.",
+        "operationId": "recordBug",
+        "tags": [
+          "roi"
+        ],
+        "responses": {
+          "201": {
+            "description": "Bug recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "estimated_value": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "Bug details",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "severity": {
+                    "type": "string",
+                    "enum": [
+                      "critical",
+                      "high",
+                      "medium",
+                      "low"
+                    ]
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "repository": {
+                    "type": "string"
+                  },
+                  "finding_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "severity",
+                  "category"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/patterns": {
+      "get": {
+        "summary": "Get detected patterns",
+        "description": "Get code patterns detected in the codebase.",
+        "operationId": "getPatterns",
+        "tags": [
+          "intelligence"
+        ],
+        "responses": {
+          "200": {
+            "description": "Detected patterns",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repository",
+            "in": "query",
+            "description": "Repository to analyze",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pattern_type",
+            "in": "query",
+            "description": "Filter by pattern type",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/intelligence/dependencies": {
+      "get": {
+        "summary": "Get dependency graph",
+        "description": "Get the dependency graph for a codebase.",
+        "operationId": "getDependencies",
+        "tags": [
+          "intelligence"
+        ],
+        "responses": {
+          "200": {
+            "description": "Dependency graph",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repository",
+            "in": "query",
+            "description": "Repository",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/traceability/check": {
+      "post": {
+        "summary": "Check intent alignment",
+        "description": "Check if code changes align with ticket intent.",
+        "operationId": "checkAlignment",
+        "tags": [
+          "traceability"
+        ],
+        "responses": {
+          "200": {
+            "description": "Alignment result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "score": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "is_aligned": {
+                      "type": "boolean"
+                    },
+                    "scope_creep_detected": {
+                      "type": "boolean"
+                    },
+                    "unmentioned_changes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "Ticket and code changes",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ticket": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "enum": [
+                          "jira",
+                          "linear",
+                          "github",
+                          "gitlab"
+                        ]
+                      }
+                    }
+                  },
+                  "diff": {
+                    "type": "string"
+                  },
+                  "pr_number": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ticket",
+                  "diff"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playground/sessions": {
+      "post": {
+        "summary": "Create playground session",
+        "description": "Create a new interactive counterexample playground session.",
+        "operationId": "createPlaygroundSession",
+        "tags": [
+          "playground"
+        ],
+        "responses": {
+          "201": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaygroundSession"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "Z3 output and optional source code",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "z3_output": {
+                    "type": "string"
+                  },
+                  "source_code": {
+                    "type": "string"
+                  },
+                  "function_name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "z3_output"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playground/sessions/{session_id}": {
+      "get": {
+        "summary": "Get playground session",
+        "description": "Get details of a playground session.",
+        "operationId": "getPlaygroundSession",
+        "tags": [
+          "playground"
+        ],
+        "responses": {
+          "200": {
+            "description": "Session details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaygroundSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Session ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/playground/sessions/{session_id}/navigate": {
+      "post": {
+        "summary": "Navigate trace",
+        "description": "Navigate through execution trace.",
+        "operationId": "navigateTrace",
+        "tags": [
+          "playground"
+        ],
+        "responses": {
+          "200": {
+            "description": "Navigation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "current_step": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Session ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Navigation action",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "forward",
+                      "backward",
+                      "reset",
+                      "goto"
+                    ]
+                  },
+                  "step": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playground/sessions/{session_id}/export": {
+      "get": {
+        "summary": "Export session",
+        "description": "Export session as HTML or Mermaid diagram.",
+        "operationId": "exportSession",
+        "tags": [
+          "playground"
+        ],
+        "responses": {
+          "200": {
+            "description": "Exported content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "string"
+                    },
+                    "format": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Session ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Export format",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "html",
+                "mermaid"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/webhooks/{provider}": {
+      "post": {
+        "summary": "Process webhook",
+        "description": "Process incoming webhook from Git provider.",
+        "operationId": "processWebhook",
+        "tags": [
+          "webhooks",
+          "git"
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookPayload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "Git provider",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "github",
+                "gitlab",
+                "bitbucket",
+                "gitea",
+                "gerrit",
+                "azure"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/git/verify": {
+      "post": {
+        "summary": "Verify local changes",
+        "description": "Verify local Git changes via CLI integration.",
+        "operationId": "verifyLocalChanges",
+        "tags": [
+          "git"
+        ],
+        "responses": {
+          "200": {
+            "description": "Verification result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "Verification request",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "base": {
+                    "type": "string",
+                    "default": "HEAD~1"
+                  },
+                  "target": {
+                    "type": "string",
+                    "default": "HEAD"
+                  },
+                  "staged_only": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "per_page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer"
+          },
+          "total_pages": {
+            "type": "integer"
+          }
+        }
+      },
+      "FingerprintRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Source code to analyze"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Filename for context"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "python",
+              "javascript",
+              "typescript",
+              "java",
+              "go"
+            ]
+          },
+          "include_signals": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "FingerprintResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "human",
+              "ai_generated",
+              "ai_assisted",
+              "unknown"
+            ]
+          },
+          "confidence_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "detected_tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "analyzed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VulnerabilityInput": {
+        "type": "object",
+        "properties": {
+          "cve_id": {
+            "type": "string",
+            "pattern": "^CVE-\\d{4}-\\d+$"
+          },
+          "function_name": {
+            "type": "string"
+          },
+          "vulnerability_type": {
+            "type": "string",
+            "enum": [
+              "sql_injection",
+              "xss",
+              "buffer_overflow",
+              "path_traversal",
+              "command_injection"
+            ]
+          },
+          "cvss_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "cve_id",
+          "function_name"
+        ]
+      },
+      "ReachabilityResult": {
+        "type": "object",
+        "properties": {
+          "vulnerability_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "reachable",
+              "unreachable",
+              "unknown",
+              "timeout"
+            ]
+          },
+          "proof_type": {
+            "type": "string"
+          },
+          "entry_points": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "z3_model": {
+            "type": "string"
+          },
+          "analyzed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SBOMRequest": {
+        "type": "object",
+        "properties": {
+          "project_name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "cyclonedx_json",
+              "cyclonedx_xml",
+              "spdx_json"
+            ]
+          },
+          "include_verification": {
+            "type": "boolean",
+            "default": true
+          },
+          "slsa_level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          }
+        },
+        "required": [
+          "project_name",
+          "version"
+        ]
+      },
+      "SBOM": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "project_name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Component"
+            }
+          },
+          "verification_attestation": {
+            "type": "object"
+          },
+          "slsa_provenance": {
+            "type": "object"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Component": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "purl": {
+            "type": "string"
+          },
+          "licenses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hashes": {
+            "type": "object"
+          }
+        }
+      },
+      "AutoFixRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "finding": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          "verify_fix": {
+            "type": "boolean",
+            "default": true
+          },
+          "generate_tests": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "code",
+          "finding"
+        ]
+      },
+      "AutoFixResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "partial",
+              "failed"
+            ]
+          },
+          "fixed_code": {
+            "type": "string"
+          },
+          "verification_proof": {
+            "type": "object"
+          },
+          "generated_tests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidence": {
+            "type": "number"
+          }
+        }
+      },
+      "RuntimeSpec": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "condition": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "spec_type": {
+            "type": "string",
+            "enum": [
+              "precondition",
+              "postcondition",
+              "invariant"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "enforce",
+              "log",
+              "sample",
+              "off"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "condition"
+        ]
+      },
+      "ProbeCode": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "decorator": {
+            "type": "string"
+          },
+          "middleware": {
+            "type": "string"
+          }
+        }
+      },
+      "ROIMetrics": {
+        "type": "object",
+        "properties": {
+          "period_start": {
+            "type": "string",
+            "format": "date"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date"
+          },
+          "total_cost": {
+            "type": "number"
+          },
+          "bugs_caught": {
+            "type": "integer"
+          },
+          "estimated_savings": {
+            "type": "number"
+          },
+          "roi_percentage": {
+            "type": "number"
+          },
+          "cost_per_bug": {
+            "type": "number"
+          },
+          "breakdown": {
+            "type": "object"
+          }
+        }
+      },
+      "PlaygroundSession": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "counterexample_id": {
+            "type": "string"
+          },
+          "variables": {
+            "type": "object"
+          },
+          "current_step": {
+            "type": "integer"
+          },
+          "total_steps": {
+            "type": "integer"
+          },
+          "share_link": {
+            "type": "string"
+          }
+        }
+      },
+      "WebhookPayload": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "object"
+          },
+          "pull_request": {
+            "type": "object"
+          },
+          "sender": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "apiKey": []
+    }
+  ]
+}
