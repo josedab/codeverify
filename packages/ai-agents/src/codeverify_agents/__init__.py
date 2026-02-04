@@ -110,19 +110,19 @@ from codeverify_agents.cross_language_bridge import (
 
 # Next-Gen Feature 2: AI Regression Test Generator
 from codeverify_agents.test_generator import (
-    CounterexampleToTest,
+    Counterexample as CounterexampleToTest,  # Alias for backwards compatibility
     GeneratedTest,
     TestFramework,
     TestGeneratorAgent,
-    TestSuite,
+    TestGenerationResult as TestSuite,  # Alias for backwards compatibility
 )
 
 # Next-Gen Feature 5: Natural Language Invariant Specs
 from codeverify_agents.nl_invariants import (
-    InvariantSpec,
-    NaturalLanguageInvariantsAgent,
+    NaturalLanguageInvariant as InvariantSpec,  # Alias for backwards compatibility
+    NaturalLanguageInvariantAgent as NaturalLanguageInvariantsAgent,  # Alias
     ParsedConstraint,
-    Z3Assertion,
+    Z3Compiler as Z3Assertion,  # Alias for backwards compatibility
 )
 
 # Next-Gen Feature 6: Semantic Diff Visualization
@@ -185,6 +185,79 @@ from codeverify_agents.self_healing import (
     VerifiedFix,
     get_self_healing_manager,
     reset_self_healing_manager,
+)
+
+# Killer Feature 1: AI Code Fingerprinting & Origin Detection
+from codeverify_agents.ai_fingerprint import (
+    AIClassifier,
+    AIFingerprintAgent,
+    AIModel,
+    CodeMetrics,
+    FeatureExtractor,
+    FingerprintResult,
+    compute_code_hash,
+)
+
+# Killer Feature 4: Agentic Auto-Fix PRs
+from codeverify_agents.agentic_autofix import (
+    AgenticAutoFix,
+    AutoFixResult,
+    Finding as AutoFixFinding,
+    FixCategory as AutoFixCategory,
+    FixGenerator,
+    FixPR,
+    FixStatus,
+    FixTemplates,
+    FixVerifier as AutoFixVerifier,
+    GeneratedFix,
+    TestGenerator as AutoFixTestGenerator,
+)
+
+# Killer Feature 6: Codebase Intelligence Engine
+from codeverify_agents.codebase_intelligence import (
+    BugCorrelation,
+    BugTracker,
+    CodebaseContext,
+    CodebaseIntelligenceEngine,
+    CodePattern,
+    ComponentCriticality,
+    ComponentInfo,
+    DependencyAnalyzer,
+    PatternDetector,
+    PatternType,
+)
+
+# Killer Feature 8: Intent-to-Code Traceability
+from codeverify_agents.intent_traceability import (
+    AlignmentChecker,
+    ChangeScope,
+    CodeChangeAnalyzer,
+    CodeChangeSummary,
+    ExtractedIntent,
+    IntentExtractor,
+    IntentTraceabilityEngine,
+    IssueDetails,
+    IssueProvider,
+    TraceabilityFinding,
+    TraceabilityResult,
+    TraceabilityStatus,
+    create_traceability_engine,
+)
+
+# Follow-up Item 4: AI Model Integration for Fingerprinting
+from codeverify_agents.model_integration import (
+    AICodeDetector,
+    FeatureExtractor as MLFeatureExtractor,
+    HuggingFaceModelBackend,
+    MockModelBackend,
+    ModelBackend,
+    ModelConfig as MLModelConfig,
+    ModelEnsemble,
+    ModelRegistry,
+    ONNXModelBackend,
+    PredictionResult,
+    detect_ai_code,
+    get_detector,
 )
 
 __all__ = [
@@ -338,4 +411,62 @@ __all__ = [
     "VerifiedFix",
     "get_self_healing_manager",
     "reset_self_healing_manager",
+    # Killer Feature 1: AI Code Fingerprinting
+    "AIClassifier",
+    "AIFingerprintAgent",
+    "AIModel",
+    "CodeMetrics",
+    "FeatureExtractor",
+    "FingerprintResult",
+    "compute_code_hash",
+    # Killer Feature 4: Agentic Auto-Fix PRs
+    "AgenticAutoFix",
+    "AutoFixResult",
+    "AutoFixFinding",
+    "AutoFixCategory",
+    "FixGenerator",
+    "FixPR",
+    "FixStatus",
+    "FixTemplates",
+    "AutoFixVerifier",
+    "GeneratedFix",
+    "AutoFixTestGenerator",
+    # Killer Feature 6: Codebase Intelligence Engine
+    "BugCorrelation",
+    "BugTracker",
+    "CodebaseContext",
+    "CodebaseIntelligenceEngine",
+    "CodePattern",
+    "ComponentCriticality",
+    "ComponentInfo",
+    "DependencyAnalyzer",
+    "PatternDetector",
+    "PatternType",
+    # Killer Feature 8: Intent-to-Code Traceability
+    "AlignmentChecker",
+    "ChangeScope",
+    "CodeChangeAnalyzer",
+    "CodeChangeSummary",
+    "ExtractedIntent",
+    "IntentExtractor",
+    "IntentTraceabilityEngine",
+    "IssueDetails",
+    "IssueProvider",
+    "TraceabilityFinding",
+    "TraceabilityResult",
+    "TraceabilityStatus",
+    "create_traceability_engine",
+    # Follow-up Item 4: AI Model Integration
+    "AICodeDetector",
+    "MLFeatureExtractor",
+    "HuggingFaceModelBackend",
+    "MockModelBackend",
+    "ModelBackend",
+    "MLModelConfig",
+    "ModelEnsemble",
+    "ModelRegistry",
+    "ONNXModelBackend",
+    "PredictionResult",
+    "detect_ai_code",
+    "get_detector",
 ]
