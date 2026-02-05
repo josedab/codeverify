@@ -18,6 +18,15 @@ from codeverify_api.routers import audit_logs
 # Next-gen feature routers (v0.3.0)
 from codeverify_api.routers import threat_modeling, risk_prediction, consensus, compliance, cost_optimization, cross_language
 from codeverify_api.routers import verification_api
+from codeverify_api.routers import paste_interception
+from codeverify_api.routers import ai_drift
+from codeverify_api.routers import verification_debugger
+from codeverify_api.routers import code_search
+from codeverify_api.routers import continuous_learning
+from codeverify_api.routers import context_analysis
+from codeverify_api.routers import code_evolution
+from codeverify_api.routers import fix_verification
+from codeverify_api.routers import dependency_scanner
 from codeverify_api.middleware.rate_limit import setup_rate_limiting
 from codeverify_api.middleware.security import setup_security_headers
 from codeverify_api.middleware.metrics import setup_metrics
@@ -100,6 +109,33 @@ app.include_router(cross_language.router, prefix="/api/v1/cross-language", tags=
 
 # Public Verification API Marketplace
 app.include_router(verification_api.router, tags=["verification-api"])
+
+# Paste Interception (Real-Time AI Code Detection)
+app.include_router(paste_interception.router, prefix="/api/v1/analyses", tags=["paste-interception"])
+
+# AI Drift Detection
+app.include_router(ai_drift.router, tags=["ai-drift"])
+
+# Verification Debugger
+app.include_router(verification_debugger.router, tags=["verification-debugger"])
+
+# Smart Code Search
+app.include_router(code_search.router, tags=["code-search"])
+
+# Continuous Learning Engine
+app.include_router(continuous_learning.router, tags=["continuous-learning"])
+
+# Context-Aware Analysis
+app.include_router(context_analysis.router, tags=["context-analysis"])
+
+# Code Evolution Tracker
+app.include_router(code_evolution.router, tags=["code-evolution"])
+
+# Fix Verification Engine
+app.include_router(fix_verification.router, tags=["fix-verification"])
+
+# Dependency Vulnerability Scanner
+app.include_router(dependency_scanner.router, tags=["dependency-scanner"])
 
 
 # Global exception handler

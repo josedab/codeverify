@@ -260,6 +260,140 @@ from codeverify_agents.model_integration import (
     get_detector,
 )
 
+# Next-Gen Feature: Formal Specification Assistant
+from codeverify_agents.formal_spec_assistant import (
+    ConversionResult,
+    FormalSpecAssistant,
+    NLSpecParser,
+    ParsedSpec,
+    SpecComplexity,
+    SpecDomain,
+    SpecLibrary,
+    SpecTemplate,
+)
+
+# Next-Gen Feature: AI Drift Detector
+from codeverify_agents.ai_drift_detector import (
+    AIDriftDetector,
+    AICodeSnapshot,
+    AlertType,
+    DriftAlert,
+    DriftCategory,
+    DriftMetrics,
+    DriftReport,
+    DriftSeverity,
+)
+
+# Next-Gen Feature: Verification Debugger
+from codeverify_agents.verification_debugger import (
+    Constraint,
+    ConstraintType,
+    Counterexample,
+    DebugResult,
+    DebugSession,
+    ProofStep,
+    ProofStepType,
+    Variable,
+    VerificationDebugger,
+    VerificationStatus,
+)
+
+# Next-Gen Feature: Smart Code Search
+from codeverify_agents.smart_code_search import (
+    CodeCluster,
+    CodeType,
+    CodeUnit,
+    DuplicateGroup,
+    SearchMode,
+    SearchQuery,
+    SearchResult,
+    SmartCodeSearch,
+)
+
+# Next-Gen Feature: Continuous Learning Engine
+from codeverify_agents.continuous_learning import (
+    ContinuousLearningEngine,
+    FeedbackCollector,
+    FeedbackRecord,
+    FeedbackType,
+    FindingCategory,
+    LearnedPattern,
+    LearningMetrics,
+    LearningStatus,
+    PatternLearner,
+    TrainingJob,
+    TrainingManager,
+    TrainingTrigger,
+)
+
+# Next-Gen Feature: Context-Aware Analysis
+from codeverify_agents.context_aware_analysis import (
+    ArchitectureDetector,
+    ArchitectureType,
+    ContextAwareAnalyzer,
+    ContextualFinding,
+    Convention,
+    ConventionDetector,
+    ConventionType,
+    DetectedArchitecture,
+    DetectedPattern,
+    PatternExtractor,
+    ProjectContext,
+    ProjectType,
+    Severity,
+    SeverityAdjuster,
+    SeverityAdjustment,
+)
+
+# Next-Gen Feature: Code Evolution Tracker
+from codeverify_agents.code_evolution import (
+    CodeEvolutionTracker,
+    CommitSnapshot,
+    DetectedRegression,
+    EvolutionReport,
+    MetricTrend,
+    MetricType,
+    RegressionDetector,
+    RegressionSeverity,
+    TrendAnalyzer,
+    TrendDirection,
+)
+
+# Next-Gen Feature: Automated Fix Verification
+from codeverify_agents.fix_verification import (
+    Fix,
+    FixStatus,
+    FixVerificationEngine,
+    Issue,
+    IssueResolver,
+    IssueType,
+    RegressionCheck,
+    RegressionChecker,
+    SafetyCheck,
+    SafetyLevel,
+    SafetyVerifier,
+    VerificationMethod,
+    VerificationResult,
+)
+
+# Next-Gen Feature: Dependency Vulnerability Scanner
+from codeverify_agents.dependency_scanner import (
+    CVE,
+    CVEDatabase,
+    DependencyNode,
+    DependencyParser,
+    DependencyType,
+    DependencyVulnerabilityScanner,
+    Package,
+    PackageEcosystem,
+    ScanResult,
+    UpgradeAdvisor,
+    UpgradePath,
+    UpgradeRisk,
+    VulnerablePackage,
+    VulnerabilitySeverity,
+)
+
 __all__ = [
     # Base
     "AgentConfig",
@@ -469,4 +603,111 @@ __all__ = [
     "PredictionResult",
     "detect_ai_code",
     "get_detector",
+    # Next-Gen Feature: Formal Specification Assistant
+    "ConversionResult",
+    "FormalSpecAssistant",
+    "NLSpecParser",
+    "ParsedSpec",
+    "SpecComplexity",
+    "SpecDomain",
+    "SpecLibrary",
+    "SpecTemplate",
+    # Next-Gen Feature: AI Drift Detector
+    "AIDriftDetector",
+    "AICodeSnapshot",
+    "AlertType",
+    "DriftAlert",
+    "DriftCategory",
+    "DriftMetrics",
+    "DriftReport",
+    "DriftSeverity",
+    # Next-Gen Feature: Verification Debugger
+    "Constraint",
+    "ConstraintType",
+    "Counterexample",
+    "DebugResult",
+    "DebugSession",
+    "ProofStep",
+    "ProofStepType",
+    "Variable",
+    "VerificationDebugger",
+    "VerificationStatus",
+    # Next-Gen Feature: Smart Code Search
+    "CodeCluster",
+    "CodeType",
+    "CodeUnit",
+    "DuplicateGroup",
+    "SearchMode",
+    "SearchQuery",
+    "SearchResult",
+    "SmartCodeSearch",
+    # Next-Gen Feature: Continuous Learning Engine
+    "ContinuousLearningEngine",
+    "FeedbackCollector",
+    "FeedbackRecord",
+    "FeedbackType",
+    "FindingCategory",
+    "LearnedPattern",
+    "LearningMetrics",
+    "LearningStatus",
+    "PatternLearner",
+    "TrainingJob",
+    "TrainingManager",
+    "TrainingTrigger",
+    # Next-Gen Feature: Context-Aware Analysis
+    "ArchitectureDetector",
+    "ArchitectureType",
+    "ContextAwareAnalyzer",
+    "ContextualFinding",
+    "Convention",
+    "ConventionDetector",
+    "ConventionType",
+    "DetectedArchitecture",
+    "DetectedPattern",
+    "PatternExtractor",
+    "ProjectContext",
+    "ProjectType",
+    "Severity",
+    "SeverityAdjuster",
+    "SeverityAdjustment",
+    # Next-Gen Feature: Code Evolution Tracker
+    "CodeEvolutionTracker",
+    "CommitSnapshot",
+    "DetectedRegression",
+    "EvolutionReport",
+    "MetricTrend",
+    "MetricType",
+    "RegressionDetector",
+    "RegressionSeverity",
+    "TrendAnalyzer",
+    "TrendDirection",
+    # Next-Gen Feature: Automated Fix Verification
+    "Fix",
+    "FixStatus",
+    "FixVerificationEngine",
+    "Issue",
+    "IssueResolver",
+    "IssueType",
+    "RegressionCheck",
+    "RegressionChecker",
+    "SafetyCheck",
+    "SafetyLevel",
+    "SafetyVerifier",
+    "VerificationMethod",
+    "VerificationResult",
+    # Next-Gen Feature: Dependency Vulnerability Scanner
+    "CVE",
+    "CVEDatabase",
+    "DependencyNode",
+    "DependencyParser",
+    "DependencyType",
+    "DependencyVulnerabilityScanner",
+    "Package",
+    "PackageEcosystem",
+    "ScanResult",
+    "UpgradeAdvisor",
+    "UpgradePath",
+    "UpgradeRisk",
+    "VulnerablePackage",
+    "VulnerabilitySeverity",
 ]

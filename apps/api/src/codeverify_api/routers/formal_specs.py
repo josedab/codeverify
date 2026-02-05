@@ -5,6 +5,7 @@ Provides REST API endpoints for formal specification generation:
 - Generate specs from code
 - Export to SMT-LIB format
 - Verify against specifications
+- Natural language to Z3 conversion (Formal Spec Assistant)
 """
 
 from __future__ import annotations
@@ -15,8 +16,31 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+# Import Formal Spec Assistant
+try:
+    from codeverify_agents.formal_spec_assistant import (
+        FormalSpecAssistant,
+        SpecDomain,
+    )
+    FORMAL_SPEC_ASSISTANT_AVAILABLE = True
+except ImportError:
+    FORMAL_SPEC_ASSISTANT_AVAILABLE = False
+    FormalSpecAssistant = None
+    SpecDomain = None
+
 
 router = APIRouter(prefix="/api/v1/specs", tags=["formal-specs"])
+
+# Singleton assistant instance
+_formal_spec_assistant: Optional[FormalSpecAssistant] = None
+
+
+def get_formal_spec_assistant() -> FormalSpecAssistant:
+    """Get or create the formal spec assistant singleton."""
+    global _formal_spec_assistant
+    if _formal_spec_assistant is None and FORMAL_SPEC_ASSISTANT_AVAILABLE:
+        _formal_spec_assistant = FormalSpecAssistant()
+    return _formal_spec_assistant
 
 
 # =============================================================================
@@ -72,6 +96,65 @@ class ContractDocstringRequest(BaseModel):
     """Request to generate contract-style docstring."""
     function_name: str = Field(..., description="Function name")
     specs: Dict[str, Any] = Field(..., description="Specifications")
+
+
+# =============================================================================
+# NL-to-Z3 Conversion Models (Formal Spec Assistant)
+# =============================================================================
+
+
+class NLToZ3Request(BaseModel):
+    """Request to convert natural language to Z3 specification."""
+    specification: str = Field(..., description="Natural language specification", min_length=1)
+    context: Optional[Dict[str, Any]] = Field(
+        None, description="Additional context (function signature, types, etc.)"
+    )
+
+
+class NLToZ3Response(BaseModel):
+    """Response with Z3 conversion result."""
+    success: bool
+    z3_expr: Optional[str] = None
+    smtlib: Optional[str] = None
+    python_assert: Optional[str] = None
+    explanation: str = ""
+    confidence: float = 0.0
+    variables: Dict[str, str] = {}
+    ambiguities: List[str] = []
+    clarification_questions: List[str] = []
+    processing_time_ms: float = 0.0
+
+
+class BatchNLToZ3Request(BaseModel):
+    """Request to convert multiple specifications."""
+    specifications: List[str] = Field(..., description="List of natural language specs", min_length=1)
+    context: Optional[Dict[str, Any]] = Field(None, description="Shared context")
+
+
+class ValidateSpecRequest(BaseModel):
+    """Request to validate a Z3 specification."""
+    z3_expr: str = Field(..., description="Z3 expression to validate")
+    variables: Dict[str, str] = Field(..., description="Variable name to type mapping")
+
+
+class ValidateSpecResponse(BaseModel):
+    """Response with validation result."""
+    is_satisfiable: bool
+    message: Optional[str] = None
+    model: Optional[Dict[str, Any]] = None
+
+
+class RefineSpecRequest(BaseModel):
+    """Request to refine a specification with feedback."""
+    original_spec: str = Field(..., description="Original natural language spec")
+    current_z3: str = Field(..., description="Current Z3 expression")
+    feedback: str = Field(..., description="User feedback for refinement")
+
+
+class SuggestSpecsRequest(BaseModel):
+    """Request to suggest specifications from function signature."""
+    function_signature: str = Field(..., description="Function signature")
+    docstring: Optional[str] = Field(None, description="Function docstring")
 
 
 # =============================================================================
@@ -296,6 +379,315 @@ async def get_templates() -> Dict[str, Any]:
             },
         ],
     }
+
+
+# =============================================================================
+# NL-to-Z3 Conversion Endpoints (Formal Spec Assistant)
+# =============================================================================
+
+
+@router.post(
+    "/nl-to-z3",
+    response_model=NLToZ3Response,
+    summary="Convert Natural Language to Z3",
+    description="Convert a natural language specification to Z3 formal specification"
+)
+async def convert_nl_to_z3(request: NLToZ3Request) -> NLToZ3Response:
+    """
+    Convert natural language specification to Z3.
+
+    Example inputs:
+    - "x must be positive"
+    - "the sum of a and b must equal total"
+    - "if user is admin then can_delete must be true"
+    """
+    if not FORMAL_SPEC_ASSISTANT_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Formal Spec Assistant is not available"
+        )
+
+    assistant = get_formal_spec_assistant()
+    if not assistant:
+        raise HTTPException(
+            status_code=503,
+            detail="Failed to initialize Formal Spec Assistant"
+        )
+
+    result = await assistant.convert(
+        request.specification,
+        request.context or {},
+    )
+
+    return NLToZ3Response(
+        success=result.success,
+        z3_expr=result.z3_expr,
+        smtlib=result.smtlib,
+        python_assert=result.python_assert,
+        explanation=result.explanation,
+        confidence=result.confidence,
+        variables=result.parsed_spec.variables,
+        ambiguities=result.parsed_spec.ambiguities,
+        clarification_questions=result.parsed_spec.clarification_questions,
+        processing_time_ms=result.processing_time_ms,
+    )
+
+
+@router.post(
+    "/nl-to-z3/batch",
+    summary="Batch Convert NL to Z3",
+    description="Convert multiple natural language specifications to Z3"
+)
+async def convert_nl_to_z3_batch(request: BatchNLToZ3Request) -> Dict[str, Any]:
+    """Convert multiple natural language specifications to Z3."""
+    if not FORMAL_SPEC_ASSISTANT_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Formal Spec Assistant is not available"
+        )
+
+    assistant = get_formal_spec_assistant()
+    if not assistant:
+        raise HTTPException(
+            status_code=503,
+            detail="Failed to initialize Formal Spec Assistant"
+        )
+
+    results = await assistant.convert_batch(
+        request.specifications,
+        request.context,
+    )
+
+    return {
+        "results": [
+            {
+                "success": r.success,
+                "z3_expr": r.z3_expr,
+                "smtlib": r.smtlib,
+                "python_assert": r.python_assert,
+                "confidence": r.confidence,
+                "explanation": r.explanation,
+            }
+            for r in results
+        ],
+        "total": len(results),
+        "successful": sum(1 for r in results if r.success),
+    }
+
+
+@router.post(
+    "/nl-to-z3/validate",
+    response_model=ValidateSpecResponse,
+    summary="Validate Z3 Specification",
+    description="Validate a Z3 specification using the Z3 solver"
+)
+async def validate_z3_spec(request: ValidateSpecRequest) -> ValidateSpecResponse:
+    """
+    Validate a Z3 specification.
+
+    Checks if the specification is satisfiable and returns a model if so.
+    """
+    if not FORMAL_SPEC_ASSISTANT_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Formal Spec Assistant is not available"
+        )
+
+    assistant = get_formal_spec_assistant()
+    if not assistant:
+        raise HTTPException(
+            status_code=503,
+            detail="Failed to initialize Formal Spec Assistant"
+        )
+
+    is_sat, message, model = await assistant.validate_spec(
+        request.z3_expr,
+        request.variables,
+    )
+
+    return ValidateSpecResponse(
+        is_satisfiable=is_sat,
+        message=message,
+        model=model,
+    )
+
+
+@router.post(
+    "/nl-to-z3/refine",
+    response_model=NLToZ3Response,
+    summary="Refine Specification",
+    description="Refine a specification based on user feedback"
+)
+async def refine_spec(request: RefineSpecRequest) -> NLToZ3Response:
+    """
+    Refine a specification based on user feedback.
+
+    Useful for interactive refinement when the initial conversion
+    doesn't match user intent.
+    """
+    if not FORMAL_SPEC_ASSISTANT_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Formal Spec Assistant is not available"
+        )
+
+    assistant = get_formal_spec_assistant()
+    if not assistant:
+        raise HTTPException(
+            status_code=503,
+            detail="Failed to initialize Formal Spec Assistant"
+        )
+
+    # First convert to get current result
+    current_result = await assistant.convert(request.original_spec, {})
+    current_result.z3_expr = request.current_z3
+
+    # Refine with feedback
+    result = await assistant.refine_with_feedback(
+        request.original_spec,
+        request.feedback,
+        current_result,
+    )
+
+    return NLToZ3Response(
+        success=result.success,
+        z3_expr=result.z3_expr,
+        smtlib=result.smtlib,
+        python_assert=result.python_assert,
+        explanation=result.explanation,
+        confidence=result.confidence,
+        variables=result.parsed_spec.variables,
+        ambiguities=result.parsed_spec.ambiguities,
+        clarification_questions=result.parsed_spec.clarification_questions,
+        processing_time_ms=result.processing_time_ms,
+    )
+
+
+@router.post(
+    "/nl-to-z3/suggest",
+    summary="Suggest Specifications",
+    description="Suggest specifications based on function signature"
+)
+async def suggest_specs(request: SuggestSpecsRequest) -> Dict[str, Any]:
+    """
+    Suggest specifications based on function signature.
+
+    Analyzes the function signature and docstring to suggest
+    relevant preconditions and postconditions.
+    """
+    if not FORMAL_SPEC_ASSISTANT_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Formal Spec Assistant is not available"
+        )
+
+    assistant = get_formal_spec_assistant()
+    if not assistant:
+        raise HTTPException(
+            status_code=503,
+            detail="Failed to initialize Formal Spec Assistant"
+        )
+
+    suggestions = assistant.suggest_specifications(
+        request.function_signature,
+        request.docstring,
+    )
+
+    return {
+        "suggestions": suggestions,
+        "count": len(suggestions),
+    }
+
+
+@router.get(
+    "/nl-to-z3/templates",
+    summary="Get NL Template Library",
+    description="Get the full NL-to-Z3 template library"
+)
+async def get_nl_template_library() -> Dict[str, Any]:
+    """Get the full template library for NL-to-Z3 conversion."""
+    if not FORMAL_SPEC_ASSISTANT_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Formal Spec Assistant is not available"
+        )
+
+    assistant = get_formal_spec_assistant()
+    if not assistant:
+        raise HTTPException(
+            status_code=503,
+            detail="Failed to initialize Formal Spec Assistant"
+        )
+
+    templates = assistant.get_template_library()
+
+    return {
+        "templates": templates,
+        "count": len(templates),
+    }
+
+
+@router.get(
+    "/nl-to-z3/templates/{domain}",
+    summary="Get Templates by Domain",
+    description="Get NL-to-Z3 templates for a specific domain"
+)
+async def get_templates_by_domain(domain: str) -> Dict[str, Any]:
+    """Get templates for a specific domain (numeric, string, collection, etc.)."""
+    if not FORMAL_SPEC_ASSISTANT_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Formal Spec Assistant is not available"
+        )
+
+    assistant = get_formal_spec_assistant()
+    if not assistant:
+        raise HTTPException(
+            status_code=503,
+            detail="Failed to initialize Formal Spec Assistant"
+        )
+
+    templates = assistant.get_templates_by_domain(domain)
+
+    if not templates:
+        valid_domains = ["general", "numeric", "string", "collection", "financial",
+                        "authentication", "data_validation", "concurrency", "memory"]
+        raise HTTPException(
+            status_code=404,
+            detail=f"Domain '{domain}' not found. Valid domains: {valid_domains}"
+        )
+
+    return {
+        "domain": domain,
+        "templates": templates,
+        "count": len(templates),
+    }
+
+
+@router.get(
+    "/nl-to-z3/stats",
+    summary="Get Assistant Statistics",
+    description="Get statistics about the Formal Spec Assistant"
+)
+async def get_assistant_stats() -> Dict[str, Any]:
+    """Get statistics about the Formal Spec Assistant."""
+    if not FORMAL_SPEC_ASSISTANT_AVAILABLE:
+        return {
+            "available": False,
+            "message": "Formal Spec Assistant is not available",
+        }
+
+    assistant = get_formal_spec_assistant()
+    if not assistant:
+        return {
+            "available": False,
+            "message": "Failed to initialize assistant",
+        }
+
+    stats = assistant.get_statistics()
+    stats["available"] = True
+
+    return stats
 
 
 # =============================================================================
