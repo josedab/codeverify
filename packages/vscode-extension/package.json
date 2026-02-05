@@ -125,6 +125,34 @@
       {
         "command": "codeverify.showCopilotStatus",
         "title": "CodeVerify: Show Copilot Plugin Status"
+      },
+      {
+        "command": "codeverify.togglePasteInterception",
+        "title": "CodeVerify: Toggle Paste Interception"
+      },
+      {
+        "command": "codeverify.interceptPaste",
+        "title": "CodeVerify: Intercept Paste (Internal)"
+      },
+      {
+        "command": "codeverify.showPasteInterceptionStats",
+        "title": "CodeVerify: Show Paste Interception Statistics"
+      },
+      {
+        "command": "codeverify.convertNLToZ3",
+        "title": "CodeVerify: Convert Natural Language to Z3"
+      },
+      {
+        "command": "codeverify.showSpecTemplates",
+        "title": "CodeVerify: Show Specification Templates"
+      },
+      {
+        "command": "codeverify.suggestSpecs",
+        "title": "CodeVerify: Suggest Specifications for Function"
+      },
+      {
+        "command": "codeverify.showSpecHistory",
+        "title": "CodeVerify: Show Specification History"
       }
     ],
     "configuration": {
@@ -231,6 +259,45 @@
           "type": "number",
           "default": 1000,
           "description": "Maximum number of cached verification results"
+        },
+        "codeverify.pasteInterception.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable AI code interception on paste"
+        },
+        "codeverify.pasteInterception.minCodeLength": {
+          "type": "number",
+          "default": 50,
+          "description": "Minimum character length to trigger paste interception"
+        },
+        "codeverify.pasteInterception.aiConfidenceThreshold": {
+          "type": "number",
+          "default": 0.6,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "AI detection confidence threshold (0-1)"
+        },
+        "codeverify.pasteInterception.trustScoreThreshold": {
+          "type": "number",
+          "default": 80,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Trust score threshold for auto-accepting code (0-100)"
+        },
+        "codeverify.pasteInterception.autoAcceptTrustedCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically accept code with high trust scores"
+        },
+        "codeverify.pasteInterception.showOverlayForAllPastes": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show overlay for all code pastes, not just AI-detected"
+        },
+        "codeverify.pasteInterception.blockUntrustedCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Block paste of code with critical risk level"
         }
       }
     },
@@ -314,6 +381,24 @@
         "command": "codeverify.showConstraints",
         "key": "ctrl+shift+k",
         "mac": "cmd+shift+k",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeverify.togglePasteInterception",
+        "key": "ctrl+shift+p ctrl+shift+i",
+        "mac": "cmd+shift+p cmd+shift+i",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeverify.convertNLToZ3",
+        "key": "ctrl+shift+z",
+        "mac": "cmd+shift+z",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeverify.suggestSpecs",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
         "when": "editorTextFocus"
       }
     ],

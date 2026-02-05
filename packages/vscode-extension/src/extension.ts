@@ -9,15 +9,17 @@ import { AnalysisProvider } from './providers/analysisProvider';
 import { FindingsTreeProvider } from './providers/findingsTreeProvider';
 import { DiagnosticsProvider } from './providers/diagnosticsProvider';
 import { CodeActionProvider } from './providers/codeActionProvider';
-import { 
-    ContinuousVerificationProvider, 
-    VerificationMode 
+import {
+    ContinuousVerificationProvider,
+    VerificationMode
 } from './providers/continuousVerificationProvider';
-import { 
-    ConstraintVisualizationProvider, 
-    HeatMapProvider 
+import {
+    ConstraintVisualizationProvider,
+    HeatMapProvider
 } from './providers/constraintVisualizationProvider';
 import { PairReviewerProvider } from './providers/pairReviewerProvider';
+import { PasteInterceptionProvider } from './providers/pasteInterceptionProvider';
+import { FormalSpecAssistantProvider } from './providers/formalSpecAssistantProvider';
 import { CodeVerifyClient } from './client';
 import { logger, initializeLogger } from './logger';
 
@@ -26,6 +28,8 @@ let diagnosticsProvider: DiagnosticsProvider;
 let findingsTreeProvider: FindingsTreeProvider;
 let continuousVerificationProvider: ContinuousVerificationProvider;
 let pairReviewerProvider: PairReviewerProvider;
+let pasteInterceptionProvider: PasteInterceptionProvider;
+let formalSpecAssistantProvider: FormalSpecAssistantProvider;
 let statusBarItem: vscode.StatusBarItem;
 let realTimeEnabled = false;
 let realTimeTimeout: NodeJS.Timeout | undefined;
@@ -56,6 +60,8 @@ export function activate(context: vscode.ExtensionContext) {
     findingsTreeProvider = new FindingsTreeProvider();
     continuousVerificationProvider = new ContinuousVerificationProvider(client);
     pairReviewerProvider = new PairReviewerProvider(client);
+    pasteInterceptionProvider = new PasteInterceptionProvider(client);
+    formalSpecAssistantProvider = new FormalSpecAssistantProvider(client);
     
     // Register tree view
     vscode.window.registerTreeDataProvider('codeverifyFindings', findingsTreeProvider);
@@ -140,6 +146,15 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('codeverify.applyFixes', (unit, findings) => applyFixes(unit, findings)),
         vscode.commands.registerCommand('codeverify.dismissPairReviewFinding', (finding, reason) => dismissPairReviewFinding(finding, reason)),
         vscode.commands.registerCommand('codeverify.showPairReviewStats', () => showPairReviewStats()),
+        // Paste Interception commands
+        vscode.commands.registerCommand('codeverify.togglePasteInterception', () => togglePasteInterception()),
+        vscode.commands.registerCommand('codeverify.interceptPaste', () => pasteInterceptionProvider.handlePaste()),
+        vscode.commands.registerCommand('codeverify.showPasteInterceptionStats', () => showPasteInterceptionStats()),
+        // Formal Spec Assistant commands
+        vscode.commands.registerCommand('codeverify.convertNLToZ3', () => formalSpecAssistantProvider.showConversionInput()),
+        vscode.commands.registerCommand('codeverify.showSpecTemplates', () => formalSpecAssistantProvider.showTemplateLibrary()),
+        vscode.commands.registerCommand('codeverify.suggestSpecs', () => formalSpecAssistantProvider.suggestSpecsForCurrentFunction()),
+        vscode.commands.registerCommand('codeverify.showSpecHistory', () => formalSpecAssistantProvider.showHistory()),
     );
 
     // Auto-analyze on save
@@ -182,7 +197,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Analyze open documents on activation
     if (config.get('enabled', true)) {
-        vscode.workspace.textDocuments.forEach(analyzeDocument);
+        vscode.workspace.textDocuments.forEach(doc => analyzeDocument(doc));
     }
 
     // Initialize continuous verification if enabled
@@ -203,6 +218,32 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
+    // Initialize paste interception if enabled
+    if (config.get('pasteInterception.enabled', true)) {
+        pasteInterceptionProvider.enable();
+
+        // Listen for paste interception events
+        pasteInterceptionProvider.onPasteIntercepted((result) => {
+            logger.info('Paste intercepted', {
+                isAiGenerated: result.isAiGenerated,
+                trustScore: result.trustScore,
+                analysisTimeMs: result.analysisTimeMs,
+            });
+        });
+
+        pasteInterceptionProvider.onPasteDecision(({ result, decision }) => {
+            logger.info('Paste decision made', { decision, trustScore: result.trustScore });
+
+            // Update findings if code was accepted with issues
+            if ((decision === 'accept' || decision === 'accept_with_review') && result.findings.length > 0) {
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                    diagnosticsProvider.updateDiagnostics(editor.document.uri, result.findings);
+                }
+            }
+        });
+    }
+
     // Show initial trust score
     const editor = vscode.window.activeTextEditor;
     if (editor && config.get('showTrustScore', true)) {
@@ -215,6 +256,8 @@ export function deactivate() {
     diagnosticsProvider?.dispose();
     continuousVerificationProvider?.dispose();
     pairReviewerProvider?.dispose();
+    pasteInterceptionProvider?.dispose();
+    formalSpecAssistantProvider?.dispose();
     verifiedDecorationType?.dispose();
     unverifiedDecorationType?.dispose();
     errorDecorationType?.dispose();
@@ -1138,6 +1181,179 @@ function showPairReviewStats() {
             <p>Total Feedback: ${(statsObj.feedbackStats as any)?.totalFeedback || 0}</p>
             <p>The system learns from your feedback to reduce false positives over time.</p>
         </div>
+    </div>
+</body>
+</html>`;
+}
+
+// =============================================================================
+// Paste Interception Functions
+// =============================================================================
+
+function togglePasteInterception() {
+    pasteInterceptionProvider.toggle();
+
+    const config = vscode.workspace.getConfiguration('codeverify');
+    const isEnabled = pasteInterceptionProvider.isEnabled();
+    config.update('pasteInterception.enabled', isEnabled, vscode.ConfigurationTarget.Global);
+
+    vscode.window.showInformationMessage(
+        `CodeVerify: Paste Interception ${isEnabled ? 'enabled' : 'disabled'}`
+    );
+}
+
+function showPasteInterceptionStats() {
+    const stats = pasteInterceptionProvider.getStatistics();
+
+    const panel = vscode.window.createWebviewPanel(
+        'codeverifyPasteStats',
+        'Paste Interception Statistics',
+        vscode.ViewColumn.Beside,
+        { enableScripts: true }
+    );
+
+    const aiDetectionRate = stats.totalInterceptions > 0
+        ? ((stats.aiDetectedCount / stats.totalInterceptions) * 100).toFixed(1)
+        : '0';
+
+    const acceptRate = stats.totalInterceptions > 0
+        ? ((stats.acceptedCount / stats.totalInterceptions) * 100).toFixed(1)
+        : '0';
+
+    panel.webview.html = `<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+            color: var(--vscode-foreground);
+            background: var(--vscode-editor-background);
+        }
+        h2 { margin-top: 0; }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .stat-value.warning { color: #f39c12; }
+        .stat-value.success { color: #27ae60; }
+        .stat-value.danger { color: #e74c3c; }
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 5px;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 12px;
+        }
+        .section-title {
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 15px;
+        }
+        .bar {
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .bar-fill.success { background: #27ae60; }
+        .bar-fill.warning { background: #f39c12; }
+        .bar-fill.danger { background: #e74c3c; }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Paste Interception Statistics</h2>
+
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="stat-value">${stats.totalInterceptions}</div>
+            <div class="stat-label">Total Interceptions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value warning">${stats.aiDetectedCount}</div>
+            <div class="stat-label">AI Code Detected</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value success">${stats.acceptedCount}</div>
+            <div class="stat-label">Accepted</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value danger">${stats.rejectedCount}</div>
+            <div class="stat-label">Rejected</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Decision Breakdown</div>
+        <div class="bar">
+            <div class="bar-fill success" style="width: ${acceptRate}%; display: inline-block;"></div>
+            <div class="bar-fill danger" style="width: ${100 - parseFloat(acceptRate)}%; display: inline-block;"></div>
+        </div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #27ae60;"></div>
+                <span>Accepted (${acceptRate}%)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e74c3c;"></div>
+                <span>Rejected (${(100 - parseFloat(acceptRate)).toFixed(1)}%)</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Performance</div>
+        <p>Average Trust Score: <strong>${stats.averageTrustScore.toFixed(1)}%</strong></p>
+        <p>Average Analysis Time: <strong>${stats.averageAnalysisTimeMs.toFixed(0)}ms</strong></p>
+        <p>AI Detection Rate: <strong>${aiDetectionRate}%</strong></p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Actions</div>
+        <p>Modified Before Accept: <strong>${stats.modifiedCount}</strong></p>
+        <p><em>The system helps catch potentially problematic AI-generated code before it enters your codebase.</em></p>
     </div>
 </body>
 </html>`;
