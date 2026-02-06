@@ -27,6 +27,17 @@ from codeverify_api.routers import context_analysis
 from codeverify_api.routers import code_evolution
 from codeverify_api.routers import fix_verification
 from codeverify_api.routers import dependency_scanner
+# Next-gen planning features (v0.4.0)
+from codeverify_api.routers import verification_cache
+from codeverify_api.routers import tenancy
+from codeverify_api.routers import language_support
+from codeverify_api.routers import streaming
+from codeverify_api.routers import autofix
+from codeverify_api.routers import hallucination
+from codeverify_api.routers import telemetry
+from codeverify_api.routers import policy_engine
+from codeverify_api.routers import impact_analysis
+from codeverify_api.routers import copilot
 from codeverify_api.middleware.rate_limit import setup_rate_limiting
 from codeverify_api.middleware.security import setup_security_headers
 from codeverify_api.middleware.metrics import setup_metrics
@@ -136,6 +147,18 @@ app.include_router(fix_verification.router, tags=["fix-verification"])
 
 # Dependency Vulnerability Scanner
 app.include_router(dependency_scanner.router, tags=["dependency-scanner"])
+
+# Next-gen planning features (v0.4.0)
+app.include_router(verification_cache.router, prefix="/api/v1/cache", tags=["verification-cache"])
+app.include_router(tenancy.router, prefix="/api/v1/tenants", tags=["multi-tenancy"])
+app.include_router(language_support.router, prefix="/api/v1/languages", tags=["language-support"])
+app.include_router(streaming.router, prefix="/api/v1/streaming", tags=["streaming-verification"])
+app.include_router(autofix.router, prefix="/api/v1/autofix", tags=["auto-fix"])
+app.include_router(hallucination.router, prefix="/api/v1/hallucination", tags=["hallucination-detection"])
+app.include_router(telemetry.router, prefix="/api/v1/telemetry", tags=["telemetry-roi"])
+app.include_router(policy_engine.router, prefix="/api/v1/policies", tags=["policy-engine"])
+app.include_router(impact_analysis.router, prefix="/api/v1/impact", tags=["impact-analysis"])
+app.include_router(copilot.router, prefix="/api/v1/copilot", tags=["copilot-extension"])
 
 
 # Global exception handler
