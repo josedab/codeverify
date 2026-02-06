@@ -69,13 +69,98 @@ class CustomRule:
 
 
 @dataclass
+class CacheConfig:
+    """Configuration for incremental verification cache."""
+
+    enabled: bool = True
+    backend: str = "memory"  # "memory" or "redis"
+    redis_url: str = "redis://localhost:6379/1"
+    ttl_seconds: int = 86400
+    max_entries: int = 10000
+
+
+@dataclass
+class PolicyConfig:
+    """Configuration for verification policy-as-code."""
+
+    enabled: bool = False
+    policy_file: str | None = None
+    use_built_in: list[str] = field(default_factory=list)
+    default_action: str = "warn"
+
+
+@dataclass
+class StreamingConfig:
+    """Configuration for real-time streaming verification."""
+
+    enabled: bool = True
+    debounce_ms: int = 500
+    stages: list[str] = field(default_factory=lambda: ["pattern", "ai", "formal"])
+
+
+@dataclass
+class AutoFixConfig:
+    """Configuration for agentic auto-fix pipeline."""
+
+    enabled: bool = False
+    max_attempts: int = 3
+    require_verification: bool = True
+    require_test: bool = True
+    auto_create_pr: bool = False
+    min_confidence: str = "medium"
+
+
+@dataclass
+class HallucinationConfig:
+    """Configuration for AI hallucination detection."""
+
+    enabled: bool = True
+    check_registry: bool = False
+    custom_allowlist: list[str] = field(default_factory=list)
+
+
+@dataclass
+class TelemetryConfig:
+    """Configuration for verification telemetry and ROI."""
+
+    enabled: bool = True
+    track_lifecycle: bool = True
+    cost_multipliers: dict[str, float] = field(default_factory=lambda: {
+        "critical": 15000.0,
+        "high": 5000.0,
+        "medium": 1500.0,
+        "low": 500.0,
+    })
+
+
+@dataclass
+class ImpactConfig:
+    """Configuration for cross-repository impact analysis."""
+
+    enabled: bool = False
+    org_repos: list[str] = field(default_factory=list)
+    notify_downstream: bool = True
+
+
+@dataclass
+class CopilotConfig:
+    """Configuration for GitHub Copilot Extension integration."""
+
+    enabled: bool = False
+    webhook_secret: str = ""
+    commands: list[str] = field(default_factory=lambda: [
+        "verify", "explain", "spec", "trust_score", "fix", "history",
+    ])
+
+
+@dataclass
 class CodeVerifyConfig:
     """Complete CodeVerify configuration."""
-    
+
     version: str = "1"
-    
+
     # Languages to analyze
-    languages: list[str] = field(default_factory=lambda: ["python", "typescript"])
+    languages: list[str] = field(default_factory=lambda: ["python", "typescript", "go", "java"])
     
     # File patterns
     include_patterns: list[str] = field(default_factory=lambda: ["**/*.py", "**/*.ts", "**/*.tsx"])
@@ -107,6 +192,16 @@ class CodeVerifyConfig:
     comment_on_pass: bool = True
     collapse_findings: bool = True
     max_inline_comments: int = 10
+
+    # Next-gen feature configs
+    cache: CacheConfig = field(default_factory=CacheConfig)
+    policy: PolicyConfig = field(default_factory=PolicyConfig)
+    streaming: StreamingConfig = field(default_factory=StreamingConfig)
+    autofix: AutoFixConfig = field(default_factory=AutoFixConfig)
+    hallucination: HallucinationConfig = field(default_factory=HallucinationConfig)
+    telemetry_config: TelemetryConfig = field(default_factory=TelemetryConfig)
+    impact: ImpactConfig = field(default_factory=ImpactConfig)
+    copilot: CopilotConfig = field(default_factory=CopilotConfig)
 
 
 def parse_config(content: str | dict[str, Any]) -> CodeVerifyConfig:
@@ -188,7 +283,83 @@ def parse_config(content: str | dict[str, Any]) -> CodeVerifyConfig:
     config.comment_on_pass = data.get("comment_on_pass", True)
     config.collapse_findings = data.get("collapse_findings", True)
     config.max_inline_comments = data.get("max_inline_comments", 10)
-    
+
+    # Cache config
+    if "cache" in data:
+        c = data["cache"]
+        config.cache = CacheConfig(
+            enabled=c.get("enabled", True),
+            backend=c.get("backend", "memory"),
+            redis_url=c.get("redis_url", "redis://localhost:6379/1"),
+            ttl_seconds=c.get("ttl_seconds", 86400),
+            max_entries=c.get("max_entries", 10000),
+        )
+
+    # Policy config
+    if "policy" in data:
+        p = data["policy"]
+        config.policy = PolicyConfig(
+            enabled=p.get("enabled", False),
+            policy_file=p.get("policy_file"),
+            use_built_in=p.get("use_built_in", []),
+            default_action=p.get("default_action", "warn"),
+        )
+
+    # Streaming config
+    if "streaming" in data:
+        s = data["streaming"]
+        config.streaming = StreamingConfig(
+            enabled=s.get("enabled", True),
+            debounce_ms=s.get("debounce_ms", 500),
+            stages=s.get("stages", ["pattern", "ai", "formal"]),
+        )
+
+    # Auto-fix config
+    if "autofix" in data:
+        af = data["autofix"]
+        config.autofix = AutoFixConfig(
+            enabled=af.get("enabled", False),
+            max_attempts=af.get("max_attempts", 3),
+            require_verification=af.get("require_verification", True),
+            auto_create_pr=af.get("auto_create_pr", False),
+            min_confidence=af.get("min_confidence", "medium"),
+        )
+
+    # Hallucination config
+    if "hallucination" in data:
+        h = data["hallucination"]
+        config.hallucination = HallucinationConfig(
+            enabled=h.get("enabled", True),
+            check_registry=h.get("check_registry", False),
+            custom_allowlist=h.get("allowlist", []),
+        )
+
+    # Telemetry config
+    if "telemetry" in data:
+        t = data["telemetry"]
+        config.telemetry_config = TelemetryConfig(
+            enabled=t.get("enabled", True),
+            track_lifecycle=t.get("track_lifecycle", True),
+        )
+
+    # Impact analysis config
+    if "impact" in data:
+        i = data["impact"]
+        config.impact = ImpactConfig(
+            enabled=i.get("enabled", False),
+            org_repos=i.get("org_repos", []),
+            notify_downstream=i.get("notify_downstream", True),
+        )
+
+    # Copilot config
+    if "copilot" in data:
+        cp = data["copilot"]
+        config.copilot = CopilotConfig(
+            enabled=cp.get("enabled", False),
+            webhook_secret=cp.get("webhook_secret", ""),
+            commands=cp.get("commands", ["verify", "explain", "spec", "trust_score", "fix", "history"]),
+        )
+
     return config
 
 
