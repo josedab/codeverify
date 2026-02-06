@@ -20,6 +20,8 @@ import {
 import { PairReviewerProvider } from './providers/pairReviewerProvider';
 import { PasteInterceptionProvider } from './providers/pasteInterceptionProvider';
 import { FormalSpecAssistantProvider } from './providers/formalSpecAssistantProvider';
+import { StreamingVerificationProvider } from './providers/streamingVerificationProvider';
+import { HallucinationProvider } from './providers/hallucinationProvider';
 import { CodeVerifyClient } from './client';
 import { logger, initializeLogger } from './logger';
 
@@ -30,6 +32,8 @@ let continuousVerificationProvider: ContinuousVerificationProvider;
 let pairReviewerProvider: PairReviewerProvider;
 let pasteInterceptionProvider: PasteInterceptionProvider;
 let formalSpecAssistantProvider: FormalSpecAssistantProvider;
+let streamingVerificationProvider: StreamingVerificationProvider;
+let hallucinationProvider: HallucinationProvider;
 let statusBarItem: vscode.StatusBarItem;
 let realTimeEnabled = false;
 let realTimeTimeout: NodeJS.Timeout | undefined;
@@ -62,7 +66,23 @@ export function activate(context: vscode.ExtensionContext) {
     pairReviewerProvider = new PairReviewerProvider(client);
     pasteInterceptionProvider = new PasteInterceptionProvider(client);
     formalSpecAssistantProvider = new FormalSpecAssistantProvider(client);
-    
+
+    // Initialize next-gen providers (v0.4.0)
+    const streamingEnabled = config.get('streamingVerification.enabled', true);
+    if (streamingEnabled) {
+        const debounceMs = config.get('streamingVerification.debounceMs', 500);
+        streamingVerificationProvider = new StreamingVerificationProvider(debounceMs as number);
+        context.subscriptions.push(streamingVerificationProvider);
+        logger.info('Streaming verification provider enabled');
+    }
+
+    const hallucinationEnabled = config.get('hallucinationDetection.enabled', true);
+    if (hallucinationEnabled) {
+        hallucinationProvider = new HallucinationProvider();
+        context.subscriptions.push(hallucinationProvider);
+        logger.info('Hallucination detection provider enabled');
+    }
+
     // Register tree view
     vscode.window.registerTreeDataProvider('codeverifyFindings', findingsTreeProvider);
     
