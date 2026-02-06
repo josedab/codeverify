@@ -1,0 +1,174 @@
+name: 'CodeVerify - AI-Powered Code Verification'
+description: 'Formal verification for your codebase using Z3 SMT solver and AI-powered analysis'
+author: 'CodeVerify'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  tier:
+    description: 'Verification tier: free (pattern-only), pro (AI analysis), enterprise (full Z3+AI)'
+    required: false
+    default: 'free'
+  api-key:
+    description: 'CodeVerify API key (required for pro and enterprise tiers)'
+    required: false
+  paths:
+    description: 'Paths to verify (comma-separated globs)'
+    required: false
+    default: '**/*.py,**/*.ts,**/*.js'
+  exclude-paths:
+    description: 'Paths to exclude (comma-separated globs)'
+    required: false
+    default: '**/node_modules/**,**/__pycache__/**,**/venv/**'
+  fail-on:
+    description: 'When to fail: critical, high, medium, low, never'
+    required: false
+    default: 'high'
+  config-file:
+    description: 'Path to codeverify.yml config file'
+    required: false
+  enable-supply-chain:
+    description: 'Enable supply chain verification for dependencies'
+    required: false
+    default: 'true'
+  enable-pr-comments:
+    description: 'Post verification results as PR comments'
+    required: false
+    default: 'true'
+  enable-sarif:
+    description: 'Generate SARIF report for GitHub Security tab'
+    required: false
+    default: 'true'
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11'
+  enable-cache:
+    description: 'Enable incremental verification cache for faster re-runs'
+    required: false
+    default: 'true'
+  enable-hallucination-check:
+    description: 'Enable AI hallucination detection for imports'
+    required: false
+    default: 'true'
+  enable-autofix:
+    description: 'Enable auto-fix suggestions in PR comments'
+    required: false
+    default: 'false'
+  enable-impact-analysis:
+    description: 'Enable cross-repository impact analysis'
+    required: false
+    default: 'false'
+  policy-file:
+    description: 'Path to verification policy file'
+    required: false
+  languages:
+    description: 'Languages to analyze (comma-separated: python,typescript,go,java)'
+    required: false
+    default: 'python,typescript,go,java'
+
+outputs:
+  status:
+    description: 'Verification status: passed, failed, warning'
+    value: ${{ steps.verify.outputs.status }}
+  issues-found:
+    description: 'Number of issues found'
+    value: ${{ steps.verify.outputs.issues_found }}
+  critical-count:
+    description: 'Number of critical issues'
+    value: ${{ steps.verify.outputs.critical_count }}
+  high-count:
+    description: 'Number of high severity issues'
+    value: ${{ steps.verify.outputs.high_count }}
+  report-url:
+    description: 'URL to full verification report'
+    value: ${{ steps.verify.outputs.report_url }}
+  sarif-file:
+    description: 'Path to SARIF output file'
+    value: ${{ steps.verify.outputs.sarif_file }}
+  hallucinations-found:
+    description: 'Number of hallucinated API calls detected'
+    value: ${{ steps.verify.outputs.hallucinations_found }}
+  autofix-count:
+    description: 'Number of auto-fix suggestions generated'
+    value: ${{ steps.verify.outputs.autofix_count }}
+  cache-hit-rate:
+    description: 'Verification cache hit rate'
+    value: ${{ steps.verify.outputs.cache_hit_rate }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install CodeVerify
+      shell: bash
+      run: |
+        pip install codeverify-cli codeverify-core
+        if [ "${{ inputs.tier }}" != "free" ]; then
+          pip install codeverify-agents z3-solver
+        fi
+
+    - name: Detect changed files
+      id: changed
+      if: github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        echo "files=$(gh pr diff ${{ github.event.pull_request.number }} --name-only | tr '\n' ',' | sed 's/,$//')" >> $GITHUB_OUTPUT
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+    - name: Run verification
+      id: verify
+      shell: bash
+      env:
+        CODEVERIFY_API_KEY: ${{ inputs.api-key }}
+        CODEVERIFY_TIER: ${{ inputs.tier }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        python ${{ github.action_path }}/scripts/run_verification.py \
+          --tier "${{ inputs.tier }}" \
+          --paths "${{ inputs.paths }}" \
+          --exclude "${{ inputs.exclude-paths }}" \
+          --fail-on "${{ inputs.fail-on }}" \
+          --config "${{ inputs.config-file }}" \
+          --supply-chain "${{ inputs.enable-supply-chain }}" \
+          --sarif "${{ inputs.enable-sarif }}" \
+          --changed-files "${{ steps.changed.outputs.files }}" \
+          --output-dir "${{ runner.temp }}/codeverify" \
+          --cache "${{ inputs.enable-cache }}" \
+          --hallucination-check "${{ inputs.enable-hallucination-check }}" \
+          --autofix "${{ inputs.enable-autofix }}" \
+          --impact-analysis "${{ inputs.enable-impact-analysis }}" \
+          --policy "${{ inputs.policy-file }}" \
+          --languages "${{ inputs.languages }}"
+
+    - name: Upload SARIF to GitHub Security
+      if: inputs.enable-sarif == 'true' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ runner.temp }}/codeverify/results.sarif
+      continue-on-error: true
+
+    - name: Post PR comment
+      if: inputs.enable-pr-comments == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if [ -f "${{ runner.temp }}/codeverify/pr-comment.md" ]; then
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body-file "${{ runner.temp }}/codeverify/pr-comment.md"
+        fi
+
+    - name: Upload verification report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: codeverify-report
+        path: ${{ runner.temp }}/codeverify/
+        retention-days: 30

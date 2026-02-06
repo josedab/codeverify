@@ -1,0 +1,97 @@
+# CodeVerify Enterprise Tier - Full Z3 Formal Verification + AI
+# This workflow runs CodeVerify's Enterprise tier with formal verification
+# Features: Pattern checks + AI analysis + Z3 SMT solver proofs + Supply chain audit
+
+name: CodeVerify (Enterprise)
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  schedule:
+    # Run full verification weekly on main branch
+    - cron: '0 0 * * 0'
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+concurrency:
+  group: codeverify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: CodeVerify Formal Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: Run CodeVerify Enterprise
+        id: codeverify
+        uses: codeverify/codeverify-action@v1
+        with:
+          tier: enterprise
+          api-key: ${{ secrets.CODEVERIFY_API_KEY }}
+          paths: '**/*.py,**/*.ts,**/*.js,**/*.tsx,**/*.jsx,**/*.go,**/*.rs'
+          exclude-paths: '**/node_modules/**,**/venv/**,**/.venv/**,**/dist/**,**/vendor/**'
+          fail-on: medium
+          enable-supply-chain: 'true'
+          enable-pr-comments: 'true'
+          enable-sarif: 'true'
+          config-file: 'codeverify.yml'
+
+      - name: Check verification status
+        if: steps.codeverify.outputs.status == 'failed'
+        run: |
+          echo "::error::CodeVerify found ${{ steps.codeverify.outputs.critical-count }} critical and ${{ steps.codeverify.outputs.high-count }} high severity issues"
+          exit 1
+
+      - name: Upload formal proofs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeverify-enterprise-proofs
+          path: ${{ runner.temp }}/codeverify/
+          retention-days: 90
+
+  supply-chain-audit:
+    name: Supply Chain Security Audit
+    runs-on: ubuntu-latest
+    needs: verify
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run supply chain audit
+        uses: codeverify/codeverify-action@v1
+        with:
+          tier: enterprise
+          api-key: ${{ secrets.CODEVERIFY_API_KEY }}
+          paths: 'requirements*.txt,package*.json,Cargo.toml,go.mod,pyproject.toml'
+          enable-supply-chain: 'true'
+          fail-on: high
+
+  notify:
+    name: Notify on Issues
+    runs-on: ubuntu-latest
+    needs: [verify, supply-chain-audit]
+    if: failure()
+
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"CodeVerify found security issues in ${{ github.repository }} - ${{ github.ref }}"}' \
+            $SLACK_WEBHOOK_URL

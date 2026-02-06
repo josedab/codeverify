@@ -1,0 +1,36 @@
+# CodeVerify Free Tier - Pattern-Based Static Analysis
+# This workflow runs CodeVerify's free tier verification on every PR
+# Features: Pattern-based security checks, SARIF integration
+
+name: CodeVerify (Free)
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  verify:
+    name: CodeVerify Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run CodeVerify
+        uses: codeverify/codeverify-action@v1
+        with:
+          tier: free
+          paths: '**/*.py,**/*.ts,**/*.js,**/*.tsx,**/*.jsx'
+          exclude-paths: '**/node_modules/**,**/venv/**,**/.venv/**,**/dist/**'
+          fail-on: high
+          enable-supply-chain: 'true'
+          enable-pr-comments: 'true'
+          enable-sarif: 'true'

@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codeverify-lsp"
+version = "0.1.0"
+description = "CodeVerify Language Server Protocol implementation for universal IDE support"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "CodeVerify Team", email = "team@codeverify.io" }
+]
+keywords = ["codeverify", "lsp", "language-server", "verification", "ide"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+dependencies = [
+    "pygls>=1.2.0",
+    "lsprotocol>=2023.0.0",
+    "structlog>=23.2.0",
+    "httpx>=0.25.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "mypy>=1.5.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+codeverify-lsp = "codeverify_lsp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/codeverify/codeverify"
+Documentation = "https://docs.codeverify.io/lsp"
+Repository = "https://github.com/codeverify/codeverify"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codeverify_lsp"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]

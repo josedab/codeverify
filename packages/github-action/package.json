@@ -1,0 +1,27 @@
+{
+  "name": "@codeverify/github-action",
+  "version": "1.0.0",
+  "description": "CodeVerify GitHub Action - AI-powered code verification with Z3 formal proofs",
+  "main": "scripts/run_verification.py",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codeverify/codeverify-action"
+  },
+  "keywords": [
+    "github-actions",
+    "code-verification",
+    "formal-verification",
+    "z3",
+    "smt-solver",
+    "security",
+    "static-analysis",
+    "ai",
+    "code-quality"
+  ],
+  "author": "CodeVerify",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/codeverify/codeverify-action/issues"
+  },
+  "homepage": "https://codeverify.dev"
+}

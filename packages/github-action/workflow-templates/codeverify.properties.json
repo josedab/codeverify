@@ -1,0 +1,16 @@
+{
+  "name": "CodeVerify",
+  "description": "AI-powered code verification with Z3 formal proofs",
+  "iconName": "shield",
+  "categories": [
+    "security",
+    "code-quality"
+  ],
+  "filePatterns": [
+    "package.json",
+    "requirements.txt",
+    "pyproject.toml",
+    "Cargo.toml",
+    "go.mod"
+  ]
+}

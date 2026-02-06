@@ -1,0 +1,45 @@
+# CodeVerify Pro Tier - AI-Powered Semantic Analysis
+# This workflow runs CodeVerify's Pro tier with AI analysis on every PR
+# Features: Pattern checks + AI-powered semantic analysis + Smart suggestions
+
+name: CodeVerify (Pro)
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  verify:
+    name: CodeVerify AI Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run CodeVerify Pro
+        uses: codeverify/codeverify-action@v1
+        with:
+          tier: pro
+          api-key: ${{ secrets.CODEVERIFY_API_KEY }}
+          paths: '**/*.py,**/*.ts,**/*.js,**/*.tsx,**/*.jsx'
+          exclude-paths: '**/node_modules/**,**/venv/**,**/.venv/**,**/dist/**,**/test/**'
+          fail-on: high
+          enable-supply-chain: 'true'
+          enable-pr-comments: 'true'
+          enable-sarif: 'true'
+
+      - name: Upload analysis results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeverify-pro-results
+          path: ${{ runner.temp }}/codeverify/
+          retention-days: 30
