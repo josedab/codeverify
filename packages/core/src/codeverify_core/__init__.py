@@ -1,4 +1,22 @@
-"""CodeVerify Core - Shared utilities and data models."""
+"""CodeVerify Core - Shared utilities and data models.
+
+Quick start::
+
+    from codeverify_core import LocalZ3Verifier
+    verifier = LocalZ3Verifier()
+    results = verifier.verify_all(code, "python")
+
+Common imports:
+
+    Data models:       Analysis, Finding, CodeLocation, VerificationType
+    Verification:      LocalZ3Verifier, StreamingVerificationSession
+    Rules engine:      CustomRule, RuleEvaluator, get_builtin_rules
+    Severity:          FindingSeverity, compare_severity
+    CI/CD gates:       PolicyEngine, PolicySet, get_default_policy_set
+    CLI entry point:   cli_verify
+
+See ``examples/`` in the repository root for runnable demos.
+"""
 
 # Import severity utilities directly from the severity module
 from codeverify_core.severity import (
@@ -222,10 +240,9 @@ from codeverify_core.org_dependencies import (
     OrgDependencyAnalyzer,
     OrgDependencyGraph,
     OrgRepository,
-    RepositoryConnection,
+    DependencyEdge as OrgDependencyEdge,
     TransitiveRisk,
     get_org_dependency_analyzer,
-    reset_org_dependency_analyzer,
 )
 
 # New: Offline Mode
@@ -326,6 +343,142 @@ from codeverify_core.universal_git import (
     WebhookPayload,
     WebhookReceiver,
     cli_verify,
+)
+
+# Streaming Verification API (v0.5.0)
+from codeverify_core.streaming_verification import (
+    IncrementalDiff,
+    SessionStatus,
+    StreamEvent,
+    StreamEventType,
+    StreamingSessionConfig,
+    StreamingSessionPool,
+    StreamingVerificationSession,
+    VerificationStage as StreamingStage,
+    get_streaming_pool,
+    reset_streaming_pool,
+)
+
+# Verified Autofix Pipeline (v0.5.0)
+from codeverify_core.verified_autofix import (
+    AutofixConfig,
+    AutofixPipeline,
+    CodeIssue,
+    DifferentialVerifier,
+    FixAttemptStatus,
+    FixCache,
+    FixGenerator,
+    GeneratedPatch,
+    VerifiedFix as AutofixVerifiedFix,
+    VerificationProof as AutofixVerificationProof,
+    get_autofix_pipeline,
+    reset_autofix_pipeline,
+)
+
+# Organization Knowledge Graph (v0.5.0)
+from codeverify_core.knowledge_graph import (
+    EdgeType as KGEdgeType,
+    GraphEdge as KGGraphEdge,
+    GraphNode as KGGraphNode,
+    KnowledgeGraph,
+    KnowledgeGraphConfig,
+    KnowledgeIngester,
+    NodeType as KGNodeType,
+    ProofReuseEngine,
+    get_knowledge_graph,
+    reset_knowledge_graph,
+)
+
+# Go + Java Language Support (v0.5.0)
+from codeverify_core.language_support import (
+    LanguageConfig as LangConfig,
+    LanguageFeature,
+    LanguageParser,
+    LanguageRule,
+    LanguageRuleRegistry,
+    SupportedLanguage,
+    Z3ConstraintGenerator,
+    detect_language,
+    get_language_registry,
+    reset_language_registry,
+)
+
+# Supply Chain Verification (v0.5.0)
+from codeverify_core.supply_chain_verification import (
+    DependencyParser as SCDependencyParser,
+    LockfileVerifier,
+    NpmDependencyParser,
+    PackageEcosystem as SCPackageEcosystem,
+    PackageInfo as SCPackageInfo,
+    PypiDependencyParser,
+    SupplyChainThreat,
+    SupplyChainVerifier,
+    ThreatDetector,
+    ThreatType,
+)
+
+# Copilot Chat Integration (v0.5.0)
+from codeverify_core.copilot_extension import (
+    CodeSuggestion,
+    CommandParser,
+    CopilotChatParticipant,
+    CopilotCommand,
+    CopilotContext,
+    CopilotMessage,
+    CopilotMessageRole,
+    CopilotResponse,
+    CopilotWebhookHandler,
+)
+
+# Policy Engine / CI-CD Gates (v0.5.0)
+from codeverify_core.policy_engine import (
+    PolicyAction,
+    PolicyCondition,
+    PolicyEngine,
+    PolicyEvaluationResult,
+    PolicyRule,
+    PolicyScope,
+    PolicySet,
+    get_default_policy_set,
+    parse_policy_yaml,
+)
+
+# Telemetry & ROI Analytics (v0.5.0)
+from codeverify_core.telemetry import (
+    CostEstimator as TelemetryCostEstimator,
+    FindingLifecycle,
+    FindingMetrics,
+    MetricType as TelemetryMetricType,
+    ROIDashboard as TelemetryROIDashboard,
+    ROIReport,
+    TelemetryCollector,
+    TelemetryEvent,
+)
+
+# Plugin Marketplace & Agent SDK (v0.5.0)
+from codeverify_core.agent_sdk import (
+    AgentCapability,
+    AgentCategory,
+    AgentLanguage,
+    AgentManifest,
+    AgentPackage,
+    AgentLifecycle,
+    AnalysisContext as SDKAnalysisContext,
+    AnalysisResult as SDKAnalysisResult,
+    BaseAgent as SDKBaseAgent,
+    Finding as SDKFinding,
+    SeverityLevel as SDKSeverityLevel,
+    agent as agent_decorator,
+)
+from codeverify_core.agent_runtime import (
+    AgentLoadError,
+    AgentSandbox,
+    IsolatedAgentRunner,
+    ResourceLimitExceeded,
+    SandboxConfig,
+    SandboxError,
+    SecurityViolation,
+    run_agent,
 )
 
 __all__ = [
@@ -491,10 +644,9 @@ __all__ = [
     "OrgDependencyAnalyzer",
     "OrgDependencyGraph",
     "OrgRepository",
-    "RepositoryConnection",
+    "OrgDependencyEdge",
     "TransitiveRisk",
     "get_org_dependency_analyzer",
-    "reset_org_dependency_analyzer",
     # Offline Mode
     "LocalModelConfig",
     "LocalModelType",
@@ -577,4 +729,111 @@ __all__ = [
     "WebhookPayload",
     "WebhookReceiver",
     "cli_verify",
+    # Streaming Verification API (v0.5.0)
+    "IncrementalDiff",
+    "SessionStatus",
+    "StreamEvent",
+    "StreamEventType",
+    "StreamingSessionConfig",
+    "StreamingSessionPool",
+    "StreamingVerificationSession",
+    "StreamingStage",
+    "get_streaming_pool",
+    "reset_streaming_pool",
+    # Verified Autofix Pipeline (v0.5.0)
+    "AutofixConfig",
+    "AutofixPipeline",
+    "CodeIssue",
+    "DifferentialVerifier",
+    "FixAttemptStatus",
+    "FixCache",
+    "FixGenerator",
+    "GeneratedPatch",
+    "AutofixVerifiedFix",
+    "AutofixVerificationProof",
+    "get_autofix_pipeline",
+    "reset_autofix_pipeline",
+    # Organization Knowledge Graph (v0.5.0)
+    "KGEdgeType",
+    "KGGraphEdge",
+    "KGGraphNode",
+    "KnowledgeGraph",
+    "KnowledgeGraphConfig",
+    "KnowledgeIngester",
+    "KGNodeType",
+    "ProofReuseEngine",
+    "get_knowledge_graph",
+    "reset_knowledge_graph",
+    # Go + Java Language Support (v0.5.0)
+    "LangConfig",
+    "LanguageFeature",
+    "LanguageParser",
+    "LanguageRule",
+    "LanguageRuleRegistry",
+    "SupportedLanguage",
+    "Z3ConstraintGenerator",
+    "detect_language",
+    "get_language_registry",
+    "reset_language_registry",
+    # Supply Chain Verification (v0.5.0)
+    "SCDependencyParser",
+    "LockfileVerifier",
+    "NpmDependencyParser",
+    "SCPackageEcosystem",
+    "SCPackageInfo",
+    "PypiDependencyParser",
+    "SupplyChainThreat",
+    "SupplyChainVerifier",
+    "ThreatDetector",
+    "ThreatType",
+    # Copilot Chat Integration (v0.5.0)
+    "CodeSuggestion",
+    "CommandParser",
+    "CopilotChatParticipant",
+    "CopilotCommand",
+    "CopilotContext",
+    "CopilotMessage",
+    "CopilotMessageRole",
+    "CopilotResponse",
+    "CopilotWebhookHandler",
+    # Policy Engine / CI-CD Gates (v0.5.0)
+    "PolicyAction",
+    "PolicyCondition",
+    "PolicyEngine",
+    "PolicyEvaluationResult",
+    "PolicyRule",
+    "PolicyScope",
+    "PolicySet",
+    "get_default_policy_set",
+    "parse_policy_yaml",
+    # Telemetry & ROI Analytics (v0.5.0)
+    "TelemetryCostEstimator",
+    "FindingLifecycle",
+    "FindingMetrics",
+    "TelemetryMetricType",
+    "TelemetryROIDashboard",
+    "ROIReport",
+    "TelemetryCollector",
+    "TelemetryEvent",
+    # Plugin Marketplace & Agent SDK (v0.5.0)
+    "AgentCapability",
+    "AgentCategory",
+    "AgentLanguage",
+    "AgentManifest",
+    "AgentPackage",
+    "AgentLifecycle",
+    "SDKAnalysisContext",
+    "SDKAnalysisResult",
+    "SDKBaseAgent",
+    "SDKFinding",
+    "SDKSeverityLevel",
+    "agent_decorator",
+    "AgentLoadError",
+    "AgentSandbox",
+    "IsolatedAgentRunner",
+    "ResourceLimitExceeded",
+    "SandboxConfig",
+    "SandboxError",
+    "SecurityViolation",
+    "run_agent",
 ]

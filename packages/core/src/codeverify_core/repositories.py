@@ -5,6 +5,8 @@ for persistence concerns. Production deployments should implement
 database-backed versions of these interfaces.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
