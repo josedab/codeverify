@@ -1,0 +1,18 @@
+apiVersion: v2
+name: codeverify
+description: AI-powered code review with formal verification — self-hosted enterprise deployment
+type: application
+version: 0.5.0
+appVersion: "0.5.0"
+keywords:
+  - code-review
+  - formal-verification
+  - ai
+  - security
+  - static-analysis
+home: https://codeverify.dev
+sources:
+  - https://github.com/codeverify/codeverify
+maintainers:
+  - name: CodeVerify Team
+    email: engineering@codeverify.dev

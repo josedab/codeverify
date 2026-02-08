@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "codeverify.fullname" . }}-worker
+  labels:
+    {{- include "codeverify.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.replicaCount.worker }}
+  selector:
+    matchLabels:
+      {{- include "codeverify.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "codeverify.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: worker
+          image: "{{ .Values.image.worker.repository }}:{{ .Values.image.worker.tag }}"
+          imagePullPolicy: {{ .Values.image.worker.pullPolicy }}
+          command: ["celery", "-A", "codeverify_worker.main", "worker"]
+          args:
+            - "--concurrency={{ .Values.worker.concurrency }}"
+            - "--loglevel=info"
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codeverify.fullname" . }}-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codeverify.fullname" . }}-secrets
+                  key: redis-url
+            - name: Z3_TIMEOUT_SECONDS
+              value: {{ .Values.worker.env.Z3_TIMEOUT_SECONDS | quote }}
+            {{- if .Values.llm.openai.enabled }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "codeverify.fullname" . }}-secrets
+                  key: openai-api-key
+            {{- end }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          {{- if .Values.persistence.proofStorage.enabled }}
+          volumeMounts:
+            - name: proof-storage
+              mountPath: /data/proofs
+          {{- end }}
+      {{- if .Values.persistence.proofStorage.enabled }}
+      volumes:
+        - name: proof-storage
+          persistentVolumeClaim:
+            claimName: {{ include "codeverify.fullname" . }}-proofs
+      {{- end }}
+---
+{{- if .Values.persistence.proofStorage.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "codeverify.fullname" . }}-proofs
+  labels:
+    {{- include "codeverify.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.persistence.proofStorage.size }}
+  {{- if .Values.persistence.proofStorage.storageClass }}
+  storageClassName: {{ .Values.persistence.proofStorage.storageClass }}
+  {{- end }}
+{{- end }}
