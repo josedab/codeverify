@@ -1,0 +1,90 @@
+# Prometheus / kube-prometheus-stack Helm values for CodeVerify
+# Usage:
+#   helm install prometheus prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring --create-namespace \
+#     -f deploy/monitoring/prometheus-values.yaml
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelector:
+      matchLabels:
+        app: codeverify
+
+    additionalScrapeConfigs:
+      - job_name: "codeverify-api"
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: codeverify-api
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            regex: "8000"
+            action: keep
+
+      - job_name: "codeverify-worker"
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: codeverify-worker
+            action: keep
+
+    retention: 15d
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+      limits:
+        memory: 2Gi
+        cpu: "1"
+
+grafana:
+  enabled: true
+  adminPassword: changeme
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: codeverify
+          orgId: 1
+          folder: CodeVerify
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/codeverify
+
+alertmanager:
+  config:
+    route:
+      receiver: "default"
+      group_by: ["alertname", "severity"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        - match:
+            severity: critical
+          receiver: "pagerduty-critical"
+        - match:
+            severity: warning
+          receiver: "slack-warnings"
+
+    receivers:
+      - name: "default"
+        slack_configs:
+          - api_url: "${SLACK_WEBHOOK_URL}"
+            channel: "#codeverify-alerts"
+
+      - name: "pagerduty-critical"
+        pagerduty_configs:
+          - service_key: "${PAGERDUTY_SERVICE_KEY}"
+            severity: critical
+
+      - name: "slack-warnings"
+        slack_configs:
+          - api_url: "${SLACK_WEBHOOK_URL}"
+            channel: "#codeverify-alerts"
+            title: "{{ .GroupLabels.alertname }}"
+            text: "{{ .CommonAnnotations.description }}"

@@ -1,0 +1,119 @@
+# Grafana dashboard ConfigMap for CodeVerify Overview
+# Apply: kubectl apply -f deploy/monitoring/dashboards/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: codeverify-overview-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  codeverify-overview.json: |
+    {
+      "dashboard": {
+        "title": "CodeVerify Overview",
+        "uid": "codeverify-overview",
+        "tags": ["codeverify"],
+        "timezone": "browser",
+        "refresh": "30s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Analysis Pass Rate",
+            "type": "stat",
+            "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+            "targets": [
+              {
+                "expr": "sum(rate(codeverify_analyses_total{status=\"passed\"}[1h])) / sum(rate(codeverify_analyses_total[1h])) * 100",
+                "legendFormat": "Pass Rate %"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": { "unit": "percent", "thresholds": { "steps": [
+                { "color": "red", "value": 0 },
+                { "color": "yellow", "value": 80 },
+                { "color": "green", "value": 95 }
+              ]}}
+            }
+          },
+          {
+            "id": 2,
+            "title": "Analyses per Hour",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 6, "y": 0 },
+            "targets": [
+              {
+                "expr": "sum(increase(codeverify_analyses_total[1h]))",
+                "legendFormat": "Total"
+              },
+              {
+                "expr": "sum(increase(codeverify_analyses_total{status=\"passed\"}[1h]))",
+                "legendFormat": "Passed"
+              },
+              {
+                "expr": "sum(increase(codeverify_analyses_total{status=\"failed\"}[1h]))",
+                "legendFormat": "Failed"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Findings by Severity",
+            "type": "piechart",
+            "gridPos": { "h": 8, "w": 6, "x": 0, "y": 4 },
+            "targets": [
+              {
+                "expr": "sum by (severity) (codeverify_findings_total)",
+                "legendFormat": "{{severity}}"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "API Request Latency (p95)",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(codeverify_http_request_duration_seconds_bucket[5m])) by (le))",
+                "legendFormat": "p95"
+              },
+              {
+                "expr": "histogram_quantile(0.50, sum(rate(codeverify_http_request_duration_seconds_bucket[5m])) by (le))",
+                "legendFormat": "p50"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": { "unit": "s" }
+            }
+          },
+          {
+            "id": 5,
+            "title": "Queue Depth",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+            "targets": [
+              {
+                "expr": "codeverify_queue_length",
+                "legendFormat": "Jobs in queue"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Error Rate",
+            "type": "timeseries",
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+            "targets": [
+              {
+                "expr": "sum(rate(codeverify_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(codeverify_http_requests_total[5m])) * 100",
+                "legendFormat": "Error %"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": { "unit": "percent" }
+            }
+          }
+        ]
+      }
+    }

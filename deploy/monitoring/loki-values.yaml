@@ -1,0 +1,51 @@
+# Loki / loki-stack Helm values for CodeVerify
+# Usage:
+#   helm install loki grafana/loki-stack \
+#     --namespace monitoring \
+#     -f deploy/monitoring/loki-values.yaml
+
+loki:
+  config:
+    table_manager:
+      retention_deletes_enabled: true
+      retention_period: 720h  # 30 days
+
+    limits_config:
+      ingestion_rate_mb: 10
+      ingestion_burst_size_mb: 20
+      max_streams_per_user: 10000
+      max_entries_limit_per_query: 5000
+
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+
+promtail:
+  config:
+    clients:
+      - url: http://loki:3100/loki/api/v1/push
+
+    scrape_configs:
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
+        pipeline_stages:
+          - json:
+              expressions:
+                level: level
+                logger: logger
+                trace_id: trace_id
+          - labels:
+              level:
+              logger:
