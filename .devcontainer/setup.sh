@@ -23,6 +23,11 @@ echo "📦 Installing Node.js packages..."
 cd apps/web && npm install && cd ../..
 cd apps/github-app && npm install && cd ../..
 
+# Set up pre-commit hooks
+echo "🔧 Installing pre-commit hooks..."
+pip install pre-commit
+pre-commit install
+
 # Wait for PostgreSQL to be ready
 echo "⏳ Waiting for PostgreSQL..."
 while ! pg_isready -h postgres -p 5432 -U codeverify; do

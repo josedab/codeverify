@@ -50,6 +50,8 @@ services:
     container_name: codeverify-api
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=postgresql://codeverify:codeverify@postgres:5432/codeverify
       - REDIS_URL=redis://redis:6379/0
@@ -70,6 +72,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile.worker
     container_name: codeverify-worker
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=postgresql://codeverify:codeverify@postgres:5432/codeverify
       - REDIS_URL=redis://redis:6379/0
