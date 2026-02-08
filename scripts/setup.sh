@@ -6,24 +6,42 @@ set -e
 echo "🚀 Setting up CodeVerify development environment..."
 
 # Check prerequisites
-command -v python3 >/dev/null 2>&1 || { echo "❌ Python 3 is required but not installed."; exit 1; }
 command -v node >/dev/null 2>&1 || { echo "❌ Node.js is required but not installed."; exit 1; }
 command -v docker >/dev/null 2>&1 || { echo "❌ Docker is required but not installed."; exit 1; }
 
+# Find the best available Python 3.11+
+PYTHON=$(command -v python3.12 2>/dev/null || command -v python3.11 2>/dev/null || command -v python3 2>/dev/null)
+if [ -z "$PYTHON" ]; then
+    echo "❌ Python 3 is required but not installed."
+    exit 1
+fi
+if ! "$PYTHON" -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" 2>/dev/null; then
+    echo "❌ Python 3.11+ required. Found: $($PYTHON --version 2>&1)"
+    echo "   Install with: brew install python@3.12  (macOS)"
+    echo "                  sudo apt install python3.12  (Ubuntu/Debian)"
+    exit 1
+fi
+echo "   Using $($PYTHON --version 2>&1) at $PYTHON"
+
 # Create virtual environment
 echo "📦 Creating Python virtual environment..."
-python3 -m venv .venv
+"$PYTHON" -m venv .venv
 source .venv/bin/activate
 
 # Install Python packages
 echo "📦 Installing Python packages..."
 pip install --upgrade pip
-pip install -e "packages/core"
-pip install -e "packages/verifier"
-pip install -e "packages/ai-agents"
+pip install -e "packages/core[dev]"
+pip install -e "packages/verifier[dev]"
+pip install -e "packages/ai-agents[dev]"
 pip install -e "packages/z3-mcp"
 pip install -e "apps/api[dev]"
 pip install -e "apps/worker[dev]"
+
+# Set up pre-commit hooks
+echo "🔧 Installing pre-commit hooks..."
+pip install pre-commit
+pre-commit install
 
 # Install Node.js packages
 echo "📦 Installing Node.js packages..."
@@ -32,9 +50,9 @@ cd apps/web && npm install && cd ../..
 
 # Copy environment file
 if [ ! -f .env ]; then
-    echo "📋 Creating .env file from template..."
-    cp .env.example .env
-    echo "⚠️  Please edit .env with your API keys and credentials"
+    echo "📋 Creating .env file from minimal template..."
+    cp .env.minimal .env
+    echo "⚠️  Created .env with local defaults. For AI features, see .env.example"
 fi
 
 # Start infrastructure

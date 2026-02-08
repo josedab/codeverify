@@ -1,5 +1,9 @@
 #!/bin/bash
-# Run all tests
+# Run all tests.
+# Prefer using Makefile targets instead:
+#   make test-core   — core package only (no infrastructure needed)
+#   make test-fast   — all packages (no infrastructure needed)
+#   make test        — everything including apps (needs Postgres + Redis)
 
 set -e
 
@@ -10,33 +14,50 @@ if [ -d ".venv" ]; then
     source .venv/bin/activate
 fi
 
-# Run Python tests
+# Run Python package tests (always available)
 echo ""
 echo "📦 Running Python package tests..."
 pytest packages/ -v --tb=short
 
+# Run API tests
 echo ""
 echo "🌐 Running API tests..."
 pytest apps/api/tests -v --tb=short
 
+# Run worker tests if they exist
 echo ""
-echo "⚙️ Running Worker tests..."
-pytest apps/worker/tests -v --tb=short 2>/dev/null || echo "No worker tests yet"
+if [ -d "apps/worker/tests" ] && ls apps/worker/tests/test_*.py >/dev/null 2>&1; then
+    echo "⚙️ Running Worker tests..."
+    pytest apps/worker/tests -v --tb=short
+else
+    echo "⏭️  Skipping worker tests (no test files found)"
+fi
+
+# Run integration tests if they exist
+echo ""
+if [ -d "tests/integration" ] && ls tests/integration/test_*.py >/dev/null 2>&1; then
+    echo "🔗 Running Integration tests..."
+    pytest tests/integration -v --tb=short
+else
+    echo "⏭️  Skipping integration tests (no test files found)"
+fi
+
+# Run Node.js tests if they exist
+echo ""
+if [ -f "apps/github-app/package.json" ] && grep -q '"test"' apps/github-app/package.json 2>/dev/null; then
+    echo "🔗 Running GitHub App tests..."
+    cd apps/github-app && npm test && cd ../..
+else
+    echo "⏭️  Skipping GitHub App tests (no test script found)"
+fi
 
 echo ""
-echo "🔗 Running Integration tests..."
-pytest tests/integration -v --tb=short 2>/dev/null || echo "No integration tests yet"
-
-# Run Node.js tests
-echo ""
-echo "🔗 Running GitHub App tests..."
-cd apps/github-app && npm test 2>/dev/null || echo "No GitHub App tests yet"
-cd ../..
-
-echo ""
-echo "🖥️ Running Web unit tests..."
-cd apps/web && npm test 2>/dev/null || echo "No Web unit tests yet"
-cd ../..
+if [ -f "apps/web/package.json" ] && grep -q '"test"' apps/web/package.json 2>/dev/null; then
+    echo "🖥️ Running Web unit tests..."
+    cd apps/web && npm test && cd ../..
+else
+    echo "⏭️  Skipping Web tests (no test script found)"
+fi
 
 echo ""
 echo "✅ All tests completed!"
@@ -45,7 +66,7 @@ echo "✅ All tests completed!"
 if [ "$1" = "--coverage" ]; then
     echo ""
     echo "📊 Generating coverage report..."
-    pytest packages/ apps/api/tests apps/worker/tests tests/integration \
+    pytest packages/ apps/api/tests \
         --cov=codeverify \
         --cov-report=html \
         --cov-report=term-missing

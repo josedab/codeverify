@@ -26,11 +26,12 @@ jobs:
       - name: Install pip-audit
         run: pip install pip-audit
 
-      - name: Run pip-audit on packages
+      - name: Install Python packages for auditing
         run: |
-          pip-audit --desc on --fix --dry-run -r packages/core/requirements.txt || true
-          pip-audit --desc on --fix --dry-run -r packages/verifier/requirements.txt || true
-          pip-audit --desc on --fix --dry-run -r packages/ai-agents/requirements.txt || true
+          pip install -e "packages/core" -e "packages/verifier" -e "packages/ai-agents"
+
+      - name: Run pip-audit on installed packages
+        run: pip-audit --desc on
         continue-on-error: true
 
       - name: Run npm audit on GitHub App

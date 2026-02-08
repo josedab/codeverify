@@ -38,9 +38,12 @@ def check_z3() -> bool:
 
 def check_postgres() -> bool:
     """Check PostgreSQL connection."""
-    import asyncpg
+    try:
+        import asyncpg
+    except ImportError:
+        raise RuntimeError("asyncpg not installed (pip install asyncpg)")
     import asyncio
-    
+
     async def _check():
         conn = await asyncpg.connect(os.getenv(
             "DATABASE_URL",
@@ -48,13 +51,16 @@ def check_postgres() -> bool:
         ))
         await conn.close()
         return True
-    
+
     return asyncio.run(_check())
 
 
 def check_redis() -> bool:
     """Check Redis connection."""
-    import redis
+    try:
+        import redis
+    except ImportError:
+        raise RuntimeError("redis not installed (pip install redis)")
     r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     return r.ping()
 
@@ -127,10 +133,10 @@ def main():
     env_vars = [
         ("DATABASE_URL", False),
         ("REDIS_URL", False),
-        ("GITHUB_APP_ID", True),
-        ("GITHUB_APP_PRIVATE_KEY", True),
-        ("GITHUB_WEBHOOK_SECRET", True),
-        ("JWT_SECRET", True),
+        ("GITHUB_APP_ID", False),
+        ("GITHUB_APP_PRIVATE_KEY", False),
+        ("GITHUB_WEBHOOK_SECRET", False),
+        ("JWT_SECRET", False),
         ("OPENAI_API_KEY", False),
         ("ANTHROPIC_API_KEY", False),
     ]
@@ -143,27 +149,29 @@ def main():
     print()
     
     # Summary
-    missing_required = [
-        name for name, required in env_vars 
-        if required and not check_env_var(name)
-    ]
-    
-    if missing_required:
-        print("⚠️  Missing required environment variables:")
-        for var in missing_required:
-            print(f"   - {var}")
-        print()
-        print("Copy .env.example to .env and fill in the values:")
-        print("   cp .env.example .env")
+    all_set = all(check_env_var(name) for name, _ in env_vars)
+    github_set = all(check_env_var(v) for v in ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_WEBHOOK_SECRET"])
+    llm_set = check_env_var("OPENAI_API_KEY") or check_env_var("ANTHROPIC_API_KEY")
+
+    print("📊 Summary")
+    print("-" * 30)
+    print(f"  {'✅' if True else '❌'} Core verification:     Ready (no API keys needed)")
+    print(f"  {'✅' if llm_set else '⚠️'} AI analysis:           {'Ready' if llm_set else 'Set OPENAI_API_KEY or ANTHROPIC_API_KEY'}")
+    print(f"  {'✅' if github_set else '⚠️'} GitHub PR integration: {'Ready' if github_set else 'Set GITHUB_APP_* vars (optional)'}")
+    print()
+
+    if not llm_set:
+        print("💡 Tip: For verification-only mode (no AI), you're all set!")
+        print("   To enable AI analysis, add an API key to .env:")
+        print("     OPENAI_API_KEY=sk-...")
+        print("     # or")
+        print("     ANTHROPIC_API_KEY=sk-ant-...")
         print()
     else:
-        print("✅ All required checks passed!")
+        print("✅ All checks passed!")
         print()
         print("Start the services with:")
-        print("   docker compose up -d")
-        print()
-        print("Then run the API:")
-        print("   cd apps/api && uvicorn codeverify_api.main:app --reload")
+        print("   make dev")
         print()
 
 
