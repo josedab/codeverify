@@ -25,6 +25,10 @@ inputs:
     description: 'When to fail: critical, high, medium, low, never'
     required: false
     default: 'high'
+  enforcement-mode:
+    description: 'Enforcement mode: advisory (comment only), warning (non-blocking), blocking (fail pipeline)'
+    required: false
+    default: 'blocking'
   config-file:
     description: 'Path to codeverify.yml config file'
     required: false
@@ -96,6 +100,9 @@ outputs:
   cache-hit-rate:
     description: 'Verification cache hit rate'
     value: ${{ steps.verify.outputs.cache_hit_rate }}
+  enforcement-mode:
+    description: 'Enforcement mode used for this run'
+    value: ${{ inputs.enforcement-mode }}
 
 runs:
   using: 'composite'
@@ -145,7 +152,8 @@ runs:
           --autofix "${{ inputs.enable-autofix }}" \
           --impact-analysis "${{ inputs.enable-impact-analysis }}" \
           --policy "${{ inputs.policy-file }}" \
-          --languages "${{ inputs.languages }}"
+          --languages "${{ inputs.languages }}" \
+          --enforcement-mode "${{ inputs.enforcement-mode }}"
 
     - name: Upload SARIF to GitHub Security
       if: inputs.enable-sarif == 'true' && always()
