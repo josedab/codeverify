@@ -1,0 +1,40 @@
+# CodeVerify configuration — the project analyzes itself!
+# See docs/examples/ for more configuration samples.
+
+version: "1"
+
+languages:
+  - python
+  - typescript
+
+include:
+  - "packages/**/*.py"
+  - "apps/**/*.py"
+
+exclude:
+  - "node_modules/**"
+  - ".venv/**"
+  - "website/**"
+  - "**/__pycache__/**"
+  - "**/migrations/**"
+  - "**/*.generated.*"
+
+verification:
+  enabled: true
+  timeout: 30
+  checks:
+    - null_safety
+    - array_bounds
+    - integer_overflow
+    - division_by_zero
+
+ai:
+  enabled: true
+  semantic: true
+  security: true
+
+thresholds:
+  critical: 0
+  high: 0
+  medium: 10
+  low: 50
