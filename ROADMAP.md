@@ -4,7 +4,7 @@ This document outlines the planned features and development direction for CodeVe
 
 ## Current Status
 
-**Version:** 0.3.0 (In Development)
+**Version:** 0.3.0 (Released)
 
 CodeVerify is currently in active development. We welcome community feedback and contributions.
 
@@ -58,7 +58,6 @@ CodeVerify is currently in active development. We welcome community feedback and
 ### IDE Integration
 - [ ] JetBrains IDE plugin (IntelliJ, PyCharm, WebStorm)
 - [ ] Neovim plugin
-- [ ] Enhanced VS Code extension features
 
 ### Enterprise Features
 - [ ] SAML/SSO authentication

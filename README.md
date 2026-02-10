@@ -116,44 +116,51 @@ codeverify/
 
 ## 🏃 Quick Start
 
-### Prerequisites
-
-- Python 3.11+
-- Node.js 20+
-- Docker & Docker Compose
-- GitHub App credentials (for PR integration)
-
-### 1. Clone and Configure
+### Fastest Path (recommended)
 
 ```bash
 git clone https://github.com/codeverify/codeverify.git
 cd codeverify
+make setup              # Creates venv, installs deps, starts Postgres + Redis
+source .venv/bin/activate
+make dev                # Starts API, worker, dashboard, GitHub app
+```
 
-# Copy environment template
+Run `make help` to see all available commands.
+
+### Try It Without Docker
+
+No Docker? No API keys? Just want to see it work?
+
+```bash
+pip install -e packages/core
+python examples/quickstart.py     # Formal verification demo
+python examples/custom_rules.py   # Rules engine demo
+```
+
+### Prerequisites
+
+- Python 3.11+ (`python3 --version`)
+- Node.js 20+ (for web dashboard and GitHub app only)
+- Docker & Docker Compose (for PostgreSQL and Redis)
+- GitHub App credentials (only for PR integration features)
+
+<details>
+<summary>Manual setup (without Make)</summary>
+
+```bash
+git clone https://github.com/codeverify/codeverify.git
+cd codeverify
 cp .env.example .env
-# Edit .env with your credentials
-```
+# Edit .env with your credentials (or just use defaults for local dev)
 
-### 2. Start with Docker Compose
-
-```bash
-# Start all services
-docker compose up -d
-
-# View logs
-docker compose logs -f api worker
-```
-
-Or for development:
-
-```bash
-# Start infrastructure only
+# Start infrastructure
 docker compose up -d postgres redis
 
 # Install Python packages
-pip install -e "packages/core" \
-            -e "packages/verifier" \
-            -e "packages/ai-agents" \
+pip install -e "packages/core[dev]" \
+            -e "packages/verifier[dev]" \
+            -e "packages/ai-agents[dev]" \
             -e "apps/api[dev]" \
             -e "apps/worker[dev]"
 
@@ -170,11 +177,12 @@ celery -A codeverify_worker.main worker       # Worker
 cd apps/web && npm run dev                     # Dashboard on :3000
 cd apps/github-app && npm run dev              # GitHub App on :3001
 ```
+</details>
 
-### 3. Validate Environment
+### Validate Environment
 
 ```bash
-python scripts/validate_env.py
+make validate   # or: python scripts/validate_env.py
 ```
 
 ## ⚙️ Configuration
@@ -339,11 +347,11 @@ sequenceDiagram
 
 ## 📈 Roadmap
 
+- [x] **VS Code extension** — Real-time verification as you code
+- [x] **Slack/Teams notifications** — Real-time alerts for findings
+- [x] **Custom rule builder** — No-code rule creation
 - [ ] **Go language support**
 - [ ] **Java language support**
-- [ ] **VSCode extension**
-- [ ] **Slack/Discord notifications**
-- [ ] **Custom rule builder**
 - [ ] **SOC 2 compliance**
 
 ## 🤝 Contributing

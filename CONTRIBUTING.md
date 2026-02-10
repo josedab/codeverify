@@ -96,14 +96,20 @@ docs(readme): update installation instructions
 ### Running Tests
 
 ```bash
-# All tests
-./scripts/test.sh
+# Core tests only (no infrastructure needed)
+make test-core
+
+# All package tests (no infrastructure needed)
+make test-fast
+
+# All tests including apps (requires Postgres + Redis)
+make test
 
 # Specific package
 pytest packages/verifier/tests -v
 
 # With coverage
-pytest --cov=codeverify --cov-report=html
+make test-coverage
 ```
 
 ### Writing Tests
