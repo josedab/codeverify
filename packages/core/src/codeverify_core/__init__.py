@@ -19,94 +19,73 @@ See ``examples/`` in the repository root for runnable demos.
 """
 
 # Import severity utilities directly from the severity module
-from codeverify_core.severity import (
-    FindingSeverity,
-    SEVERITY_ORDER,
-    SEVERITY_EMOJI,
-    SEVERITY_LABELS,
-    parse_severity,
-    compare_severity,
-    is_blocking_severity,
-    is_above_threshold,
-    get_severity_emoji,
-    get_severity_label,
-    sort_by_severity,
+from codeverify_core.agent_runtime import (
+    AgentLoadError,
+    AgentSandbox,
+    IsolatedAgentRunner,
+    ResourceLimitExceeded,
+    SandboxConfig,
+    SandboxError,
+    SecurityViolation,
+    run_agent,
 )
 
-from codeverify_core.models import (
-    Analysis,
-    AnalysisStatus,
-    Finding,
-    FindingCategory,
-    VerificationType,
-    # Timestamp utilities
-    TimestampMixin,
-    DataclassTimestampMixin,
-    parse_iso_datetime,
-    # Result type pattern
-    Result,
-    StrResult,
-    BoolResult,
-    OperationResult,
+# Plugin Marketplace & Agent SDK (v0.5.0)
+from codeverify_core.agent_sdk import (
+    AgentCapability,
+    AgentCategory,
+    AgentLanguage,
+    AgentLifecycle,
+    AgentManifest,
+    AgentPackage,
+)
+from codeverify_core.agent_sdk import (
+    AnalysisContext as SDKAnalysisContext,
+)
+from codeverify_core.agent_sdk import (
+    AnalysisResult as SDKAnalysisResult,
+)
+from codeverify_core.agent_sdk import (
+    BaseAgent as SDKBaseAgent,
+)
+from codeverify_core.agent_sdk import (
+    Finding as SDKFinding,
+)
+from codeverify_core.agent_sdk import (
+    SeverityLevel as SDKSeverityLevel,
+)
+from codeverify_core.agent_sdk import (
+    agent as agent_decorator,
 )
 
-# New feature exports
-from codeverify_core.rules import (
-    CustomRule,
-    RuleType,
-    RuleEvaluator,
-    RuleBuilder,
-    RuleViolation,
-    get_builtin_rules,
-    # Strategy pattern exports
-    RuleEvaluationStrategy,
-    PatternRuleStrategy,
-    CompositeRuleStrategy,
-    ASTRuleStrategy,
-    SemanticRuleStrategy,
+# Next-Gen Feature 7: Verification Budget Optimizer
+from codeverify_core.budget_optimizer import (
+    BatchOptimizationResult,
+    Budget,
+    CostEstimator,
+    CostModel,
+    DepthSelector,
+    OutcomeLearner,
+    RiskFactors,
+    RiskScorer,
+    VerificationBudgetOptimizer,
+    VerificationDecision,
 )
-from codeverify_core.scanning import (
-    ScanConfiguration,
-    CodebaseScanResult,
+from codeverify_core.budget_optimizer import (
+    VerificationDepth as BudgetVerificationDepth,
 )
-from codeverify_core.notifications import (
-    SlackFormatter,
-    TeamsFormatter,
-    NotificationSender,
-    NotificationChannel,
-    NotificationConfig,
-    NotificationType,
-)
-from codeverify_core.events import (
-    Event,
-    EventBus,
-    EventPriority,
-    AnalysisCompleteEvent,
-    AnalysisFailedEvent,
-    CriticalFindingEvent,
-    ScanCompleteEvent,
-    DigestReadyEvent,
-    get_event_bus,
-    reset_event_bus,
-    on_event,
-)
-from codeverify_core.notification_handlers import (
-    NotificationEventHandler,
-    ConfigProvider,
-    InMemoryConfigProvider,
-    setup_notification_handlers,
-)
-from codeverify_core.sub_function_analysis import (
-    GranularityLevel,
-    IncrementalAnalysisEngine,
-    Position,
-    RealTimeFeedbackModel,
-    SemanticBlock,
-    SemanticBlockType,
-    Span,
-    SubFunctionParser,
-    SymbolDefinition,
-    SymbolReference,
+
+# Copilot Chat Integration (v0.5.0)
+from codeverify_core.copilot_extension import (
+    CodeSuggestion,
+    CommandParser,
+    CopilotChatParticipant,
+    CopilotCommand,
+    CopilotContext,
+    CopilotMessage,
+    CopilotMessageRole,
+    CopilotResponse,
+    CopilotWebhookHandler,
 )
 from codeverify_core.copilot_sessions import (
     CopilotReviewSession,
@@ -117,6 +96,92 @@ from codeverify_core.copilot_sessions import (
     SessionState,
     StreamingFinding,
     copilot_reviewer,
+)
+
+# Feature 9: Cost Optimizer
+from codeverify_core.cost_optimizer import (
+    BudgetConstraints,
+    CostMetrics,
+    RiskProfile,
+    VerificationCost,
+    VerificationCostOptimizer,
+    VerificationDepth,
+    VerificationPlan,
+)
+from codeverify_core.events import (
+    AnalysisCompleteEvent,
+    AnalysisFailedEvent,
+    CriticalFindingEvent,
+    DigestReadyEvent,
+    Event,
+    EventBus,
+    EventPriority,
+    ScanCompleteEvent,
+    get_event_bus,
+    on_event,
+    reset_event_bus,
+)
+
+# New: Compliance Evidence Vault
+from codeverify_core.evidence_vault import (
+    ComplianceFramework,
+    ComplianceReportGenerator,
+    EvidenceType,
+    EvidenceVault,
+    StoredEvidence,
+    get_evidence_vault,
+    reset_evidence_vault,
+)
+
+# Next-Gen Feature 10: Gradual Verification Ramp
+from codeverify_core.gradual_ramp import (
+    BaselineCollector,
+    BaselineMetrics,
+    EnforcementDecision,
+    EnforcementLevel,
+    GradualVerificationRamp,
+    RampPhase,
+    RampProgress,
+    RampSchedule,
+    RampState,
+)
+
+# Organization Knowledge Graph (v0.5.0)
+from codeverify_core.knowledge_graph import (
+    EdgeType as KGEdgeType,
+)
+from codeverify_core.knowledge_graph import (
+    GraphEdge as KGGraphEdge,
+)
+from codeverify_core.knowledge_graph import (
+    GraphNode as KGGraphNode,
+)
+from codeverify_core.knowledge_graph import (
+    KnowledgeGraph,
+    KnowledgeGraphConfig,
+    KnowledgeIngester,
+    ProofReuseEngine,
+    get_knowledge_graph,
+    reset_knowledge_graph,
+)
+from codeverify_core.knowledge_graph import (
+    NodeType as KGNodeType,
+)
+
+# Go + Java Language Support (v0.5.0)
+from codeverify_core.language_support import (
+    LanguageConfig as LangConfig,
+)
+from codeverify_core.language_support import (
+    LanguageFeature,
+    LanguageParser,
+    LanguageRule,
+    LanguageRuleRegistry,
+    SupportedLanguage,
+    Z3ConstraintGenerator,
+    detect_language,
+    get_language_registry,
+    reset_language_registry,
 )
 from codeverify_core.memory_graph import (
     ConstraintKind,
@@ -137,112 +202,60 @@ from codeverify_core.memory_graph import (
     extract_pattern_fingerprint,
     verification_memory_graph,
 )
-
-# Feature 7: Proof Repository
-from codeverify_core.proof_repository import (
-    ProofArtifactRepository,
-    ProofCategory,
-    ProofStatus as ProofRepoStatus,
-    ProofStorage,
-    ProofTemplate,
-    SearchQuery,
-    SearchResult,
-    InMemoryProofStorage as InMemoryProofRepo,
-)
-
-# Feature 9: Cost Optimizer
-from codeverify_core.cost_optimizer import (
-    BudgetConstraints,
-    CostMetrics,
-    RiskProfile,
-    VerificationCost,
-    VerificationCostOptimizer,
-    VerificationDepth,
-    VerificationPlan,
+from codeverify_core.models import (
+    Analysis,
+    AnalysisStatus,
+    BoolResult,
+    DataclassTimestampMixin,
+    Finding,
+    FindingCategory,
+    OperationResult,
+    # Result type pattern
+    Result,
+    StrResult,
+    # Timestamp utilities
+    TimestampMixin,
+    VerificationType,
+    parse_iso_datetime,
 )
 
 # Next-Gen Feature 1: Monorepo Intelligence
 from codeverify_core.monorepo import (
     DependencyEdge,
-    MonorepoAnalyzer,
-    WorkspaceType,
-    PackageInfo,
     InterfaceContract,
+    MonorepoAnalyzer,
+    PackageInfo,
+    WorkspaceType,
 )
 
-# Next-Gen Feature 3: Proof-Carrying PRs
-from codeverify_core.proof_carrying import (
-    ProofAttestation,
-    ProofCarryingPRManager,
-    ProofSerializer,
-    VerificationProof,
+# New: Natural Language Bug Queries
+from codeverify_core.nl_bug_queries import (
+    BugCategory,
+    FindingsIndex,
+    NLQueryEngine,
+    QueryIntent,
+    QueryParser,
+    QueryResponse,
+    SemanticQuery,
+    get_nl_query_engine,
+    reset_nl_query_engine,
 )
-
-# Next-Gen Feature 7: Verification Budget Optimizer
-from codeverify_core.budget_optimizer import (
-    BatchOptimizationResult,
-    Budget,
-    CostEstimator,
-    CostModel,
-    DepthSelector,
-    OutcomeLearner,
-    RiskFactors,
-    RiskScorer,
-    VerificationBudgetOptimizer,
-    VerificationDecision,
-    VerificationDepth as BudgetVerificationDepth,
+from codeverify_core.nl_bug_queries import (
+    SearchResult as NLSearchResult,
 )
-
-# Next-Gen Feature 10: Gradual Verification Ramp
-from codeverify_core.gradual_ramp import (
-    BaselineCollector,
-    BaselineMetrics,
-    EnforcementDecision,
-    EnforcementLevel,
-    GradualVerificationRamp,
-    RampPhase,
-    RampProgress,
-    RampSchedule,
-    RampState,
+from codeverify_core.notification_handlers import (
+    ConfigProvider,
+    InMemoryConfigProvider,
+    NotificationEventHandler,
+    setup_notification_handlers,
 )
-
-# Repository pattern
-from codeverify_core.repositories import (
-    Repository,
-    InMemoryRepository,
-    ScanResultRepository,
-    ScheduledScanRepository,
-    NotificationConfigRepository,
-    InMemoryScanResultRepository,
-    InMemoryScheduledScanRepository,
-    InMemoryNotificationConfigRepository,
-    get_scan_result_repository,
-    get_scheduled_scan_repository,
-    get_notification_config_repository,
-    set_scan_result_repository,
-    set_scheduled_scan_repository,
-    set_notification_config_repository,
-)
-
-# New: Compliance Evidence Vault
-from codeverify_core.evidence_vault import (
-    ComplianceFramework,
-    ComplianceReportGenerator,
-    EvidenceType,
-    EvidenceVault,
-    StoredEvidence,
-    get_evidence_vault,
-    reset_evidence_vault,
-)
-
-# New: Organization Dependencies
-from codeverify_core.org_dependencies import (
-    OrgDependencyAnalyzer,
-    OrgDependencyGraph,
-    OrgRepository,
-    DependencyEdge as OrgDependencyEdge,
-    TransitiveRisk,
-    get_org_dependency_analyzer,
+from codeverify_core.notifications import (
+    NotificationChannel,
+    NotificationConfig,
+    NotificationSender,
+    NotificationType,
+    SlackFormatter,
+    TeamsFormatter,
 )
 
 # New: Offline Mode
@@ -258,19 +271,38 @@ from codeverify_core.offline_mode import (
     get_offline_manager,
     reset_offline_manager,
 )
+from codeverify_core.org_dependencies import (
+    DependencyEdge as OrgDependencyEdge,
+)
 
-# New: Natural Language Bug Queries
-from codeverify_core.nl_bug_queries import (
-    BugCategory,
-    FindingsIndex,
-    NLQueryEngine,
-    QueryIntent,
-    QueryParser,
-    QueryResponse,
-    SearchResult as NLSearchResult,
-    SemanticQuery,
-    get_nl_query_engine,
-    reset_nl_query_engine,
+# New: Organization Dependencies
+from codeverify_core.org_dependencies import (
+    OrgDependencyAnalyzer,
+    OrgDependencyGraph,
+    OrgRepository,
+    TransitiveRisk,
+    get_org_dependency_analyzer,
+)
+
+# Policy Engine / CI-CD Gates (v0.5.0)
+from codeverify_core.policy_engine import (
+    PolicyAction,
+    PolicyCondition,
+    PolicyEngine,
+    PolicyEvaluationResult,
+    PolicyRule,
+    PolicyScope,
+    PolicySet,
+    get_default_policy_set,
+    parse_policy_yaml,
+)
+
+# Next-Gen Feature 3: Proof-Carrying PRs
+from codeverify_core.proof_carrying import (
+    ProofAttestation,
+    ProofCarryingPRManager,
+    ProofSerializer,
+    VerificationProof,
 )
 
 # New: Proof Coverage Dashboard
@@ -282,29 +314,47 @@ from codeverify_core.proof_coverage import (
     LineCoverage,
     ProofCoverageCalculator,
     ProofCoverageDashboard,
-    ProofStatus as ProofCoverageStatus,
     RepositoryCoverage,
     VerificationCategory,
     get_proof_coverage_dashboard,
     reset_proof_coverage_dashboard,
 )
+from codeverify_core.proof_coverage import (
+    ProofStatus as ProofCoverageStatus,
+)
+from codeverify_core.proof_repository import (
+    InMemoryProofStorage as InMemoryProofRepo,
+)
 
-# SBOM + SLSA Provenance Integration
-from codeverify_core.sbom import (
-    Component,
-    ComponentHash,
-    ComponentType,
-    ExternalReference,
-    LicenseType,
-    SBOM,
-    SBOMFormat,
-    SBOMGenerator,
-    SLSAAttestationGenerator,
-    SLSALevel,
-    SLSAProvenance,
-    VerificationAttestation,
-    VerifiedSBOMExporter,
-    Vulnerability as SBOMVulnerability,
+# Feature 7: Proof Repository
+from codeverify_core.proof_repository import (
+    ProofArtifactRepository,
+    ProofCategory,
+    ProofStorage,
+    ProofTemplate,
+    SearchQuery,
+    SearchResult,
+)
+from codeverify_core.proof_repository import (
+    ProofStatus as ProofRepoStatus,
+)
+
+# Repository pattern
+from codeverify_core.repositories import (
+    InMemoryNotificationConfigRepository,
+    InMemoryRepository,
+    InMemoryScanResultRepository,
+    InMemoryScheduledScanRepository,
+    NotificationConfigRepository,
+    Repository,
+    ScanResultRepository,
+    ScheduledScanRepository,
+    get_notification_config_repository,
+    get_scan_result_repository,
+    get_scheduled_scan_repository,
+    set_notification_config_repository,
+    set_scan_result_repository,
+    set_scheduled_scan_repository,
 )
 
 # ROI Dashboard & Cost Transparency
@@ -318,8 +368,129 @@ from codeverify_core.roi_dashboard import (
     CostTracker,
     ROIDashboard,
     ROIMetrics,
-    VerificationCost as ROIVerificationCost,
     create_dashboard,
+)
+from codeverify_core.roi_dashboard import (
+    VerificationCost as ROIVerificationCost,
+)
+
+# New feature exports
+from codeverify_core.rules import (
+    ASTRuleStrategy,
+    CompositeRuleStrategy,
+    CustomRule,
+    PatternRuleStrategy,
+    RuleBuilder,
+    # Strategy pattern exports
+    RuleEvaluationStrategy,
+    RuleEvaluator,
+    RuleType,
+    RuleViolation,
+    SemanticRuleStrategy,
+    get_builtin_rules,
+)
+
+# SBOM + SLSA Provenance Integration
+from codeverify_core.sbom import (
+    SBOM,
+    Component,
+    ComponentHash,
+    ComponentType,
+    ExternalReference,
+    LicenseType,
+    SBOMFormat,
+    SBOMGenerator,
+    SLSAAttestationGenerator,
+    SLSALevel,
+    SLSAProvenance,
+    VerificationAttestation,
+    VerifiedSBOMExporter,
+)
+from codeverify_core.sbom import (
+    Vulnerability as SBOMVulnerability,
+)
+from codeverify_core.scanning import (
+    CodebaseScanResult,
+    ScanConfiguration,
+)
+from codeverify_core.severity import (
+    SEVERITY_EMOJI,
+    SEVERITY_LABELS,
+    SEVERITY_ORDER,
+    FindingSeverity,
+    compare_severity,
+    get_severity_emoji,
+    get_severity_label,
+    is_above_threshold,
+    is_blocking_severity,
+    parse_severity,
+    sort_by_severity,
+)
+
+# Streaming Verification API (v0.5.0)
+from codeverify_core.streaming_verification import (
+    IncrementalDiff,
+    SessionStatus,
+    StreamEvent,
+    StreamEventType,
+    StreamingSessionConfig,
+    StreamingSessionPool,
+    StreamingVerificationSession,
+    get_streaming_pool,
+    reset_streaming_pool,
+)
+from codeverify_core.streaming_verification import (
+    VerificationStage as StreamingStage,
+)
+from codeverify_core.sub_function_analysis import (
+    GranularityLevel,
+    IncrementalAnalysisEngine,
+    Position,
+    RealTimeFeedbackModel,
+    SemanticBlock,
+    SemanticBlockType,
+    Span,
+    SubFunctionParser,
+    SymbolDefinition,
+    SymbolReference,
+)
+
+# Supply Chain Verification (v0.5.0)
+from codeverify_core.supply_chain_verification import (
+    DependencyParser as SCDependencyParser,
+)
+from codeverify_core.supply_chain_verification import (
+    LockfileVerifier,
+    NpmDependencyParser,
+    PypiDependencyParser,
+    SupplyChainThreat,
+    SupplyChainVerifier,
+    ThreatDetector,
+    ThreatType,
+)
+from codeverify_core.supply_chain_verification import (
+    PackageEcosystem as SCPackageEcosystem,
+)
+from codeverify_core.supply_chain_verification import (
+    PackageInfo as SCPackageInfo,
+)
+
+# Telemetry & ROI Analytics (v0.5.0)
+from codeverify_core.telemetry import (
+    CostEstimator as TelemetryCostEstimator,
+)
+from codeverify_core.telemetry import (
+    FindingLifecycle,
+    FindingMetrics,
+    ROIReport,
+    TelemetryCollector,
+    TelemetryEvent,
+)
+from codeverify_core.telemetry import (
+    MetricType as TelemetryMetricType,
+)
+from codeverify_core.telemetry import (
+    ROIDashboard as TelemetryROIDashboard,
 )
 
 # Universal Git Support
@@ -336,27 +507,231 @@ from codeverify_core.universal_git import (
     GitProvider,
     GitProviderAdapter,
     LocalGitOperations,
-    PullRequest as GitPullRequest,
-    Repository as GitRepository,
     UniversalGitSupport,
     WebhookEventType,
     WebhookPayload,
     WebhookReceiver,
     cli_verify,
 )
+from codeverify_core.universal_git import (
+    PullRequest as GitPullRequest,
+)
+from codeverify_core.universal_git import (
+    Repository as GitRepository,
+)
 
-# Streaming Verification API (v0.5.0)
-from codeverify_core.streaming_verification import (
-    IncrementalDiff,
-    SessionStatus,
-    StreamEvent,
-    StreamEventType,
-    StreamingSessionConfig,
-    StreamingSessionPool,
-    StreamingVerificationSession,
-    VerificationStage as StreamingStage,
-    get_streaming_pool,
-    reset_streaming_pool,
+# Next-Gen: Verified Auto-Fix Validation Engine (v0.6.0)
+from codeverify_core.autofix_validation import (
+    BatchFixProcessor,
+    BatchFixResult,
+    BatchFixStrategy,
+    FixValidationConfig,
+    FixValidationResult,
+    FixValidationStatus,
+    FixValidator,
+    PRDescription,
+    PRDescriptionGenerator,
+    RegressionChecker,
+    RegressionResult,
+    RegressionType,
+)
+
+# Next-Gen: Compliance-as-Code Framework (v0.6.0)
+from codeverify_core.compliance_as_code import (
+    AttestationEngine,
+    AttestationLevel,
+    ComplianceAsCodeEngine,
+    ComplianceAttestation,
+)
+from codeverify_core.compliance_as_code import (
+    ComplianceReport as CACComplianceReport,
+)
+from codeverify_core.compliance_as_code import (
+    ComplianceReportGenerator,
+    ControlAssessment,
+    ControlCategory,
+)
+from codeverify_core.compliance_as_code import (
+    EvidenceArtifact as CACEvidenceArtifact,
+)
+from codeverify_core.compliance_as_code import (
+    EvidenceType,
+)
+from codeverify_core.compliance_as_code import (
+    EvidenceVault as CACEvidenceVault,
+)
+from codeverify_core.compliance_as_code import (
+    ComplianceFrameworkType,
+    FrameworkControl,
+    FrameworkMapper,
+)
+
+# Next-Gen: Cross-Language Contract Verification (v0.6.0)
+from codeverify_core.cross_language_contracts import (
+    ContractEndpoint,
+    ContractExtractor,
+)
+from codeverify_core.cross_language_contracts import (
+    ContractLanguage as CLContractLanguage,
+)
+from codeverify_core.cross_language_contracts import (
+    ContractViolation,
+    ContractViolationType,
+    CrossLanguageContractReport,
+    CrossLanguageVerifier,
+    TypeCompatibility,
+    TypeMapper,
+    TypeMapping,
+    UniversalType,
+    VerificationScope,
+)
+
+# Next-Gen: Multi-Repository Impact Analysis (v0.6.0)
+from codeverify_core.multi_repo_impact import (
+    BlastRadiusCalculator,
+)
+from codeverify_core.multi_repo_impact import (
+    BlastRadiusResult as MultiRepoBlastRadiusResult,
+)
+from codeverify_core.multi_repo_impact import (
+    ChangeScope,
+    IndexStatus,
+    MigrationPhase,
+    MigrationPlan,
+    MigrationPlanner,
+    MultiRepoImpactAnalyzer,
+    MultiRepoImpactReport,
+    NotificationUrgency,
+    OrgDependencyGraph,
+    OrgRepositoryIndexer,
+    RepositoryIndex,
+)
+from codeverify_core.multi_repo_impact import (
+    TeamNotification as MultiRepoTeamNotification,
+)
+from codeverify_core.multi_repo_impact import (
+    TeamNotifier as MultiRepoTeamNotifier,
+)
+
+# Next-Gen: Continuous Learning from Production (v0.6.0)
+from codeverify_core.production_learning import (
+    ABTest,
+    ABTestManager,
+    ABTestStatus,
+    DetectionThreshold,
+    IncidentCollector,
+    IncidentCorrelation,
+    IncidentSeverity,
+    LearnedPattern,
+    LearningReport,
+    LearningStrategy,
+    PatternExtractor,
+    ProductionIncident,
+    ProductionLearningEngine,
+    RuleUpdate,
+    RuleUpdateAction,
+    ThresholdTuner,
+)
+
+# Next-Gen: Proof Marketplace V2 (v0.6.0)
+from codeverify_core.proof_marketplace_v2 import (
+    ContributionType,
+    ContributorProfile,
+    GamificationEngine,
+    ProofCategory,
+    ProofContent,
+    ProofMarketplaceV2,
+    ProofMetadata,
+    ProofQualityManager,
+    ProofQualityMetrics,
+    ProofReview,
+    ProofSearchEngine,
+    ProofStorage,
+    QualityTier,
+    SearchQuery,
+    SearchResult,
+    SearchSortBy,
+)
+from codeverify_core.proof_marketplace_v2 import (
+    LeaderboardEntry as MarketplaceLeaderboardEntry,
+)
+
+# Next-Gen: Real-Time Pair Programming (v0.6.0)
+from codeverify_core.realtime_pair_programming import (
+    AnalysisScope,
+    CodeChangeEvent,
+    CodeLensAnnotation,
+    DebounceConfig,
+    FeedbackAction,
+    IncrementalAnalysisResult,
+    IncrementalAnalyzer,
+    InlineSuggestion,
+    PersonalizationEngine,
+    RealTimePairSession,
+    SessionMetrics,
+    SmartDebouncer,
+    SuggestionEngine,
+    SuggestionPriority,
+    SuggestionType,
+    UserPreferences,
+)
+
+# Next-Gen: Refactoring Engine (v0.6.0)
+from codeverify_core.refactoring_engine import (
+    CodeSmell,
+    CodeSmellDetector,
+    ComplexityAnalyzer,
+    ComplexityMetrics,
+    RefactoringEngine,
+    RefactoringPlan,
+    RefactoringPlanner,
+    RefactoringReport,
+    RefactoringRisk,
+    RefactoringStatus,
+    RefactoringStep,
+    RefactoringType,
+    SmellType,
+)
+
+# Next-Gen: Supply Chain Risk Scoring (v0.6.0)
+from codeverify_core.supply_chain_risk import (
+    CVECorrelator,
+    CVERecord,
+    CVESeverity,
+    DependencyRiskProfile,
+    ExploitMaturity,
+    RemediationLevel,
+    RiskCategory,
+)
+from codeverify_core.supply_chain_risk import (
+    RiskScorer as SCRiskScorer,
+)
+from codeverify_core.supply_chain_risk import (
+    SBOMComponent,
+    SBOMDocument,
+    SBOMFormat,
+    SBOMGenerator,
+    SupplyChainRiskAnalyzer,
+    SupplyChainRiskReport,
+)
+
+# Next-Gen: Verification Performance Profiler (v0.6.0)
+from codeverify_core.verification_profiler import (
+    BottleneckDetector,
+    BottleneckInfo,
+    BottleneckType,
+    BudgetAllocator,
+    BudgetAllocation,
+    FunctionProfile,
+    OptimizationAdvisor,
+    OptimizationRecommendation,
+    OptimizationStrategy,
+    PerformanceTrend,
+    ProfileReport,
+    ProfileStage,
+    StageProfile,
+    VerificationInstrumenter,
+    VerificationProfiler,
 )
 
 # Verified Autofix Pipeline (v0.5.0)
@@ -369,116 +744,90 @@ from codeverify_core.verified_autofix import (
     FixCache,
     FixGenerator,
     GeneratedPatch,
-    VerifiedFix as AutofixVerifiedFix,
-    VerificationProof as AutofixVerificationProof,
     get_autofix_pipeline,
     reset_autofix_pipeline,
 )
-
-# Organization Knowledge Graph (v0.5.0)
-from codeverify_core.knowledge_graph import (
-    EdgeType as KGEdgeType,
-    GraphEdge as KGGraphEdge,
-    GraphNode as KGGraphNode,
-    KnowledgeGraph,
-    KnowledgeGraphConfig,
-    KnowledgeIngester,
-    NodeType as KGNodeType,
-    ProofReuseEngine,
-    get_knowledge_graph,
-    reset_knowledge_graph,
+from codeverify_core.verified_autofix import (
+    VerificationProof as AutofixVerificationProof,
+)
+from codeverify_core.verified_autofix import (
+    VerifiedFix as AutofixVerifiedFix,
 )
 
-# Go + Java Language Support (v0.5.0)
-from codeverify_core.language_support import (
-    LanguageConfig as LangConfig,
-    LanguageFeature,
-    LanguageParser,
-    LanguageRule,
-    LanguageRuleRegistry,
-    SupportedLanguage,
-    Z3ConstraintGenerator,
-    detect_language,
-    get_language_registry,
-    reset_language_registry,
+# Next-Gen Feature: Smart Contract Verification (v0.4.0)
+from codeverify_core.smart_contract_verification import (
+    AuditReport as SmartContractAuditReport,
+    ComplianceResult as ERCComplianceResult,
+    ContractFinding,
+    ContractLanguage,
+    ERCStandard,
+    GasReport,
+    RustSolanaAnalyzer,
+    SmartContractVerifier,
+    SolidityAnalyzer,
+    VulnerabilityCategory,
 )
 
-# Supply Chain Verification (v0.5.0)
-from codeverify_core.supply_chain_verification import (
-    DependencyParser as SCDependencyParser,
-    LockfileVerifier,
-    NpmDependencyParser,
-    PackageEcosystem as SCPackageEcosystem,
-    PackageInfo as SCPackageInfo,
-    PypiDependencyParser,
-    SupplyChainThreat,
-    SupplyChainVerifier,
-    ThreatDetector,
-    ThreatType,
+# Next-Gen Feature: Enterprise Compliance Framework (v0.4.0)
+from codeverify_core.compliance_framework import (
+    AuditReport as ComplianceAuditReport,
+    ComplianceControl,
+    ComplianceException,
+    ComplianceFramework,
+    ComplianceStandard,
+    ControlStatus,
+    EvidenceArtifact,
+    ExceptionStatus,
+    Role as ComplianceRole,
+    ROLE_PERMISSIONS,
+    STANDARD_CONTROLS,
 )
 
-# Copilot Chat Integration (v0.5.0)
-from codeverify_core.copilot_extension import (
-    CodeSuggestion,
-    CommandParser,
-    CopilotChatParticipant,
-    CopilotCommand,
-    CopilotContext,
-    CopilotMessage,
-    CopilotMessageRole,
-    CopilotResponse,
-    CopilotWebhookHandler,
+# Next-Gen Feature: Collaboration Sessions with Live Trust (v0.4.0)
+from codeverify_core.collaboration_sessions import (
+    CollaborationSession as LiveCollaborationSession,
+    ConflictAlert,
+    FileState as CollaborationFileState,
+    LiveTrustScore,
+    Participant as CollaborationParticipant,
+    SessionManager as CollaborationSessionManager,
+    SessionRole,
+    SessionState,
+    VerificationMode as CollaborationVerificationMode,
 )
 
-# Policy Engine / CI-CD Gates (v0.5.0)
-from codeverify_core.policy_engine import (
-    PolicyAction,
-    PolicyCondition,
-    PolicyEngine,
-    PolicyEvaluationResult,
-    PolicyRule,
-    PolicyScope,
-    PolicySet,
-    get_default_policy_set,
-    parse_policy_yaml,
+# Next-Gen Feature: Blast Radius Analysis (v0.4.0)
+from codeverify_core.blast_radius import (
+    AffectedService,
+    BlastRadiusAnalyzer,
+    BlastRadiusReport,
+    ChangeType,
+    DependencyGraph as BlastRadiusDependencyGraph,
+    ImpactSeverity,
+    TeamNotification,
 )
 
-# Telemetry & ROI Analytics (v0.5.0)
-from codeverify_core.telemetry import (
-    CostEstimator as TelemetryCostEstimator,
-    FindingLifecycle,
-    FindingMetrics,
-    MetricType as TelemetryMetricType,
-    ROIDashboard as TelemetryROIDashboard,
-    ROIReport,
-    TelemetryCollector,
-    TelemetryEvent,
+# Next-Gen Feature: NL Conversational Verification Queries (v0.4.0)
+from codeverify_core.nl_conversation import (
+    AnswerConfidence,
+    ConversationContext,
+    ConversationSession,
+    ConversationTurn,
+    IntentClassifier,
+    QueryIntent,
+    ResponseGenerator,
 )
 
-# Plugin Marketplace & Agent SDK (v0.5.0)
-from codeverify_core.agent_sdk import (
-    AgentCapability,
-    AgentCategory,
-    AgentLanguage,
-    AgentManifest,
-    AgentPackage,
-    AgentLifecycle,
-    AnalysisContext as SDKAnalysisContext,
-    AnalysisResult as SDKAnalysisResult,
-    BaseAgent as SDKBaseAgent,
-    Finding as SDKFinding,
-    SeverityLevel as SDKSeverityLevel,
-    agent as agent_decorator,
-)
-from codeverify_core.agent_runtime import (
-    AgentLoadError,
-    AgentSandbox,
-    IsolatedAgentRunner,
-    ResourceLimitExceeded,
-    SandboxConfig,
-    SandboxError,
-    SecurityViolation,
-    run_agent,
+# Next-Gen Feature: Proof Marketplace (v0.4.0)
+from codeverify_core.proof_marketplace import (
+    AuthorProfile,
+    BadgeType,
+    LeaderboardEntry,
+    MarketplaceProof,
+    PricingTier,
+    ProofLicense,
+    ProofMarketplace,
+    Purchase,
 )
 
 __all__ = [
@@ -836,4 +1185,216 @@ __all__ = [
     "SandboxError",
     "SecurityViolation",
     "run_agent",
+    # Smart Contract Verification
+    "SmartContractVerifier",
+    "SmartContractAuditReport",
+    "ContractFinding",
+    "ContractLanguage",
+    "ERCStandard",
+    "ERCComplianceResult",
+    "GasReport",
+    "SolidityAnalyzer",
+    "RustSolanaAnalyzer",
+    "VulnerabilityCategory",
+    # Enterprise Compliance Framework
+    "ComplianceFramework",
+    "ComplianceStandard",
+    "ComplianceControl",
+    "ComplianceException",
+    "ComplianceAuditReport",
+    "ComplianceRole",
+    "ControlStatus",
+    "ExceptionStatus",
+    "EvidenceArtifact",
+    "ROLE_PERMISSIONS",
+    "STANDARD_CONTROLS",
+    # Collaboration Sessions
+    "LiveCollaborationSession",
+    "CollaborationSessionManager",
+    "CollaborationParticipant",
+    "CollaborationFileState",
+    "CollaborationVerificationMode",
+    "ConflictAlert",
+    "LiveTrustScore",
+    "SessionRole",
+    "SessionState",
+    # Blast Radius Analysis
+    "BlastRadiusAnalyzer",
+    "BlastRadiusReport",
+    "BlastRadiusDependencyGraph",
+    "AffectedService",
+    "ChangeType",
+    "ImpactSeverity",
+    "TeamNotification",
+    # NL Conversational Queries
+    "ConversationSession",
+    "ConversationContext",
+    "ConversationTurn",
+    "IntentClassifier",
+    "QueryIntent",
+    "AnswerConfidence",
+    "ResponseGenerator",
+    # Proof Marketplace
+    "ProofMarketplace",
+    "MarketplaceProof",
+    "AuthorProfile",
+    "BadgeType",
+    "LeaderboardEntry",
+    "PricingTier",
+    "ProofLicense",
+    "Purchase",
+    # Next-Gen: Verified Auto-Fix Validation (v0.6.0)
+    "FixValidationStatus",
+    "RegressionType",
+    "BatchFixStrategy",
+    "FixValidationConfig",
+    "FixValidationResult",
+    "RegressionResult",
+    "BatchFixResult",
+    "PRDescription",
+    "FixValidator",
+    "RegressionChecker",
+    "BatchFixProcessor",
+    "PRDescriptionGenerator",
+    # Next-Gen: Continuous Learning from Production (v0.6.0)
+    "IncidentSeverity",
+    "LearningStrategy",
+    "RuleUpdateAction",
+    "ABTestStatus",
+    "ProductionIncident",
+    "IncidentCorrelation",
+    "DetectionThreshold",
+    "LearnedPattern",
+    "RuleUpdate",
+    "ABTest",
+    "LearningReport",
+    "IncidentCollector",
+    "ThresholdTuner",
+    "PatternExtractor",
+    "ABTestManager",
+    "ProductionLearningEngine",
+    # Next-Gen: Real-Time Pair Programming (v0.6.0)
+    "AnalysisScope",
+    "SuggestionType",
+    "SuggestionPriority",
+    "FeedbackAction",
+    "CodeChangeEvent",
+    "IncrementalAnalysisResult",
+    "InlineSuggestion",
+    "CodeLensAnnotation",
+    "UserPreferences",
+    "DebounceConfig",
+    "SessionMetrics",
+    "IncrementalAnalyzer",
+    "SmartDebouncer",
+    "SuggestionEngine",
+    "PersonalizationEngine",
+    "RealTimePairSession",
+    # Next-Gen: Cross-Language Contract Verification (v0.6.0)
+    "CLContractLanguage",
+    "TypeCompatibility",
+    "ContractViolationType",
+    "VerificationScope",
+    "UniversalType",
+    "ContractEndpoint",
+    "ContractViolation",
+    "TypeMapping",
+    "CrossLanguageContractReport",
+    "TypeMapper",
+    "ContractExtractor",
+    "CrossLanguageVerifier",
+    # Next-Gen: Supply Chain Risk Scoring (v0.6.0)
+    "CVESeverity",
+    "ExploitMaturity",
+    "RemediationLevel",
+    "SBOMFormat",
+    "RiskCategory",
+    "CVERecord",
+    "DependencyRiskProfile",
+    "SBOMComponent",
+    "SBOMDocument",
+    "SupplyChainRiskReport",
+    "CVECorrelator",
+    "SCRiskScorer",
+    "SBOMGenerator",
+    "SupplyChainRiskAnalyzer",
+    # Next-Gen: Multi-Repository Impact Analysis (v0.6.0)
+    "IndexStatus",
+    "ChangeScope",
+    "NotificationUrgency",
+    "MigrationPhase",
+    "RepositoryIndex",
+    "OrgDependencyGraph",
+    "MultiRepoBlastRadiusResult",
+    "MultiRepoTeamNotification",
+    "MigrationPlan",
+    "MultiRepoImpactReport",
+    "OrgRepositoryIndexer",
+    "BlastRadiusCalculator",
+    "MultiRepoTeamNotifier",
+    "MigrationPlanner",
+    "MultiRepoImpactAnalyzer",
+    # Next-Gen: Refactoring Engine (v0.6.0)
+    "SmellType",
+    "RefactoringType",
+    "RefactoringRisk",
+    "RefactoringStatus",
+    "CodeSmell",
+    "ComplexityMetrics",
+    "RefactoringStep",
+    "RefactoringPlan",
+    "RefactoringReport",
+    "CodeSmellDetector",
+    "ComplexityAnalyzer",
+    "RefactoringPlanner",
+    "RefactoringEngine",
+    # Next-Gen: Compliance-as-Code Framework (v0.6.0)
+    "ComplianceFrameworkType",
+    "EvidenceType",
+    "AttestationLevel",
+    "ControlCategory",
+    "FrameworkControl",
+    "CACEvidenceArtifact",
+    "ComplianceAttestation",
+    "ControlAssessment",
+    "CACComplianceReport",
+    "FrameworkMapper",
+    "CACEvidenceVault",
+    "AttestationEngine",
+    "ComplianceReportGenerator",
+    "ComplianceAsCodeEngine",
+    # Next-Gen: Proof Marketplace V2 (v0.6.0)
+    "ProofCategory",
+    "QualityTier",
+    "ContributionType",
+    "SearchSortBy",
+    "ProofMetadata",
+    "ProofContent",
+    "ProofQualityMetrics",
+    "ProofReview",
+    "ContributorProfile",
+    "SearchQuery",
+    "SearchResult",
+    "MarketplaceLeaderboardEntry",
+    "ProofStorage",
+    "ProofSearchEngine",
+    "ProofQualityManager",
+    "GamificationEngine",
+    "ProofMarketplaceV2",
+    # Next-Gen: Verification Performance Profiler (v0.6.0)
+    "ProfileStage",
+    "BottleneckType",
+    "OptimizationStrategy",
+    "StageProfile",
+    "BottleneckInfo",
+    "FunctionProfile",
+    "OptimizationRecommendation",
+    "BudgetAllocation",
+    "PerformanceTrend",
+    "ProfileReport",
+    "VerificationInstrumenter",
+    "BottleneckDetector",
+    "OptimizationAdvisor",
+    "BudgetAllocator",
+    "VerificationProfiler",
 ]

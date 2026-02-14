@@ -18,6 +18,7 @@ logger = structlog.get_logger()
 
 class ChangeType(str, Enum):
     """Type of semantic change."""
+
     BEHAVIOR_CHANGE = "behavior_change"
     SIGNATURE_CHANGE = "signature_change"
     EXCEPTION_CHANGE = "exception_change"
@@ -30,6 +31,7 @@ class ChangeType(str, Enum):
 
 class RiskLevel(str, Enum):
     """Risk level of a change."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -40,6 +42,7 @@ class RiskLevel(str, Enum):
 @dataclass
 class SemanticNode:
     """A node in the semantic diff graph."""
+
     id: str
     name: str
     node_type: str  # function, class, method, variable
@@ -53,6 +56,7 @@ class SemanticNode:
 @dataclass
 class SemanticEdge:
     """An edge representing a relationship between nodes."""
+
     source_id: str
     target_id: str
     edge_type: str  # calls, imports, extends, modifies
@@ -62,6 +66,7 @@ class SemanticEdge:
 @dataclass
 class BehaviorChange:
     """A detected behavioral change."""
+
     id: str
     change_type: ChangeType
     description: str
@@ -76,6 +81,7 @@ class BehaviorChange:
 @dataclass
 class SemanticDiff:
     """Complete semantic diff between two versions."""
+
     base_commit: str
     head_commit: str
     nodes_added: list[SemanticNode]
@@ -87,8 +93,27 @@ class SemanticDiff:
 
 
 @dataclass
+class SemanticDiffResult:
+    """Result of a semantic diff analysis."""
+
+    diff: SemanticDiff
+    risk_score: float = 0.0
+    summary_text: str = ""
+    recommendations: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "diff": self.diff.summary,
+            "risk_score": self.risk_score,
+            "summary_text": self.summary_text,
+            "recommendations": self.recommendations,
+        }
+
+
+@dataclass
 class VisualizationData:
     """Data for rendering the semantic diff visualization."""
+
     nodes: list[dict[str, Any]]
     edges: list[dict[str, Any]]
     clusters: list[dict[str, Any]]
@@ -102,107 +127,115 @@ class CodeParser:
     def parse_python(self, code: str, file_path: str) -> list[SemanticNode]:
         """Parse Python code to extract semantic nodes."""
         nodes = []
-        
+
         # Extract functions
-        func_pattern = r'^(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*([^:]+))?:'
+        func_pattern = r"^(?:async\s+)?def\s+(\w+)\s*\(([^)]*)\)\s*(?:->\s*([^:]+))?:"
         for match in re.finditer(func_pattern, code, re.MULTILINE):
             name = match.group(1)
             params = match.group(2)
             return_type = match.group(3)
-            
-            line_start = code[:match.start()].count('\n') + 1
-            
+
+            line_start = code[: match.start()].count("\n") + 1
+
             # Find function end (simplified)
             line_end = self._find_block_end(code, match.end())
-            
+
             signature = f"def {name}({params})"
             if return_type:
                 signature += f" -> {return_type}"
-            
-            nodes.append(SemanticNode(
-                id=f"{file_path}:{name}",
-                name=name,
-                node_type="function",
-                file_path=file_path,
-                line_start=line_start,
-                line_end=line_end,
-                signature=signature,
-            ))
-        
-        # Extract classes
-        class_pattern = r'^class\s+(\w+)\s*(?:\(([^)]*)\))?:'
-        for match in re.finditer(class_pattern, code, re.MULTILINE):
-            name = match.group(1)
-            bases = match.group(2) or ""
-            
-            line_start = code[:match.start()].count('\n') + 1
-            line_end = self._find_block_end(code, match.end())
-            
-            nodes.append(SemanticNode(
-                id=f"{file_path}:{name}",
-                name=name,
-                node_type="class",
-                file_path=file_path,
-                line_start=line_start,
-                line_end=line_end,
-                signature=f"class {name}({bases})" if bases else f"class {name}",
-            ))
-        
-        return nodes
 
-    def parse_typescript(self, code: str, file_path: str) -> list[SemanticNode]:
-        """Parse TypeScript code to extract semantic nodes."""
-        nodes = []
-        
-        # Extract functions
-        func_patterns = [
-            r'(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)\s*(?::\s*([^{]+))?',
-            r'(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?\([^)]*\)\s*(?::\s*([^=]+))?\s*=>',
-        ]
-        
-        for pattern in func_patterns:
-            for match in re.finditer(pattern, code, re.MULTILINE):
-                name = match.group(1)
-                line_start = code[:match.start()].count('\n') + 1
-                
-                nodes.append(SemanticNode(
+            nodes.append(
+                SemanticNode(
                     id=f"{file_path}:{name}",
                     name=name,
                     node_type="function",
                     file_path=file_path,
                     line_start=line_start,
-                    line_end=line_start + 10,  # Simplified
-                    signature=match.group(0)[:100],
-                ))
-        
-        # Extract classes/interfaces
-        class_pattern = r'(?:export\s+)?(?:class|interface)\s+(\w+)\s*(?:<[^>]+>)?\s*(?:extends\s+\w+)?(?:implements\s+[^{]+)?'
+                    line_end=line_end,
+                    signature=signature,
+                )
+            )
+
+        # Extract classes
+        class_pattern = r"^class\s+(\w+)\s*(?:\(([^)]*)\))?:"
         for match in re.finditer(class_pattern, code, re.MULTILINE):
             name = match.group(1)
-            line_start = code[:match.start()].count('\n') + 1
-            
-            nodes.append(SemanticNode(
-                id=f"{file_path}:{name}",
-                name=name,
-                node_type="class",
-                file_path=file_path,
-                line_start=line_start,
-                line_end=line_start + 20,
-                signature=match.group(0)[:80],
-            ))
-        
+            bases = match.group(2) or ""
+
+            line_start = code[: match.start()].count("\n") + 1
+            line_end = self._find_block_end(code, match.end())
+
+            nodes.append(
+                SemanticNode(
+                    id=f"{file_path}:{name}",
+                    name=name,
+                    node_type="class",
+                    file_path=file_path,
+                    line_start=line_start,
+                    line_end=line_end,
+                    signature=f"class {name}({bases})" if bases else f"class {name}",
+                )
+            )
+
+        return nodes
+
+    def parse_typescript(self, code: str, file_path: str) -> list[SemanticNode]:
+        """Parse TypeScript code to extract semantic nodes."""
+        nodes = []
+
+        # Extract functions
+        func_patterns = [
+            r"(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)\s*(?::\s*([^{]+))?",
+            r"(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?\([^)]*\)\s*(?::\s*([^=]+))?\s*=>",
+        ]
+
+        for pattern in func_patterns:
+            for match in re.finditer(pattern, code, re.MULTILINE):
+                name = match.group(1)
+                line_start = code[: match.start()].count("\n") + 1
+
+                nodes.append(
+                    SemanticNode(
+                        id=f"{file_path}:{name}",
+                        name=name,
+                        node_type="function",
+                        file_path=file_path,
+                        line_start=line_start,
+                        line_end=line_start + 10,  # Simplified
+                        signature=match.group(0)[:100],
+                    )
+                )
+
+        # Extract classes/interfaces
+        class_pattern = r"(?:export\s+)?(?:class|interface)\s+(\w+)\s*(?:<[^>]+>)?\s*(?:extends\s+\w+)?(?:implements\s+[^{]+)?"
+        for match in re.finditer(class_pattern, code, re.MULTILINE):
+            name = match.group(1)
+            line_start = code[: match.start()].count("\n") + 1
+
+            nodes.append(
+                SemanticNode(
+                    id=f"{file_path}:{name}",
+                    name=name,
+                    node_type="class",
+                    file_path=file_path,
+                    line_start=line_start,
+                    line_end=line_start + 20,
+                    signature=match.group(0)[:80],
+                )
+            )
+
         return nodes
 
     def _find_block_end(self, code: str, start_pos: int) -> int:
         """Find the end line of an indented block."""
-        lines = code[start_pos:].split('\n')
+        lines = code[start_pos:].split("\n")
         if not lines:
-            return code[:start_pos].count('\n') + 1
-        
+            return code[:start_pos].count("\n") + 1
+
         # Find base indentation of first content line
         base_indent = None
         line_count = 0
-        
+
         for line in lines[1:]:  # Skip the definition line
             if line.strip():
                 if base_indent is None:
@@ -212,41 +245,43 @@ class CodeParser:
                     if current_indent < base_indent and line.strip():
                         break
             line_count += 1
-        
-        start_line = code[:start_pos].count('\n') + 1
+
+        start_line = code[:start_pos].count("\n") + 1
         return start_line + line_count
 
     def extract_call_graph(self, code: str, nodes: list[SemanticNode]) -> list[SemanticEdge]:
         """Extract call relationships between nodes."""
         edges = []
         node_names = {n.name for n in nodes}
-        
+
         for node in nodes:
             if node.node_type != "function":
                 continue
-            
+
             # Find the function body
             func_start = code.find(f"def {node.name}(")
             if func_start == -1:
                 func_start = code.find(f"function {node.name}(")
             if func_start == -1:
                 continue
-            
+
             # Extract function body (simplified)
-            lines = code[func_start:].split('\n')
-            body = '\n'.join(lines[1:50])  # Limit body scan
-            
+            lines = code[func_start:].split("\n")
+            body = "\n".join(lines[1:50])  # Limit body scan
+
             # Find calls to other functions
             for other_name in node_names:
                 if other_name == node.name:
                     continue
-                if re.search(rf'\b{other_name}\s*\(', body):
-                    edges.append(SemanticEdge(
-                        source_id=node.id,
-                        target_id=f"{node.file_path}:{other_name}",
-                        edge_type="calls",
-                    ))
-        
+                if re.search(rf"\b{other_name}\s*\(", body):
+                    edges.append(
+                        SemanticEdge(
+                            source_id=node.id,
+                            target_id=f"{node.file_path}:{other_name}",
+                            edge_type="calls",
+                        )
+                    )
+
         return edges
 
 
@@ -262,74 +297,80 @@ class BehaviorAnalyzer:
     ) -> list[BehaviorChange]:
         """Analyze behavioral changes between two versions."""
         changes = []
-        
+
         before_map = {n.name: n for n in before_nodes}
         after_map = {n.name: n for n in after_nodes}
-        
+
         # Check modified nodes
         for name in set(before_map.keys()) & set(after_map.keys()):
             before_node = before_map[name]
             after_node = after_map[name]
-            
+
             # Check signature changes
             if before_node.signature != after_node.signature:
-                changes.append(BehaviorChange(
-                    id=f"sig-{name}",
-                    change_type=ChangeType.SIGNATURE_CHANGE,
-                    description=f"Signature of {name} changed",
-                    before_behavior=before_node.signature or "",
-                    after_behavior=after_node.signature or "",
-                    affected_node=after_node,
-                    risk_level=RiskLevel.HIGH,
-                    evidence=[
-                        f"Before: {before_node.signature}",
-                        f"After: {after_node.signature}",
-                    ],
-                    suggested_tests=[
-                        f"Test {name} with old parameter patterns",
-                        f"Verify callers updated for new signature",
-                    ],
-                ))
-            
+                changes.append(
+                    BehaviorChange(
+                        id=f"sig-{name}",
+                        change_type=ChangeType.SIGNATURE_CHANGE,
+                        description=f"Signature of {name} changed",
+                        before_behavior=before_node.signature or "",
+                        after_behavior=after_node.signature or "",
+                        affected_node=after_node,
+                        risk_level=RiskLevel.HIGH,
+                        evidence=[
+                            f"Before: {before_node.signature}",
+                            f"After: {after_node.signature}",
+                        ],
+                        suggested_tests=[
+                            f"Test {name} with old parameter patterns",
+                            "Verify callers updated for new signature",
+                        ],
+                    )
+                )
+
             # Check for exception handling changes
             before_body = self._extract_body(before_code, before_node)
             after_body = self._extract_body(after_code, after_node)
-            
+
             exception_change = self._detect_exception_change(before_body, after_body)
             if exception_change:
-                changes.append(BehaviorChange(
-                    id=f"exc-{name}",
-                    change_type=ChangeType.EXCEPTION_CHANGE,
-                    description=f"Exception handling changed in {name}",
-                    before_behavior=exception_change["before"],
-                    after_behavior=exception_change["after"],
-                    affected_node=after_node,
-                    risk_level=RiskLevel.MEDIUM,
-                    evidence=exception_change["evidence"],
-                ))
-            
+                changes.append(
+                    BehaviorChange(
+                        id=f"exc-{name}",
+                        change_type=ChangeType.EXCEPTION_CHANGE,
+                        description=f"Exception handling changed in {name}",
+                        before_behavior=exception_change["before"],
+                        after_behavior=exception_change["after"],
+                        affected_node=after_node,
+                        risk_level=RiskLevel.MEDIUM,
+                        evidence=exception_change["evidence"],
+                    )
+                )
+
             # Check for return behavior changes
             return_change = self._detect_return_change(before_body, after_body)
             if return_change:
-                changes.append(BehaviorChange(
-                    id=f"ret-{name}",
-                    change_type=ChangeType.RETURN_CHANGE,
-                    description=f"Return behavior changed in {name}",
-                    before_behavior=return_change["before"],
-                    after_behavior=return_change["after"],
-                    affected_node=after_node,
-                    risk_level=RiskLevel.HIGH,
-                    evidence=return_change["evidence"],
-                ))
-        
+                changes.append(
+                    BehaviorChange(
+                        id=f"ret-{name}",
+                        change_type=ChangeType.RETURN_CHANGE,
+                        description=f"Return behavior changed in {name}",
+                        before_behavior=return_change["before"],
+                        after_behavior=return_change["after"],
+                        affected_node=after_node,
+                        risk_level=RiskLevel.HIGH,
+                        evidence=return_change["evidence"],
+                    )
+                )
+
         return changes
 
     def _extract_body(self, code: str, node: SemanticNode) -> str:
         """Extract the body of a function/class."""
-        lines = code.split('\n')
+        lines = code.split("\n")
         start = max(0, node.line_start - 1)
         end = min(len(lines), node.line_end)
-        return '\n'.join(lines[start:end])
+        return "\n".join(lines[start:end])
 
     def _detect_exception_change(
         self,
@@ -338,13 +379,13 @@ class BehaviorAnalyzer:
     ) -> dict[str, Any] | None:
         """Detect changes in exception handling."""
         # Extract raise statements
-        before_raises = set(re.findall(r'raise\s+(\w+)', before))
-        after_raises = set(re.findall(r'raise\s+(\w+)', after))
-        
+        before_raises = set(re.findall(r"raise\s+(\w+)", before))
+        after_raises = set(re.findall(r"raise\s+(\w+)", after))
+
         # Extract try/except patterns
-        before_catches = set(re.findall(r'except\s+(\w+)', before))
-        after_catches = set(re.findall(r'except\s+(\w+)', after))
-        
+        before_catches = set(re.findall(r"except\s+(\w+)", before))
+        after_catches = set(re.findall(r"except\s+(\w+)", after))
+
         if before_raises != after_raises or before_catches != after_catches:
             return {
                 "before": f"Raises: {before_raises}, Catches: {before_catches}",
@@ -356,7 +397,7 @@ class BehaviorAnalyzer:
                     f"Removed catches: {before_catches - after_catches}",
                 ],
             }
-        
+
         return None
 
     def _detect_return_change(
@@ -366,13 +407,13 @@ class BehaviorAnalyzer:
     ) -> dict[str, Any] | None:
         """Detect changes in return behavior."""
         # Check for None returns
-        before_has_none = 'return None' in before or re.search(r'return\s*$', before, re.MULTILINE)
-        after_has_none = 'return None' in after or re.search(r'return\s*$', after, re.MULTILINE)
-        
+        before_has_none = "return None" in before or re.search(r"return\s*$", before, re.MULTILINE)
+        after_has_none = "return None" in after or re.search(r"return\s*$", after, re.MULTILINE)
+
         # Check for exception returns
-        before_has_raise = 'raise' in before
-        after_has_raise = 'raise' in after
-        
+        before_has_raise = "raise" in before
+        after_has_raise = "raise" in after
+
         if before_has_none != after_has_none:
             return {
                 "before": "Can return None" if before_has_none else "Always returns value",
@@ -381,14 +422,14 @@ class BehaviorAnalyzer:
                     f"None return {'added' if after_has_none and not before_has_none else 'removed'}",
                 ],
             }
-        
+
         if not before_has_raise and after_has_raise:
             return {
                 "before": "Returns normally",
                 "after": "May raise exception",
                 "evidence": ["Exception handling added to previously non-throwing function"],
             }
-        
+
         return None
 
 
@@ -401,83 +442,95 @@ class SemanticDiffVisualizer:
         edges = []
         clusters = []
         annotations = []
-        
+
         # Add nodes
         node_ids = set()
-        
+
         # Added nodes (green)
         for node in diff.nodes_added:
-            nodes.append({
-                "id": node.id,
-                "label": node.name,
-                "type": node.node_type,
-                "status": "added",
-                "color": "#4CAF50",
-                "file": node.file_path,
-                "line": node.line_start,
-            })
+            nodes.append(
+                {
+                    "id": node.id,
+                    "label": node.name,
+                    "type": node.node_type,
+                    "status": "added",
+                    "color": "#4CAF50",
+                    "file": node.file_path,
+                    "line": node.line_start,
+                }
+            )
             node_ids.add(node.id)
-        
+
         # Removed nodes (red)
         for node in diff.nodes_removed:
-            nodes.append({
-                "id": node.id,
-                "label": node.name,
-                "type": node.node_type,
-                "status": "removed",
-                "color": "#F44336",
-                "file": node.file_path,
-                "line": node.line_start,
-            })
+            nodes.append(
+                {
+                    "id": node.id,
+                    "label": node.name,
+                    "type": node.node_type,
+                    "status": "removed",
+                    "color": "#F44336",
+                    "file": node.file_path,
+                    "line": node.line_start,
+                }
+            )
             node_ids.add(node.id)
-        
+
         # Modified nodes (yellow)
         for node in diff.nodes_modified:
-            nodes.append({
-                "id": node.id,
-                "label": node.name,
-                "type": node.node_type,
-                "status": "modified",
-                "color": "#FF9800",
-                "file": node.file_path,
-                "line": node.line_start,
-            })
+            nodes.append(
+                {
+                    "id": node.id,
+                    "label": node.name,
+                    "type": node.node_type,
+                    "status": "modified",
+                    "color": "#FF9800",
+                    "file": node.file_path,
+                    "line": node.line_start,
+                }
+            )
             node_ids.add(node.id)
-        
+
         # Add edges
         for edge in diff.call_graph_changes:
             if edge.source_id in node_ids and edge.target_id in node_ids:
-                edges.append({
-                    "source": edge.source_id,
-                    "target": edge.target_id,
-                    "type": edge.edge_type,
-                    "color": "#2196F3",
-                })
-        
+                edges.append(
+                    {
+                        "source": edge.source_id,
+                        "target": edge.target_id,
+                        "type": edge.edge_type,
+                        "color": "#2196F3",
+                    }
+                )
+
         # Group by file (clusters)
         files = set(n["file"] for n in nodes)
         for file_path in files:
             file_nodes = [n["id"] for n in nodes if n["file"] == file_path]
-            clusters.append({
-                "id": f"cluster-{file_path}",
-                "label": file_path.split("/")[-1],
-                "nodes": file_nodes,
-            })
-        
+            clusters.append(
+                {
+                    "id": f"cluster-{file_path}",
+                    "label": file_path.split("/")[-1],
+                    "nodes": file_nodes,
+                }
+            )
+
         # Add behavior change annotations
         for change in diff.behavior_changes:
-            annotations.append({
-                "node_id": change.affected_node.id,
-                "type": change.change_type.value,
-                "risk": change.risk_level.value,
-                "message": change.description,
-                "details": {
-                    "before": change.before_behavior,
-                    "after": change.after_behavior,
-                    "evidence": change.evidence,
-                },
-            })
-        
+            annotations.append(
+                {
+                    "node_id": change.affected_node.id,
+                    "type": change.change_type.value,
+                    "risk": change.risk_level.value,
+                    "message": change.description,
+                    "details": {
+                        "before": change.before_behavior,
+                        "after": change.after_behavior,
+                        "evidence": change.evidence,
+                    },
+                }
+            )
+
         return VisualizationData(
             nodes=nodes,
             edges=edges,
@@ -493,24 +546,24 @@ class SemanticDiffVisualizer:
     def to_mermaid(self, viz: VisualizationData) -> str:
         """Convert visualization to Mermaid diagram."""
         lines = ["graph LR"]
-        
+
         # Define node styles
         lines.append("    classDef added fill:#4CAF50,color:white")
         lines.append("    classDef removed fill:#F44336,color:white")
         lines.append("    classDef modified fill:#FF9800,color:white")
-        
+
         # Add nodes
         for node in viz.nodes:
             node_id = node["id"].replace(":", "_").replace("/", "_").replace(".", "_")
             label = node["label"]
             lines.append(f"    {node_id}[{label}]:::{node['status']}")
-        
+
         # Add edges
         for edge in viz.edges:
             source = edge["source"].replace(":", "_").replace("/", "_").replace(".", "_")
             target = edge["target"].replace(":", "_").replace("/", "_").replace(".", "_")
             lines.append(f"    {source} --> {target}")
-        
+
         return "\n".join(lines)
 
     def to_dot(self, viz: VisualizationData) -> str:
@@ -518,34 +571,34 @@ class SemanticDiffVisualizer:
         lines = ["digraph SemanticDiff {"]
         lines.append("    rankdir=LR;")
         lines.append("    node [shape=box, style=filled];")
-        
+
         # Color definitions
         colors = {
             "added": "#4CAF50",
             "removed": "#F44336",
             "modified": "#FF9800",
         }
-        
+
         # Add nodes
         for node in viz.nodes:
             node_id = node["id"].replace(":", "_").replace("/", "_").replace(".", "_")
             color = colors.get(node["status"], "#CCCCCC")
             lines.append(f'    {node_id} [label="{node["label"]}", fillcolor="{color}"];')
-        
+
         # Add edges
         for edge in viz.edges:
             source = edge["source"].replace(":", "_").replace("/", "_").replace(".", "_")
             target = edge["target"].replace(":", "_").replace("/", "_").replace(".", "_")
-            lines.append(f'    {source} -> {target};')
-        
+            lines.append(f"    {source} -> {target};")
+
         lines.append("}")
         return "\n".join(lines)
 
     def to_html(self, viz: VisualizationData) -> str:
         """Generate interactive HTML visualization."""
         import json
-        
-        return f'''
+
+        return f"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -579,7 +632,7 @@ class SemanticDiffVisualizer:
     </script>
 </body>
 </html>
-'''
+"""
 
 
 class SemanticDiffAgent(BaseAgent):
@@ -597,7 +650,7 @@ class SemanticDiffAgent(BaseAgent):
     async def analyze(self, code: str, context: dict[str, Any]) -> AgentResult:
         """
         Generate semantic diff between two code versions.
-        
+
         Args:
             code: The new code version
             context: Contains:
@@ -606,7 +659,7 @@ class SemanticDiffAgent(BaseAgent):
                 - language: Programming language
                 - base_commit: Base commit SHA
                 - head_commit: Head commit SHA
-                
+
         Returns:
             AgentResult with semantic diff and visualization
         """
@@ -616,7 +669,7 @@ class SemanticDiffAgent(BaseAgent):
             language = context.get("language", "python")
             base_commit = context.get("base_commit", "base")
             head_commit = context.get("head_commit", "head")
-            
+
             diff = await self.generate_semantic_diff(
                 before_code=before_code,
                 after_code=code,
@@ -625,9 +678,9 @@ class SemanticDiffAgent(BaseAgent):
                 base_commit=base_commit,
                 head_commit=head_commit,
             )
-            
+
             viz = self._visualizer.generate_visualization(diff)
-            
+
             return AgentResult(
                 success=True,
                 data={
@@ -652,7 +705,7 @@ class SemanticDiffAgent(BaseAgent):
                     },
                 },
             )
-            
+
         except Exception as e:
             logger.error("Semantic diff failed", error=str(e))
             return AgentResult(success=False, error=str(e))
@@ -674,30 +727,30 @@ class SemanticDiffAgent(BaseAgent):
         else:
             before_nodes = self._parser.parse_typescript(before_code, file_path)
             after_nodes = self._parser.parse_typescript(after_code, file_path)
-        
+
         # Categorize nodes
         before_names = {n.name for n in before_nodes}
         after_names = {n.name for n in after_nodes}
-        
+
         added = [n for n in after_nodes if n.name not in before_names]
         removed = [n for n in before_nodes if n.name not in after_names]
         modified = [n for n in after_nodes if n.name in before_names]
-        
+
         # Analyze behavioral changes
         behavior_changes = self._analyzer.analyze(
             before_code, after_code, before_nodes, after_nodes
         )
-        
+
         # Extract call graph changes
         before_edges = self._parser.extract_call_graph(before_code, before_nodes)
         after_edges = self._parser.extract_call_graph(after_code, after_nodes)
-        
+
         # Find edge differences
         before_edge_set = {(e.source_id, e.target_id) for e in before_edges}
         after_edge_set = {(e.source_id, e.target_id) for e in after_edges}
-        
+
         new_edges = [e for e in after_edges if (e.source_id, e.target_id) not in before_edge_set]
-        
+
         # Generate summary
         summary = {
             "total_changes": len(added) + len(removed) + len(modified),
@@ -705,9 +758,15 @@ class SemanticDiffAgent(BaseAgent):
             "functions_removed": len([n for n in removed if n.node_type == "function"]),
             "functions_modified": len([n for n in modified if n.node_type == "function"]),
             "behavior_changes": len(behavior_changes),
-            "high_risk_changes": len([c for c in behavior_changes if c.risk_level in (RiskLevel.CRITICAL, RiskLevel.HIGH)]),
+            "high_risk_changes": len(
+                [
+                    c
+                    for c in behavior_changes
+                    if c.risk_level in (RiskLevel.CRITICAL, RiskLevel.HIGH)
+                ]
+            ),
         }
-        
+
         logger.info(
             "Generated semantic diff",
             added=len(added),
@@ -715,7 +774,7 @@ class SemanticDiffAgent(BaseAgent):
             modified=len(modified),
             behavior_changes=len(behavior_changes),
         )
-        
+
         return SemanticDiff(
             base_commit=base_commit,
             head_commit=head_commit,
