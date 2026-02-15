@@ -1027,6 +1027,858 @@ from codeverify_core.marketplace_community import (
     MarketplaceCommunity,
 )
 
+# =============================================================================
+# Next-Gen v0.8.0 Imports
+# =============================================================================
+
+# Feature 1: Language Expansion Engine (pluggable adapter framework)
+from codeverify_core.language_adapter import (
+    AdapterResult,
+    GoAdapter,
+    JavaAdapter,
+    LanguageAdapter,
+    LanguageAdapterRegistry,
+    PythonAdapter,
+    RustAdapter,
+    TypeScriptAdapter,
+    get_adapter_registry,
+    reset_adapter_registry,
+)
+
+# Feature 2: Zero-Config Cloud SaaS
+from codeverify_core.cloud_saas import (
+    AuthProvider,
+    OAuthManager,
+    OAuthToken,
+    Tenant,
+    TenantLimits,
+    TenantManager,
+    TenantStatus,
+    TenantTier,
+    TenantUser,
+    get_tenant_manager,
+    reset_tenant_manager,
+)
+from codeverify_core.cloud_saas import (
+    UsageRecord as CloudUsageRecord,
+)
+
+# Feature 5: Interactive Proof Explorer
+from codeverify_core.proof_explorer import (
+    Counterexample,
+    ProofExplorer,
+    ProofOutcome,
+    ProofStep,
+    ProofStepType,
+    ProofTrace,
+    ProofTraceSerializer,
+    VariableBinding,
+    VisualizationFormat,
+    get_proof_explorer,
+    reset_proof_explorer,
+)
+
+# Feature 6: Auto-Fix Pipeline with Verification Loop
+from codeverify_core.autofix_loop import (
+    AutoFixPipeline,
+    FixAttempt,
+    FixGenerator,
+    FixVerifier,
+    VerifiedFix,
+    get_auto_fix_pipeline,
+    reset_auto_fix_pipeline,
+)
+from codeverify_core.autofix_loop import (
+    Finding as AutoFixLoopFinding,
+)
+from codeverify_core.autofix_loop import (
+    FixConfidence as AutoFixLoopConfidence,
+)
+from codeverify_core.autofix_loop import (
+    FixStatus as AutoFixLoopStatus,
+)
+
+# Feature 4: LLM Cost Optimizer with Local Models
+from codeverify_core.llm_cost_optimizer import (
+    CheckComplexity,
+    ComplexityClassifier,
+    CostOptimizer,
+    CostRecord,
+    ModelEndpoint,
+    RoutingDecision,
+    RoutingStrategy,
+    get_cost_optimizer,
+    reset_cost_optimizer,
+)
+from codeverify_core.llm_cost_optimizer import (
+    CostBudget as LLMCostBudget,
+)
+from codeverify_core.llm_cost_optimizer import (
+    CostReport as LLMCostReport,
+)
+from codeverify_core.llm_cost_optimizer import (
+    ModelProvider as LLMModelProvider,
+)
+
+# Feature 7: CI/CD Native Actions & Plugins
+from codeverify_core.cicd_actions import (
+    CICDActionRunner,
+    CIConfigGenerator as CICDConfigGenerator,
+    CIPlatform,
+    GateResult,
+    QualityGateConfig,
+    QualityGateEvaluator,
+    SARIFReport,
+    SARIFResult,
+)
+
+# Feature 8: Organization Intelligence Dashboard
+from codeverify_core.org_dashboard import (
+    MetricsAggregator,
+    OrgDashboard,
+    OrgDashboardData,
+    RepoMetrics,
+    RiskHeatmapEntry,
+    TeamMetrics,
+    TrendPoint,
+)
+from codeverify_core.org_dashboard import (
+    MetricPeriod as OrgMetricPeriod,
+)
+from codeverify_core.org_dashboard import (
+    RiskLevel as OrgRiskLevel,
+)
+from codeverify_core.org_dashboard import (
+    ROIMetrics as OrgROIMetrics,
+)
+
+# Feature 9: Verification-Aware Code Generation
+from codeverify_core.verification_codegen import (
+    AssertionGenerator,
+    AssertionType,
+    ContextExtractor,
+    GenerationContext,
+    InlineAssertion,
+    SuggestionRank,
+    SuggestionRanker,
+    VerificationAwareCodeGen,
+    VerifiedSuggestion,
+)
+
+# Feature 10: Plugin Marketplace & SDK
+from codeverify_core.plugin_marketplace import (
+    PluginEntry,
+    PluginManifest,
+    PluginRegistry,
+    PluginReview,
+    PluginSDK,
+    PluginSearchResult,
+    PluginStatus,
+    PluginType,
+    get_plugin_registry,
+    reset_plugin_registry,
+)
+
+from codeverify_core.redis_backends import (
+    RedisCostStore,
+    RedisPluginStore,
+    RedisTenantStore,
+)
+
+# v0.9.0 modules
+from codeverify_core.verification_completion import (
+    CompletionCandidate,
+    CompletionMiddleware,
+    CompletionSource,
+    CompletionVerifier,
+    CompletionVerifierStats,
+    VerificationRule as CompletionVerificationRule,
+    VerificationStatus as CompletionVerificationStatus,
+    VerifiedCompletion,
+    get_completion_verifier,
+    reset_completion_verifier,
+)
+
+from codeverify_core.multi_repo_graph import (
+    BlastRadius,
+    BreakingChange,
+    ChangeType,
+    CompatibilityResult,
+    ContractCompatibilityChecker,
+    ContractExtractor,
+    ContractField,
+    ContractType,
+    Endpoint as ContractEndpoint,
+    FieldType,
+    ServiceContract,
+    ServiceDependency,
+    VerificationGraph,
+    get_verification_graph,
+    reset_verification_graph,
+)
+
+from codeverify_core.test_generation import (
+    CodePath,
+    GeneratedTest,
+    MutantStatus,
+    MutationReport,
+    MutationTester,
+    PathCondition,
+    PathConditionType,
+    SymbolicPathDiscoverer,
+    TestFramework,
+    TestInput,
+    TestInputGenerator,
+    TestSuiteGenerator,
+    get_test_generator,
+    reset_test_generator,
+)
+
+from codeverify_core.adversarial_testing import (
+    AdversarialReport,
+    AdversarialTester,
+    AttackCategory,
+    AttackVector,
+    AttackVectorGenerator,
+    Exploit,
+    ExploitSeverity,
+    FuzzStrategy,
+    VulnerabilityScanner,
+    get_adversarial_tester,
+    reset_adversarial_tester,
+)
+
+from codeverify_core.live_review import (
+    AssertionSource,
+    AssertionStatus,
+    CompiledAssertion,
+    FindingConsensus,
+    LiveReviewManager,
+    LiveReviewSession,
+    NLAssertion,
+    NLAssertionCompiler,
+    ReviewVote,
+    VoteType,
+    get_live_review_manager,
+    reset_live_review_manager,
+)
+
+from codeverify_core.audit_trail import (
+    AICodeDetector,
+    AIFingerprint,
+    ComplianceFramework,
+    ComplianceReport,
+    ProvenanceRecord,
+    ProvenanceSource,
+    ProvenanceTracker,
+    RiskLevel as AuditRiskLevel,
+    get_provenance_tracker,
+    reset_provenance_tracker,
+)
+
+from codeverify_core.explainable_reports import (
+    CounterExample,
+    ExplainableReport,
+    ExplainedFinding,
+    ExplanationLevel,
+    FindingExplainer,
+    VerificationFinding,
+    VerificationOutcome,
+    get_finding_explainer,
+    reset_finding_explainer,
+)
+
+from codeverify_core.clone_detector import (
+    CloneCluster,
+    CloneDetector,
+    ClonePair,
+    CloneType,
+    DeduplicationReport,
+    FunctionExtractor,
+    FunctionSignature,
+    RefactoringSuggestion,
+    RefactoringStatus,
+    get_clone_detector,
+    reset_clone_detector,
+)
+
+from codeverify_core.verification_as_code import (
+    DriftReport,
+    DriftStatus,
+    PolicyDSLParser,
+    PolicyEngine,
+    PolicyModule,
+    PolicyRule,
+    PolicyScope,
+    PolicySeverity,
+    PolicyViolation,
+    get_policy_engine,
+    reset_policy_engine,
+)
+
+from codeverify_core.budget_marketplace import (
+    CapacityLease,
+    MarketOrder,
+    MarketStats,
+    OrderSide,
+    OrderStatus,
+    Trade,
+    TransactionType,
+    VerificationCredit,
+    VerificationMarketplace,
+    Wallet,
+    WalletTransaction,
+    get_marketplace,
+    reset_marketplace,
+)
+
+# =============================================================================
+# Next-Gen v1.0.0 Imports
+# =============================================================================
+
+# Feature 1: AI Code Insurance Underwriting Platform
+from codeverify_core.insurance_underwriting import (
+    ClaimRejectionReason,
+    ClaimStatus,
+    ClaimValidator,
+    CoverageType,
+    InsuranceClaim,
+    InsurancePolicy,
+    InsuranceUnderwriter,
+    PolicyStatus,
+    PremiumCalculation,
+    PremiumCalculator,
+    RiskTier,
+    get_insurance_underwriter,
+    reset_insurance_underwriter,
+)
+from codeverify_core.insurance_underwriting import (
+    RiskProfile as InsuranceRiskProfile,
+)
+
+# Feature 2: Cross-Repository Security Graph
+from codeverify_core.cross_repo_security_graph import (
+    BlastRadiusResult as SecurityBlastRadiusResult,
+)
+from codeverify_core.cross_repo_security_graph import (
+    ScanStatus,
+    SecurityEdge,
+    SecurityEdgeType,
+    SecurityKnowledgeGraph,
+    SecurityNode,
+    SecurityNodeType,
+    SimilarityMatch,
+    VulnSeverity,
+    VulnerabilityRecord,
+    get_security_graph,
+    reset_security_graph,
+)
+
+# Feature 3: Differential Privacy-Preserving Proof Marketplace
+from codeverify_core.privacy_preserving_proofs import (
+    AnonymizedProof,
+    ContributionStatus,
+    FederatedAggregator,
+    FederatedUpdate,
+    PrivacyBudget,
+    PrivacyLevel,
+    PrivacyPreservingProofMarketplace,
+    ProofAnonymizer,
+    get_privacy_marketplace,
+    reset_privacy_marketplace,
+)
+from codeverify_core.privacy_preserving_proofs import (
+    ProofCategory as PrivacyProofCategory,
+)
+
+# Feature 4: Blockchain-Verified Code Provenance
+from codeverify_core.blockchain_provenance import (
+    AttestationStatus,
+    BadgeLevel,
+    BlockchainAttestation,
+    BlockchainProvenanceEngine,
+    ChainType,
+    ContentAddress,
+    LocalBlockchain,
+    VerificationBadge,
+    get_blockchain_provenance,
+    reset_blockchain_provenance,
+)
+
+# Feature 5: Natural Language Compliance Query Engine
+from codeverify_core.nl_compliance_engine import (
+    BUILTIN_TEMPLATES,
+    ComplianceEvidence,
+    ComplianceQuery,
+    ComplianceQueryExecutor,
+    ComplianceQueryResult,
+    ComplianceTemplate,
+    EvidenceStrength,
+    NLQueryParser,
+    QueryStatus,
+    QueryType,
+    get_compliance_query_engine,
+    reset_compliance_query_engine,
+)
+from codeverify_core.nl_compliance_engine import (
+    ComplianceStandard as NLComplianceStandard,
+)
+
+# Feature 6: AI Model Bias & Fairness Verification
+from codeverify_core.fairness_verification import (
+    BiasDetectionResult,
+    BiasDetector,
+    BiasLevel,
+    FairnessConstraint,
+    FairnessMetric,
+    FairnessReport,
+    FairnessVerifier,
+    GroupMetrics,
+    ProtectedAttribute,
+    RemediationAdvisor,
+    RemediationSuggestion,
+    RemediationType,
+    get_fairness_verifier,
+    reset_fairness_verifier,
+)
+from codeverify_core.fairness_verification import (
+    ComplianceStatus as FairnessComplianceStatus,
+)
+
+# Feature 7: IDE Copilot Undo with Proof Preservation
+from codeverify_core.copilot_undo import (
+    CodeDiff,
+    CopilotUndoManager,
+    ProofSnapshot,
+    SavePoint,
+    SavePointStatus,
+    SavePointType,
+    TrustScoreTrend,
+    get_copilot_undo_manager,
+    reset_copilot_undo_manager,
+)
+from codeverify_core.copilot_undo import (
+    VerificationState as UndoVerificationState,
+)
+
+# Feature 8: Predictive Code Quality Forecasting
+from codeverify_core.quality_forecasting import (
+    AnomalyDetector,
+    QualityAlert,
+    QualityDataPoint,
+    QualityForecast,
+    QualityForecaster,
+    ScenarioResult,
+    TrendAnalysis,
+    TrendCalculator,
+    get_quality_forecaster,
+    reset_quality_forecaster,
+)
+from codeverify_core.quality_forecasting import (
+    AlertSeverity as ForecastAlertSeverity,
+)
+from codeverify_core.quality_forecasting import (
+    ForecastConfidence,
+)
+from codeverify_core.quality_forecasting import (
+    MetricType as ForecastMetricType,
+)
+from codeverify_core.quality_forecasting import (
+    TrendDirection as ForecastTrendDirection,
+)
+
+# Feature 9: Verification-Driven Code Generation
+from codeverify_core.verified_codegen import (
+    CodeGenerator,
+    CodeSpec,
+    ConstraintChecker,
+    ConstraintType,
+    FormalConstraint,
+    GeneratedCandidate,
+    GenerationResult,
+    GenerationStatus,
+    SpecLanguage,
+    VerifiedCodeGenerator,
+    get_verified_codegen,
+    reset_verified_codegen,
+)
+from codeverify_core.verified_codegen import (
+    VerificationResult as CodegenVerificationResult,
+)
+
+# Feature 10: Real-Time Collaborative Verification Sessions
+from codeverify_core.collaborative_verification_sessions import (
+    CollaborativeSessionManager,
+    CollaborativeVerificationSession,
+    LineStatus,
+    LineVerification,
+    ParticipantRole,
+    SessionMessage,
+    SessionPhase,
+    SessionRecording,
+    SessionStats,
+    get_collab_session_manager,
+    reset_collab_session_manager,
+)
+from codeverify_core.collaborative_verification_sessions import (
+    MessageType as CollabMessageType,
+)
+from codeverify_core.collaborative_verification_sessions import (
+    SessionParticipant as CollabSessionParticipant,
+)
+
+# Hosted SaaS Platform (v1.1.0)
+from codeverify_core.saas_platform import (
+    ApiKey,
+    ApiKeyScope,
+    PlanLimits,
+    PlanTier,
+    RateLimiter,
+    SaaSPlatform,
+    Tenant,
+    TenantStatus,
+    UsageMetricType,
+    UsageRecord,
+    UsageSummary,
+    UsageTracker,
+    get_saas_platform,
+    reset_saas_platform,
+)
+
+# Go + Java Language Support (v1.1.0)
+from codeverify_core.go_java_support import (
+    AdvancedGoParser,
+    AdvancedJavaParser,
+    GoJavaLanguageSupport,
+    GoJavaNode,
+    GoJavaNodeType,
+    GoJavaParseResult,
+    IdiomaticPattern,
+    PatternMatch,
+    get_go_java_support,
+    reset_go_java_support,
+)
+
+# Autofix Agent with PR Generation (v1.1.0)
+from codeverify_core.autofix_pr_agent import (
+    AutofixAgent,
+    FixCandidate,
+    FixCategory,
+    FixConfidence,
+    FixGenerator,
+    FixResult,
+    FixStatus,
+    FixVerifier,
+    get_autofix_agent,
+    reset_autofix_agent,
+)
+
+# GitHub Copilot Chat Extension (v1.1.0)
+from codeverify_core.copilot_chat_extension import (
+    ChatContext,
+    ChatMessage,
+    ChatResponse,
+    CommandRouter,
+    CopilotCommand,
+    CopilotExtensionHandler,
+    CopilotSession,
+    ResponseFormat,
+    get_copilot_extension_handler,
+    reset_copilot_extension_handler,
+)
+
+# Incremental Verification Engine (v1.1.0)
+from codeverify_core.incremental_verification import (
+    CacheMetrics,
+    CacheStatus,
+    CachedResult,
+    CodeUnit,
+    DependencyGraph,
+    IncrementalVerificationEngine,
+    VerificationStatus as IncrementalVerificationStatus,
+    get_incremental_engine,
+    reset_incremental_engine,
+)
+
+# Organization Security Posture Dashboard (v1.1.0)
+from codeverify_core.org_security_dashboard import (
+    ComplianceFramework as DashboardComplianceFramework,
+    ComplianceRecord,
+    ComplianceStatus as DashboardComplianceStatus,
+    DORAMetrics,
+    OrgSecurityDashboard,
+    OrgSecurityPosture,
+    RepoMetrics,
+    RiskLevel as DashboardRiskLevel,
+    TrendDataPoint,
+    TrendDirection,
+    TrendSeries,
+    get_org_security_dashboard,
+    reset_org_security_dashboard,
+)
+
+# CI/CD Pipeline Orchestrator (v1.1.0)
+from codeverify_core.cicd_orchestrator import (
+    CICDOrchestrator,
+    CICDPlatform,
+    GateEvaluation,
+    GateMode,
+    GateResult,
+    PipelineConfig,
+    PipelineConfigGenerator,
+    PipelineStatus,
+    QualityGate,
+    QualityGateEvaluator,
+    QualityThresholds,
+    StatusState,
+    get_cicd_orchestrator,
+    reset_cicd_orchestrator,
+)
+
+# LLM-Powered Proof Explainer (v1.1.0)
+from codeverify_core.proof_explainer import (
+    CheckCategory,
+    CounterexampleParser,
+    CounterexampleValue,
+    ExplanationDetail,
+    ParsedCounterexample,
+    ProofExplanation,
+    ProofExplainerEngine,
+    ProofOutcome,
+    get_proof_explainer,
+    reset_proof_explainer,
+)
+
+# Supply Chain Verification (v1.1.0)
+from codeverify_core.supply_chain import (
+    Dependency,
+    DependencyRisk,
+    LicenseCategory,
+    LicensePolicy,
+    LockfileParser,
+    PackageManager,
+    SBOMEntry,
+    SupplyChainReport,
+    SupplyChainVerifier,
+    Vulnerability,
+    VulnerabilityDatabase,
+    VulnerabilitySeverity,
+    get_supply_chain_verifier,
+    reset_supply_chain_verifier,
+)
+from codeverify_core.supply_chain import (
+    ComplianceStatus as SupplyChainComplianceStatus,
+)
+
+# Self-Learning Rule Engine (v1.1.0)
+from codeverify_core.self_learning_rules import (
+    ClassificationResult,
+    DismissReason,
+    FalsePositiveClassifier,
+    FeedbackCollector,
+    FeedbackType,
+    FeatureVector,
+    FindingFeedback,
+    LearnedPattern,
+    PatternLearner,
+    RulePerformance,
+    SelfLearningRuleEngine,
+    SeverityAdjustment,
+    SeverityCalibrator,
+    get_self_learning_engine,
+    reset_self_learning_engine,
+)
+
+# Rust & C/C++ Memory Safety Verification (v1.2.0)
+from codeverify_core.memory_safety import (
+    CPointerAnalyzer,
+    DataRaceCandidate,
+    DataRaceDetector,
+    LifetimeConstraint,
+    MemoryCheckSeverity,
+    MemoryLanguage,
+    MemoryLocation,
+    MemoryRegion,
+    MemorySafetyReport,
+    MemorySafetyVerifier,
+    MemoryViolation,
+    MemoryViolationType,
+    OwnershipConstraint,
+    OwnershipState,
+    PointerInfo,
+    PointerState,
+    RustOwnershipAnalyzer,
+    get_memory_safety_verifier,
+    reset_memory_safety_verifier,
+)
+
+# GitHub Copilot Workspace Integration (v1.2.0)
+from codeverify_core.copilot_workspace import (
+    ConstraintType,
+    CopilotWorkspaceIntegration,
+    PlanFinding,
+    PlanVerificationResult,
+    VerificationConstraint,
+    VerificationGate,
+    WorkspaceEventType,
+    WorkspaceFile,
+    WorkspacePlan,
+    WorkspacePlanStatus,
+    WorkspaceSession,
+    get_copilot_workspace_integration,
+    reset_copilot_workspace_integration,
+)
+
+# Zero-Config Onboarding (v1.2.0)
+from codeverify_core.zero_config import (
+    BaselineScanResult,
+    ConfigGenerator,
+    DetectedFramework,
+    DetectedLanguage,
+    GeneratedConfig,
+    GeneratedWorkflow,
+    OnboardingResult,
+    OnboardingStep,
+    ProjectAnalysis,
+    ProjectDetector,
+    ProjectType,
+    WorkflowGenerator,
+    ZeroConfigOnboarder,
+    get_zero_config_onboarder,
+    reset_zero_config_onboarder,
+)
+
+# Autonomous Verification Agent (v1.2.0)
+from codeverify_core.autonomous_agent import (
+    AgentState,
+    AutonomousPR,
+    AutonomousVerificationAgent,
+    AutonomyLevel,
+    FeedbackEntry,
+    FindingTriage,
+    FindingTriager,
+    FixCandidate,
+    FixGenerator,
+    FixOutcome,
+    MonitoredChange,
+    TriagedFinding,
+    get_autonomous_agent,
+    reset_autonomous_agent,
+)
+
+# Verification-as-a-Service API (v1.2.0)
+from codeverify_core.vaas import (
+    OutputFormat,
+    TierLimits,
+    VaaSApiKey,
+    VaaSService,
+    VerificationRequest,
+    VerificationResponse,
+    VerificationStatus,
+    VerificationTier,
+    WebhookConfig,
+    WebhookEventType,
+    get_vaas_service,
+    reset_vaas_service,
+)
+
+# Interactive Proof Explorer (v1.2.0)
+from codeverify_core.proof_explorer_interactive import (
+    ConstraintAnimator,
+    ConstraintStep,
+    DetailLevel,
+    ExportFormat,
+    InteractiveProofExplorer,
+    ProofAnimation,
+    ProofNode,
+    ProofNodeType,
+    ProofRenderer,
+    ProofStatus,
+    ProofTreeParser,
+    ShareableProof,
+    get_proof_explorer,
+    reset_proof_explorer,
+)
+
+# Cross-Repository Blast Radius (v1.2.0)
+from codeverify_core.cross_repo_blast import (
+    CrossRepoBlastAnalyzer,
+    CrossRepoBlastReport,
+    CrossRepoChange,
+    CrossRepoChangeImpact,
+    CrossRepoDependency,
+    CrossRepoDependencyType,
+    CrossRepoImpactLevel,
+    CrossRepoImpactedRepo,
+    OrgDependencyGraph,
+    OrgRepository,
+    get_cross_repo_blast_analyzer,
+    reset_cross_repo_blast_analyzer,
+)
+
+# AI Code Review Benchmark Suite (v1.2.0)
+from codeverify_core.benchmark import (
+    BenchmarkDataset,
+    BenchmarkMetrics,
+    BenchmarkRunner,
+    BenchmarkSample,
+    BugCategory,
+    BuiltinBenchmarkAdapter,
+    CategoryMetrics,
+    LeaderboardEntry,
+    SampleDifficulty,
+    SampleLanguage,
+    ToolDetection,
+    get_benchmark_runner,
+    reset_benchmark_runner,
+)
+
+# Fine-Tuned Verification LLM (v1.2.0)
+from codeverify_core.fine_tuned_llm import (
+    AirGapPackage,
+    AirGapPackager,
+    CostComparison,
+    FineTunedVerificationLLM,
+    InferenceConfig,
+    InferenceResult,
+    LocalInferenceEngine,
+    ModelConfig,
+    ModelFormat,
+    ModelSize,
+    TaskType,
+    TrainingDataPipeline,
+    TrainingDataset,
+    TrainingJob,
+    TrainingMetrics,
+    TrainingSample,
+    TrainingStatus,
+    get_fine_tuned_llm,
+    reset_fine_tuned_llm,
+)
+
+# Developer Certification Program (v1.2.0)
+from codeverify_core.certification import (
+    Assessment,
+    AssessmentGrader,
+    AssessmentQuestion,
+    AssessmentSubmission,
+    AssessmentType,
+    BadgeType,
+    Certificate,
+    CertificationLevel,
+    CertificationProgram,
+    CourseBuilder,
+    CourseModule,
+    CredentialIssuer,
+    DigitalBadge,
+    LabExercise,
+    LabStatus,
+    LearnerProgress,
+    ModuleStatus,
+    get_certification_program,
+    reset_certification_program,
+)
+
 __all__ = [
     # Models
     "Analysis",
@@ -1767,4 +2619,654 @@ __all__ = [
     "ChallengeManager",
     "AwardSystem",
     "MarketplaceCommunity",
+    # Next-Gen v0.8.0: Language Expansion Engine
+    "LanguageAdapter",
+    "LanguageAdapterRegistry",
+    "AdapterResult",
+    "PythonAdapter",
+    "TypeScriptAdapter",
+    "GoAdapter",
+    "JavaAdapter",
+    "RustAdapter",
+    "get_adapter_registry",
+    "reset_adapter_registry",
+    # Next-Gen v0.8.0: Cloud SaaS
+    "AuthProvider",
+    "TenantTier",
+    "TenantStatus",
+    "TenantLimits",
+    "Tenant",
+    "OAuthToken",
+    "TenantUser",
+    "TenantManager",
+    "OAuthManager",
+    "CloudUsageRecord",
+    "get_tenant_manager",
+    "reset_tenant_manager",
+    # Next-Gen v0.8.0: Interactive Proof Explorer
+    "ProofStepType",
+    "ProofOutcome",
+    "VisualizationFormat",
+    "VariableBinding",
+    "ProofStep",
+    "Counterexample",
+    "ProofTrace",
+    "ProofTraceSerializer",
+    "ProofExplorer",
+    "get_proof_explorer",
+    "reset_proof_explorer",
+    # Next-Gen v0.8.0: Auto-Fix Pipeline
+    "AutoFixPipeline",
+    "FixAttempt",
+    "FixGenerator",
+    "FixVerifier",
+    "VerifiedFix",
+    "AutoFixLoopFinding",
+    "AutoFixLoopStatus",
+    "AutoFixLoopConfidence",
+    "get_auto_fix_pipeline",
+    "reset_auto_fix_pipeline",
+    # Next-Gen v0.8.0: LLM Cost Optimizer
+    "LLMModelProvider",
+    "RoutingStrategy",
+    "CheckComplexity",
+    "ModelEndpoint",
+    "RoutingDecision",
+    "CostRecord",
+    "LLMCostBudget",
+    "LLMCostReport",
+    "ComplexityClassifier",
+    "CostOptimizer",
+    "get_cost_optimizer",
+    "reset_cost_optimizer",
+    # Next-Gen v0.8.0: CI/CD Actions
+    "CIPlatform",
+    "GateResult",
+    "QualityGateConfig",
+    "SARIFResult",
+    "SARIFReport",
+    "QualityGateEvaluator",
+    "CICDConfigGenerator",
+    "CICDActionRunner",
+    # Next-Gen v0.8.0: Organization Dashboard
+    "OrgMetricPeriod",
+    "OrgRiskLevel",
+    "TeamMetrics",
+    "RepoMetrics",
+    "RiskHeatmapEntry",
+    "OrgROIMetrics",
+    "TrendPoint",
+    "OrgDashboardData",
+    "MetricsAggregator",
+    "OrgDashboard",
+    # Next-Gen v0.8.0: Verification-Aware Code Generation
+    "AssertionType",
+    "SuggestionRank",
+    "InlineAssertion",
+    "VerifiedSuggestion",
+    "GenerationContext",
+    "ContextExtractor",
+    "AssertionGenerator",
+    "SuggestionRanker",
+    "VerificationAwareCodeGen",
+    # Next-Gen v0.8.0: Plugin Marketplace
+    "PluginType",
+    "PluginStatus",
+    "PluginManifest",
+    "PluginEntry",
+    "PluginReview",
+    "PluginSearchResult",
+    "PluginSDK",
+    "PluginRegistry",
+    "get_plugin_registry",
+    "reset_plugin_registry",
+    # Redis backends (v0.8.0)
+    "RedisTenantStore",
+    "RedisPluginStore",
+    "RedisCostStore",
+    # Verification-First Code Completion (v0.9.0)
+    "CompletionCandidate",
+    "CompletionMiddleware",
+    "CompletionSource",
+    "CompletionVerifier",
+    "CompletionVerifierStats",
+    "CompletionVerificationRule",
+    "CompletionVerificationStatus",
+    "VerifiedCompletion",
+    "get_completion_verifier",
+    "reset_completion_verifier",
+    # Multi-Repo Verification Graph (v0.9.0)
+    "BlastRadius",
+    "BreakingChange",
+    "ChangeType",
+    "CompatibilityResult",
+    "ContractCompatibilityChecker",
+    "ContractExtractor",
+    "ContractField",
+    "ContractType",
+    "ContractEndpoint",
+    "FieldType",
+    "ServiceContract",
+    "ServiceDependency",
+    "VerificationGraph",
+    "get_verification_graph",
+    "reset_verification_graph",
+    # Verification-Driven Test Generation (v0.9.0)
+    "CodePath",
+    "GeneratedTest",
+    "MutantStatus",
+    "MutationReport",
+    "MutationTester",
+    "PathCondition",
+    "PathConditionType",
+    "SymbolicPathDiscoverer",
+    "TestFramework",
+    "TestInput",
+    "TestInputGenerator",
+    "TestSuiteGenerator",
+    "get_test_generator",
+    "reset_test_generator",
+    # Adversarial Testing Copilot (v0.9.0)
+    "AdversarialReport",
+    "AdversarialTester",
+    "AttackCategory",
+    "AttackVector",
+    "AttackVectorGenerator",
+    "Exploit",
+    "ExploitSeverity",
+    "FuzzStrategy",
+    "VulnerabilityScanner",
+    "get_adversarial_tester",
+    "reset_adversarial_tester",
+    # Live Verification During Code Review (v0.9.0)
+    "AssertionSource",
+    "AssertionStatus",
+    "CompiledAssertion",
+    "FindingConsensus",
+    "LiveReviewManager",
+    "LiveReviewSession",
+    "NLAssertion",
+    "NLAssertionCompiler",
+    "ReviewVote",
+    "VoteType",
+    "get_live_review_manager",
+    "reset_live_review_manager",
+    # AI Code Audit Trail & Provenance (v0.9.0)
+    "AICodeDetector",
+    "AIFingerprint",
+    "ComplianceFramework",
+    "ComplianceReport",
+    "ProvenanceRecord",
+    "ProvenanceSource",
+    "ProvenanceTracker",
+    "AuditRiskLevel",
+    "get_provenance_tracker",
+    "reset_provenance_tracker",
+    # Explainable AI Verification Reports (v0.9.0)
+    "CounterExample",
+    "ExplainableReport",
+    "ExplainedFinding",
+    "ExplanationLevel",
+    "FindingExplainer",
+    "VerificationFinding",
+    "VerificationOutcome",
+    "get_finding_explainer",
+    "reset_finding_explainer",
+    # Semantic Code Clone Detector (v0.9.0)
+    "CloneCluster",
+    "CloneDetector",
+    "ClonePair",
+    "CloneType",
+    "DeduplicationReport",
+    "FunctionExtractor",
+    "FunctionSignature",
+    "RefactoringSuggestion",
+    "RefactoringStatus",
+    "get_clone_detector",
+    "reset_clone_detector",
+    # Verification-as-Code Infrastructure (v0.9.0)
+    "DriftReport",
+    "DriftStatus",
+    "PolicyDSLParser",
+    "PolicyEngine",
+    "PolicyModule",
+    "PolicyRule",
+    "PolicyScope",
+    "PolicySeverity",
+    "PolicyViolation",
+    "get_policy_engine",
+    "reset_policy_engine",
+    # Budget Marketplace (v0.9.0)
+    "CapacityLease",
+    "MarketOrder",
+    "MarketStats",
+    "OrderSide",
+    "OrderStatus",
+    "Trade",
+    "TransactionType",
+    "VerificationCredit",
+    "VerificationMarketplace",
+    "Wallet",
+    "WalletTransaction",
+    "get_marketplace",
+    "reset_marketplace",
+    # AI Code Insurance Underwriting Platform (v1.0.0)
+    "ClaimRejectionReason",
+    "ClaimStatus",
+    "ClaimValidator",
+    "CoverageType",
+    "InsuranceClaim",
+    "InsurancePolicy",
+    "InsuranceRiskProfile",
+    "InsuranceUnderwriter",
+    "PolicyStatus",
+    "PremiumCalculation",
+    "PremiumCalculator",
+    "RiskTier",
+    "get_insurance_underwriter",
+    "reset_insurance_underwriter",
+    # Cross-Repository Security Graph (v1.0.0)
+    "ScanStatus",
+    "SecurityBlastRadiusResult",
+    "SecurityEdge",
+    "SecurityEdgeType",
+    "SecurityKnowledgeGraph",
+    "SecurityNode",
+    "SecurityNodeType",
+    "SimilarityMatch",
+    "VulnSeverity",
+    "VulnerabilityRecord",
+    "get_security_graph",
+    "reset_security_graph",
+    # Differential Privacy-Preserving Proof Marketplace (v1.0.0)
+    "AnonymizedProof",
+    "ContributionStatus",
+    "FederatedAggregator",
+    "FederatedUpdate",
+    "PrivacyBudget",
+    "PrivacyLevel",
+    "PrivacyPreservingProofMarketplace",
+    "PrivacyProofCategory",
+    "ProofAnonymizer",
+    "get_privacy_marketplace",
+    "reset_privacy_marketplace",
+    # Blockchain-Verified Code Provenance (v1.0.0)
+    "AttestationStatus",
+    "BadgeLevel",
+    "BlockchainAttestation",
+    "BlockchainProvenanceEngine",
+    "ChainType",
+    "ContentAddress",
+    "LocalBlockchain",
+    "VerificationBadge",
+    "get_blockchain_provenance",
+    "reset_blockchain_provenance",
+    # Natural Language Compliance Query Engine (v1.0.0)
+    "BUILTIN_TEMPLATES",
+    "ComplianceEvidence",
+    "ComplianceQuery",
+    "ComplianceQueryExecutor",
+    "ComplianceQueryResult",
+    "ComplianceTemplate",
+    "EvidenceStrength",
+    "NLComplianceStandard",
+    "NLQueryParser",
+    "QueryStatus",
+    "QueryType",
+    "get_compliance_query_engine",
+    "reset_compliance_query_engine",
+    # AI Model Bias & Fairness Verification (v1.0.0)
+    "BiasDetectionResult",
+    "BiasDetector",
+    "BiasLevel",
+    "FairnessComplianceStatus",
+    "FairnessConstraint",
+    "FairnessMetric",
+    "FairnessReport",
+    "FairnessVerifier",
+    "GroupMetrics",
+    "ProtectedAttribute",
+    "RemediationAdvisor",
+    "RemediationSuggestion",
+    "RemediationType",
+    "get_fairness_verifier",
+    "reset_fairness_verifier",
+    # IDE Copilot Undo with Proof Preservation (v1.0.0)
+    "CodeDiff",
+    "CopilotUndoManager",
+    "ProofSnapshot",
+    "SavePoint",
+    "SavePointStatus",
+    "SavePointType",
+    "TrustScoreTrend",
+    "UndoVerificationState",
+    "get_copilot_undo_manager",
+    "reset_copilot_undo_manager",
+    # Predictive Code Quality Forecasting (v1.0.0)
+    "AnomalyDetector",
+    "ForecastAlertSeverity",
+    "ForecastConfidence",
+    "ForecastMetricType",
+    "ForecastTrendDirection",
+    "QualityAlert",
+    "QualityDataPoint",
+    "QualityForecast",
+    "QualityForecaster",
+    "ScenarioResult",
+    "TrendAnalysis",
+    "TrendCalculator",
+    "get_quality_forecaster",
+    "reset_quality_forecaster",
+    # Verification-Driven Code Generation (v1.0.0)
+    "CodeGenerator",
+    "CodeSpec",
+    "CodegenVerificationResult",
+    "ConstraintChecker",
+    "ConstraintType",
+    "FormalConstraint",
+    "GeneratedCandidate",
+    "GenerationResult",
+    "GenerationStatus",
+    "SpecLanguage",
+    "VerifiedCodeGenerator",
+    "get_verified_codegen",
+    "reset_verified_codegen",
+    # Real-Time Collaborative Verification Sessions (v1.0.0)
+    "CollabMessageType",
+    "CollabSessionParticipant",
+    "CollaborativeSessionManager",
+    "CollaborativeVerificationSession",
+    "LineStatus",
+    "LineVerification",
+    "ParticipantRole",
+    "SessionMessage",
+    "SessionPhase",
+    "SessionRecording",
+    "SessionStats",
+    "get_collab_session_manager",
+    "reset_collab_session_manager",
+    # Hosted SaaS Platform (v1.1.0)
+    "ApiKey",
+    "ApiKeyScope",
+    "PlanLimits",
+    "PlanTier",
+    "RateLimiter",
+    "SaaSPlatform",
+    "Tenant",
+    "TenantStatus",
+    "UsageMetricType",
+    "UsageRecord",
+    "UsageSummary",
+    "UsageTracker",
+    "get_saas_platform",
+    "reset_saas_platform",
+    # Go + Java Language Support (v1.1.0)
+    "AdvancedGoParser",
+    "AdvancedJavaParser",
+    "GoJavaLanguageSupport",
+    "GoJavaNodeType",
+    "GoJavaNode",
+    "GoJavaParseResult",
+    "IdiomaticPattern",
+    "PatternMatch",
+    "get_go_java_support",
+    "reset_go_java_support",
+    # Autofix Agent with PR Generation (v1.1.0)
+    "AutofixAgent",
+    "FixCandidate",
+    "FixCategory",
+    "FixConfidence",
+    "FixGenerator",
+    "FixResult",
+    "FixStatus",
+    "FixVerifier",
+    "get_autofix_agent",
+    "reset_autofix_agent",
+    # GitHub Copilot Chat Extension (v1.1.0)
+    "ChatContext",
+    "ChatMessage",
+    "ChatResponse",
+    "CommandRouter",
+    "CopilotCommand",
+    "CopilotExtensionHandler",
+    "CopilotSession",
+    "ResponseFormat",
+    "get_copilot_extension_handler",
+    "reset_copilot_extension_handler",
+    # Incremental Verification Engine (v1.1.0)
+    "CacheMetrics",
+    "CacheStatus",
+    "CachedResult",
+    "CodeUnit",
+    "DependencyGraph",
+    "IncrementalVerificationEngine",
+    "get_incremental_engine",
+    "reset_incremental_engine",
+    # Organization Security Posture Dashboard (v1.1.0)
+    "ComplianceRecord",
+    "DORAMetrics",
+    "OrgSecurityDashboard",
+    "OrgSecurityPosture",
+    "RepoMetrics",
+    "TrendDataPoint",
+    "TrendDirection",
+    "TrendSeries",
+    "get_org_security_dashboard",
+    "reset_org_security_dashboard",
+    # CI/CD Pipeline Orchestrator (v1.1.0)
+    "CICDOrchestrator",
+    "CICDPlatform",
+    "GateEvaluation",
+    "GateMode",
+    "GateResult",
+    "PipelineConfig",
+    "PipelineConfigGenerator",
+    "PipelineStatus",
+    "QualityGate",
+    "QualityGateEvaluator",
+    "QualityThresholds",
+    "StatusState",
+    "get_cicd_orchestrator",
+    "reset_cicd_orchestrator",
+    # LLM-Powered Proof Explainer (v1.1.0)
+    "CheckCategory",
+    "CounterexampleParser",
+    "CounterexampleValue",
+    "ExplanationDetail",
+    "ParsedCounterexample",
+    "ProofExplanation",
+    "ProofExplainerEngine",
+    "ProofOutcome",
+    "get_proof_explainer",
+    "reset_proof_explainer",
+    # Supply Chain Verification (v1.1.0)
+    "ComplianceStatus",
+    "Dependency",
+    "DependencyRisk",
+    "LicenseCategory",
+    "LicensePolicy",
+    "LockfileParser",
+    "PackageManager",
+    "SBOMEntry",
+    "SupplyChainReport",
+    "SupplyChainVerifier",
+    "Vulnerability",
+    "VulnerabilityDatabase",
+    "VulnerabilitySeverity",
+    "get_supply_chain_verifier",
+    "reset_supply_chain_verifier",
+    # Self-Learning Rule Engine (v1.1.0)
+    "ClassificationResult",
+    "DismissReason",
+    "FalsePositiveClassifier",
+    "FeedbackCollector",
+    "FeedbackType",
+    "FeatureVector",
+    "FindingFeedback",
+    "LearnedPattern",
+    "PatternLearner",
+    "RulePerformance",
+    "SelfLearningRuleEngine",
+    "SeverityAdjustment",
+    "SeverityCalibrator",
+    "get_self_learning_engine",
+    "reset_self_learning_engine",
+    # Rust & C/C++ Memory Safety Verification (v1.2.0)
+    "CPointerAnalyzer",
+    "DataRaceCandidate",
+    "DataRaceDetector",
+    "LifetimeConstraint",
+    "MemoryCheckSeverity",
+    "MemoryLanguage",
+    "MemoryLocation",
+    "MemoryRegion",
+    "MemorySafetyReport",
+    "MemorySafetyVerifier",
+    "MemoryViolation",
+    "MemoryViolationType",
+    "OwnershipConstraint",
+    "OwnershipState",
+    "PointerInfo",
+    "PointerState",
+    "RustOwnershipAnalyzer",
+    "get_memory_safety_verifier",
+    "reset_memory_safety_verifier",
+    # GitHub Copilot Workspace Integration (v1.2.0)
+    "ConstraintType",
+    "CopilotWorkspaceIntegration",
+    "PlanFinding",
+    "PlanVerificationResult",
+    "VerificationConstraint",
+    "VerificationGate",
+    "WorkspaceEventType",
+    "WorkspaceFile",
+    "WorkspacePlan",
+    "WorkspacePlanStatus",
+    "WorkspaceSession",
+    "get_copilot_workspace_integration",
+    "reset_copilot_workspace_integration",
+    # Zero-Config Onboarding (v1.2.0)
+    "BaselineScanResult",
+    "ConfigGenerator",
+    "DetectedFramework",
+    "DetectedLanguage",
+    "GeneratedConfig",
+    "GeneratedWorkflow",
+    "OnboardingResult",
+    "OnboardingStep",
+    "ProjectAnalysis",
+    "ProjectDetector",
+    "ProjectType",
+    "WorkflowGenerator",
+    "ZeroConfigOnboarder",
+    "get_zero_config_onboarder",
+    "reset_zero_config_onboarder",
+    # Autonomous Verification Agent (v1.2.0)
+    "AutonomousPR",
+    "AutonomousVerificationAgent",
+    "AutonomyLevel",
+    "AgentState",
+    "FeedbackEntry",
+    "FindingTriage",
+    "FindingTriager",
+    "FixCandidate",
+    "FixGenerator",
+    "FixOutcome",
+    "MonitoredChange",
+    "TriagedFinding",
+    "get_autonomous_agent",
+    "reset_autonomous_agent",
+    # Verification-as-a-Service API (v1.2.0)
+    "OutputFormat",
+    "TierLimits",
+    "VaaSApiKey",
+    "VaaSService",
+    "VerificationRequest",
+    "VerificationResponse",
+    "VerificationStatus",
+    "VerificationTier",
+    "WebhookConfig",
+    "WebhookEventType",
+    "get_vaas_service",
+    "reset_vaas_service",
+    # Interactive Proof Explorer (v1.2.0)
+    "ConstraintAnimator",
+    "ConstraintStep",
+    "DetailLevel",
+    "ExportFormat",
+    "InteractiveProofExplorer",
+    "ProofAnimation",
+    "ProofNode",
+    "ProofNodeType",
+    "ProofRenderer",
+    "ProofStatus",
+    "ProofTreeParser",
+    "ShareableProof",
+    # Cross-Repository Blast Radius (v1.2.0)
+    "CrossRepoBlastAnalyzer",
+    "CrossRepoBlastReport",
+    "CrossRepoChange",
+    "CrossRepoChangeImpact",
+    "CrossRepoDependency",
+    "CrossRepoDependencyType",
+    "CrossRepoImpactLevel",
+    "CrossRepoImpactedRepo",
+    "OrgDependencyGraph",
+    "OrgRepository",
+    "get_cross_repo_blast_analyzer",
+    "reset_cross_repo_blast_analyzer",
+    # AI Code Review Benchmark Suite (v1.2.0)
+    "BenchmarkDataset",
+    "BenchmarkMetrics",
+    "BenchmarkRunner",
+    "BenchmarkSample",
+    "BugCategory",
+    "BuiltinBenchmarkAdapter",
+    "CategoryMetrics",
+    "LeaderboardEntry",
+    "SampleDifficulty",
+    "SampleLanguage",
+    "ToolDetection",
+    "get_benchmark_runner",
+    "reset_benchmark_runner",
+    # Fine-Tuned Verification LLM (v1.2.0)
+    "AirGapPackage",
+    "AirGapPackager",
+    "CostComparison",
+    "FineTunedVerificationLLM",
+    "InferenceConfig",
+    "InferenceResult",
+    "LocalInferenceEngine",
+    "ModelConfig",
+    "ModelFormat",
+    "ModelSize",
+    "TaskType",
+    "TrainingDataPipeline",
+    "TrainingDataset",
+    "TrainingJob",
+    "TrainingMetrics",
+    "TrainingSample",
+    "TrainingStatus",
+    "get_fine_tuned_llm",
+    "reset_fine_tuned_llm",
+    # Developer Certification Program (v1.2.0)
+    "Assessment",
+    "AssessmentGrader",
+    "AssessmentQuestion",
+    "AssessmentSubmission",
+    "AssessmentType",
+    "BadgeType",
+    "Certificate",
+    "CertificationLevel",
+    "CertificationProgram",
+    "CourseBuilder",
+    "CourseModule",
+    "CredentialIssuer",
+    "DigitalBadge",
+    "LabExercise",
+    "LabStatus",
+    "LearnerProgress",
+    "ModuleStatus",
+    "get_certification_program",
+    "reset_certification_program",
 ]
