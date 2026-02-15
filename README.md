@@ -350,8 +350,10 @@ sequenceDiagram
 - [x] **VS Code extension** — Real-time verification as you code
 - [x] **Slack/Teams notifications** — Real-time alerts for findings
 - [x] **Custom rule builder** — No-code rule creation
-- [ ] **Go language support**
-- [ ] **Java language support**
+- [x] **Go + Java language support** — Full verification for Go and Java
+- [x] **CI/CD orchestrator** — Multi-platform quality gates
+- [x] **Supply chain verification** — Dependency security and SBOM
+- [x] **Self-learning rules** — ML-powered false positive reduction
 - [ ] **SOC 2 compliance**
 
 ## 🤝 Contributing
