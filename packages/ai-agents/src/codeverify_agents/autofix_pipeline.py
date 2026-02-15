@@ -27,8 +27,10 @@ _CONFIDENCE_ORDER = ("low", "medium", "high", "very_high")
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class FixStatus(str, Enum):
     """Lifecycle status of a code fix."""
+
     PENDING = "pending"
     GENERATING = "generating"
     VERIFYING = "verifying"
@@ -39,6 +41,7 @@ class FixStatus(str, Enum):
 
 class FixConfidence(str, Enum):
     """Confidence level assigned to a generated fix."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -72,9 +75,11 @@ class FixConfidence(str, Enum):
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CodeFix:
     """A single generated code fix with full provenance metadata."""
+
     fix_id: str
     finding_id: str
     file_path: str
@@ -91,19 +96,25 @@ class CodeFix:
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a plain dictionary."""
         return {
-            "fix_id": self.fix_id, "finding_id": self.finding_id,
+            "fix_id": self.fix_id,
+            "finding_id": self.finding_id,
             "file_path": self.file_path,
-            "original_code": self.original_code, "fixed_code": self.fixed_code,
-            "diff": self.diff, "explanation": self.explanation,
-            "confidence": self.confidence.value, "status": self.status.value,
+            "original_code": self.original_code,
+            "fixed_code": self.fixed_code,
+            "diff": self.diff,
+            "explanation": self.explanation,
+            "confidence": self.confidence.value,
+            "status": self.status.value,
             "verification_result": self.verification_result,
-            "generated_test": self.generated_test, "created_at": self.created_at,
+            "generated_test": self.generated_test,
+            "created_at": self.created_at,
         }
 
 
 @dataclass
 class FixGenerationConfig:
     """Tuneable knobs for the fix generation pipeline."""
+
     max_attempts: int = 3
     require_verification: bool = True
     require_test: bool = True
@@ -111,8 +122,14 @@ class FixGenerationConfig:
     min_confidence: FixConfidence = FixConfidence.MEDIUM
     supported_fix_types: list[str] = field(
         default_factory=lambda: [
-            "security", "bug", "null_check", "type_error",
-            "resource_leak", "bounds_check", "logic_error", "performance",
+            "security",
+            "bug",
+            "null_check",
+            "type_error",
+            "resource_leak",
+            "bounds_check",
+            "logic_error",
+            "performance",
         ]
     )
 
@@ -120,6 +137,7 @@ class FixGenerationConfig:
 # ---------------------------------------------------------------------------
 # DiffGenerator
 # ---------------------------------------------------------------------------
+
 
 class DiffGenerator:
     """Utility for creating, applying and validating unified diffs."""
@@ -180,11 +198,15 @@ class DiffGenerator:
 # FixVerifier
 # ---------------------------------------------------------------------------
 
+
 class FixVerifier:
     """Lightweight static verifier for generated fixes."""
 
     def verify_fix(
-        self, original_code: str, fixed_code: str, finding: dict[str, Any],
+        self,
+        original_code: str,
+        fixed_code: str,
+        finding: dict[str, Any],
     ) -> dict[str, Any]:
         """Verify that *fixed_code* addresses *finding* without regressions.
 
@@ -201,14 +223,22 @@ class FixVerifier:
         fixes_original = code_changed and snippet_removed
         introduces_new = len(new_issues) > 0
         preserves = syntax_ok and not introduces_new
-        logger.info("Fix verification completed", fixes_issue=fixes_original,
-                     introduces_new=introduces_new, preserves_behavior=preserves)
+        logger.info(
+            "Fix verification completed",
+            fixes_issue=fixes_original,
+            introduces_new=introduces_new,
+            preserves_behavior=preserves,
+        )
         return {
             "fixes_original_issue": fixes_original,
             "introduces_new_issues": introduces_new,
             "preserves_behavior": preserves,
-            "verification_details": {"syntax_valid": syntax_ok, "new_issues": new_issues,
-                                     "snippet_removed": snippet_removed, "code_changed": code_changed},
+            "verification_details": {
+                "syntax_valid": syntax_ok,
+                "new_issues": new_issues,
+                "snippet_removed": snippet_removed,
+                "code_changed": code_changed,
+            },
         }
 
     def _check_syntax_valid(self, code: str, language: str) -> bool:
@@ -234,7 +264,8 @@ class FixVerifier:
             issues.append("Introduces exec() call")
         if re.search(
             r"(?:password|secret|token|api_key)\s*=\s*[\"'][^\"']+[\"']",
-            fixed_code, re.IGNORECASE,
+            fixed_code,
+            re.IGNORECASE,
         ):
             issues.append("Possible hard-coded credential")
         if re.search(r"subprocess\.\w+\(.*shell\s*=\s*True", fixed_code, re.DOTALL):
@@ -245,6 +276,7 @@ class FixVerifier:
 # ---------------------------------------------------------------------------
 # TestGenerator
 # ---------------------------------------------------------------------------
+
 
 class TestGenerator:
     """Generates regression tests that verify a fix addresses its finding."""
@@ -260,7 +292,9 @@ class TestGenerator:
         safe = re.sub(r"\W+", "_", fix.finding_id)[:40]
         lines = [
             f'"""Regression test for fix {fix.fix_id}."""',
-            "import pytest", "", "",
+            "import pytest",
+            "",
+            "",
             f"class TestFix{safe.title()}:",
             f'    """Verify that finding {fix.finding_id} is resolved."""',
             "",
@@ -282,16 +316,20 @@ class TestGenerator:
         safe = re.sub(r"\W+", "_", fix.finding_id)[:40]
         esc = lambda s: s.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
         lines = [
-            f"// Regression test for fix {fix.fix_id}", "",
+            f"// Regression test for fix {fix.fix_id}",
+            "",
             f"describe('Fix {safe}', () => {{",
             f"  const fixedCode = `{esc(fix.fixed_code)}`;",
-            f"  const originalCode = `{esc(fix.original_code)}`;", "",
+            f"  const originalCode = `{esc(fix.original_code)}`;",
+            "",
             "  test('fix modifies the original code', () => {",
             "    expect(fixedCode).not.toEqual(originalCode);",
-            "  });", "",
+            "  });",
+            "",
             "  test('fixed code is non-empty', () => {",
             "    expect(fixedCode.trim().length).toBeGreaterThan(0);",
-            "  });", "",
+            "  });",
+            "",
             "  test('explanation is provided', () => {",
             f"    expect(`{esc(fix.explanation)}`.length).toBeGreaterThan(0);",
             "  });",
@@ -303,6 +341,7 @@ class TestGenerator:
 # ---------------------------------------------------------------------------
 # AutoFixAgent
 # ---------------------------------------------------------------------------
+
 
 class AutoFixAgent(BaseAgent):
     """LLM-powered agent that generates verified code fixes."""
@@ -326,7 +365,8 @@ class AutoFixAgent(BaseAgent):
 
         if not finding:
             return AgentResult(
-                success=False, error="No finding provided in context",
+                success=False,
+                error="No finding provided in context",
                 latency_ms=(time.time() - start) * 1000,
             )
         try:
@@ -339,16 +379,23 @@ class AutoFixAgent(BaseAgent):
         except Exception as exc:
             logger.error("AutoFixAgent.analyze failed", error=str(exc))
             return AgentResult(
-                success=False, error=str(exc),
+                success=False,
+                error=str(exc),
                 latency_ms=(time.time() - start) * 1000,
             )
 
     async def generate_fix(
-        self, code: str, finding: dict[str, Any], language: str,
+        self,
+        code: str,
+        finding: dict[str, Any],
+        language: str,
     ) -> CodeFix:
         """Generate, verify and test a fix for *finding*."""
         candidates = await self._generate_fix_candidates(
-            code, finding, language, self.fix_config.max_attempts,
+            code,
+            finding,
+            language,
+            self.fix_config.max_attempts,
         )
         best = await self._select_best_fix(candidates)
 
@@ -357,14 +404,21 @@ class AutoFixAgent(BaseAgent):
                 fix_id=str(uuid.uuid4()),
                 finding_id=finding.get("id", "unknown"),
                 file_path=finding.get("file_path", "unknown"),
-                original_code=code, fixed_code=code, diff="",
+                original_code=code,
+                fixed_code=code,
+                diff="",
                 explanation="No suitable fix candidate could be generated.",
-                confidence=FixConfidence.LOW, status=FixStatus.FAILED,
+                confidence=FixConfidence.LOW,
+                status=FixStatus.FAILED,
             )
         return await self._verify_and_test(best, language)
 
     async def _generate_fix_candidates(
-        self, code: str, finding: dict[str, Any], language: str, attempts: int,
+        self,
+        code: str,
+        finding: dict[str, Any],
+        language: str,
+        attempts: int,
     ) -> list[CodeFix]:
         """Ask the LLM for *attempts* fix candidates."""
         prompt = self._build_fix_prompt(code, finding, language)
@@ -379,7 +433,8 @@ class AutoFixAgent(BaseAgent):
         for attempt in range(attempts):
             try:
                 response = await self._call_llm(
-                    system_prompt=system_prompt, user_prompt=prompt,
+                    system_prompt=system_prompt,
+                    user_prompt=prompt,
                     json_mode=True,
                 )
                 parsed = self._parse_json_response(response)
@@ -398,18 +453,28 @@ class AutoFixAgent(BaseAgent):
                     confidence = FixConfidence.MEDIUM
 
                 diff = self._diff_gen.generate_unified_diff(
-                    code, fixed_code, finding.get("file_path", "unknown"),
+                    code,
+                    fixed_code,
+                    finding.get("file_path", "unknown"),
                 )
                 candidate = CodeFix(
-                    fix_id=str(uuid.uuid4()), finding_id=finding.get("id", "unknown"),
+                    fix_id=str(uuid.uuid4()),
+                    finding_id=finding.get("id", "unknown"),
                     file_path=finding.get("file_path", "unknown"),
-                    original_code=code, fixed_code=fixed_code, diff=diff,
+                    original_code=code,
+                    fixed_code=fixed_code,
+                    diff=diff,
                     explanation=data.get("explanation", ""),
-                    confidence=confidence, status=FixStatus.GENERATING,
+                    confidence=confidence,
+                    status=FixStatus.GENERATING,
                 )
                 candidates.append(candidate)
-                logger.info("Generated fix candidate", attempt=attempt,
-                            confidence=confidence.value, fix_id=candidate.fix_id)
+                logger.info(
+                    "Generated fix candidate",
+                    attempt=attempt,
+                    confidence=confidence.value,
+                    fix_id=candidate.fix_id,
+                )
             except Exception as exc:
                 logger.warning("Fix candidate generation failed", attempt=attempt, error=str(exc))
 
@@ -436,7 +501,8 @@ class AutoFixAgent(BaseAgent):
 
         if self.fix_config.require_verification:
             result = self._verifier.verify_fix(
-                fix.original_code, fix.fixed_code,
+                fix.original_code,
+                fix.fixed_code,
                 {"id": fix.finding_id, "file_path": fix.file_path, "language": language},
             )
             fix.verification_result = result
@@ -457,18 +523,24 @@ class AutoFixAgent(BaseAgent):
         snippet = finding.get("code_snippet", "")
         code_block = self._build_code_block(code, language, label="Source file")
         parts = [
-            "## Fix Request", "",
+            "## Fix Request",
+            "",
             f"**Finding ID:** {finding.get('id', 'N/A')}",
             f"**Type:** {finding.get('type', 'bug')}",
             f"**Severity:** {finding.get('severity', 'medium')}",
             f"**File:** {finding.get('file_path', 'unknown')}",
-            f"**Language:** {language}", "",
-            "### Description", finding.get("description", "Unknown issue"), "",
+            f"**Language:** {language}",
+            "",
+            "### Description",
+            finding.get("description", "Unknown issue"),
+            "",
         ]
         if snippet:
             parts += ["### Problematic Snippet", f"```{language}", snippet, "```", ""]
         parts += [
-            "### Full Source", code_block, "",
+            "### Full Source",
+            code_block,
+            "",
             "Produce a corrected version of the full source that resolves the "
             "finding above.  Keep changes minimal and preserve the existing style.",
         ]
@@ -478,6 +550,7 @@ class AutoFixAgent(BaseAgent):
 # ---------------------------------------------------------------------------
 # AutoFixPipeline
 # ---------------------------------------------------------------------------
+
 
 class AutoFixPipeline:
     """High-level orchestrator that runs the autofix agent across findings."""
@@ -503,7 +576,8 @@ class AutoFixPipeline:
             if not code:
                 logger.warning(
                     "No source code found for finding",
-                    finding_id=finding.get("id"), file_path=file_path,
+                    finding_id=finding.get("id"),
+                    file_path=file_path,
                 )
                 continue
             fix = await self.run_single(finding, code, language)
@@ -512,13 +586,17 @@ class AutoFixPipeline:
 
         logger.info(
             "Pipeline run complete",
-            total_findings=len(findings), total_fixes=len(fixes),
+            total_findings=len(findings),
+            total_fixes=len(fixes),
             verified=sum(1 for f in fixes if f.status == FixStatus.VERIFIED),
         )
         return fixes
 
     async def run_single(
-        self, finding: dict[str, Any], code: str, language: str,
+        self,
+        finding: dict[str, Any],
+        code: str,
+        language: str,
     ) -> CodeFix | None:
         """Run the pipeline for a single finding."""
         try:
@@ -526,7 +604,8 @@ class AutoFixPipeline:
         except Exception as exc:
             logger.error(
                 "Pipeline failed for finding",
-                finding_id=finding.get("id"), error=str(exc),
+                finding_id=finding.get("id"),
+                error=str(exc),
             )
             return None
 
@@ -538,7 +617,9 @@ class AutoFixPipeline:
         confidence_counts: dict[str, int] = {}
         for fix in fixes:
             status_counts[fix.status.value] = status_counts.get(fix.status.value, 0) + 1
-            confidence_counts[fix.confidence.value] = confidence_counts.get(fix.confidence.value, 0) + 1
+            confidence_counts[fix.confidence.value] = (
+                confidence_counts.get(fix.confidence.value, 0) + 1
+            )
 
         verified = status_counts.get(FixStatus.VERIFIED.value, 0)
         return {

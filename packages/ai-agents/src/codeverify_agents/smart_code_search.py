@@ -13,14 +13,13 @@ Features:
 """
 
 import hashlib
-import json
 import math
 import re
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
@@ -323,7 +322,7 @@ Focus on what the code does, not implementation details."""
         results.sort(key=lambda r: r.similarity_score, reverse=True)
 
         # Limit results
-        return results[:query.max_results]
+        return results[: query.max_results]
 
     async def _semantic_search(self, query: SearchQuery) -> list[SearchResult]:
         """Search using semantic embeddings."""
@@ -341,12 +340,14 @@ Focus on what the code does, not implementation details."""
             if similarity >= query.min_similarity:
                 unit = self._code_units.get(unit_id)
                 if unit:
-                    results.append(SearchResult(
-                        code_unit=unit,
-                        similarity_score=similarity,
-                        match_type="semantic",
-                        match_reason=f"Semantic similarity: {similarity:.2f}",
-                    ))
+                    results.append(
+                        SearchResult(
+                            code_unit=unit,
+                            similarity_score=similarity,
+                            match_type="semantic",
+                            match_reason=f"Semantic similarity: {similarity:.2f}",
+                        )
+                    )
 
         return results
 
@@ -362,12 +363,14 @@ Focus on what the code does, not implementation details."""
             for unit_id in self._structural_index[query_hash]:
                 unit = self._code_units.get(unit_id)
                 if unit:
-                    results.append(SearchResult(
-                        code_unit=unit,
-                        similarity_score=1.0,
-                        match_type="structural",
-                        match_reason="Structural match (same AST pattern)",
-                    ))
+                    results.append(
+                        SearchResult(
+                            code_unit=unit,
+                            similarity_score=1.0,
+                            match_type="structural",
+                            match_reason="Structural match (same AST pattern)",
+                        )
+                    )
 
         # Find similar structures
         for hash_key, unit_ids in self._structural_index.items():
@@ -377,12 +380,14 @@ Focus on what the code does, not implementation details."""
                     for unit_id in unit_ids:
                         unit = self._code_units.get(unit_id)
                         if unit and not any(r.code_unit.id == unit_id for r in results):
-                            results.append(SearchResult(
-                                code_unit=unit,
-                                similarity_score=similarity,
-                                match_type="structural",
-                                match_reason=f"Structural similarity: {similarity:.2f}",
-                            ))
+                            results.append(
+                                SearchResult(
+                                    code_unit=unit,
+                                    similarity_score=similarity,
+                                    match_type="structural",
+                                    match_reason=f"Structural similarity: {similarity:.2f}",
+                                )
+                            )
 
         return results
 
@@ -391,7 +396,7 @@ Focus on what the code does, not implementation details."""
         results = []
 
         # Extract keywords from query
-        keywords = set(re.findall(r'\b\w+\b', query.query.lower()))
+        keywords = set(re.findall(r"\b\w+\b", query.query.lower()))
 
         # Score each code unit
         unit_scores: dict[str, float] = defaultdict(float)
@@ -409,12 +414,14 @@ Focus on what the code does, not implementation details."""
             if similarity >= query.min_similarity * 0.5:  # Lower threshold for keyword
                 unit = self._code_units.get(unit_id)
                 if unit:
-                    results.append(SearchResult(
-                        code_unit=unit,
-                        similarity_score=similarity,
-                        match_type="keyword",
-                        match_reason=f"Keyword match: {int(score)}/{len(keywords)} keywords",
-                    ))
+                    results.append(
+                        SearchResult(
+                            code_unit=unit,
+                            similarity_score=similarity,
+                            match_type="keyword",
+                            match_reason=f"Keyword match: {int(score)}/{len(keywords)} keywords",
+                        )
+                    )
 
         return results
 
@@ -431,12 +438,14 @@ Focus on what the code does, not implementation details."""
             if len(unit_ids) > 1:
                 units = [self._code_units[uid] for uid in unit_ids if uid in self._code_units]
                 if len(units) > 1:
-                    groups.append(DuplicateGroup(
-                        group_id=self._generate_id(),
-                        code_units=units,
-                        similarity=1.0,
-                        duplicate_type="exact",
-                    ))
+                    groups.append(
+                        DuplicateGroup(
+                            group_id=self._generate_id(),
+                            code_units=units,
+                            similarity=1.0,
+                            duplicate_type="exact",
+                        )
+                    )
                     processed.update(unit_ids)
 
         # Semantic duplicates (high embedding similarity)
@@ -448,7 +457,7 @@ Focus on what the code does, not implementation details."""
 
             similar = [id1]
 
-            for j, (id2, emb2) in enumerate(embedding_items[i + 1:], i + 1):
+            for j, (id2, emb2) in enumerate(embedding_items[i + 1 :], i + 1):
                 if id2 in processed:
                     continue
 
@@ -459,12 +468,14 @@ Focus on what the code does, not implementation details."""
             if len(similar) > 1:
                 units = [self._code_units[uid] for uid in similar if uid in self._code_units]
                 if len(units) > 1:
-                    groups.append(DuplicateGroup(
-                        group_id=self._generate_id(),
-                        code_units=units,
-                        similarity=threshold,
-                        duplicate_type="semantic" if threshold < 1.0 else "near",
-                    ))
+                    groups.append(
+                        DuplicateGroup(
+                            group_id=self._generate_id(),
+                            code_units=units,
+                            similarity=threshold,
+                            duplicate_type="semantic" if threshold < 1.0 else "near",
+                        )
+                    )
                     processed.update(similar)
 
         return groups
@@ -483,12 +494,14 @@ Focus on what the code does, not implementation details."""
                 if similarity > 0.5:
                     unit = self._code_units.get(unit_id)
                     if unit:
-                        results.append(SearchResult(
-                            code_unit=unit,
-                            similarity_score=similarity,
-                            match_type="semantic",
-                            match_reason=f"Related code (similarity: {similarity:.2f})",
-                        ))
+                        results.append(
+                            SearchResult(
+                                code_unit=unit,
+                                similarity_score=similarity,
+                                match_type="semantic",
+                                match_reason=f"Related code (similarity: {similarity:.2f})",
+                            )
+                        )
 
         # Add structural matches
         if code_unit.structural_hash and code_unit.structural_hash in self._structural_index:
@@ -496,12 +509,14 @@ Focus on what the code does, not implementation details."""
                 if unit_id != code_unit.id and not any(r.code_unit.id == unit_id for r in results):
                     unit = self._code_units.get(unit_id)
                     if unit:
-                        results.append(SearchResult(
-                            code_unit=unit,
-                            similarity_score=0.9,
-                            match_type="structural",
-                            match_reason="Same structural pattern",
-                        ))
+                        results.append(
+                            SearchResult(
+                                code_unit=unit,
+                                similarity_score=0.9,
+                                match_type="structural",
+                                match_reason="Same structural pattern",
+                            )
+                        )
 
         results.sort(key=lambda r: r.similarity_score, reverse=True)
         return results[:max_results]
@@ -519,6 +534,7 @@ Focus on what the code does, not implementation details."""
 
         # Initialize centroids randomly
         import random
+
         centroid_indices = random.sample(range(len(embeddings)), min(num_clusters, len(embeddings)))
         centroids = [embeddings[i][1] for i in centroid_indices]
 
@@ -546,12 +562,14 @@ Focus on what the code does, not implementation details."""
                     # Generate label from common patterns
                     label = self._generate_cluster_label(units)
 
-                    result.append(CodeCluster(
-                        cluster_id=self._generate_id(),
-                        label=label,
-                        code_units=units,
-                        centroid=centroids[i] if i < len(centroids) else None,
-                    ))
+                    result.append(
+                        CodeCluster(
+                            cluster_id=self._generate_id(),
+                            label=label,
+                            code_units=units,
+                            centroid=centroids[i] if i < len(centroids) else None,
+                        )
+                    )
 
         return result
 
@@ -586,7 +604,7 @@ Focus on what the code does, not implementation details."""
 
         text_lower = text.lower()
         for i in range(len(text_lower) - ngram_size + 1):
-            ngram = text_lower[i:i + ngram_size]
+            ngram = text_lower[i : i + ngram_size]
             ngrams[ngram] += 1
 
         # Hash ngrams to fixed-size vector
@@ -612,30 +630,41 @@ Focus on what the code does, not implementation details."""
     def _normalize_code(self, code: str) -> str:
         """Normalize code for structural comparison."""
         # Remove comments
-        code = re.sub(r'#.*$', '', code, flags=re.MULTILINE)
-        code = re.sub(r'//.*$', '', code, flags=re.MULTILINE)
-        code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
+        code = re.sub(r"#.*$", "", code, flags=re.MULTILINE)
+        code = re.sub(r"//.*$", "", code, flags=re.MULTILINE)
+        code = re.sub(r"/\*.*?\*/", "", code, flags=re.DOTALL)
 
         # Remove string literals
         code = re.sub(r'"[^"]*"', '""', code)
         code = re.sub(r"'[^']*'", "''", code)
 
         # Normalize whitespace
-        code = re.sub(r'\s+', ' ', code)
+        code = re.sub(r"\s+", " ", code)
 
         # Normalize variable names (simplified)
-        code = re.sub(r'\b[a-z_][a-z0-9_]*\b', 'VAR', code)
+        code = re.sub(r"\b[a-z_][a-z0-9_]*\b", "VAR", code)
 
         return code.strip()
 
     def _compute_complexity(self, code: str) -> float:
         """Compute cyclomatic complexity estimate."""
         # Count decision points
-        decision_keywords = ['if', 'elif', 'else', 'for', 'while', 'and', 'or', 'try', 'except', 'case']
+        decision_keywords = [
+            "if",
+            "elif",
+            "else",
+            "for",
+            "while",
+            "and",
+            "or",
+            "try",
+            "except",
+            "case",
+        ]
         complexity = 1.0
 
         for keyword in decision_keywords:
-            complexity += len(re.findall(rf'\b{keyword}\b', code))
+            complexity += len(re.findall(rf"\b{keyword}\b", code))
 
         return complexity
 
@@ -644,10 +673,10 @@ Focus on what the code does, not implementation details."""
         keywords = set()
 
         # Extract identifiers
-        identifiers = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', unit.code)
+        identifiers = re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_]*\b", unit.code)
         for ident in identifiers:
             # Split camelCase and snake_case
-            parts = re.findall(r'[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)', ident)
+            parts = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)", ident)
             for part in parts:
                 if len(part) > 2:
                     keywords.add(part.lower())
@@ -657,7 +686,23 @@ Focus on what the code does, not implementation details."""
             keywords.add(unit.name.lower())
 
         # Remove common words
-        common = {'def', 'class', 'return', 'self', 'none', 'true', 'false', 'and', 'or', 'not', 'if', 'else', 'for', 'in', 'while'}
+        common = {
+            "def",
+            "class",
+            "return",
+            "self",
+            "none",
+            "true",
+            "false",
+            "and",
+            "or",
+            "not",
+            "if",
+            "else",
+            "for",
+            "in",
+            "while",
+        }
         keywords -= common
 
         return keywords
@@ -756,9 +801,7 @@ Focus on what the code does, not implementation details."""
 
     def _generate_id(self) -> str:
         """Generate a unique ID."""
-        return hashlib.sha256(
-            f"{time.time()}{len(self._code_units)}".encode()
-        ).hexdigest()[:12]
+        return hashlib.sha256(f"{time.time()}{len(self._code_units)}".encode()).hexdigest()[:12]
 
     def get_statistics(self) -> dict[str, Any]:
         """Get search engine statistics."""

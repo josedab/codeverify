@@ -1,7 +1,6 @@
 """Tests for Trust Score Agent and related functionality."""
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
 
 from codeverify_agents.trust_score import (
     TrustScoreAgent,
@@ -81,7 +80,7 @@ def add(a, b):
     return a + b
 """
         result = await agent.analyze(code)
-        
+
         assert isinstance(result, TrustScoreResult)
         assert 0 <= result.score <= 100
         assert result.risk_level in ["low", "medium", "high", "critical"]
@@ -112,7 +111,7 @@ def complex_function(data: list[dict], config: Config) -> ProcessedResult:
     )
 """
         result = await agent.analyze(code)
-        
+
         assert isinstance(result, TrustScoreResult)
         # Complex, well-documented code should score reasonably
         assert result.score > 0
@@ -138,7 +137,7 @@ def process_data(data):
     return result
 """
         result = await agent.analyze(ai_like_code)
-        
+
         # Should detect AI patterns (excessive comments)
         assert result.ai_probability > 0
 
@@ -154,7 +153,7 @@ def execute_command(user_input):
     exec(user_input)  # Very dangerous
 """
         result = await agent.analyze(risky_code)
-        
+
         # Risky code should have lower trust score
         assert result.risk_level in ["high", "critical"]
 
@@ -188,7 +187,7 @@ class DataProcessor:
             return None
 """
         result = await agent.analyze(quality_code)
-        
+
         # Quality code should have better score
         assert result.factors.quality_score > 0.5
 
@@ -196,7 +195,7 @@ class DataProcessor:
     async def test_empty_code(self, agent):
         """Agent handles empty code."""
         result = await agent.analyze("")
-        
+
         assert isinstance(result, TrustScoreResult)
         assert result.score >= 0
 
@@ -208,7 +207,7 @@ def foo(x):
     return x * 2
 """
         result = await agent.analyze(code)
-        
+
         assert isinstance(result.recommendations, list)
 
     @pytest.mark.asyncio
@@ -224,10 +223,10 @@ def calculate(x):
             "commit_history": ["fix: bug fix", "feat: new feature"],
             "test_coverage": 0.85,
         }
-        
+
         result_with_context = await agent.analyze(code, context)
         result_without_context = await agent.analyze(code)
-        
+
         # Both should return valid results
         assert isinstance(result_with_context, TrustScoreResult)
         assert isinstance(result_without_context, TrustScoreResult)
@@ -245,10 +244,10 @@ class TestTrustScoreWeighting:
         """Verify weighted score is calculated correctly."""
         code = "def test(): pass"
         result = await agent.analyze(code)
-        
+
         # Verify score is within bounds
         assert 0 <= result.score <= 100
-        
+
         # Verify factors contribute to score
         factors = result.factors
         expected_weights = {
@@ -258,15 +257,15 @@ class TestTrustScoreWeighting:
             "verification": 0.25,
             "quality": 0.15,
         }
-        
+
         # Weighted sum should be close to final score
         weighted_sum = (
-            factors.complexity_score * expected_weights["complexity"] +
-            factors.pattern_score * expected_weights["pattern"] +
-            factors.historical_score * expected_weights["historical"] +
-            factors.verification_score * expected_weights["verification"] +
-            factors.quality_score * expected_weights["quality"]
+            factors.complexity_score * expected_weights["complexity"]
+            + factors.pattern_score * expected_weights["pattern"]
+            + factors.historical_score * expected_weights["historical"]
+            + factors.verification_score * expected_weights["verification"]
+            + factors.quality_score * expected_weights["quality"]
         ) * 100
-        
+
         # Allow some tolerance for additional adjustments
         assert abs(result.score - weighted_sum) < 30  # Within 30 points

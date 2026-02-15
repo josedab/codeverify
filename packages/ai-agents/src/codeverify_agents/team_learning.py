@@ -7,7 +7,7 @@ Analyzes findings across an organization to identify:
 """
 
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
@@ -21,6 +21,7 @@ logger = structlog.get_logger()
 
 class TrendDirection(str, Enum):
     """Direction of a trend."""
+
     IMPROVING = "improving"
     STABLE = "stable"
     DEGRADING = "degrading"
@@ -29,6 +30,7 @@ class TrendDirection(str, Enum):
 @dataclass
 class PatternOccurrence:
     """A single occurrence of a pattern."""
+
     finding_id: str
     file_path: str
     repository: str
@@ -43,6 +45,7 @@ class PatternOccurrence:
 @dataclass
 class SystemicPattern:
     """A systemic pattern identified across multiple occurrences."""
+
     pattern_id: str
     name: str
     description: str
@@ -60,6 +63,7 @@ class SystemicPattern:
 @dataclass
 class TeamMetrics:
     """Metrics for a team."""
+
     team_name: str
     total_findings: int
     findings_by_category: dict[str, int]
@@ -73,6 +77,7 @@ class TeamMetrics:
 @dataclass
 class TrainingRecommendation:
     """A training recommendation based on patterns."""
+
     title: str
     description: str
     target_teams: list[str]
@@ -85,6 +90,7 @@ class TrainingRecommendation:
 @dataclass
 class OrgHealthReport:
     """Organization-wide code health report."""
+
     report_date: datetime
     total_findings: int
     total_prs_analyzed: int
@@ -148,12 +154,12 @@ class PatternDetector:
     def detect_pattern(self, finding: Finding) -> str | None:
         """Detect which pattern a finding matches."""
         text = f"{finding.message} {finding.description or ''}".lower()
-        
+
         for pattern_id, pattern_info in self.KNOWN_PATTERNS.items():
             for keyword in pattern_info["keywords"]:
                 if keyword in text:
                     return pattern_id
-        
+
         return None
 
     def get_pattern_info(self, pattern_id: str) -> dict[str, str] | None:
@@ -173,9 +179,9 @@ class TrendAnalyzer:
         """Determine trend direction."""
         if previous_count == 0:
             return TrendDirection.STABLE
-        
+
         change_pct = ((current_count - previous_count) / previous_count) * 100
-        
+
         if change_pct < -threshold_pct:
             return TrendDirection.IMPROVING
         elif change_pct > threshold_pct:
@@ -191,10 +197,10 @@ class TrendAnalyzer:
         """Calculate average weekly frequency."""
         if not occurrences:
             return 0.0
-        
+
         cutoff = datetime.utcnow() - timedelta(weeks=weeks)
         recent = [o for o in occurrences if o.timestamp >= cutoff]
-        
+
         return len(recent) / weeks
 
 
@@ -221,7 +227,7 @@ class FindingsAggregator:
     ) -> None:
         """Add a finding for aggregation."""
         team = self._team_mapping.get(author, "unknown")
-        
+
         occurrence = PatternOccurrence(
             finding_id=finding.id,
             file_path=file_path,
@@ -233,9 +239,9 @@ class FindingsAggregator:
             severity=finding.severity,
             message=finding.message,
         )
-        
+
         self._occurrences.append(occurrence)
-        
+
         # Prune old occurrences (keep 90 days)
         cutoff = datetime.utcnow() - timedelta(days=90)
         self._occurrences = [o for o in self._occurrences if o.timestamp >= cutoff]
@@ -256,7 +262,7 @@ class FindingsAggregator:
 class TeamLearningAgent:
     """
     Analyzes findings across an organization to identify systemic patterns.
-    
+
     Identifies:
     - Common bug patterns by team/repository
     - Training gaps based on recurring issues
@@ -290,10 +296,10 @@ class TeamLearningAgent:
     ) -> list[SystemicPattern]:
         """Identify systemic patterns across the organization."""
         occurrences = self.aggregator._occurrences
-        
+
         # Group by detected pattern
         pattern_groups: dict[str, list[PatternOccurrence]] = defaultdict(list)
-        
+
         for occ in occurrences:
             # Create a pseudo-finding for pattern detection
             finding = Finding(
@@ -304,28 +310,28 @@ class TeamLearningAgent:
                 file_path=occ.file_path,
                 line_number=0,
             )
-            
+
             pattern_id = self.pattern_detector.detect_pattern(finding)
             if pattern_id:
                 pattern_groups[pattern_id].append(occ)
-        
+
         # Convert to SystemicPattern objects
         patterns = []
         for pattern_id, group in pattern_groups.items():
             if len(group) < min_occurrences:
                 continue
-            
+
             pattern_info = self.pattern_detector.get_pattern_info(pattern_id)
             if not pattern_info:
                 continue
-            
+
             # Analyze the group
             affected_teams = {o.team for o in group}
             affected_repos = {o.repository for o in group}
             timestamps = [o.timestamp for o in group]
-            
+
             severity_dist = Counter(o.severity.value for o in group)
-            
+
             pattern = SystemicPattern(
                 pattern_id=pattern_id,
                 name=pattern_info["name"],
@@ -340,34 +346,34 @@ class TeamLearningAgent:
                 severity_distribution=dict(severity_dist),
                 recommended_action=pattern_info["recommendation"],
             )
-            
+
             patterns.append(pattern)
-        
+
         # Sort by frequency
         patterns.sort(key=lambda p: len(p.occurrences), reverse=True)
-        
+
         logger.info(
             "Systemic patterns identified",
             pattern_count=len(patterns),
             total_occurrences=len(occurrences),
         )
-        
+
         return patterns
 
     def analyze_team(self, team_name: str) -> TeamMetrics | None:
         """Analyze metrics for a specific team."""
         occurrences = self.aggregator._occurrences
         team_occurrences = [o for o in occurrences if o.team == team_name]
-        
+
         if not team_occurrences:
             return None
-        
+
         # Calculate metrics
         total = len(team_occurrences)
-        
+
         by_category = Counter(o.category.value for o in team_occurrences)
         by_severity = Counter(o.severity.value for o in team_occurrences)
-        
+
         # Find common patterns
         pattern_counts: Counter[str] = Counter()
         for occ in team_occurrences:
@@ -382,26 +388,26 @@ class TeamLearningAgent:
             pattern = self.pattern_detector.detect_pattern(finding)
             if pattern:
                 pattern_counts[pattern] += 1
-        
+
         common_patterns = [p for p, _ in pattern_counts.most_common(3)]
-        
+
         # Determine improvement areas
         improvement_areas = []
         for pattern_id, count in pattern_counts.most_common(3):
             pattern_info = self.pattern_detector.get_pattern_info(pattern_id)
             if pattern_info:
                 improvement_areas.append(pattern_info["name"])
-        
+
         # Calculate trend (compare last 2 weeks vs previous 2 weeks)
         now = datetime.utcnow()
         week_ago = now - timedelta(weeks=1)
         two_weeks_ago = now - timedelta(weeks=2)
-        
+
         recent = [o for o in team_occurrences if o.timestamp >= week_ago]
         previous = [o for o in team_occurrences if two_weeks_ago <= o.timestamp < week_ago]
-        
+
         trend = self.trend_analyzer.analyze_trend(len(recent), len(previous))
-        
+
         return TeamMetrics(
             team_name=team_name,
             total_findings=total,
@@ -419,7 +425,7 @@ class TeamLearningAgent:
     ) -> list[TrainingRecommendation]:
         """Generate training recommendations based on patterns."""
         recommendations = []
-        
+
         for pattern in patterns[:5]:  # Top 5 patterns
             # Determine priority based on severity and frequency
             severity_weight = {
@@ -428,14 +434,13 @@ class TeamLearningAgent:
                 "warning": 4,
                 "info": 1,
             }
-            
+
             avg_severity = sum(
-                severity_weight.get(s, 1) * c
-                for s, c in pattern.severity_distribution.items()
+                severity_weight.get(s, 1) * c for s, c in pattern.severity_distribution.items()
             ) / max(sum(pattern.severity_distribution.values()), 1)
-            
+
             priority = min(int(avg_severity + pattern.frequency_per_week), 10)
-            
+
             # Map patterns to skills
             skill_mapping = {
                 "null_reference": ["Defensive Programming", "Null Safety"],
@@ -447,9 +452,9 @@ class TeamLearningAgent:
                 "security": ["Security Fundamentals", "OWASP Top 10"],
                 "performance": ["Performance Optimization", "Algorithmic Thinking"],
             }
-            
+
             skills = skill_mapping.get(pattern.pattern_id, ["Code Quality"])
-            
+
             rec = TrainingRecommendation(
                 title=f"Training: {pattern.name}",
                 description=f"Address {pattern.name} issues affecting {len(pattern.affected_teams)} teams",
@@ -463,18 +468,18 @@ class TeamLearningAgent:
                     "severity_distribution": pattern.severity_distribution,
                 },
             )
-            
+
             recommendations.append(rec)
-        
+
         # Sort by priority
         recommendations.sort(key=lambda r: r.priority, reverse=True)
-        
+
         return recommendations
 
     def generate_org_health_report(self) -> OrgHealthReport:
         """Generate comprehensive organization health report."""
         occurrences = self.aggregator._occurrences
-        
+
         if not occurrences:
             return OrgHealthReport(
                 report_date=datetime.utcnow(),
@@ -489,45 +494,45 @@ class TeamLearningAgent:
                 top_improving_teams=[],
                 teams_needing_attention=[],
             )
-        
+
         # Aggregate totals
         total = len(occurrences)
         by_category = Counter(o.category.value for o in occurrences)
         by_severity = Counter(o.severity.value for o in occurrences)
-        
+
         # Unique PRs (approximation)
         unique_prs = len(set((o.repository, o.author, o.timestamp.date()) for o in occurrences))
-        
+
         # Get all teams
         teams = list(set(o.team for o in occurrences))
         team_metrics = []
         improving_teams = []
         attention_teams = []
-        
+
         for team in teams:
             metrics = self.analyze_team(team)
             if metrics:
                 team_metrics.append(metrics)
-                
+
                 if metrics.trend == TrendDirection.IMPROVING:
                     improving_teams.append(team)
                 elif metrics.trend == TrendDirection.DEGRADING:
                     attention_teams.append(team)
-        
+
         # Sort team metrics by total findings
         team_metrics.sort(key=lambda m: m.total_findings, reverse=True)
-        
+
         # Get patterns and recommendations
         patterns = self.identify_systemic_patterns()
         recommendations = self.generate_training_recommendations(patterns)
-        
+
         # Overall trend
         now = datetime.utcnow()
         mid = now - timedelta(weeks=2)
         recent = len([o for o in occurrences if o.timestamp >= mid])
         previous = len([o for o in occurrences if o.timestamp < mid])
         overall_trend = self.trend_analyzer.analyze_trend(recent, previous)
-        
+
         report = OrgHealthReport(
             report_date=datetime.utcnow(),
             total_findings=total,
@@ -541,14 +546,14 @@ class TeamLearningAgent:
             top_improving_teams=improving_teams[:5],
             teams_needing_attention=attention_teams[:5],
         )
-        
+
         logger.info(
             "Organization health report generated",
             total_findings=total,
             pattern_count=len(patterns),
             recommendation_count=len(recommendations),
         )
-        
+
         return report
 
     def export_report_markdown(self, report: OrgHealthReport) -> str:
@@ -564,14 +569,14 @@ class TeamLearningAgent:
             "",
             "## Findings by Severity",
         ]
-        
+
         for severity, count in sorted(report.findings_by_severity.items()):
             lines.append(f"- {severity}: {count}")
-        
+
         lines.extend(["", "## Findings by Category"])
         for category, count in sorted(report.findings_by_category.items()):
             lines.append(f"- {category}: {count}")
-        
+
         lines.extend(["", "## Systemic Patterns", ""])
         for pattern in report.systemic_patterns[:5]:
             lines.append(f"### {pattern.name}")
@@ -579,7 +584,7 @@ class TeamLearningAgent:
             lines.append(f"- **Affected Teams:** {', '.join(pattern.affected_teams)}")
             lines.append(f"- **Recommendation:** {pattern.recommended_action}")
             lines.append("")
-        
+
         lines.extend(["## Training Recommendations", ""])
         for rec in report.training_recommendations[:5]:
             lines.append(f"### {rec.title} (Priority: {rec.priority}/10)")
@@ -587,17 +592,17 @@ class TeamLearningAgent:
             lines.append(f"- **Skills:** {', '.join(rec.target_skills)}")
             lines.append(f"- **Impact:** {rec.estimated_impact}")
             lines.append("")
-        
+
         if report.top_improving_teams:
             lines.append("## Top Improving Teams")
             for team in report.top_improving_teams:
                 lines.append(f"- {team}")
             lines.append("")
-        
+
         if report.teams_needing_attention:
             lines.append("## Teams Needing Attention")
             for team in report.teams_needing_attention:
                 lines.append(f"- {team}")
             lines.append("")
-        
+
         return "\n".join(lines)

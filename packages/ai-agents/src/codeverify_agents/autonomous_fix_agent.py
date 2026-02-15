@@ -14,25 +14,20 @@ Key differentiator: End-to-end autonomous remediation with formal guarantees.
 import asyncio
 import hashlib
 import os
-import subprocess
 import tempfile
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
 from codeverify_agents.agentic_autofix import (
     AgenticAutoFix,
-    AutoFixResult,
     Finding,
-    FixCategory,
-    FixGenerator,
     FixStatus,
-    FixVerifier,
     GeneratedFix,
 )
 from codeverify_agents.base import AgentConfig, AgentResult, BaseAgent
@@ -125,7 +120,9 @@ class AutonomousPR:
                 "status": self.sandbox_result.status.value,
                 "tests_passed": self.sandbox_result.tests_passed,
                 "tests_failed": self.sandbox_result.tests_failed,
-            } if self.sandbox_result else None,
+            }
+            if self.sandbox_result
+            else None,
             "created_at": self.created_at.isoformat(),
             "merged_at": self.merged_at.isoformat() if self.merged_at else None,
         }
@@ -179,6 +176,7 @@ class SandboxExecutor:
     ) -> SandboxResult:
         """Execute fix in Docker container."""
         import time
+
         start_time = time.time()
 
         try:
@@ -196,13 +194,17 @@ class SandboxExecutor:
 
                 # Build Docker command
                 docker_cmd = [
-                    "docker", "run",
+                    "docker",
+                    "run",
                     "--rm",
-                    "--network", "none" if not self.config.network_enabled else "bridge",
+                    "--network",
+                    "none" if not self.config.network_enabled else "bridge",
                     f"--memory={self.config.memory_limit_mb}m",
                     f"--cpus={self.config.cpu_limit}",
-                    "-v", f"{tmpdir}:/workspace:ro",
-                    "-w", "/workspace",
+                    "-v",
+                    f"{tmpdir}:/workspace:ro",
+                    "-w",
+                    "/workspace",
                     self.config.docker_image,
                 ]
 
@@ -224,8 +226,7 @@ class SandboxExecutor:
 
                 try:
                     stdout, stderr = await asyncio.wait_for(
-                        process.communicate(),
-                        timeout=self.config.timeout_seconds
+                        process.communicate(), timeout=self.config.timeout_seconds
                     )
 
                     elapsed_ms = (time.time() - start_time) * 1000
@@ -236,8 +237,7 @@ class SandboxExecutor:
                     )
 
                     status = (
-                        SandboxStatus.PASSED if process.returncode == 0
-                        else SandboxStatus.FAILED
+                        SandboxStatus.PASSED if process.returncode == 0 else SandboxStatus.FAILED
                     )
 
                     return SandboxResult(
@@ -250,7 +250,7 @@ class SandboxExecutor:
                         tests_failed=tests_failed,
                     )
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     process.kill()
                     return SandboxResult(
                         status=SandboxStatus.TIMEOUT,
@@ -274,6 +274,7 @@ class SandboxExecutor:
     ) -> SandboxResult:
         """Execute fix locally (less isolated, for development)."""
         import time
+
         start_time = time.time()
 
         try:
@@ -283,7 +284,10 @@ class SandboxExecutor:
 
                 # Simple syntax check
                 process = await asyncio.create_subprocess_exec(
-                    "python", "-m", "py_compile", str(fix_file),
+                    "python",
+                    "-m",
+                    "py_compile",
+                    str(fix_file),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
@@ -291,10 +295,7 @@ class SandboxExecutor:
                 stdout, stderr = await process.communicate()
                 elapsed_ms = (time.time() - start_time) * 1000
 
-                status = (
-                    SandboxStatus.PASSED if process.returncode == 0
-                    else SandboxStatus.FAILED
-                )
+                status = SandboxStatus.PASSED if process.returncode == 0 else SandboxStatus.FAILED
 
                 return SandboxResult(
                     status=status,
@@ -316,10 +317,10 @@ class SandboxExecutor:
         import re
 
         # Look for pytest summary line: "X passed, Y failed"
-        match = re.search(r'(\d+)\s+passed', output)
+        match = re.search(r"(\d+)\s+passed", output)
         passed = int(match.group(1)) if match else 0
 
-        match = re.search(r'(\d+)\s+failed', output)
+        match = re.search(r"(\d+)\s+failed", output)
         failed = int(match.group(1)) if match else 0
 
         return passed, failed
@@ -389,7 +390,8 @@ class GitOperations:
     async def _run_git(self, *args: str) -> str:
         """Run a git command."""
         process = await asyncio.create_subprocess_exec(
-            "git", *args,
+            "git",
+            *args,
             cwd=self.repo_path,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -424,13 +426,9 @@ class PRCreator:
     ) -> tuple[int | None, str | None]:
         """Create a PR and return (pr_number, pr_url)."""
         if self.use_cli:
-            return await self._create_pr_cli(
-                repository, branch_name, base_branch, title, body
-            )
+            return await self._create_pr_cli(repository, branch_name, base_branch, title, body)
         else:
-            return await self._create_pr_api(
-                repository, branch_name, base_branch, title, body
-            )
+            return await self._create_pr_api(repository, branch_name, base_branch, title, body)
 
     async def _create_pr_cli(
         self,
@@ -443,12 +441,19 @@ class PRCreator:
         """Create PR using GitHub CLI."""
         try:
             process = await asyncio.create_subprocess_exec(
-                "gh", "pr", "create",
-                "--repo", repository,
-                "--head", branch_name,
-                "--base", base_branch,
-                "--title", title,
-                "--body", body,
+                "gh",
+                "pr",
+                "create",
+                "--repo",
+                repository,
+                "--head",
+                branch_name,
+                "--base",
+                base_branch,
+                "--title",
+                title,
+                "--body",
+                body,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -545,8 +550,7 @@ class FeedbackLearner:
     def get_success_rate(self, category: str | None = None) -> float:
         """Get the success rate for fixes."""
         relevant = [
-            r for r in self._feedback_history
-            if category is None or r["category"] == category
+            r for r in self._feedback_history if category is None or r["category"] == category
         ]
 
         if not relevant:
@@ -596,6 +600,7 @@ class AutonomousFixAgent(BaseAgent):
     async def analyze(self, code: str, context: dict[str, Any]) -> AgentResult:
         """Analyze code and create autonomous fix PRs."""
         import time
+
         start_time = time.time()
 
         findings = context.get("findings", [])
@@ -808,7 +813,7 @@ This PR was automatically generated by CodeVerify's Autonomous Fix Agent.
 | Check | Status |
 |-------|--------|
 | Formal Verification (Z3) | ✅ Passed |
-| Sandbox Testing | {'✅ Passed' if sandbox_result.status == SandboxStatus.PASSED else '⚠️ ' + sandbox_result.status.value} |
+| Sandbox Testing | {"✅ Passed" if sandbox_result.status == SandboxStatus.PASSED else "⚠️ " + sandbox_result.status.value} |
 | Tests Passed | {sandbox_result.tests_passed} |
 | Tests Failed | {sandbox_result.tests_failed} |
 
@@ -845,6 +850,7 @@ This PR was automatically generated by CodeVerify's Autonomous Fix Agent.
     def _format_verification_result(self, result: dict[str, Any] | None) -> str:
         """Format verification result as JSON."""
         import json
+
         if not result:
             return "{}"
         return json.dumps(result, indent=2)
@@ -891,7 +897,7 @@ This PR was automatically generated by CodeVerify's Autonomous Fix Agent.
     ) -> None:
         """Record feedback for learning."""
         # Find the fix
-        for fix in getattr(self, '_recent_fixes', []):
+        for fix in getattr(self, "_recent_fixes", []):
             if fix.id == pr.fix_id:
                 self._feedback_learner.record_outcome(fix, pr, outcome, comments)
                 break

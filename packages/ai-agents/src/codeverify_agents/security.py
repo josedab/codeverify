@@ -166,12 +166,14 @@ class SecurityAgent(BaseAgent):
                 "common AI code generation security pitfalls."
             )
 
-        prompt_parts.extend([
-            "",
-            self._build_code_block(ctx.code, ctx.language),
-            "",
-            "Identify all security vulnerabilities, secrets, and security concerns.",
-        ])
+        prompt_parts.extend(
+            [
+                "",
+                self._build_code_block(ctx.code, ctx.language),
+                "",
+                "Identify all security vulnerabilities, secrets, and security concerns.",
+            ]
+        )
 
         return "\n".join(prompt_parts)
 

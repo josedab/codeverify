@@ -8,18 +8,18 @@ dependency graph analysis, and upgrade path suggestions.
 
 from __future__ import annotations
 
-import hashlib
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 from uuid import uuid4
 
 
 class VulnerabilitySeverity(str, Enum):
     """Severity levels for vulnerabilities."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -29,6 +29,7 @@ class VulnerabilitySeverity(str, Enum):
 
 class PackageEcosystem(str, Enum):
     """Package ecosystems."""
+
     NPM = "npm"
     PYPI = "pypi"
     MAVEN = "maven"
@@ -41,6 +42,7 @@ class PackageEcosystem(str, Enum):
 
 class DependencyType(str, Enum):
     """Types of dependencies."""
+
     DIRECT = "direct"
     TRANSITIVE = "transitive"
     DEV = "dev"
@@ -49,6 +51,7 @@ class DependencyType(str, Enum):
 
 class UpgradeRisk(str, Enum):
     """Risk level of an upgrade."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -58,20 +61,21 @@ class UpgradeRisk(str, Enum):
 @dataclass
 class CVE:
     """Common Vulnerabilities and Exposures record."""
+
     id: str
     title: str
     description: str
     severity: VulnerabilitySeverity
     cvss_score: float
-    cvss_vector: Optional[str]
-    cwe_ids: List[str]
+    cvss_vector: str | None
+    cwe_ids: list[str]
     published_date: datetime
     modified_date: datetime
-    references: List[str]
-    affected_versions: List[str]
-    fixed_versions: List[str]
+    references: list[str]
+    affected_versions: list[str]
+    fixed_versions: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -92,15 +96,16 @@ class CVE:
 @dataclass
 class Package:
     """A software package/dependency."""
+
     name: str
     version: str
     ecosystem: PackageEcosystem
     dependency_type: DependencyType
     source_file: str
-    parent: Optional[str] = None
-    license: Optional[str] = None
+    parent: str | None = None
+    license: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -116,14 +121,15 @@ class Package:
 @dataclass
 class VulnerablePackage:
     """A package with known vulnerabilities."""
+
     package: Package
-    vulnerabilities: List[CVE]
+    vulnerabilities: list[CVE]
     highest_severity: VulnerabilitySeverity
     total_cves: int
     exploit_available: bool
     in_kev: bool  # Known Exploited Vulnerabilities catalog
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "package": self.package.to_dict(),
@@ -138,17 +144,18 @@ class VulnerablePackage:
 @dataclass
 class UpgradePath:
     """A suggested upgrade path for a package."""
+
     package_name: str
     current_version: str
     target_version: str
-    intermediate_versions: List[str]
+    intermediate_versions: list[str]
     risk: UpgradeRisk
-    breaking_changes: List[str]
+    breaking_changes: list[str]
     vulnerabilities_fixed: int
-    release_date: Optional[datetime]
-    changelog_url: Optional[str]
+    release_date: datetime | None
+    changelog_url: str | None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "package_name": self.package_name,
@@ -166,11 +173,12 @@ class UpgradePath:
 @dataclass
 class DependencyNode:
     """Node in the dependency graph."""
+
     package: Package
-    children: List[str] = field(default_factory=list)  # Package names
+    children: list[str] = field(default_factory=list)  # Package names
     depth: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "package": self.package.to_dict(),
@@ -182,21 +190,22 @@ class DependencyNode:
 @dataclass
 class ScanResult:
     """Result of a dependency scan."""
+
     id: str
     project_name: str
     ecosystem: PackageEcosystem
     scanned_at: datetime
     total_packages: int
-    vulnerable_packages: List[VulnerablePackage]
-    upgrade_paths: List[UpgradePath]
+    vulnerable_packages: list[VulnerablePackage]
+    upgrade_paths: list[UpgradePath]
     critical_count: int
     high_count: int
     medium_count: int
     low_count: int
-    dependency_graph: Dict[str, DependencyNode]
+    dependency_graph: dict[str, DependencyNode]
     scan_duration_ms: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -219,7 +228,7 @@ class CVEDatabase:
     """Mock CVE database for vulnerability lookups."""
 
     # Sample vulnerability data for common packages
-    KNOWN_VULNERABILITIES: Dict[str, List[Dict[str, Any]]] = {
+    KNOWN_VULNERABILITIES: dict[str, list[dict[str, Any]]] = {
         "lodash": [
             {
                 "id": "CVE-2021-23337",
@@ -297,7 +306,7 @@ class CVEDatabase:
         ],
     }
 
-    def lookup(self, package_name: str, version: str) -> List[CVE]:
+    def lookup(self, package_name: str, version: str) -> list[CVE]:
         """Look up vulnerabilities for a package version."""
         vulns = self.KNOWN_VULNERABILITIES.get(package_name.lower(), [])
         applicable = []
@@ -346,8 +355,9 @@ class CVEDatabase:
 
     def _compare_versions(self, v1: str, v2: str) -> int:
         """Compare two version strings."""
-        def normalize(v: str) -> List[int]:
-            return [int(x) for x in re.sub(r'[^0-9.]', '', v).split('.') if x]
+
+        def normalize(v: str) -> list[int]:
+            return [int(x) for x in re.sub(r"[^0-9.]", "", v).split(".") if x]
 
         v1_parts = normalize(v1)
         v2_parts = normalize(v2)
@@ -370,7 +380,7 @@ class DependencyParser:
         self,
         file_path: str,
         content: str,
-    ) -> Tuple[PackageEcosystem, List[Package]]:
+    ) -> tuple[PackageEcosystem, list[Package]]:
         """Parse a dependency file and extract packages."""
         if "package.json" in file_path:
             return PackageEcosystem.NPM, self._parse_npm(content, file_path)
@@ -389,42 +399,47 @@ class DependencyParser:
 
         return PackageEcosystem.NPM, []
 
-    def _parse_npm(self, content: str, file_path: str) -> List[Package]:
+    def _parse_npm(self, content: str, file_path: str) -> list[Package]:
         """Parse package.json."""
-        packages: List[Package] = []
+        packages: list[Package] = []
 
         try:
             import json
+
             data = json.loads(content)
 
             # Parse dependencies
             for name, version in data.get("dependencies", {}).items():
-                packages.append(Package(
-                    name=name,
-                    version=self._clean_version(version),
-                    ecosystem=PackageEcosystem.NPM,
-                    dependency_type=DependencyType.DIRECT,
-                    source_file=file_path,
-                ))
+                packages.append(
+                    Package(
+                        name=name,
+                        version=self._clean_version(version),
+                        ecosystem=PackageEcosystem.NPM,
+                        dependency_type=DependencyType.DIRECT,
+                        source_file=file_path,
+                    )
+                )
 
             # Parse devDependencies
             for name, version in data.get("devDependencies", {}).items():
-                packages.append(Package(
-                    name=name,
-                    version=self._clean_version(version),
-                    ecosystem=PackageEcosystem.NPM,
-                    dependency_type=DependencyType.DEV,
-                    source_file=file_path,
-                ))
+                packages.append(
+                    Package(
+                        name=name,
+                        version=self._clean_version(version),
+                        ecosystem=PackageEcosystem.NPM,
+                        dependency_type=DependencyType.DEV,
+                        source_file=file_path,
+                    )
+                )
 
         except Exception:
             pass
 
         return packages
 
-    def _parse_pip(self, content: str, file_path: str) -> List[Package]:
+    def _parse_pip(self, content: str, file_path: str) -> list[Package]:
         """Parse requirements.txt."""
-        packages: List[Package] = []
+        packages: list[Package] = []
 
         for line in content.split("\n"):
             line = line.strip()
@@ -436,89 +451,99 @@ class DependencyParser:
             if match:
                 name = match.group(1)
                 version = match.group(2) or "unknown"
-                packages.append(Package(
-                    name=name,
-                    version=version,
-                    ecosystem=PackageEcosystem.PYPI,
-                    dependency_type=DependencyType.DIRECT,
-                    source_file=file_path,
-                ))
+                packages.append(
+                    Package(
+                        name=name,
+                        version=version,
+                        ecosystem=PackageEcosystem.PYPI,
+                        dependency_type=DependencyType.DIRECT,
+                        source_file=file_path,
+                    )
+                )
 
         return packages
 
-    def _parse_pyproject(self, content: str, file_path: str) -> List[Package]:
+    def _parse_pyproject(self, content: str, file_path: str) -> list[Package]:
         """Parse pyproject.toml (simplified)."""
-        packages: List[Package] = []
+        packages: list[Package] = []
 
         # Simple regex-based parsing
-        deps_match = re.search(r'dependencies\s*=\s*\[([^\]]+)\]', content, re.MULTILINE)
+        deps_match = re.search(r"dependencies\s*=\s*\[([^\]]+)\]", content, re.MULTILINE)
         if deps_match:
             deps_content = deps_match.group(1)
             for dep in re.findall(r'"([^"]+)"', deps_content):
                 match = re.match(r"([a-zA-Z0-9_-]+)(?:[=<>!]+)([0-9.]+)?", dep)
                 if match:
-                    packages.append(Package(
-                        name=match.group(1),
-                        version=match.group(2) or "unknown",
-                        ecosystem=PackageEcosystem.PYPI,
-                        dependency_type=DependencyType.DIRECT,
-                        source_file=file_path,
-                    ))
+                    packages.append(
+                        Package(
+                            name=match.group(1),
+                            version=match.group(2) or "unknown",
+                            ecosystem=PackageEcosystem.PYPI,
+                            dependency_type=DependencyType.DIRECT,
+                            source_file=file_path,
+                        )
+                    )
 
         return packages
 
-    def _parse_gemfile(self, content: str, file_path: str) -> List[Package]:
+    def _parse_gemfile(self, content: str, file_path: str) -> list[Package]:
         """Parse Gemfile."""
-        packages: List[Package] = []
+        packages: list[Package] = []
 
         for match in re.finditer(r"gem\s+['\"]([^'\"]+)['\"](?:,\s*['\"]([^'\"]+)['\"])?", content):
             name = match.group(1)
             version = match.group(2) or "unknown"
-            packages.append(Package(
-                name=name,
-                version=self._clean_version(version),
-                ecosystem=PackageEcosystem.RUBYGEMS,
-                dependency_type=DependencyType.DIRECT,
-                source_file=file_path,
-            ))
+            packages.append(
+                Package(
+                    name=name,
+                    version=self._clean_version(version),
+                    ecosystem=PackageEcosystem.RUBYGEMS,
+                    dependency_type=DependencyType.DIRECT,
+                    source_file=file_path,
+                )
+            )
 
         return packages
 
-    def _parse_gomod(self, content: str, file_path: str) -> List[Package]:
+    def _parse_gomod(self, content: str, file_path: str) -> list[Package]:
         """Parse go.mod."""
-        packages: List[Package] = []
+        packages: list[Package] = []
 
         for line in content.split("\n"):
             match = re.match(r"\s*(\S+)\s+v([0-9.]+)", line)
             if match:
-                packages.append(Package(
-                    name=match.group(1),
-                    version=match.group(2),
-                    ecosystem=PackageEcosystem.GO,
-                    dependency_type=DependencyType.DIRECT,
-                    source_file=file_path,
-                ))
+                packages.append(
+                    Package(
+                        name=match.group(1),
+                        version=match.group(2),
+                        ecosystem=PackageEcosystem.GO,
+                        dependency_type=DependencyType.DIRECT,
+                        source_file=file_path,
+                    )
+                )
 
         return packages
 
-    def _parse_cargo(self, content: str, file_path: str) -> List[Package]:
+    def _parse_cargo(self, content: str, file_path: str) -> list[Package]:
         """Parse Cargo.toml."""
-        packages: List[Package] = []
+        packages: list[Package] = []
 
         for match in re.finditer(r'(\w+)\s*=\s*["\']([0-9.]+)["\']', content):
-            packages.append(Package(
-                name=match.group(1),
-                version=match.group(2),
-                ecosystem=PackageEcosystem.CARGO,
-                dependency_type=DependencyType.DIRECT,
-                source_file=file_path,
-            ))
+            packages.append(
+                Package(
+                    name=match.group(1),
+                    version=match.group(2),
+                    ecosystem=PackageEcosystem.CARGO,
+                    dependency_type=DependencyType.DIRECT,
+                    source_file=file_path,
+                )
+            )
 
         return packages
 
-    def _parse_maven(self, content: str, file_path: str) -> List[Package]:
+    def _parse_maven(self, content: str, file_path: str) -> list[Package]:
         """Parse pom.xml."""
-        packages: List[Package] = []
+        packages: list[Package] = []
 
         # Simple regex-based parsing
         for match in re.finditer(
@@ -526,20 +551,22 @@ class DependencyParser:
             content,
             re.DOTALL,
         ):
-            packages.append(Package(
-                name=f"{match.group(1)}:{match.group(2)}",
-                version=match.group(3),
-                ecosystem=PackageEcosystem.MAVEN,
-                dependency_type=DependencyType.DIRECT,
-                source_file=file_path,
-            ))
+            packages.append(
+                Package(
+                    name=f"{match.group(1)}:{match.group(2)}",
+                    version=match.group(3),
+                    ecosystem=PackageEcosystem.MAVEN,
+                    dependency_type=DependencyType.DIRECT,
+                    source_file=file_path,
+                )
+            )
 
         return packages
 
     def _clean_version(self, version: str) -> str:
         """Clean version string."""
         # Remove ^ ~ = < > prefixes
-        return re.sub(r'^[\^~=<>]+', '', version)
+        return re.sub(r"^[\^~=<>]+", "", version)
 
 
 class UpgradeAdvisor:
@@ -547,10 +574,10 @@ class UpgradeAdvisor:
 
     def suggest_upgrades(
         self,
-        vulnerable_packages: List[VulnerablePackage],
-    ) -> List[UpgradePath]:
+        vulnerable_packages: list[VulnerablePackage],
+    ) -> list[UpgradePath]:
         """Suggest upgrade paths for vulnerable packages."""
-        upgrades: List[UpgradePath] = []
+        upgrades: list[UpgradePath] = []
 
         for vuln_pkg in vulnerable_packages:
             pkg = vuln_pkg.package
@@ -590,8 +617,8 @@ class UpgradeAdvisor:
 
     def _assess_risk(self, current: str, target: str) -> UpgradeRisk:
         """Assess risk of an upgrade."""
-        current_parts = [int(x) for x in re.findall(r'\d+', current)]
-        target_parts = [int(x) for x in re.findall(r'\d+', target)]
+        current_parts = [int(x) for x in re.findall(r"\d+", current)]
+        target_parts = [int(x) for x in re.findall(r"\d+", target)]
 
         if len(current_parts) >= 1 and len(target_parts) >= 1:
             # Major version change
@@ -605,17 +632,19 @@ class UpgradeAdvisor:
 
         return UpgradeRisk.LOW
 
-    def _check_breaking_changes(self, pkg: Package, target_version: str) -> List[str]:
+    def _check_breaking_changes(self, pkg: Package, target_version: str) -> list[str]:
         """Check for breaking changes (simplified)."""
-        breaking: List[str] = []
+        breaking: list[str] = []
 
         # In production, this would query changelogs/release notes
-        current_parts = [int(x) for x in re.findall(r'\d+', pkg.version)]
-        target_parts = [int(x) for x in re.findall(r'\d+', target_version)]
+        current_parts = [int(x) for x in re.findall(r"\d+", pkg.version)]
+        target_parts = [int(x) for x in re.findall(r"\d+", target_version)]
 
         if len(current_parts) >= 1 and len(target_parts) >= 1:
             if target_parts[0] > current_parts[0]:
-                breaking.append(f"Major version upgrade from {current_parts[0]} to {target_parts[0]}")
+                breaking.append(
+                    f"Major version upgrade from {current_parts[0]} to {target_parts[0]}"
+                )
 
         return breaking
 
@@ -628,17 +657,17 @@ class DependencyVulnerabilityScanner:
         self.parser = DependencyParser()
         self.advisor = UpgradeAdvisor()
 
-        self.scan_results: Dict[str, ScanResult] = {}
+        self.scan_results: dict[str, ScanResult] = {}
 
     async def scan(
         self,
         project_name: str,
-        files: Dict[str, str],  # file_path -> content
+        files: dict[str, str],  # file_path -> content
     ) -> ScanResult:
         """Scan dependencies for vulnerabilities."""
         start_time = datetime.now()
 
-        all_packages: List[Package] = []
+        all_packages: list[Package] = []
         ecosystem = PackageEcosystem.NPM  # Default
 
         # Parse all dependency files
@@ -652,8 +681,8 @@ class DependencyVulnerabilityScanner:
         dep_graph = self._build_dependency_graph(all_packages)
 
         # Find vulnerabilities
-        vulnerable_packages: List[VulnerablePackage] = []
-        severity_counts: Dict[str, int] = defaultdict(int)
+        vulnerable_packages: list[VulnerablePackage] = []
+        severity_counts: dict[str, int] = defaultdict(int)
 
         for pkg in all_packages:
             cves = self.cve_db.lookup(pkg.name, pkg.version)
@@ -700,10 +729,10 @@ class DependencyVulnerabilityScanner:
 
     def _build_dependency_graph(
         self,
-        packages: List[Package],
-    ) -> Dict[str, DependencyNode]:
+        packages: list[Package],
+    ) -> dict[str, DependencyNode]:
         """Build a dependency graph."""
-        graph: Dict[str, DependencyNode] = {}
+        graph: dict[str, DependencyNode] = {}
 
         for pkg in packages:
             key = f"{pkg.name}@{pkg.version}"
@@ -732,15 +761,15 @@ class DependencyVulnerabilityScanner:
         }
         return ranks.get(severity, 0)
 
-    def get_result(self, result_id: str) -> Optional[ScanResult]:
+    def get_result(self, result_id: str) -> ScanResult | None:
         """Get a scan result by ID."""
         return self.scan_results.get(result_id)
 
     def get_vulnerable_packages(
         self,
         result_id: str,
-        min_severity: Optional[str] = None,
-    ) -> List[VulnerablePackage]:
+        min_severity: str | None = None,
+    ) -> list[VulnerablePackage]:
         """Get vulnerable packages from a scan result."""
         result = self.scan_results.get(result_id)
         if not result:
@@ -752,14 +781,15 @@ class DependencyVulnerabilityScanner:
         min_rank = self._severity_rank(VulnerabilitySeverity(min_severity))
 
         return [
-            v for v in result.vulnerable_packages
+            v
+            for v in result.vulnerable_packages
             if self._severity_rank(v.highest_severity) >= min_rank
         ]
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get scanner statistics."""
         total_vulns = 0
-        severity_totals: Dict[str, int] = defaultdict(int)
+        severity_totals: dict[str, int] = defaultdict(int)
 
         for result in self.scan_results.values():
             total_vulns += len(result.vulnerable_packages)

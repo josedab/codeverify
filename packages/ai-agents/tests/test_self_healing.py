@@ -1,6 +1,8 @@
 """Tests for self-healing code suggestions."""
 
 import pytest
+
+from codeverify_agents.base import AgentConfig
 from codeverify_agents.self_healing import (
     BugReport,
     FixCategory,
@@ -13,7 +15,6 @@ from codeverify_agents.self_healing import (
     get_self_healing_manager,
     reset_self_healing_manager,
 )
-from codeverify_agents.base import AgentConfig
 
 
 class TestVerifiedFix:
@@ -29,7 +30,7 @@ class TestVerifiedFix:
             description="Add null check",
             confidence=0.9,
         )
-        
+
         assert fix.fix_id == "fix-1"
         assert fix.category == FixCategory.NULL_CHECK
         assert fix.confidence == 0.9
@@ -47,7 +48,7 @@ class TestVerifiedFix:
             confidence=0.85,
             rank=1,
         )
-        
+
         d = fix.to_dict()
         assert d["fix_id"] == "fix-2"
         assert d["category"] == "bounds_check"
@@ -68,7 +69,7 @@ class TestBugReport:
             language="python",
             z3_counterexample={"obj": "None"},
         )
-        
+
         assert bug.bug_id == "bug-123"
         assert bug.category == "null_safety"
         assert bug.z3_counterexample == {"obj": "None"}
@@ -90,7 +91,7 @@ class TestFixVerifier:
             bug_category="null_safety",
             language="python",
         )
-        
+
         assert status == ProofStatus.PROVEN
         assert "null check" in summary.lower()
         assert time_ms >= 0
@@ -104,7 +105,7 @@ class TestFixVerifier:
             bug_category="null_safety",
             language="typescript",
         )
-        
+
         assert status == ProofStatus.PROVEN
         assert "null check" in summary.lower()
 
@@ -117,7 +118,7 @@ class TestFixVerifier:
             bug_category="bounds",
             language="python",
         )
-        
+
         assert status == ProofStatus.PROVEN
         assert "bounds" in summary.lower()
 
@@ -130,7 +131,7 @@ class TestFixVerifier:
             bug_category="division",
             language="python",
         )
-        
+
         assert status == ProofStatus.PROVEN
         assert "division" in summary.lower()
 
@@ -143,7 +144,7 @@ class TestFixVerifier:
             bug_category="bounds",
             language="python",
         )
-        
+
         assert status == ProofStatus.FAILED
         assert "identical" in summary.lower()
 
@@ -165,7 +166,7 @@ class TestSelfHealingAgent:
             language="python",
             z3_counterexample={"var": "obj"},
         )
-        
+
         fixes = agent._generate_template_fixes(bug)
         assert len(fixes) > 0
         assert fixes[0].generation_method == "template"
@@ -181,9 +182,9 @@ class TestSelfHealingAgent:
             language="python",
             z3_counterexample={"divisor": "0"},
         )
-        
+
         result = await agent.generate_fixes(bug)
-        
+
         # Should at least have template-based fixes
         assert result.success or result.total_generated >= 0
         assert result.generation_time_ms >= 0
@@ -197,9 +198,9 @@ class TestSelfHealingAgent:
                 "language": "python",
                 "category": "bounds",
                 "description": "Array out of bounds",
-            }
+            },
         )
-        
+
         assert "fixes" in result.data
 
     def test_rank_fixes(self, agent):
@@ -230,9 +231,9 @@ class TestSelfHealingAgent:
                 generation_method="llm",
             ),
         ]
-        
+
         ranked = agent._rank_fixes(fixes)
-        
+
         # Fix 2 should rank highest (proven + template)
         assert ranked[0].fix_id == "2"
 
@@ -254,28 +255,28 @@ class TestSelfHealingManager:
             language="python",
             z3_counterexample={"y": "0"},
         )
-        
+
         assert isinstance(result, FixGenerationResult)
 
     @pytest.mark.asyncio
     async def test_caching(self, manager):
         """Test result caching."""
         code = "result = x / y"
-        
+
         result1 = await manager.heal_bug(
             code=code,
             bug_category="division",
             bug_description="Division by zero",
             language="python",
         )
-        
+
         result2 = await manager.heal_bug(
             code=code,
             bug_category="division",
             bug_description="Division by zero",
             language="python",
         )
-        
+
         # Should be same cached instance
         assert result1 is result2
 
@@ -288,7 +289,7 @@ class TestSelfHealingManager:
                 VerifiedFix(fix_id="2", rank=2, confidence=0.7),
             ],
         )
-        
+
         best = manager.get_best_fix(result)
         assert best.fix_id == "1"
 
@@ -307,7 +308,7 @@ class TestSelfHealingManager:
                 VerifiedFix(fix_id="3", proof_status=ProofStatus.PROVEN),
             ],
         )
-        
+
         proven = manager.get_proven_fixes(result)
         assert len(proven) == 2
         assert all(f.proof_status == ProofStatus.PROVEN for f in proven)
@@ -324,9 +325,9 @@ class TestSelfHealingManager:
             proof_summary="Z3 verified null safety",
             confidence=0.95,
         )
-        
+
         output = manager.format_fix_for_display(fix)
-        
+
         assert "Add null check" in output
         assert "Original Code" in output
         assert "Fixed Code" in output
@@ -376,7 +377,7 @@ class TestFixCategories:
             "validation",
             "refactoring",
         ]
-        
+
         for cat in expected:
             assert FixCategory(cat) is not None
 
@@ -392,7 +393,7 @@ class TestProofStatus:
     def test_all_statuses_exist(self):
         """Test all expected statuses exist."""
         expected = ["proven", "likely_correct", "unverified", "failed"]
-        
+
         for status in expected:
             assert ProofStatus(status) is not None
 

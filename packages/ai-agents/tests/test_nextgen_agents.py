@@ -1,15 +1,17 @@
 """Tests for Next-Gen AI Agents."""
 
-import pytest
 from datetime import datetime
-from unittest.mock import Mock, patch, AsyncMock
 
-from codeverify_agents.test_generator import (
-    CounterexampleToTest,
-    GeneratedTest,
-    TestFramework,
-    TestGeneratorAgent,
-    TestSuite,
+from codeverify_agents.model_arbitrator import (
+    ArbitrationResult,
+    ArbitrationVote,
+    CompetingModelArbitrator,
+    ModelProfile,
+    ModelSpecialization,
+    VotingMethod,
+)
+from codeverify_agents.multi_model_consensus import (
+    ModelProvider,
 )
 from codeverify_agents.nl_invariants import (
     InvariantSpec,
@@ -25,32 +27,22 @@ from codeverify_agents.semantic_diff import (
 )
 from codeverify_agents.team_learning import (
     OrgHealthReport,
-    PatternOccurrence,
-    SystemicPattern,
     TeamLearningAgent,
-    TeamMetrics,
     TrainingRecommendation,
 )
-from codeverify_agents.model_arbitrator import (
-    ArbitratedFinding,
-    ArbitrationResult,
-    ArbitrationVote,
-    CompetingModelArbitrator,
-    ModelProfile,
-    ModelSpecialization,
-    VotingMethod,
-)
-from codeverify_agents.multi_model_consensus import (
-    ModelConfig,
-    ModelFinding,
-    ModelProvider,
+from codeverify_agents.test_generator import (
+    CounterexampleToTest,
+    GeneratedTest,
+    TestFramework,
+    TestGeneratorAgent,
+    TestSuite,
 )
 from codeverify_core.models import Finding, FindingCategory, FindingSeverity
-
 
 # ============================================
 # Feature 2: AI Regression Test Generator Tests
 # ============================================
+
 
 class TestTestFramework:
     """Tests for TestFramework enum."""
@@ -116,7 +108,7 @@ class TestTestGeneratorAgent:
             expected_behavior="error",
             verification_type="null_check",
         )
-        
+
         name = agent._generate_test_name(ce)
         assert "test_" in name
         assert "process_data" in name
@@ -124,7 +116,7 @@ class TestTestGeneratorAgent:
     def test_select_framework(self):
         """Selects appropriate framework based on language."""
         agent = TestGeneratorAgent()
-        
+
         assert agent._select_framework("python") == TestFramework.PYTEST
         assert agent._select_framework("typescript") == TestFramework.JEST
         assert agent._select_framework("go") == TestFramework.GO_TEST
@@ -138,9 +130,9 @@ class TestTestGeneratorAgent:
             expected_behavior="return 3",
             verification_type="correctness",
         )
-        
+
         test = agent._generate_pytest(ce)
-        
+
         assert "def test_" in test.test_code
         assert "assert" in test.test_code or "pytest" in test.test_code
 
@@ -173,7 +165,7 @@ class TestTestSuite:
                 counterexample=CounterexampleToTest("g", {}, "e", "t"),
             ),
         ]
-        
+
         suite = TestSuite(
             name="Suite",
             tests=tests,
@@ -185,6 +177,7 @@ class TestTestSuite:
 # ============================================
 # Feature 5: Natural Language Invariant Specs Tests
 # ============================================
+
 
 class TestParsedConstraint:
     """Tests for ParsedConstraint dataclass."""
@@ -227,9 +220,9 @@ class TestNaturalLanguageInvariantsAgent:
     def test_parse_positive_constraint(self):
         """Parses 'must be positive' constraint."""
         agent = NaturalLanguageInvariantsAgent()
-        
+
         constraints = agent._parse_constraints("x must be positive")
-        
+
         assert len(constraints) > 0
         assert constraints[0].operator == ">"
         assert constraints[0].value == "0"
@@ -237,33 +230,33 @@ class TestNaturalLanguageInvariantsAgent:
     def test_parse_non_negative_constraint(self):
         """Parses 'must be non-negative' constraint."""
         agent = NaturalLanguageInvariantsAgent()
-        
+
         constraints = agent._parse_constraints("count must be non-negative")
-        
+
         assert len(constraints) > 0
         assert constraints[0].operator == ">="
 
     def test_parse_range_constraint(self):
         """Parses range constraint."""
         agent = NaturalLanguageInvariantsAgent()
-        
+
         constraints = agent._parse_constraints("x must be between 0 and 100")
-        
+
         assert len(constraints) >= 1
 
     def test_parse_not_null_constraint(self):
         """Parses 'must not be null' constraint."""
         agent = NaturalLanguageInvariantsAgent()
-        
+
         constraints = agent._parse_constraints("name must not be null")
-        
+
         assert len(constraints) > 0
         assert constraints[0].constraint_type in ("null_check", "not_null")
 
     def test_generate_z3_from_constraint(self):
         """Generates Z3 code from constraint."""
         agent = NaturalLanguageInvariantsAgent()
-        
+
         constraint = ParsedConstraint(
             original_text="x > 0",
             constraint_type="comparison",
@@ -271,9 +264,9 @@ class TestNaturalLanguageInvariantsAgent:
             operator=">",
             value="0",
         )
-        
+
         z3_code = agent._to_z3(constraint)
-        
+
         assert "x" in z3_code
         assert "0" in z3_code
 
@@ -301,6 +294,7 @@ class TestInvariantSpec:
 # ============================================
 # Feature 6: Semantic Diff Visualization Tests
 # ============================================
+
 
 class TestChangeType:
     """Tests for ChangeType enum."""
@@ -339,19 +333,19 @@ class TestSemanticDiffAgent:
     def test_detect_signature_change(self):
         """Detects function signature changes."""
         agent = SemanticDiffAgent()
-        
+
         old_code = "def greet(name):\n    return f'Hello {name}'"
         new_code = "def greet(name, title=''):\n    return f'Hello {title} {name}'"
-        
+
         changes = agent._detect_signature_changes(old_code, new_code, "python")
-        
+
         # Should detect parameter addition
         assert isinstance(changes, list)
 
     def test_generate_mermaid(self):
         """Generates Mermaid diagram."""
         agent = SemanticDiffAgent()
-        
+
         changes = [
             BehaviorChange(
                 change_type=ChangeType.SIGNATURE_CHANGE,
@@ -361,15 +355,15 @@ class TestSemanticDiffAgent:
                 impact="minor",
             )
         ]
-        
+
         mermaid = agent._to_mermaid(changes)
-        
+
         assert "graph" in mermaid.lower() or "flowchart" in mermaid.lower()
 
     def test_generate_dot(self):
         """Generates DOT format."""
         agent = SemanticDiffAgent()
-        
+
         changes = [
             BehaviorChange(
                 change_type=ChangeType.BEHAVIOR_CHANGE,
@@ -379,9 +373,9 @@ class TestSemanticDiffAgent:
                 impact="major",
             )
         ]
-        
+
         dot = agent._to_dot(changes)
-        
+
         assert "digraph" in dot
 
 
@@ -403,6 +397,7 @@ class TestSemanticDiffResult:
 # Feature 8: Team Learning Mode Tests
 # ============================================
 
+
 class TestTeamLearningAgent:
     """Tests for TeamLearningAgent."""
 
@@ -414,19 +409,21 @@ class TestTeamLearningAgent:
     def test_configure_teams(self):
         """Can configure team mappings."""
         agent = TeamLearningAgent()
-        
-        agent.configure_teams({
-            "alice": "frontend",
-            "bob": "backend",
-        })
-        
+
+        agent.configure_teams(
+            {
+                "alice": "frontend",
+                "bob": "backend",
+            }
+        )
+
         # Mapping should be set
         assert agent.aggregator._team_mapping.get("alice") == "frontend"
 
     def test_record_findings(self):
         """Records findings for analysis."""
         agent = TeamLearningAgent()
-        
+
         findings = [
             Finding(
                 id="f1",
@@ -437,16 +434,16 @@ class TestTeamLearningAgent:
                 line_number=10,
             )
         ]
-        
+
         agent.record_findings(findings, "my-repo", "alice")
-        
+
         # Should have recorded
         assert len(agent.aggregator._occurrences) > 0
 
     def test_identify_patterns(self):
         """Identifies systemic patterns."""
         agent = TeamLearningAgent()
-        
+
         # Record multiple similar findings
         for i in range(10):
             findings = [
@@ -460,9 +457,9 @@ class TestTeamLearningAgent:
                 )
             ]
             agent.record_findings(findings, "repo", "dev1")
-        
+
         patterns = agent.identify_systemic_patterns(min_occurrences=5)
-        
+
         # Should identify null-related pattern
         assert isinstance(patterns, list)
 
@@ -509,6 +506,7 @@ class TestTrainingRecommendation:
 # ============================================
 # Feature 9: Competing Model Arbitration Tests
 # ============================================
+
 
 class TestVotingMethod:
     """Tests for VotingMethod enum."""
@@ -565,20 +563,20 @@ class TestCompetingModelArbitrator:
     def test_set_voting_method(self):
         """Can change voting method."""
         arbitrator = CompetingModelArbitrator()
-        
+
         arbitrator.set_voting_method(VotingMethod.BORDA_COUNT)
         assert arbitrator.voting_method == VotingMethod.BORDA_COUNT
 
     def test_calibrate_thresholds(self):
         """Can calibrate thresholds."""
         arbitrator = CompetingModelArbitrator()
-        
+
         arbitrator.calibrate_thresholds(
             confirm_threshold=0.7,
             debate_threshold=0.3,
             report_threshold=0.6,
         )
-        
+
         assert arbitrator.confirm_threshold == 0.7
         assert arbitrator.debate_threshold == 0.3
         assert arbitrator.report_threshold == 0.6
@@ -586,15 +584,15 @@ class TestCompetingModelArbitrator:
     def test_update_model_profile(self):
         """Can update model profiles."""
         arbitrator = CompetingModelArbitrator()
-        
+
         profile = ModelProfile(
             provider=ModelProvider.GOOGLE_GEMINI,
             specializations=[ModelSpecialization.PERFORMANCE],
             base_weight=0.9,
         )
-        
+
         arbitrator.update_model_profile(ModelProvider.GOOGLE_GEMINI, profile)
-        
+
         assert arbitrator.model_profiles[ModelProvider.GOOGLE_GEMINI] == profile
 
 
@@ -604,33 +602,33 @@ class TestVotingEngine:
     def test_approval_voting(self):
         """Tests approval voting."""
         from codeverify_agents.model_arbitrator import VotingEngine
-        
+
         engine = VotingEngine()
-        
+
         votes = [
             ArbitrationVote(ModelProvider.OPENAI_GPT5, "f1", "confirm", 0.9, ""),
             ArbitrationVote(ModelProvider.ANTHROPIC_CLAUDE, "f1", "confirm", 0.8, ""),
             ArbitrationVote(ModelProvider.OPENAI_GPT4, "f1", "reject", 0.6, ""),
         ]
-        
+
         result = engine.approval_voting(votes)
-        
+
         assert result["confirm"] == 2
         assert result["reject"] == 1
 
     def test_confidence_weighted(self):
         """Tests confidence-weighted voting."""
         from codeverify_agents.model_arbitrator import VotingEngine
-        
+
         engine = VotingEngine()
-        
+
         votes = [
             ArbitrationVote(ModelProvider.OPENAI_GPT5, "f1", "confirm", 0.9, ""),
             ArbitrationVote(ModelProvider.ANTHROPIC_CLAUDE, "f1", "reject", 0.3, ""),
         ]
-        
+
         winner, confidence = engine.confidence_weighted(votes)
-        
+
         # High confidence confirm should win
         assert winner == "confirm"
         assert confidence > 0.5
@@ -638,17 +636,17 @@ class TestVotingEngine:
     def test_borda_count(self):
         """Tests Borda count voting."""
         from codeverify_agents.model_arbitrator import VotingEngine
-        
+
         engine = VotingEngine()
-        
+
         votes = [
             ArbitrationVote(ModelProvider.OPENAI_GPT5, "f1", "confirm", 0.8, ""),
             ArbitrationVote(ModelProvider.ANTHROPIC_CLAUDE, "f1", "confirm", 0.7, ""),
             ArbitrationVote(ModelProvider.OPENAI_GPT4, "f1", "uncertain", 0.5, ""),
         ]
-        
+
         scores = engine.borda_count(votes)
-        
+
         # Confirm should have highest score
         assert scores["confirm"] > scores["uncertain"]
         assert scores["confirm"] > scores["reject"]

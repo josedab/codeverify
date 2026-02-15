@@ -11,9 +11,7 @@ Key features:
 """
 
 import re
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -333,10 +331,12 @@ class Z3OutputParser:
             # Parse variable declarations
             var_match = re.match(r"\(declare-(?:const|fun)\s+(\w+)\s+(\w+)\)", line)
             if var_match:
-                variables.append({
-                    "name": var_match.group(1),
-                    "type": var_match.group(2),
-                })
+                variables.append(
+                    {
+                        "name": var_match.group(1),
+                        "type": var_match.group(2),
+                    }
+                )
 
             # Parse assertions
             assert_match = re.match(r"\(assert\s+(.+)\)", line)
@@ -592,7 +592,7 @@ couldn't prove safety. Consider:
                 step = {
                     "line_number": i + 1,
                     "code": line,
-                    "explanation": f"Line {i+1}: {line.strip()[:50]}...",
+                    "explanation": f"Line {i + 1}: {line.strip()[:50]}...",
                     "state": str(ce) if ce else "{}",
                 }
                 walkthrough.append(step)
@@ -624,6 +624,7 @@ class VerificationExplainerAgent(BaseAgent):
     async def analyze(self, code: str, context: dict[str, Any]) -> AgentResult:
         """Analyze and explain verification results."""
         import time
+
         start_time = time.time()
 
         try:
@@ -681,7 +682,7 @@ class VerificationExplainerAgent(BaseAgent):
             step += 1
             trace = CounterexampleTrace(
                 step_number=step,
-                description=f"Executing line {i+1}",
+                description=f"Executing line {i + 1}",
                 variable_states=counterexample,
                 code_line=stripped,
                 explanation=self._explain_line(stripped, counterexample, level),

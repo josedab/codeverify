@@ -6,7 +6,7 @@ from typing import Any
 
 import structlog
 
-from codeverify_agents.base import AgentConfig, AgentResult, BaseAgent, CodeContext
+from codeverify_agents.base import AgentConfig, AgentResult, BaseAgent
 
 logger = structlog.get_logger()
 
@@ -256,8 +256,8 @@ class SynthesisAgent(BaseAgent):
             "",
             "### Summary",
             "",
-            f"| Total Issues | Critical | High | Medium | Low |",
-            f"|:---:|:---:|:---:|:---:|:---:|",
+            "| Total Issues | Critical | High | Medium | Low |",
+            "|:---:|:---:|:---:|:---:|:---:|",
             f"| {summary.get('total_issues', 0)} | {summary.get('critical', 0)} | "
             f"{summary.get('high', 0)} | {summary.get('medium', 0)} | {summary.get('low', 0)} |",
             "",
@@ -284,7 +284,7 @@ class SynthesisAgent(BaseAgent):
 
                 lines.extend(
                     [
-                        f"<details>",
+                        "<details>",
                         f"<summary>{severity_emoji} <b>{finding.get('title', 'Issue')}</b> "
                         f"({finding.get('location', {}).get('file', '')}:"
                         f"{finding.get('location', {}).get('line_start', '')})</summary>",

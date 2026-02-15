@@ -8,7 +8,8 @@ import asyncio
 import functools
 import random
 import time
-from typing import Any, Callable, Type, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 import structlog
 
@@ -27,10 +28,10 @@ class RetryConfig:
         max_delay: float = 60.0,
         exponential_base: float = 2.0,
         jitter: bool = True,
-        retryable_exceptions: tuple[Type[Exception], ...] | None = None,
+        retryable_exceptions: tuple[type[Exception], ...] | None = None,
     ) -> None:
         """Initialize retry configuration.
-        
+
         Args:
             max_attempts: Maximum number of attempts (including initial)
             base_delay: Initial delay between retries in seconds
@@ -49,15 +50,15 @@ class RetryConfig:
 
     def calculate_delay(self, attempt: int) -> float:
         """Calculate delay for a given attempt number.
-        
+
         Args:
             attempt: Current attempt number (0-indexed)
-            
+
         Returns:
             Delay in seconds
         """
         delay = min(
-            self.base_delay * (self.exponential_base ** attempt),
+            self.base_delay * (self.exponential_base**attempt),
             self.max_delay,
         )
         if self.jitter:
@@ -80,19 +81,19 @@ def retry(
     config: RetryConfig | None = None,
     max_attempts: int | None = None,
     base_delay: float | None = None,
-    retryable_exceptions: tuple[Type[Exception], ...] | None = None,
+    retryable_exceptions: tuple[type[Exception], ...] | None = None,
 ) -> Callable[[F], F]:
     """Decorator for adding retry logic to synchronous functions.
-    
+
     Args:
         config: RetryConfig instance (takes precedence)
         max_attempts: Maximum attempts if not using config
         base_delay: Base delay if not using config
         retryable_exceptions: Exceptions to retry on if not using config
-        
+
     Returns:
         Decorated function with retry logic
-        
+
     Example:
         @retry(max_attempts=3, base_delay=1.0)
         def call_api():
@@ -109,7 +110,7 @@ def retry(
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             last_exception: Exception | None = None
-            
+
             for attempt in range(config.max_attempts):
                 try:
                     return func(*args, **kwargs)
@@ -133,14 +134,14 @@ def retry(
                             attempts=config.max_attempts,
                             final_error=str(e),
                         )
-            
+
             # Should not reach here, but satisfy type checker
             if last_exception:
                 raise last_exception
             raise RuntimeError("Unexpected state in retry logic")
-        
+
         return wrapper  # type: ignore
-    
+
     return decorator
 
 
@@ -148,19 +149,19 @@ def async_retry(
     config: RetryConfig | None = None,
     max_attempts: int | None = None,
     base_delay: float | None = None,
-    retryable_exceptions: tuple[Type[Exception], ...] | None = None,
+    retryable_exceptions: tuple[type[Exception], ...] | None = None,
 ) -> Callable[[F], F]:
     """Decorator for adding retry logic to async functions.
-    
+
     Args:
         config: RetryConfig instance (takes precedence)
         max_attempts: Maximum attempts if not using config
         base_delay: Base delay if not using config
         retryable_exceptions: Exceptions to retry on if not using config
-        
+
     Returns:
         Decorated async function with retry logic
-        
+
     Example:
         @async_retry(max_attempts=3, base_delay=1.0)
         async def call_api():
@@ -177,7 +178,7 @@ def async_retry(
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             last_exception: Exception | None = None
-            
+
             for attempt in range(config.max_attempts):
                 try:
                     return await func(*args, **kwargs)
@@ -201,14 +202,14 @@ def async_retry(
                             attempts=config.max_attempts,
                             final_error=str(e),
                         )
-            
+
             # Should not reach here, but satisfy type checker
             if last_exception:
                 raise last_exception
             raise RuntimeError("Unexpected state in retry logic")
-        
+
         return wrapper  # type: ignore
-    
+
     return decorator
 
 
@@ -223,12 +224,12 @@ LLM_RETRYABLE_EXCEPTIONS = (
 
 def with_llm_retry(func: F) -> F:
     """Convenience decorator specifically for LLM API calls.
-    
+
     Uses sensible defaults for LLM APIs:
     - 3 retry attempts
     - Exponential backoff starting at 1 second
     - Retries on timeout and connection errors
-    
+
     Example:
         @with_llm_retry
         async def _call_openai(self, ...):

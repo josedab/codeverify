@@ -8,7 +8,7 @@ from typing import Any
 
 import structlog
 
-from codeverify_agents.retry import RetryConfig, async_retry, DEFAULT_LLM_RETRY_CONFIG
+from codeverify_agents.retry import DEFAULT_LLM_RETRY_CONFIG, async_retry
 
 logger = structlog.get_logger()
 
@@ -41,10 +41,21 @@ class CodeContext:
             is_ai_generated=context.get("is_ai_generated", False),
             author=context.get("author"),
             verification_results=context.get("verification_results", {}),
-            metadata={k: v for k, v in context.items() if k not in {
-                "file_path", "language", "diff", "related_code", "framework",
-                "is_ai_generated", "author", "verification_results"
-            }},
+            metadata={
+                k: v
+                for k, v in context.items()
+                if k
+                not in {
+                    "file_path",
+                    "language",
+                    "diff",
+                    "related_code",
+                    "framework",
+                    "is_ai_generated",
+                    "author",
+                    "verification_results",
+                }
+            },
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -118,7 +129,7 @@ class AgentResult:
 
 class BaseAgent(ABC):
     """Base class for all AI agents.
-    
+
     Supports dependency injection of LLM client providers for testing.
     """
 
@@ -133,11 +144,10 @@ class BaseAgent(ABC):
         if self._client is None:
             # Use injected provider if available
             if self._llm_provider is not None:
-                self._client = self._llm_provider.get_openai_client(
-                    self.config.openai_api_key
-                )
+                self._client = self._llm_provider.get_openai_client(self.config.openai_api_key)
             else:
                 from openai import OpenAI
+
                 self._client = OpenAI(api_key=self.config.openai_api_key)
         return self._client
 
@@ -151,6 +161,7 @@ class BaseAgent(ABC):
                 )
             else:
                 from anthropic import Anthropic
+
                 self._client = Anthropic(api_key=self.config.anthropic_api_key)
         return self._client
 
@@ -246,7 +257,7 @@ class BaseAgent(ABC):
         json_mode: bool = False,
     ) -> dict[str, Any]:
         """Call the configured LLM provider with retry logic.
-        
+
         Uses exponential backoff for transient failures.
         """
         return await self._call_llm_with_retry(system_prompt, user_prompt, json_mode)
@@ -319,7 +330,7 @@ class BaseAgent(ABC):
         """Build a markdown code block for prompts."""
         if max_length and len(code) > max_length:
             code = code[:max_length] + "\n... (truncated)"
-        
+
         lines = []
         if label:
             lines.append(f"{label}:")

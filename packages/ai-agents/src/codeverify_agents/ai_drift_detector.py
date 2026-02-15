@@ -13,7 +13,6 @@ Features:
 """
 
 import hashlib
-import json
 import statistics
 import time
 from collections import defaultdict
@@ -421,10 +420,7 @@ class AIDriftDetector(BaseAgent):
         period_start = now - timedelta(days=days)
 
         # Get snapshots for the period
-        period_snapshots = [
-            s for s in self._snapshots
-            if s.timestamp >= period_start
-        ]
+        period_snapshots = [s for s in self._snapshots if s.timestamp >= period_start]
 
         # Calculate current metrics
         current_metrics = self._calculate_metrics(period_snapshots, period_start, now)
@@ -493,66 +489,74 @@ class AIDriftDetector(BaseAgent):
 
         # Low trust score alert
         if snapshot.trust_score < self.thresholds["trust_score_min"]:
-            alerts.append(DriftAlert(
-                alert_id=self._generate_id(),
-                category=DriftCategory.QUALITY_DEGRADATION,
-                alert_type=AlertType.THRESHOLD,
-                severity=DriftSeverity.HIGH if snapshot.trust_score < 40 else DriftSeverity.MEDIUM,
-                message=f"Low trust score detected: {snapshot.trust_score:.1f}",
-                details=f"File {snapshot.file_path} has trust score below threshold",
-                metric_name="trust_score",
-                current_value=snapshot.trust_score,
-                baseline_value=self.thresholds["trust_score_min"],
-                threshold=self.thresholds["trust_score_min"],
-                affected_files=[snapshot.file_path],
-                recommendations=[
-                    "Review the AI-generated code carefully",
-                    "Add tests for the new functionality",
-                    "Consider refactoring complex sections",
-                ],
-            ))
+            alerts.append(
+                DriftAlert(
+                    alert_id=self._generate_id(),
+                    category=DriftCategory.QUALITY_DEGRADATION,
+                    alert_type=AlertType.THRESHOLD,
+                    severity=DriftSeverity.HIGH
+                    if snapshot.trust_score < 40
+                    else DriftSeverity.MEDIUM,
+                    message=f"Low trust score detected: {snapshot.trust_score:.1f}",
+                    details=f"File {snapshot.file_path} has trust score below threshold",
+                    metric_name="trust_score",
+                    current_value=snapshot.trust_score,
+                    baseline_value=self.thresholds["trust_score_min"],
+                    threshold=self.thresholds["trust_score_min"],
+                    affected_files=[snapshot.file_path],
+                    recommendations=[
+                        "Review the AI-generated code carefully",
+                        "Add tests for the new functionality",
+                        "Consider refactoring complex sections",
+                    ],
+                )
+            )
 
         # Critical findings alert
         if snapshot.critical_findings > 0:
-            alerts.append(DriftAlert(
-                alert_id=self._generate_id(),
-                category=DriftCategory.SECURITY_RISK_INCREASE,
-                alert_type=AlertType.THRESHOLD,
-                severity=DriftSeverity.CRITICAL,
-                message=f"Critical security findings in AI code: {snapshot.critical_findings}",
-                details=f"File {snapshot.file_path} contains critical security issues",
-                metric_name="critical_findings",
-                current_value=float(snapshot.critical_findings),
-                baseline_value=0.0,
-                threshold=0.0,
-                affected_files=[snapshot.file_path],
-                recommendations=[
-                    "Address critical security issues immediately",
-                    "Review AI suggestion acceptance practices",
-                    "Enable stricter pre-commit checks",
-                ],
-            ))
+            alerts.append(
+                DriftAlert(
+                    alert_id=self._generate_id(),
+                    category=DriftCategory.SECURITY_RISK_INCREASE,
+                    alert_type=AlertType.THRESHOLD,
+                    severity=DriftSeverity.CRITICAL,
+                    message=f"Critical security findings in AI code: {snapshot.critical_findings}",
+                    details=f"File {snapshot.file_path} contains critical security issues",
+                    metric_name="critical_findings",
+                    current_value=float(snapshot.critical_findings),
+                    baseline_value=0.0,
+                    threshold=0.0,
+                    affected_files=[snapshot.file_path],
+                    recommendations=[
+                        "Address critical security issues immediately",
+                        "Review AI suggestion acceptance practices",
+                        "Enable stricter pre-commit checks",
+                    ],
+                )
+            )
 
         # Quick acceptance alert (no review)
         if snapshot.ai_probability > 0.7 and not snapshot.was_reviewed:
-            alerts.append(DriftAlert(
-                alert_id=self._generate_id(),
-                category=DriftCategory.REVIEW_DEPTH_DECLINE,
-                alert_type=AlertType.ANOMALY,
-                severity=DriftSeverity.MEDIUM,
-                message="AI code accepted without review",
-                details=f"High-probability AI code in {snapshot.file_path} was not reviewed",
-                metric_name="review_depth",
-                current_value=0.0,
-                baseline_value=1.0,
-                affected_files=[snapshot.file_path],
-                affected_authors=[snapshot.author] if snapshot.author else [],
-                recommendations=[
-                    "Establish code review requirements for AI-generated code",
-                    "Use tools like CodeVerify to flag unreviewed AI code",
-                    "Add review checklists for AI suggestions",
-                ],
-            ))
+            alerts.append(
+                DriftAlert(
+                    alert_id=self._generate_id(),
+                    category=DriftCategory.REVIEW_DEPTH_DECLINE,
+                    alert_type=AlertType.ANOMALY,
+                    severity=DriftSeverity.MEDIUM,
+                    message="AI code accepted without review",
+                    details=f"High-probability AI code in {snapshot.file_path} was not reviewed",
+                    metric_name="review_depth",
+                    current_value=0.0,
+                    baseline_value=1.0,
+                    affected_files=[snapshot.file_path],
+                    affected_authors=[snapshot.author] if snapshot.author else [],
+                    recommendations=[
+                        "Establish code review requirements for AI-generated code",
+                        "Use tools like CodeVerify to flag unreviewed AI code",
+                        "Add review checklists for AI suggestions",
+                    ],
+                )
+            )
 
         return alerts
 
@@ -591,15 +595,24 @@ class AIDriftDetector(BaseAgent):
         # Finding metrics
         metrics.total_findings = sum(s.findings_count for s in snapshots)
         if snapshots:
-            metrics.critical_finding_rate = sum(s.critical_findings for s in snapshots) / len(snapshots)
+            metrics.critical_finding_rate = sum(s.critical_findings for s in snapshots) / len(
+                snapshots
+            )
             metrics.high_finding_rate = sum(s.high_findings for s in snapshots) / len(snapshots)
 
         # Calculate trends using linear regression on time-ordered data
-        metrics.trust_trend = self._calculate_trend([s.trust_score for s in sorted(snapshots, key=lambda x: x.timestamp)])
-        metrics.security_trend = self._calculate_trend([s.security_score for s in sorted(snapshots, key=lambda x: x.timestamp)])
+        metrics.trust_trend = self._calculate_trend(
+            [s.trust_score for s in sorted(snapshots, key=lambda x: x.timestamp)]
+        )
+        metrics.security_trend = self._calculate_trend(
+            [s.security_score for s in sorted(snapshots, key=lambda x: x.timestamp)]
+        )
 
         # Quality trend is combination of trust and documentation
-        quality_values = [(s.trust_score + s.documentation_score) / 2 for s in sorted(snapshots, key=lambda x: x.timestamp)]
+        quality_values = [
+            (s.trust_score + s.documentation_score) / 2
+            for s in sorted(snapshots, key=lambda x: x.timestamp)
+        ]
         metrics.quality_trend = self._calculate_trend(quality_values)
 
         return metrics
@@ -639,133 +652,154 @@ class AIDriftDetector(BaseAgent):
 
         # Trust score decline
         if baseline.avg_trust_score > 0:
-            trust_decline = (baseline.avg_trust_score - current.avg_trust_score) / baseline.avg_trust_score * 100
+            trust_decline = (
+                (baseline.avg_trust_score - current.avg_trust_score)
+                / baseline.avg_trust_score
+                * 100
+            )
             if trust_decline > self.thresholds["trust_score_decline"]:
-                alerts.append(DriftAlert(
-                    alert_id=self._generate_id(),
-                    category=DriftCategory.QUALITY_DEGRADATION,
-                    alert_type=AlertType.TREND,
-                    severity=DriftSeverity.HIGH if trust_decline > 20 else DriftSeverity.MEDIUM,
-                    message=f"Trust score declined by {trust_decline:.1f}%",
-                    details="AI code quality is degrading compared to baseline period",
-                    metric_name="avg_trust_score",
-                    current_value=current.avg_trust_score,
-                    baseline_value=baseline.avg_trust_score,
-                    threshold=self.thresholds["trust_score_decline"],
-                    period_start=current.period_start,
-                    period_end=current.period_end,
-                    recommendations=[
-                        "Increase code review rigor for AI suggestions",
-                        "Consider additional verification tools",
-                        "Review team training on AI code assessment",
-                    ],
-                ))
+                alerts.append(
+                    DriftAlert(
+                        alert_id=self._generate_id(),
+                        category=DriftCategory.QUALITY_DEGRADATION,
+                        alert_type=AlertType.TREND,
+                        severity=DriftSeverity.HIGH if trust_decline > 20 else DriftSeverity.MEDIUM,
+                        message=f"Trust score declined by {trust_decline:.1f}%",
+                        details="AI code quality is degrading compared to baseline period",
+                        metric_name="avg_trust_score",
+                        current_value=current.avg_trust_score,
+                        baseline_value=baseline.avg_trust_score,
+                        threshold=self.thresholds["trust_score_decline"],
+                        period_start=current.period_start,
+                        period_end=current.period_end,
+                        recommendations=[
+                            "Increase code review rigor for AI suggestions",
+                            "Consider additional verification tools",
+                            "Review team training on AI code assessment",
+                        ],
+                    )
+                )
 
         # Review rate decline
         if baseline.review_rate > 0:
-            review_decline = (baseline.review_rate - current.review_rate)
+            review_decline = baseline.review_rate - current.review_rate
             if current.review_rate < self.thresholds["review_rate_min"]:
-                alerts.append(DriftAlert(
-                    alert_id=self._generate_id(),
-                    category=DriftCategory.REVIEW_DEPTH_DECLINE,
-                    alert_type=AlertType.THRESHOLD,
-                    severity=DriftSeverity.HIGH,
-                    message=f"Review rate below threshold: {current.review_rate:.1f}%",
-                    details=f"Only {current.review_rate:.1f}% of AI code is being reviewed (baseline: {baseline.review_rate:.1f}%)",
-                    metric_name="review_rate",
-                    current_value=current.review_rate,
-                    baseline_value=baseline.review_rate,
-                    threshold=self.thresholds["review_rate_min"],
-                    recommendations=[
-                        "Mandate code reviews for all AI-generated code",
-                        "Set up automated review reminders",
-                        "Track and reward thorough reviews",
-                    ],
-                ))
+                alerts.append(
+                    DriftAlert(
+                        alert_id=self._generate_id(),
+                        category=DriftCategory.REVIEW_DEPTH_DECLINE,
+                        alert_type=AlertType.THRESHOLD,
+                        severity=DriftSeverity.HIGH,
+                        message=f"Review rate below threshold: {current.review_rate:.1f}%",
+                        details=f"Only {current.review_rate:.1f}% of AI code is being reviewed (baseline: {baseline.review_rate:.1f}%)",
+                        metric_name="review_rate",
+                        current_value=current.review_rate,
+                        baseline_value=baseline.review_rate,
+                        threshold=self.thresholds["review_rate_min"],
+                        recommendations=[
+                            "Mandate code reviews for all AI-generated code",
+                            "Set up automated review reminders",
+                            "Track and reward thorough reviews",
+                        ],
+                    )
+                )
 
         # Security score decline
         if baseline.avg_security_score > 0:
-            security_decline = (baseline.avg_security_score - current.avg_security_score)
+            security_decline = baseline.avg_security_score - current.avg_security_score
             if current.avg_security_score < self.thresholds["security_score_min"]:
-                alerts.append(DriftAlert(
-                    alert_id=self._generate_id(),
-                    category=DriftCategory.SECURITY_RISK_INCREASE,
-                    alert_type=AlertType.THRESHOLD,
-                    severity=DriftSeverity.HIGH,
-                    message=f"Security score below threshold: {current.avg_security_score:.1f}",
-                    details="AI-generated code security is declining",
-                    metric_name="avg_security_score",
-                    current_value=current.avg_security_score,
-                    baseline_value=baseline.avg_security_score,
-                    threshold=self.thresholds["security_score_min"],
-                    recommendations=[
-                        "Enable security-focused AI code analysis",
-                        "Add security review checkpoints",
-                        "Provide security training for the team",
-                    ],
-                ))
+                alerts.append(
+                    DriftAlert(
+                        alert_id=self._generate_id(),
+                        category=DriftCategory.SECURITY_RISK_INCREASE,
+                        alert_type=AlertType.THRESHOLD,
+                        severity=DriftSeverity.HIGH,
+                        message=f"Security score below threshold: {current.avg_security_score:.1f}",
+                        details="AI-generated code security is declining",
+                        metric_name="avg_security_score",
+                        current_value=current.avg_security_score,
+                        baseline_value=baseline.avg_security_score,
+                        threshold=self.thresholds["security_score_min"],
+                        recommendations=[
+                            "Enable security-focused AI code analysis",
+                            "Add security review checkpoints",
+                            "Provide security training for the team",
+                        ],
+                    )
+                )
 
         # Critical findings increase
         if current.critical_finding_rate > self.thresholds["critical_finding_max"]:
-            alerts.append(DriftAlert(
-                alert_id=self._generate_id(),
-                category=DriftCategory.SECURITY_RISK_INCREASE,
-                alert_type=AlertType.THRESHOLD,
-                severity=DriftSeverity.CRITICAL,
-                message=f"Critical finding rate too high: {current.critical_finding_rate:.2f}",
-                details="Too many critical security issues in AI-generated code",
-                metric_name="critical_finding_rate",
-                current_value=current.critical_finding_rate,
-                baseline_value=baseline.critical_finding_rate,
-                threshold=self.thresholds["critical_finding_max"],
-                recommendations=[
-                    "Immediately review all critical findings",
-                    "Block AI code acceptance until issues resolved",
-                    "Investigate root cause of security issues",
-                ],
-            ))
+            alerts.append(
+                DriftAlert(
+                    alert_id=self._generate_id(),
+                    category=DriftCategory.SECURITY_RISK_INCREASE,
+                    alert_type=AlertType.THRESHOLD,
+                    severity=DriftSeverity.CRITICAL,
+                    message=f"Critical finding rate too high: {current.critical_finding_rate:.2f}",
+                    details="Too many critical security issues in AI-generated code",
+                    metric_name="critical_finding_rate",
+                    current_value=current.critical_finding_rate,
+                    baseline_value=baseline.critical_finding_rate,
+                    threshold=self.thresholds["critical_finding_max"],
+                    recommendations=[
+                        "Immediately review all critical findings",
+                        "Block AI code acceptance until issues resolved",
+                        "Investigate root cause of security issues",
+                    ],
+                )
+            )
 
         # Test coverage decline
-        if baseline.avg_test_coverage > 0 and current.avg_test_coverage < self.thresholds["test_coverage_min"]:
-            alerts.append(DriftAlert(
-                alert_id=self._generate_id(),
-                category=DriftCategory.TEST_COVERAGE_DROP,
-                alert_type=AlertType.THRESHOLD,
-                severity=DriftSeverity.MEDIUM,
-                message=f"Test coverage below threshold: {current.avg_test_coverage:.1f}%",
-                details="AI-generated code lacks adequate test coverage",
-                metric_name="avg_test_coverage",
-                current_value=current.avg_test_coverage,
-                baseline_value=baseline.avg_test_coverage,
-                threshold=self.thresholds["test_coverage_min"],
-                recommendations=[
-                    "Require tests for AI-generated code",
-                    "Use AI to generate test cases",
-                    "Add test coverage checks to CI",
-                ],
-            ))
+        if (
+            baseline.avg_test_coverage > 0
+            and current.avg_test_coverage < self.thresholds["test_coverage_min"]
+        ):
+            alerts.append(
+                DriftAlert(
+                    alert_id=self._generate_id(),
+                    category=DriftCategory.TEST_COVERAGE_DROP,
+                    alert_type=AlertType.THRESHOLD,
+                    severity=DriftSeverity.MEDIUM,
+                    message=f"Test coverage below threshold: {current.avg_test_coverage:.1f}%",
+                    details="AI-generated code lacks adequate test coverage",
+                    metric_name="avg_test_coverage",
+                    current_value=current.avg_test_coverage,
+                    baseline_value=baseline.avg_test_coverage,
+                    threshold=self.thresholds["test_coverage_min"],
+                    recommendations=[
+                        "Require tests for AI-generated code",
+                        "Use AI to generate test cases",
+                        "Add test coverage checks to CI",
+                    ],
+                )
+            )
 
         # Complexity increase
         if baseline.avg_complexity > 0:
-            complexity_increase = (current.avg_complexity - baseline.avg_complexity) / baseline.avg_complexity * 100
+            complexity_increase = (
+                (current.avg_complexity - baseline.avg_complexity) / baseline.avg_complexity * 100
+            )
             if complexity_increase > self.thresholds["complexity_increase"]:
-                alerts.append(DriftAlert(
-                    alert_id=self._generate_id(),
-                    category=DriftCategory.COMPLEXITY_INCREASE,
-                    alert_type=AlertType.TREND,
-                    severity=DriftSeverity.MEDIUM,
-                    message=f"Code complexity increased by {complexity_increase:.1f}%",
-                    details="AI-generated code is becoming more complex",
-                    metric_name="avg_complexity",
-                    current_value=current.avg_complexity,
-                    baseline_value=baseline.avg_complexity,
-                    threshold=self.thresholds["complexity_increase"],
-                    recommendations=[
-                        "Refactor complex AI-generated code",
-                        "Set complexity limits for AI suggestions",
-                        "Prefer simpler solutions in code reviews",
-                    ],
-                ))
+                alerts.append(
+                    DriftAlert(
+                        alert_id=self._generate_id(),
+                        category=DriftCategory.COMPLEXITY_INCREASE,
+                        alert_type=AlertType.TREND,
+                        severity=DriftSeverity.MEDIUM,
+                        message=f"Code complexity increased by {complexity_increase:.1f}%",
+                        details="AI-generated code is becoming more complex",
+                        metric_name="avg_complexity",
+                        current_value=current.avg_complexity,
+                        baseline_value=baseline.avg_complexity,
+                        threshold=self.thresholds["complexity_increase"],
+                        recommendations=[
+                            "Refactor complex AI-generated code",
+                            "Set complexity limits for AI suggestions",
+                            "Prefer simpler solutions in code reviews",
+                        ],
+                    )
+                )
 
         return alerts
 
@@ -814,12 +848,14 @@ class AIDriftDetector(BaseAgent):
 
     def _identify_hotspots(self, snapshots: list[AICodeSnapshot]) -> list[dict[str, Any]]:
         """Identify files/areas with most drift issues."""
-        file_issues: dict[str, dict[str, Any]] = defaultdict(lambda: {
-            "issues": 0,
-            "critical": 0,
-            "avg_trust": [],
-            "low_reviews": 0,
-        })
+        file_issues: dict[str, dict[str, Any]] = defaultdict(
+            lambda: {
+                "issues": 0,
+                "critical": 0,
+                "avg_trust": [],
+                "low_reviews": 0,
+            }
+        )
 
         for snapshot in snapshots:
             file_issues[snapshot.file_path]["issues"] += snapshot.findings_count
@@ -831,14 +867,16 @@ class AIDriftDetector(BaseAgent):
         hotspots = []
         for file_path, data in file_issues.items():
             avg_trust = statistics.mean(data["avg_trust"]) if data["avg_trust"] else 0
-            hotspots.append({
-                "file_path": file_path,
-                "total_issues": data["issues"],
-                "critical_issues": data["critical"],
-                "avg_trust_score": avg_trust,
-                "unreviewed_count": data["low_reviews"],
-                "risk_score": data["critical"] * 3 + data["issues"] + data["low_reviews"] * 2,
-            })
+            hotspots.append(
+                {
+                    "file_path": file_path,
+                    "total_issues": data["issues"],
+                    "critical_issues": data["critical"],
+                    "avg_trust_score": avg_trust,
+                    "unreviewed_count": data["low_reviews"],
+                    "risk_score": data["critical"] * 3 + data["issues"] + data["low_reviews"] * 2,
+                }
+            )
 
         # Sort by risk score descending
         hotspots.sort(key=lambda x: x["risk_score"], reverse=True)
@@ -858,7 +896,9 @@ class AIDriftDetector(BaseAgent):
             result[author] = {
                 "total_ai_code": len(author_snapshots),
                 "avg_trust_score": statistics.mean(s.trust_score for s in author_snapshots),
-                "review_rate": sum(1 for s in author_snapshots if s.was_reviewed) / len(author_snapshots) * 100,
+                "review_rate": sum(1 for s in author_snapshots if s.was_reviewed)
+                / len(author_snapshots)
+                * 100,
                 "critical_findings": sum(s.critical_findings for s in author_snapshots),
             }
 
@@ -903,9 +943,7 @@ class AIDriftDetector(BaseAgent):
 
     def _generate_id(self) -> str:
         """Generate a unique ID."""
-        return hashlib.sha256(
-            f"{time.time()}{len(self._snapshots)}".encode()
-        ).hexdigest()[:12]
+        return hashlib.sha256(f"{time.time()}{len(self._snapshots)}".encode()).hexdigest()[:12]
 
     def get_statistics(self) -> dict[str, Any]:
         """Get detector statistics."""

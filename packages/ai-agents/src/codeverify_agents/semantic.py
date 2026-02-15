@@ -122,26 +122,32 @@ class SemanticAgent(BaseAgent):
         ]
 
         if ctx.diff:
-            prompt_parts.extend([
-                "",
-                "This is a code change. Here is the diff:",
-                "",
-                self._build_code_block(ctx.diff, "diff"),
-            ])
+            prompt_parts.extend(
+                [
+                    "",
+                    "This is a code change. Here is the diff:",
+                    "",
+                    self._build_code_block(ctx.diff, "diff"),
+                ]
+            )
 
         if ctx.related_code:
-            prompt_parts.extend([
-                "",
-                "Related code for context:",
-                "",
-                self._build_code_block(ctx.related_code, ctx.language),
-            ])
+            prompt_parts.extend(
+                [
+                    "",
+                    "Related code for context:",
+                    "",
+                    self._build_code_block(ctx.related_code, ctx.language),
+                ]
+            )
 
-        prompt_parts.extend([
-            "",
-            "Provide a detailed semantic analysis including function contracts, "
-            "preconditions, postconditions, and potential issues.",
-        ])
+        prompt_parts.extend(
+            [
+                "",
+                "Provide a detailed semantic analysis including function contracts, "
+                "preconditions, postconditions, and potential issues.",
+            ]
+        )
 
         return "\n".join(prompt_parts)
 

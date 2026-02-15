@@ -10,13 +10,12 @@ This module provides:
 import hashlib
 import json
 import os
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import structlog
 
@@ -25,6 +24,7 @@ logger = structlog.get_logger()
 
 class TrainingStatus(str, Enum):
     """Status of a fine-tuning job."""
+
     PENDING = "pending"
     COLLECTING = "collecting"
     PREPROCESSING = "preprocessing"
@@ -37,6 +37,7 @@ class TrainingStatus(str, Enum):
 
 class DataSourceType(str, Enum):
     """Type of data source for training."""
+
     VERIFICATION_RESULTS = "verification_results"
     USER_CORRECTIONS = "user_corrections"
     APPROVED_FINDINGS = "approved_findings"
@@ -46,6 +47,7 @@ class DataSourceType(str, Enum):
 
 class ModelType(str, Enum):
     """Type of model for fine-tuning."""
+
     OPENAI_GPT4 = "openai_gpt4"
     OPENAI_GPT35 = "openai_gpt35"
     LLAMA_7B = "llama_7b"
@@ -57,6 +59,7 @@ class ModelType(str, Enum):
 @dataclass
 class TrainingExample:
     """A single training example for fine-tuning."""
+
     id: str = field(default_factory=lambda: str(uuid4()))
     input_code: str = ""
     input_context: dict[str, Any] = field(default_factory=dict)
@@ -90,7 +93,7 @@ class TrainingExample:
         """Build system prompt from context."""
         return self.input_context.get(
             "system_prompt",
-            "You are an expert code reviewer. Analyze code for bugs, security issues, and quality problems."
+            "You are an expert code reviewer. Analyze code for bugs, security issues, and quality problems.",
         )
 
     def _build_user_prompt(self) -> str:
@@ -103,6 +106,7 @@ class TrainingExample:
 @dataclass
 class TrainingDataset:
     """A dataset for fine-tuning."""
+
     id: str = field(default_factory=lambda: str(uuid4()))
     name: str = ""
     org_id: str | None = None
@@ -147,15 +151,16 @@ class TrainingDataset:
 @dataclass
 class TrainingConfig:
     """Configuration for fine-tuning job."""
+
     model_type: ModelType = ModelType.LLAMA_7B
     base_model_path: str | None = None
     output_dir: str = "./fine_tuned_models"
-    
+
     # LoRA parameters
     lora_r: int = 16
     lora_alpha: int = 32
     lora_dropout: float = 0.05
-    
+
     # Training parameters
     num_epochs: int = 3
     batch_size: int = 4
@@ -163,12 +168,12 @@ class TrainingConfig:
     warmup_steps: int = 100
     max_seq_length: int = 2048
     gradient_accumulation_steps: int = 4
-    
+
     # Validation
     eval_steps: int = 100
     save_steps: int = 500
     validation_split: float = 0.1
-    
+
     # Resource limits
     max_gpu_memory_gb: float | None = None
     use_8bit: bool = True
@@ -178,6 +183,7 @@ class TrainingConfig:
 @dataclass
 class TrainingMetrics:
     """Metrics from a training run."""
+
     train_loss: float = 0.0
     eval_loss: float = 0.0
     train_accuracy: float = 0.0
@@ -193,6 +199,7 @@ class TrainingMetrics:
 @dataclass
 class TrainingJob:
     """A fine-tuning training job."""
+
     id: str = field(default_factory=lambda: str(uuid4()))
     org_id: str | None = None
     dataset_id: str = ""
@@ -216,6 +223,7 @@ class TrainingJob:
 @dataclass
 class FineTunedModel:
     """A fine-tuned model artifact."""
+
     id: str = field(default_factory=lambda: str(uuid4()))
     org_id: str | None = None
     name: str = ""
@@ -264,7 +272,7 @@ class DataCollector:
             quality_score=self._calculate_quality_score(findings),
             org_id=org_id,
         )
-        
+
         self._add_to_dataset(example, dataset_name, org_id)
         logger.info(
             "Collected training example from verification",
@@ -295,7 +303,7 @@ class DataCollector:
                 "correction_type": self._classify_correction(original_findings, corrected_findings),
             },
         )
-        
+
         self._add_to_dataset(example, dataset_name, org_id)
         logger.info(
             "Collected training example from user correction",
@@ -329,7 +337,7 @@ class DataCollector:
                 "dismiss_reason": dismiss_reason,
             },
         )
-        
+
         self._add_to_dataset(example, dataset_name, org_id)
         logger.info(
             "Collected training example from dismissed finding",
@@ -377,14 +385,14 @@ class DataCollector:
         """Calculate quality score for training example."""
         if not findings:
             return 0.7  # No findings is valid but less informative
-        
+
         # Higher score for findings with high confidence
         avg_confidence = sum(f.get("confidence", 0.5) for f in findings) / len(findings)
-        
+
         # Higher score for verified findings (formal verification)
         verified_count = sum(1 for f in findings if f.get("verification_type") == "formal")
         verified_ratio = verified_count / len(findings) if findings else 0
-        
+
         return min(1.0, 0.5 + (avg_confidence * 0.25) + (verified_ratio * 0.25))
 
     def _classify_correction(
@@ -395,7 +403,7 @@ class DataCollector:
         """Classify the type of user correction."""
         orig_count = len(original)
         corr_count = len(corrected)
-        
+
         if corr_count < orig_count:
             return "removed_false_positives"
         elif corr_count > orig_count:
@@ -437,37 +445,37 @@ class TrainingPipeline:
         try:
             job.status = TrainingStatus.PREPROCESSING
             job.started_at = datetime.utcnow()
-            
+
             # Step 1: Preprocess data
             train_data, val_data = self._preprocess_data(dataset, job.config)
-            
+
             # Step 2: Run training
             job.status = TrainingStatus.TRAINING
             output_path = await self._run_training_loop(train_data, val_data, job)
-            
+
             # Step 3: Validate model
             job.status = TrainingStatus.VALIDATING
             metrics = await self._validate_model(output_path, val_data)
             job.metrics = metrics
-            
+
             # Step 4: Complete
             job.status = TrainingStatus.COMPLETED
             job.output_model_path = output_path
             job.completed_at = datetime.utcnow()
-            
+
             logger.info(
                 "Training completed",
                 job_id=job.id,
                 duration_seconds=job.duration_seconds,
                 eval_loss=metrics.eval_loss,
             )
-            
+
         except Exception as e:
             job.status = TrainingStatus.FAILED
             job.error_message = str(e)
             job.completed_at = datetime.utcnow()
             logger.error("Training failed", job_id=job.id, error=str(e))
-            
+
         return job
 
     def _preprocess_data(
@@ -478,11 +486,11 @@ class TrainingPipeline:
         """Preprocess dataset for training."""
         # Filter by quality score
         quality_examples = [ex for ex in dataset.examples if ex.quality_score >= 0.5]
-        
+
         # Convert to training format
         format_type = "openai" if "openai" in config.model_type.value else "alpaca"
         formatted = [ex.to_training_format(format_type) for ex in quality_examples]
-        
+
         # Split into train/validation
         split_idx = int(len(formatted) * (1 - config.validation_split))
         return formatted[:split_idx], formatted[split_idx:]
@@ -494,7 +502,7 @@ class TrainingPipeline:
         job: TrainingJob,
     ) -> str:
         """Run the actual training loop.
-        
+
         In production, this would integrate with:
         - HuggingFace Transformers + PEFT for LoRA
         - OpenAI fine-tuning API
@@ -503,7 +511,7 @@ class TrainingPipeline:
         config = job.config
         output_dir = Path(config.output_dir) / job.id
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Simulate training for now (in production, integrate with actual training)
         logger.info(
             "Starting training loop",
@@ -512,31 +520,35 @@ class TrainingPipeline:
             val_samples=len(val_data),
             epochs=config.num_epochs,
         )
-        
+
         # Save training data for later use
         train_file = output_dir / "train.jsonl"
         val_file = output_dir / "val.jsonl"
-        
+
         with open(train_file, "w") as f:
             for item in train_data:
                 f.write(json.dumps(item) + "\n")
-        
+
         with open(val_file, "w") as f:
             for item in val_data:
                 f.write(json.dumps(item) + "\n")
-        
+
         # Save config
         config_file = output_dir / "config.json"
         with open(config_file, "w") as f:
-            json.dump({
-                "model_type": config.model_type.value,
-                "lora_r": config.lora_r,
-                "lora_alpha": config.lora_alpha,
-                "num_epochs": config.num_epochs,
-                "batch_size": config.batch_size,
-                "learning_rate": config.learning_rate,
-            }, f, indent=2)
-        
+            json.dump(
+                {
+                    "model_type": config.model_type.value,
+                    "lora_r": config.lora_r,
+                    "lora_alpha": config.lora_alpha,
+                    "num_epochs": config.num_epochs,
+                    "batch_size": config.batch_size,
+                    "learning_rate": config.learning_rate,
+                },
+                f,
+                indent=2,
+            )
+
         # In production: call HuggingFace trainer or OpenAI API
         # For now, return the output directory
         return str(output_dir)
@@ -602,7 +614,7 @@ class ModelServer:
     ) -> dict[str, Any]:
         """Generate response using fine-tuned model with fallback."""
         model = self.get_active_model(org_id)
-        
+
         if model and model.is_active:
             try:
                 result = await self._generate_with_finetuned(
@@ -617,7 +629,7 @@ class ModelServer:
                     error=str(e),
                 )
                 self._record_fallback(model.id)
-        
+
         # Fallback to base model
         return await self._generate_with_fallback(prompt, system_prompt, max_tokens)
 
@@ -629,15 +641,16 @@ class ModelServer:
         max_tokens: int,
     ) -> dict[str, Any]:
         """Generate using fine-tuned model.
-        
+
         In production: load model and run inference
         """
         import time
+
         start_time = time.time()
-        
+
         # Placeholder for actual model inference
         # In production: use HuggingFace pipeline or vLLM
-        
+
         latency_ms = (time.time() - start_time) * 1000
         return {
             "content": "{}",  # JSON response
@@ -655,26 +668,27 @@ class ModelServer:
         """Generate using fallback base model."""
         if self.fallback_provider == "openai":
             from openai import OpenAI
+
             client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
-            
+
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
-            
+
             response = client.chat.completions.create(
                 model="gpt-4-turbo-preview",
                 messages=messages,
                 max_tokens=max_tokens,
                 response_format={"type": "json_object"},
             )
-            
+
             return {
                 "content": response.choices[0].message.content or "",
                 "model": "gpt-4-turbo-preview",
                 "tokens": response.usage.total_tokens if response.usage else 0,
             }
-        
+
         raise ValueError(f"Unknown fallback provider: {self.fallback_provider}")
 
     def _record_success(self, model_id: str, latency_ms: float) -> None:
@@ -682,12 +696,12 @@ class ModelServer:
         stats = self._model_stats.get(model_id, {})
         stats["requests"] = stats.get("requests", 0) + 1
         stats["successes"] = stats.get("successes", 0) + 1
-        
+
         # Update rolling average latency
         n = stats["successes"]
         old_avg = stats.get("avg_latency_ms", 0)
         stats["avg_latency_ms"] = old_avg + (latency_ms - old_avg) / n
-        
+
         self._model_stats[model_id] = stats
 
     def _record_fallback(self, model_id: str) -> None:
@@ -725,13 +739,13 @@ class FineTuningManager:
         dataset = self.collector.get_dataset(dataset_name, org_id)
         if not dataset:
             raise ValueError(f"Dataset not found: {dataset_name}")
-        
+
         if len(dataset.examples) < 10:
             raise ValueError(f"Dataset too small: {len(dataset.examples)} examples (minimum 10)")
-        
+
         job = self.pipeline.create_job(dataset, config)
         job = await self.pipeline.run_training(job, dataset)
-        
+
         if job.status == TrainingStatus.COMPLETED and job.output_model_path:
             # Create model artifact
             model = FineTunedModel(
@@ -744,7 +758,7 @@ class FineTuningManager:
             )
             self._models[model.id] = model
             logger.info("Created fine-tuned model", model_id=model.id)
-        
+
         return job
 
     def activate_model(self, model_id: str) -> bool:
@@ -752,12 +766,12 @@ class FineTuningManager:
         model = self._models.get(model_id)
         if not model:
             return False
-        
+
         # Deactivate other models for same org
         for m in self._models.values():
             if m.org_id == model.org_id:
                 m.is_active = False
-        
+
         model.is_active = True
         self.server.register_model(model)
         return True
@@ -766,7 +780,7 @@ class FineTuningManager:
         """Get summary of training activity."""
         datasets = self.collector.list_datasets(org_id)
         models = [m for m in self._models.values() if m.org_id == org_id or org_id is None]
-        
+
         return {
             "datasets": [
                 {
@@ -789,9 +803,7 @@ class FineTuningManager:
                 }
                 for m in models
             ],
-            "active_model": next(
-                (m.id for m in models if m.is_active), None
-            ),
+            "active_model": next((m.id for m in models if m.is_active), None),
         }
 
 

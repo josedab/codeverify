@@ -3,13 +3,12 @@
 import hashlib
 import re
 import time
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
 
-from codeverify_agents.base import AgentConfig, AgentResult, BaseAgent, CodeContext
+from codeverify_agents.base import AgentConfig, AgentResult, BaseAgent
 
 logger = structlog.get_logger()
 
@@ -74,14 +73,14 @@ class AIDetector:
         r"# ?(This|The) (function|method|class) (does|will|should)",  # Overly explanatory comments
         r"pass\s*# ?(placeholder|implement)",  # Placeholder passes
         r"raise NotImplementedError",  # Unimplemented stubs
-        r"\"\"\".*\.\.\.""",  # Docstrings with ...
+        r"\"\"\".*\.\.\." "",  # Docstrings with ...
         r"# Example usage",  # Example sections
         r"if __name__ == ['\"]__main__['\"]:\s*#",  # Main blocks with comments
     ]
 
     def detect(self, code: str) -> tuple[bool, float]:
         """Detect if code is likely AI-generated.
-        
+
         Returns:
             Tuple of (is_ai_generated, confidence)
         """
@@ -189,10 +188,12 @@ class ComplexityAnalyzer:
         factors.append(min(max_indent / 32, 1.0))
 
         # Control flow complexity
-        control_keywords = len(re.findall(
-            r"\b(if|elif|else|for|while|try|except|with)\b",
-            code,
-        ))
+        control_keywords = len(
+            re.findall(
+                r"\b(if|elif|else|for|while|try|except|with)\b",
+                code,
+            )
+        )
         factors.append(min(control_keywords / (len(non_empty_lines) / 5), 1.0))
 
         # Function/method count relative to size
@@ -429,7 +430,7 @@ class TrustScoreAgent(BaseAgent):
     ) -> None:
         """Initialize trust score agent with decomposed components."""
         super().__init__(config)
-        
+
         # Inject dependencies - allows for testing and customization
         self._ai_detector = AIDetector()
         self._pattern_matcher = PatternMatcher()
@@ -438,7 +439,7 @@ class TrustScoreAgent(BaseAgent):
         self._historical_tracker = HistoricalAccuracyTracker(historical_data)
         self._score_calculator = TrustScoreCalculator()
         self._recommendation_generator = RecommendationGenerator()
-        
+
         # Backward compatibility
         self.historical_data = self._historical_tracker.data
 

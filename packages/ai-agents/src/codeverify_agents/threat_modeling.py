@@ -15,6 +15,7 @@ logger = structlog.get_logger()
 
 class STRIDECategory(str, Enum):
     """STRIDE threat categories."""
+
     SPOOFING = "spoofing"
     TAMPERING = "tampering"
     REPUDIATION = "repudiation"
@@ -25,6 +26,7 @@ class STRIDECategory(str, Enum):
 
 class OWASPCategory(str, Enum):
     """OWASP Top 10 2021 categories."""
+
     BROKEN_ACCESS_CONTROL = "A01:2021"
     CRYPTOGRAPHIC_FAILURES = "A02:2021"
     INJECTION = "A03:2021"
@@ -40,6 +42,7 @@ class OWASPCategory(str, Enum):
 @dataclass
 class AttackSurface:
     """Represents an attack surface in the system."""
+
     name: str
     surface_type: str  # api_endpoint, database, file_system, network, user_input
     entry_points: list[str] = field(default_factory=list)
@@ -50,6 +53,7 @@ class AttackSurface:
 @dataclass
 class Threat:
     """Represents an identified threat."""
+
     id: str
     title: str
     description: str
@@ -67,6 +71,7 @@ class Threat:
 @dataclass
 class ThreatModel:
     """Complete threat model for a system."""
+
     system_name: str
     description: str
     attack_surfaces: list[AttackSurface] = field(default_factory=list)
@@ -126,7 +131,7 @@ Respond in JSON format with the complete threat model."""
 class ThreatModelingAgent(BaseAgent):
     """
     Agent for generating security threat models from code and architecture.
-    
+
     This agent analyzes code to identify attack surfaces, map threats to STRIDE
     and OWASP categories, and provide actionable security recommendations.
     """
@@ -156,28 +161,28 @@ class ThreatModelingAgent(BaseAgent):
             AgentResult with threat model
         """
         start_time = time.time()
-        
+
         system_name = context.get("system_name", "Unknown System")
-        
+
         try:
             user_prompt = self._build_analysis_prompt(code, context)
-            
+
             response = await self._call_llm(
                 system_prompt=THREAT_MODEL_SYSTEM_PROMPT,
                 user_prompt=user_prompt,
                 json_mode=True,
             )
-            
+
             try:
                 threat_model_data = json.loads(response["content"])
             except json.JSONDecodeError:
                 threat_model_data = {"raw_response": response["content"]}
-            
+
             # Post-process and validate the threat model
             threat_model = self._parse_threat_model(threat_model_data, system_name)
-            
+
             elapsed_ms = (time.time() - start_time) * 1000
-            
+
             logger.info(
                 "Threat model generated",
                 system=system_name,
@@ -186,14 +191,14 @@ class ThreatModelingAgent(BaseAgent):
                 risk_score=threat_model.overall_risk_score,
                 latency_ms=elapsed_ms,
             )
-            
+
             return AgentResult(
                 success=True,
                 data=self._threat_model_to_dict(threat_model),
                 tokens_used=response.get("tokens", 0),
                 latency_ms=elapsed_ms,
             )
-            
+
         except Exception as e:
             logger.error("Threat modeling failed", error=str(e), system=system_name)
             return AgentResult(
@@ -210,102 +215,112 @@ class ThreatModelingAgent(BaseAgent):
         framework = context.get("framework", "")
         deployment = context.get("deployment_context", "")
         file_paths = context.get("file_paths", [])
-        
+
         parts = [
             f"# Threat Model Analysis for: {system_name}",
             "",
         ]
-        
+
         if architecture:
-            parts.extend([
-                "## Architecture Description",
-                architecture,
-                "",
-            ])
-        
+            parts.extend(
+                [
+                    "## Architecture Description",
+                    architecture,
+                    "",
+                ]
+            )
+
         if deployment:
-            parts.extend([
-                "## Deployment Context",
-                deployment,
+            parts.extend(
+                [
+                    "## Deployment Context",
+                    deployment,
+                    "",
+                ]
+            )
+
+        parts.extend(
+            [
+                f"## Code Analysis (Language: {language}, Framework: {framework})",
                 "",
-            ])
-        
-        parts.extend([
-            f"## Code Analysis (Language: {language}, Framework: {framework})",
-            "",
-        ])
-        
+            ]
+        )
+
         if file_paths:
             parts.append(f"Files: {', '.join(file_paths)}")
             parts.append("")
-        
-        parts.extend([
-            "```" + language,
-            code[:50000],  # Limit code size
-            "```",
-            "",
-            "Generate a comprehensive threat model including:",
-            "1. All attack surfaces with entry points",
-            "2. STRIDE threats for each attack surface",
-            "3. OWASP Top 10 mappings",
-            "4. Risk scores (likelihood × impact)",
-            "5. Specific mitigations for each threat",
-            "6. Code locations where threats manifest",
-        ])
-        
+
+        parts.extend(
+            [
+                "```" + language,
+                code[:50000],  # Limit code size
+                "```",
+                "",
+                "Generate a comprehensive threat model including:",
+                "1. All attack surfaces with entry points",
+                "2. STRIDE threats for each attack surface",
+                "3. OWASP Top 10 mappings",
+                "4. Risk scores (likelihood × impact)",
+                "5. Specific mitigations for each threat",
+                "6. Code locations where threats manifest",
+            ]
+        )
+
         return "\n".join(parts)
 
-    def _parse_threat_model(
-        self, data: dict[str, Any], system_name: str
-    ) -> ThreatModel:
+    def _parse_threat_model(self, data: dict[str, Any], system_name: str) -> ThreatModel:
         """Parse LLM response into structured ThreatModel."""
         attack_surfaces = []
         for surface_data in data.get("attack_surfaces", []):
-            attack_surfaces.append(AttackSurface(
-                name=surface_data.get("name", "Unknown"),
-                surface_type=surface_data.get("type", "unknown"),
-                entry_points=surface_data.get("entry_points", []),
-                data_flows=surface_data.get("data_flows", []),
-                trust_level=surface_data.get("trust_level", "untrusted"),
-            ))
-        
+            attack_surfaces.append(
+                AttackSurface(
+                    name=surface_data.get("name", "Unknown"),
+                    surface_type=surface_data.get("type", "unknown"),
+                    entry_points=surface_data.get("entry_points", []),
+                    data_flows=surface_data.get("data_flows", []),
+                    trust_level=surface_data.get("trust_level", "untrusted"),
+                )
+            )
+
         threats = []
         for i, threat_data in enumerate(data.get("threats", [])):
             stride_cat = threat_data.get("stride_category", "tampering")
             owasp_cat = threat_data.get("owasp_category")
-            
+
             try:
                 stride_enum = STRIDECategory(stride_cat.lower().replace(" ", "_"))
             except ValueError:
                 stride_enum = STRIDECategory.TAMPERING
-            
+
             owasp_enum = None
             if owasp_cat:
                 try:
                     owasp_enum = OWASPCategory(owasp_cat)
                 except ValueError:
                     pass
-            
-            threats.append(Threat(
-                id=threat_data.get("id", f"THREAT-{i+1}"),
-                title=threat_data.get("title", "Unknown Threat"),
-                description=threat_data.get("description", ""),
-                stride_category=stride_enum,
-                owasp_category=owasp_enum,
-                attack_surface=threat_data.get("attack_surface", ""),
-                likelihood=threat_data.get("likelihood", "medium"),
-                impact=threat_data.get("impact", "medium"),
-                risk_score=float(threat_data.get("risk_score", 5.0)),
-                affected_components=threat_data.get("affected_components", []),
-                mitigations=threat_data.get("mitigations", []),
-                code_locations=threat_data.get("code_locations", []),
-            ))
-        
+
+            threats.append(
+                Threat(
+                    id=threat_data.get("id", f"THREAT-{i + 1}"),
+                    title=threat_data.get("title", "Unknown Threat"),
+                    description=threat_data.get("description", ""),
+                    stride_category=stride_enum,
+                    owasp_category=owasp_enum,
+                    attack_surface=threat_data.get("attack_surface", ""),
+                    likelihood=threat_data.get("likelihood", "medium"),
+                    impact=threat_data.get("impact", "medium"),
+                    risk_score=float(threat_data.get("risk_score", 5.0)),
+                    affected_components=threat_data.get("affected_components", []),
+                    mitigations=threat_data.get("mitigations", []),
+                    code_locations=threat_data.get("code_locations", []),
+                )
+            )
+
         # Calculate overall risk score
         overall_risk = 0.0
         if threats:
             overall_risk = sum(t.risk_score for t in threats) / len(threats)
-        
+
         return ThreatModel(
             system_name=system_name,
             description=data.get("description", ""),
@@ -391,12 +406,12 @@ class ThreatModelingAgent(BaseAgent):
     ) -> AgentResult:
         """
         Generate threat model from architecture description (without code).
-        
+
         Args:
             architecture_description: High-level system description
             components: List of system components with their properties
             data_flows: List of data flows between components
-            
+
         Returns:
             AgentResult with threat model
         """
@@ -404,10 +419,10 @@ class ThreatModelingAgent(BaseAgent):
             "system_name": "Architecture Analysis",
             "architecture_description": architecture_description,
         }
-        
+
         # Build a pseudo-code representation of the architecture
         arch_code = self._build_architecture_representation(components, data_flows)
-        
+
         return await self.analyze(arch_code, context)
 
     def _build_architecture_representation(
@@ -421,65 +436,71 @@ class ThreatModelingAgent(BaseAgent):
             "",
             "## Components",
         ]
-        
+
         for comp in components:
             lines.append(f"- {comp.get('name', 'Unknown')}: {comp.get('type', 'service')}")
             if "interfaces" in comp:
                 for iface in comp["interfaces"]:
                     lines.append(f"  - Interface: {iface}")
-        
-        lines.extend([
-            "",
-            "## Data Flows",
-        ])
-        
+
+        lines.extend(
+            [
+                "",
+                "## Data Flows",
+            ]
+        )
+
         for flow in data_flows:
             src = flow.get("source", "?")
             dst = flow.get("destination", "?")
             data = flow.get("data_type", "data")
             lines.append(f"- {src} -> {dst}: {data}")
-        
+
         return "\n".join(lines)
 
-    async def generate_data_flow_diagram(
-        self, threat_model: ThreatModel
-    ) -> dict[str, Any]:
+    async def generate_data_flow_diagram(self, threat_model: ThreatModel) -> dict[str, Any]:
         """
         Generate a data flow diagram (DFD) from the threat model.
-        
+
         Returns a structured representation suitable for visualization.
         """
         nodes = []
         edges = []
         trust_zones = []
-        
+
         # Add attack surfaces as nodes
         for surface in threat_model.attack_surfaces:
             node_type = "external" if surface.trust_level == "untrusted" else "internal"
-            nodes.append({
-                "id": surface.name,
-                "label": surface.name,
-                "type": node_type,
-                "surface_type": surface.surface_type,
-            })
-        
+            nodes.append(
+                {
+                    "id": surface.name,
+                    "label": surface.name,
+                    "type": node_type,
+                    "surface_type": surface.surface_type,
+                }
+            )
+
         # Add data flows as edges
         for flow in threat_model.data_flows:
-            edges.append({
-                "source": flow.get("source", ""),
-                "target": flow.get("destination", ""),
-                "label": flow.get("data_type", ""),
-                "is_sensitive": flow.get("is_sensitive", False),
-            })
-        
+            edges.append(
+                {
+                    "source": flow.get("source", ""),
+                    "target": flow.get("destination", ""),
+                    "label": flow.get("data_type", ""),
+                    "is_sensitive": flow.get("is_sensitive", False),
+                }
+            )
+
         # Add trust boundaries as zones
         for boundary in threat_model.trust_boundaries:
-            trust_zones.append({
-                "name": boundary.get("name", ""),
-                "components": boundary.get("components", []),
-                "trust_level": boundary.get("trust_level", ""),
-            })
-        
+            trust_zones.append(
+                {
+                    "name": boundary.get("name", ""),
+                    "components": boundary.get("components", []),
+                    "trust_level": boundary.get("trust_level", ""),
+                }
+            )
+
         return {
             "nodes": nodes,
             "edges": edges,

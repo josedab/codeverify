@@ -8,19 +8,18 @@ checking, and safety verification.
 
 from __future__ import annotations
 
-import difflib
-import hashlib
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 from uuid import uuid4
 
 
 class FixStatus(str, Enum):
     """Status of a fix verification."""
+
     PENDING = "pending"
     VERIFYING = "verifying"
     VERIFIED = "verified"
@@ -31,6 +30,7 @@ class FixStatus(str, Enum):
 
 class IssueType(str, Enum):
     """Types of issues that fixes address."""
+
     SECURITY = "security"
     BUG = "bug"
     PERFORMANCE = "performance"
@@ -45,6 +45,7 @@ class IssueType(str, Enum):
 
 class VerificationMethod(str, Enum):
     """Methods used to verify fixes."""
+
     STATIC_ANALYSIS = "static_analysis"
     PATTERN_MATCHING = "pattern_matching"
     TYPE_CHECKING = "type_checking"
@@ -56,6 +57,7 @@ class VerificationMethod(str, Enum):
 
 class SafetyLevel(str, Enum):
     """Safety level of a fix."""
+
     SAFE = "safe"
     MOSTLY_SAFE = "mostly_safe"
     NEEDS_REVIEW = "needs_review"
@@ -66,6 +68,7 @@ class SafetyLevel(str, Enum):
 @dataclass
 class Issue:
     """An identified issue to be fixed."""
+
     id: str
     type: IssueType
     description: str
@@ -74,9 +77,9 @@ class Issue:
     line_end: int
     severity: str
     code_snippet: str
-    suggested_fix: Optional[str] = None
+    suggested_fix: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -94,6 +97,7 @@ class Issue:
 @dataclass
 class Fix:
     """A proposed fix for an issue."""
+
     id: str
     issue_id: str
     original_code: str
@@ -102,10 +106,10 @@ class Fix:
     file_path: str
     line_start: int
     line_end: int
-    author: Optional[str] = None
+    author: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -124,14 +128,15 @@ class Fix:
 @dataclass
 class RegressionCheck:
     """Result of a regression check."""
+
     id: str
     check_type: str
     passed: bool
     description: str
-    details: Optional[str] = None
-    affected_lines: List[int] = field(default_factory=list)
+    details: str | None = None
+    affected_lines: list[int] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -146,14 +151,15 @@ class RegressionCheck:
 @dataclass
 class SafetyCheck:
     """Result of a safety verification check."""
+
     id: str
     check_name: str
     passed: bool
     safety_level: SafetyLevel
     message: str
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -168,21 +174,22 @@ class SafetyCheck:
 @dataclass
 class VerificationResult:
     """Complete result of fix verification."""
+
     id: str
     fix_id: str
     issue_id: str
     status: FixStatus
     issue_resolved: bool
-    regression_checks: List[RegressionCheck]
-    safety_checks: List[SafetyCheck]
-    methods_used: List[VerificationMethod]
+    regression_checks: list[RegressionCheck]
+    safety_checks: list[SafetyCheck]
+    methods_used: list[VerificationMethod]
     overall_safety: SafetyLevel
     confidence: float
     summary: str
     verified_at: datetime
-    new_issues: List[Dict[str, Any]] = field(default_factory=list)
+    new_issues: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -245,7 +252,7 @@ class IssueResolver:
         self,
         issue: Issue,
         fix: Fix,
-    ) -> Tuple[bool, float, str]:
+    ) -> tuple[bool, float, str]:
         """Check if a fix resolves the issue."""
         issue_type = issue.type
         fixed_code = fix.fixed_code
@@ -289,10 +296,10 @@ class RegressionChecker:
     def check(
         self,
         fix: Fix,
-        context: Optional[Dict[str, str]] = None,
-    ) -> List[RegressionCheck]:
+        context: dict[str, str] | None = None,
+    ) -> list[RegressionCheck]:
         """Run regression checks on a fix."""
-        checks: List[RegressionCheck] = []
+        checks: list[RegressionCheck] = []
 
         # Check for removed functionality
         checks.append(self._check_removed_functionality(fix))
@@ -420,7 +427,42 @@ class RegressionChecker:
         used_vars = set(re.findall(r"\b(\w+)\b", fixed))
 
         # Filter out common builtins and keywords
-        builtins = {"True", "False", "None", "self", "cls", "print", "len", "range", "str", "int", "float", "list", "dict", "set", "tuple", "if", "else", "elif", "for", "while", "try", "except", "finally", "return", "def", "class", "import", "from", "as", "and", "or", "not", "in", "is"}
+        builtins = {
+            "True",
+            "False",
+            "None",
+            "self",
+            "cls",
+            "print",
+            "len",
+            "range",
+            "str",
+            "int",
+            "float",
+            "list",
+            "dict",
+            "set",
+            "tuple",
+            "if",
+            "else",
+            "elif",
+            "for",
+            "while",
+            "try",
+            "except",
+            "finally",
+            "return",
+            "def",
+            "class",
+            "import",
+            "from",
+            "as",
+            "and",
+            "or",
+            "not",
+            "in",
+            "is",
+        }
         used_vars = used_vars - builtins - defined_vars
 
         return RegressionCheck(
@@ -440,34 +482,41 @@ class SafetyVerifier:
         "shell_injection": (r"subprocess\.\w+\(.*shell\s*=\s*True", "Shell injection risk"),
         "sql_injection": (r"execute\s*\(\s*[\"'].*%s", "Potential SQL injection"),
         "path_traversal": (r"\.\.\/|\.\.\\", "Path traversal pattern detected"),
-        "hardcoded_secret": (r"(?:password|secret|key|token)\s*=\s*[\"'][^\"']+[\"']", "Hardcoded secret"),
+        "hardcoded_secret": (
+            r"(?:password|secret|key|token)\s*=\s*[\"'][^\"']+[\"']",
+            "Hardcoded secret",
+        ),
         "insecure_random": (r"random\.\w+\(", "Insecure random for security-sensitive operations"),
     }
 
-    def verify(self, fix: Fix) -> List[SafetyCheck]:
+    def verify(self, fix: Fix) -> list[SafetyCheck]:
         """Run safety checks on a fix."""
-        checks: List[SafetyCheck] = []
+        checks: list[SafetyCheck] = []
         fixed_code = fix.fixed_code
 
         # Check for dangerous patterns
         for check_name, (pattern, message) in self.DANGEROUS_PATTERNS.items():
             if re.search(pattern, fixed_code, re.IGNORECASE):
-                checks.append(SafetyCheck(
-                    id=str(uuid4()),
-                    check_name=check_name,
-                    passed=False,
-                    safety_level=SafetyLevel.POTENTIALLY_UNSAFE,
-                    message=message,
-                    recommendations=[f"Review {check_name} usage and ensure it's intentional"],
-                ))
+                checks.append(
+                    SafetyCheck(
+                        id=str(uuid4()),
+                        check_name=check_name,
+                        passed=False,
+                        safety_level=SafetyLevel.POTENTIALLY_UNSAFE,
+                        message=message,
+                        recommendations=[f"Review {check_name} usage and ensure it's intentional"],
+                    )
+                )
             else:
-                checks.append(SafetyCheck(
-                    id=str(uuid4()),
-                    check_name=check_name,
-                    passed=True,
-                    safety_level=SafetyLevel.SAFE,
-                    message=f"No {check_name.replace('_', ' ')} issues detected",
-                ))
+                checks.append(
+                    SafetyCheck(
+                        id=str(uuid4()),
+                        check_name=check_name,
+                        passed=True,
+                        safety_level=SafetyLevel.SAFE,
+                        message=f"No {check_name.replace('_', ' ')} issues detected",
+                    )
+                )
 
         # Check for proper input validation
         checks.append(self._check_input_validation(fix))
@@ -489,9 +538,7 @@ class SafetyVerifier:
             r"raise\s+(?:ValueError|TypeError)",
         ]
 
-        has_validation = any(
-            re.search(p, fixed) for p in validation_patterns
-        )
+        has_validation = any(re.search(p, fixed) for p in validation_patterns)
 
         if has_validation:
             return SafetyCheck(
@@ -547,9 +594,9 @@ class FixVerificationEngine:
         self.regression_checker = RegressionChecker()
         self.safety_verifier = SafetyVerifier()
 
-        self.issues: Dict[str, Issue] = {}
-        self.fixes: Dict[str, Fix] = {}
-        self.results: Dict[str, VerificationResult] = {}
+        self.issues: dict[str, Issue] = {}
+        self.fixes: dict[str, Fix] = {}
+        self.results: dict[str, VerificationResult] = {}
 
     def register_issue(
         self,
@@ -560,10 +607,12 @@ class FixVerificationEngine:
         line_end: int,
         severity: str,
         code_snippet: str,
-        suggested_fix: Optional[str] = None,
+        suggested_fix: str | None = None,
     ) -> Issue:
         """Register an issue to be fixed."""
-        issue_t = IssueType(issue_type) if issue_type in [t.value for t in IssueType] else IssueType.BUG
+        issue_t = (
+            IssueType(issue_type) if issue_type in [t.value for t in IssueType] else IssueType.BUG
+        )
 
         issue = Issue(
             id=str(uuid4()),
@@ -589,7 +638,7 @@ class FixVerificationEngine:
         file_path: str,
         line_start: int,
         line_end: int,
-        author: Optional[str] = None,
+        author: str | None = None,
     ) -> Fix:
         """Submit a fix for verification."""
         fix = Fix(
@@ -610,7 +659,7 @@ class FixVerificationEngine:
     async def verify_fix(
         self,
         fix_id: str,
-        context: Optional[Dict[str, str]] = None,
+        context: dict[str, str] | None = None,
     ) -> VerificationResult:
         """Verify a submitted fix."""
         fix = self.fixes.get(fix_id)
@@ -621,10 +670,12 @@ class FixVerificationEngine:
         if not issue:
             raise ValueError(f"Issue not found: {fix.issue_id}")
 
-        methods_used: List[VerificationMethod] = []
+        methods_used: list[VerificationMethod] = []
 
         # Check if issue is resolved
-        issue_resolved, resolution_confidence, resolution_msg = self.issue_resolver.check_resolution(issue, fix)
+        issue_resolved, resolution_confidence, resolution_msg = (
+            self.issue_resolver.check_resolution(issue, fix)
+        )
         methods_used.append(VerificationMethod.PATTERN_MATCHING)
         methods_used.append(VerificationMethod.STATIC_ANALYSIS)
 
@@ -672,8 +723,7 @@ class FixVerificationEngine:
 
         # Generate summary
         summary = self._generate_summary(
-            issue_resolved, regression_passed, safety_passed,
-            resolution_msg, overall_safety
+            issue_resolved, regression_passed, safety_passed, resolution_msg, overall_safety
         )
 
         result = VerificationResult(
@@ -721,26 +771,26 @@ class FixVerificationEngine:
 
         return ". ".join(parts)
 
-    def get_issue(self, issue_id: str) -> Optional[Issue]:
+    def get_issue(self, issue_id: str) -> Issue | None:
         """Get an issue by ID."""
         return self.issues.get(issue_id)
 
-    def get_fix(self, fix_id: str) -> Optional[Fix]:
+    def get_fix(self, fix_id: str) -> Fix | None:
         """Get a fix by ID."""
         return self.fixes.get(fix_id)
 
-    def get_result(self, result_id: str) -> Optional[VerificationResult]:
+    def get_result(self, result_id: str) -> VerificationResult | None:
         """Get a verification result by ID."""
         return self.results.get(result_id)
 
-    def get_results_for_fix(self, fix_id: str) -> List[VerificationResult]:
+    def get_results_for_fix(self, fix_id: str) -> list[VerificationResult]:
         """Get all verification results for a fix."""
         return [r for r in self.results.values() if r.fix_id == fix_id]
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get verification statistics."""
-        status_counts: Dict[str, int] = defaultdict(int)
-        safety_counts: Dict[str, int] = defaultdict(int)
+        status_counts: dict[str, int] = defaultdict(int)
+        safety_counts: dict[str, int] = defaultdict(int)
 
         for result in self.results.values():
             status_counts[result.status.value] += 1

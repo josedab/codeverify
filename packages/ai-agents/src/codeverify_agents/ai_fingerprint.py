@@ -23,7 +23,7 @@ logger = structlog.get_logger()
 
 class AIModel(str, Enum):
     """Known AI code generation models."""
-    
+
     UNKNOWN = "unknown"
     HUMAN = "human"
     GITHUB_COPILOT = "github_copilot"
@@ -40,7 +40,7 @@ class AIModel(str, Enum):
 @dataclass
 class CodeMetrics:
     """Extracted metrics from code for fingerprinting."""
-    
+
     # Structural metrics
     line_count: int = 0
     non_empty_lines: int = 0
@@ -49,38 +49,38 @@ class CodeMetrics:
     function_count: int = 0
     class_count: int = 0
     import_count: int = 0
-    
+
     # Style metrics
     avg_line_length: float = 0.0
     line_length_variance: float = 0.0
     avg_indent_depth: float = 0.0
     indent_consistency: float = 0.0
     blank_line_ratio: float = 0.0
-    
+
     # Comment patterns
     comment_density: float = 0.0
     avg_comment_length: float = 0.0
     comment_style_consistency: float = 0.0
     has_section_comments: bool = False
     has_todo_comments: bool = False
-    
+
     # Naming patterns
     naming_style: str = "unknown"  # snake_case, camelCase, etc.
     avg_identifier_length: float = 0.0
     naming_consistency: float = 0.0
-    
+
     # Documentation patterns
     docstring_coverage: float = 0.0
     has_type_hints: bool = False
     type_hint_coverage: float = 0.0
-    
+
     # AI-specific patterns
     has_placeholder_code: bool = False
     has_example_usage: bool = False
     has_generic_todos: bool = False
     has_overly_verbose_comments: bool = False
     has_perfect_formatting: bool = False
-    
+
     # Entropy and uniqueness
     token_entropy: float = 0.0
     structure_regularity: float = 0.0
@@ -89,7 +89,7 @@ class CodeMetrics:
 @dataclass
 class FingerprintResult:
     """Result of AI code fingerprinting."""
-    
+
     is_ai_generated: bool
     confidence: float  # 0-1
     detected_model: AIModel
@@ -99,7 +99,7 @@ class FingerprintResult:
     explanation: str = ""
     risk_factors: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -116,7 +116,7 @@ class FingerprintResult:
 
 class FeatureExtractor:
     """Extracts 40+ features from code for ML-based classification."""
-    
+
     # Patterns indicating AI-generated code
     AI_PATTERNS = {
         "placeholder_pass": r"\bpass\b\s*#\s*(placeholder|implement|todo)",
@@ -131,7 +131,7 @@ class FeatureExtractor:
         "numbered_steps": r"#\s*Step\s*\d+:",
         "ai_attribution": r"#\s*(Generated|Created|Written)\s+(by|with|using)\s+(AI|GPT|Claude|Copilot)",
     }
-    
+
     # Patterns for specific AI models
     MODEL_PATTERNS = {
         AIModel.GITHUB_COPILOT: [
@@ -150,7 +150,7 @@ class FeatureExtractor:
             r"comprehensive (solution|implementation)",
         ],
     }
-    
+
     # Quality patterns (positive indicators)
     QUALITY_PATTERNS = {
         "type_hints": r":\s*(int|str|float|bool|list|dict|None|Optional|Union|Any)\b",
@@ -168,16 +168,16 @@ class FeatureExtractor:
         metrics = self._extract_metrics(code, language)
         features = self._compute_features(code, metrics, language)
         return metrics, features
-    
+
     def _extract_metrics(self, code: str, language: str) -> CodeMetrics:
         """Extract structural metrics from code."""
         lines = code.split("\n")
         metrics = CodeMetrics()
-        
+
         # Basic counts
         metrics.line_count = len(lines)
         metrics.non_empty_lines = sum(1 for l in lines if l.strip())
-        
+
         # Comment analysis
         comment_lines = []
         for line in lines:
@@ -185,30 +185,31 @@ class FeatureExtractor:
             if stripped.startswith("#"):
                 comment_lines.append(line)
                 metrics.comment_lines += 1
-        
+
         # Docstrings
-        metrics.docstring_count = len(re.findall(r'"""[\s\S]*?"""', code)) + \
-                                   len(re.findall(r"'''[\s\S]*?'''", code))
-        
+        metrics.docstring_count = len(re.findall(r'"""[\s\S]*?"""', code)) + len(
+            re.findall(r"'''[\s\S]*?'''", code)
+        )
+
         # Functions and classes
         metrics.function_count = len(re.findall(r"^\s*(?:async\s+)?def\s+\w+", code, re.MULTILINE))
         metrics.class_count = len(re.findall(r"^\s*class\s+\w+", code, re.MULTILINE))
         metrics.import_count = len(re.findall(r"^\s*(?:import|from)\s+", code, re.MULTILINE))
-        
+
         # Line length stats
         line_lengths = [len(l) for l in lines if l.strip()]
         if line_lengths:
             metrics.avg_line_length = statistics.mean(line_lengths)
             if len(line_lengths) > 1:
                 metrics.line_length_variance = statistics.variance(line_lengths)
-        
+
         # Indent analysis
         indents = []
         for line in lines:
             if line.strip():
                 indent = len(line) - len(line.lstrip())
                 indents.append(indent)
-        
+
         if indents:
             metrics.avg_indent_depth = statistics.mean(indents)
             # Check indent consistency (all multiples of 4 or all multiples of 2)
@@ -216,17 +217,19 @@ class FeatureExtractor:
             if non_zero:
                 divisible_by_4 = all(i % 4 == 0 for i in non_zero)
                 divisible_by_2 = all(i % 2 == 0 for i in non_zero)
-                metrics.indent_consistency = 1.0 if divisible_by_4 else (0.8 if divisible_by_2 else 0.4)
-        
+                metrics.indent_consistency = (
+                    1.0 if divisible_by_4 else (0.8 if divisible_by_2 else 0.4)
+                )
+
         # Blank line ratio
         if metrics.line_count > 0:
             blank_lines = metrics.line_count - metrics.non_empty_lines
             metrics.blank_line_ratio = blank_lines / metrics.line_count
-        
+
         # Comment density and style
         if metrics.non_empty_lines > 0:
             metrics.comment_density = metrics.comment_lines / metrics.non_empty_lines
-        
+
         if comment_lines:
             comment_lengths = [len(c.strip()) for c in comment_lines]
             metrics.avg_comment_length = statistics.mean(comment_lengths)
@@ -234,61 +237,76 @@ class FeatureExtractor:
                 variance = statistics.variance(comment_lengths)
                 # Low variance = consistent style (AI tends to be very consistent)
                 metrics.comment_style_consistency = 1.0 / (1.0 + variance / 100)
-        
+
         # Section comments (# --- or # ===)
         metrics.has_section_comments = bool(re.search(r"#\s*[-=]{3,}", code))
         metrics.has_todo_comments = bool(re.search(r"#\s*TODO", code, re.IGNORECASE))
-        
+
         # Naming analysis
         identifiers = re.findall(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b", code)
         if identifiers:
             metrics.avg_identifier_length = statistics.mean(len(i) for i in identifiers)
-            
+
             # Check naming style
             snake_count = sum(1 for i in identifiers if "_" in i and i.islower())
-            camel_count = sum(1 for i in identifiers if any(c.isupper() for c in i[1:]) and "_" not in i)
-            
+            camel_count = sum(
+                1 for i in identifiers if any(c.isupper() for c in i[1:]) and "_" not in i
+            )
+
             if snake_count > camel_count:
                 metrics.naming_style = "snake_case"
             elif camel_count > snake_count:
                 metrics.naming_style = "camelCase"
             else:
                 metrics.naming_style = "mixed"
-            
+
             # Calculate consistency
             total_styled = snake_count + camel_count
             if total_styled > 0:
                 metrics.naming_consistency = max(snake_count, camel_count) / total_styled
-        
+
         # Type hints
-        type_hints = re.findall(r":\s*(?:int|str|float|bool|list|dict|None|Optional|Union|Any)\b", code)
+        type_hints = re.findall(
+            r":\s*(?:int|str|float|bool|list|dict|None|Optional|Union|Any)\b", code
+        )
         metrics.has_type_hints = len(type_hints) > 0
         if metrics.function_count > 0:
             metrics.type_hint_coverage = min(len(type_hints) / (metrics.function_count * 2), 1.0)
-        
+
         # Docstring coverage
         if metrics.function_count + metrics.class_count > 0:
-            metrics.docstring_coverage = metrics.docstring_count / (metrics.function_count + metrics.class_count)
-        
+            metrics.docstring_coverage = metrics.docstring_count / (
+                metrics.function_count + metrics.class_count
+            )
+
         # AI-specific pattern detection
-        metrics.has_placeholder_code = bool(re.search(self.AI_PATTERNS["placeholder_pass"], code, re.IGNORECASE))
-        metrics.has_example_usage = bool(re.search(self.AI_PATTERNS["example_section"], code, re.IGNORECASE))
-        metrics.has_generic_todos = bool(re.search(self.AI_PATTERNS["generic_todo"], code, re.IGNORECASE))
-        metrics.has_overly_verbose_comments = bool(re.search(self.AI_PATTERNS["overly_descriptive"], code, re.IGNORECASE))
-        
+        metrics.has_placeholder_code = bool(
+            re.search(self.AI_PATTERNS["placeholder_pass"], code, re.IGNORECASE)
+        )
+        metrics.has_example_usage = bool(
+            re.search(self.AI_PATTERNS["example_section"], code, re.IGNORECASE)
+        )
+        metrics.has_generic_todos = bool(
+            re.search(self.AI_PATTERNS["generic_todo"], code, re.IGNORECASE)
+        )
+        metrics.has_overly_verbose_comments = bool(
+            re.search(self.AI_PATTERNS["overly_descriptive"], code, re.IGNORECASE)
+        )
+
         # Perfect formatting check
         perfect_indent = all(
             (len(l) - len(l.lstrip())) % 4 == 0
-            for l in lines if l.strip() and not l.strip().startswith("#")
+            for l in lines
+            if l.strip() and not l.strip().startswith("#")
         )
         metrics.has_perfect_formatting = perfect_indent and metrics.indent_consistency > 0.9
-        
+
         # Token entropy (higher = more varied vocabulary)
         if identifiers:
             unique_tokens = set(identifiers)
             if len(identifiers) > 0:
                 metrics.token_entropy = len(unique_tokens) / len(identifiers)
-        
+
         # Structure regularity (how uniform is function/class structure)
         function_bodies = re.findall(r"def\s+\w+[^:]*:\s*\n((?:\s{4,}.*\n)*)", code)
         if len(function_bodies) > 1:
@@ -296,31 +314,33 @@ class FeatureExtractor:
             if body_lengths:
                 variance = statistics.variance(body_lengths) if len(body_lengths) > 1 else 0
                 metrics.structure_regularity = 1.0 / (1.0 + variance / 10)
-        
+
         return metrics
-    
+
     def _compute_features(self, code: str, metrics: CodeMetrics, language: str) -> dict[str, float]:
         """Compute normalized feature vector for classification."""
         features = {}
-        
+
         # Structural features
         features["f_line_count_norm"] = min(metrics.line_count / 500, 1.0)
         features["f_comment_density"] = metrics.comment_density
         features["f_blank_ratio"] = metrics.blank_line_ratio
-        features["f_function_density"] = metrics.function_count / max(metrics.non_empty_lines, 1) * 10
+        features["f_function_density"] = (
+            metrics.function_count / max(metrics.non_empty_lines, 1) * 10
+        )
         features["f_class_density"] = metrics.class_count / max(metrics.non_empty_lines, 1) * 20
-        
+
         # Style features
         features["f_avg_line_length_norm"] = min(metrics.avg_line_length / 120, 1.0)
         features["f_line_length_variance"] = min(metrics.line_length_variance / 1000, 1.0)
         features["f_indent_consistency"] = metrics.indent_consistency
         features["f_comment_consistency"] = metrics.comment_style_consistency
-        
+
         # Documentation features
         features["f_docstring_coverage"] = metrics.docstring_coverage
         features["f_type_hint_coverage"] = metrics.type_hint_coverage
         features["f_has_type_hints"] = 1.0 if metrics.has_type_hints else 0.0
-        
+
         # AI pattern features
         features["f_placeholder_code"] = 1.0 if metrics.has_placeholder_code else 0.0
         features["f_example_usage"] = 1.0 if metrics.has_example_usage else 0.0
@@ -328,29 +348,29 @@ class FeatureExtractor:
         features["f_verbose_comments"] = 1.0 if metrics.has_overly_verbose_comments else 0.0
         features["f_perfect_formatting"] = 1.0 if metrics.has_perfect_formatting else 0.0
         features["f_section_comments"] = 1.0 if metrics.has_section_comments else 0.0
-        
+
         # Pattern matching features
         for pattern_name, pattern in self.AI_PATTERNS.items():
             matches = len(re.findall(pattern, code, re.IGNORECASE | re.MULTILINE))
             features[f"f_ai_{pattern_name}"] = min(matches / 5, 1.0)
-        
+
         # Quality pattern features
         for pattern_name, pattern in self.QUALITY_PATTERNS.items():
             matches = len(re.findall(pattern, code, re.IGNORECASE | re.MULTILINE))
             features[f"f_quality_{pattern_name}"] = min(matches / 10, 1.0)
-        
+
         # Uniqueness features
         features["f_token_entropy"] = metrics.token_entropy
         features["f_structure_regularity"] = metrics.structure_regularity
         features["f_naming_consistency"] = metrics.naming_consistency
         features["f_identifier_length"] = min(metrics.avg_identifier_length / 20, 1.0)
-        
+
         return features
 
 
 class AIClassifier:
     """ML-based classifier for AI-generated code detection."""
-    
+
     # Feature weights learned from training data
     # Positive weights indicate AI-generated code
     FEATURE_WEIGHTS = {
@@ -368,59 +388,57 @@ class AIClassifier:
         "f_ai_overly_descriptive": 0.8,
         "f_ai_numbered_steps": 0.6,
         "f_ai_ai_attribution": 1.0,
-        
         # Consistency features (AI is very consistent)
         "f_indent_consistency": 0.3,
         "f_comment_consistency": 0.4,
         "f_structure_regularity": 0.3,
-        
         # Documentation (AI tends to over-document)
         "f_docstring_coverage": 0.2,
         "f_type_hint_coverage": 0.1,
-        
         # Negative indicators (human-like patterns)
         "f_line_length_variance": -0.3,  # Humans are less consistent
         "f_token_entropy": -0.2,  # Humans use more varied vocabulary
-        
         # Quality patterns (neutral to slight positive - AI writes quality code)
         "f_quality_type_hints": 0.1,
         "f_quality_error_handling": 0.1,
         "f_quality_logging": -0.1,  # Humans add logging more often
     }
-    
+
     # Threshold for classification
     THRESHOLD = 0.45
-    
+
     def classify(self, features: dict[str, float]) -> tuple[bool, float]:
         """Classify code as AI-generated or human-written.
-        
+
         Returns:
             Tuple of (is_ai_generated, confidence)
         """
         score = 0.0
         weight_sum = 0.0
-        
+
         for feature_name, feature_value in features.items():
             weight = self.FEATURE_WEIGHTS.get(feature_name, 0.0)
             score += weight * feature_value
             weight_sum += abs(weight)
-        
+
         # Normalize score to 0-1
         if weight_sum > 0:
             normalized_score = (score / weight_sum + 1) / 2
         else:
             normalized_score = 0.5
-        
+
         # Apply sigmoid for smoother probability
         confidence = 1 / (1 + math.exp(-5 * (normalized_score - 0.5)))
-        
+
         is_ai_generated = confidence > self.THRESHOLD
-        
+
         return is_ai_generated, confidence
-    
-    def predict_model(self, code: str, features: dict[str, float]) -> tuple[AIModel, dict[str, float]]:
+
+    def predict_model(
+        self, code: str, features: dict[str, float]
+    ) -> tuple[AIModel, dict[str, float]]:
         """Predict which AI model generated the code.
-        
+
         Returns:
             Tuple of (most_likely_model, model_confidence_scores)
         """
@@ -430,57 +448,57 @@ class AIClassifier:
             AIModel.CHATGPT: 0.0,
             AIModel.CLAUDE: 0.0,
         }
-        
+
         # Check model-specific patterns
         for model, patterns in FeatureExtractor.MODEL_PATTERNS.items():
             for pattern in patterns:
                 if re.search(pattern, code, re.IGNORECASE | re.MULTILINE):
                     model_scores[model] += 0.3
-        
+
         # Heuristics based on code style
         if features.get("f_perfect_formatting", 0) > 0.8:
             model_scores[AIModel.GITHUB_COPILOT] += 0.2
-        
+
         if features.get("f_verbose_comments", 0) > 0.5:
             model_scores[AIModel.CHATGPT] += 0.2
             model_scores[AIModel.CLAUDE] += 0.1
-        
+
         if features.get("f_structure_regularity", 0) > 0.7:
             model_scores[AIModel.GITHUB_COPILOT] += 0.15
             model_scores[AIModel.CLAUDE] += 0.15
-        
+
         # Normalize scores
         total = sum(model_scores.values())
         if total > 0:
             model_scores = {k: v / total for k, v in model_scores.items()}
-        
+
         # Find most likely model
         best_model = max(model_scores, key=model_scores.get)
-        
+
         return best_model, {k.value: v for k, v in model_scores.items()}
 
 
 class AIFingerprintAgent(BaseAgent):
     """Agent for detecting AI-generated code using ML-based fingerprinting.
-    
+
     Uses 40+ features including:
     - Structural patterns (comment density, function structure)
     - Style consistency (indent, naming, line length variance)
     - AI-specific markers (placeholder code, verbose comments)
     - Documentation patterns (docstring coverage, type hints)
-    
+
     Achieves 95%+ accuracy on benchmarks.
     """
-    
+
     def __init__(self, config: AgentConfig | None = None) -> None:
         """Initialize the fingerprinting agent."""
         super().__init__(config)
         self._extractor = FeatureExtractor()
         self._classifier = AIClassifier()
-    
+
     async def analyze(self, code: str, context: dict[str, Any]) -> AgentResult:
         """Analyze code to detect AI generation.
-        
+
         Args:
             code: The code to analyze
             context: Additional context including:
@@ -488,17 +506,18 @@ class AIFingerprintAgent(BaseAgent):
                 - language: Programming language
                 - commit_message: Associated commit message (optional)
                 - pr_metadata: PR metadata for additional signals (optional)
-        
+
         Returns:
             AgentResult with fingerprinting data
         """
         import time
+
         start_time = time.time()
-        
+
         try:
             result = await self.fingerprint(code, context)
             elapsed_ms = (time.time() - start_time) * 1000
-            
+
             logger.info(
                 "AI fingerprinting completed",
                 is_ai_generated=result.is_ai_generated,
@@ -506,13 +525,13 @@ class AIFingerprintAgent(BaseAgent):
                 detected_model=result.detected_model.value,
                 latency_ms=elapsed_ms,
             )
-            
+
             return AgentResult(
                 success=True,
                 data=result.to_dict(),
                 latency_ms=elapsed_ms,
             )
-            
+
         except Exception as e:
             logger.error("AI fingerprinting failed", error=str(e))
             return AgentResult(
@@ -520,34 +539,34 @@ class AIFingerprintAgent(BaseAgent):
                 error=str(e),
                 latency_ms=(time.time() - start_time) * 1000,
             )
-    
+
     async def fingerprint(self, code: str, context: dict[str, Any]) -> FingerprintResult:
         """Perform comprehensive AI fingerprinting."""
         language = context.get("language", "python")
-        
+
         # Extract features
         metrics, features = self._extractor.extract(code, language)
-        
+
         # Classify AI vs human
         is_ai_generated, confidence = self._classifier.classify(features)
-        
+
         # Predict specific model
         detected_model, model_confidence = self._classifier.predict_model(code, features)
-        
+
         # If not AI-generated, set model to HUMAN
         if not is_ai_generated:
             detected_model = AIModel.HUMAN
             model_confidence = {AIModel.HUMAN.value: 1.0 - confidence}
-        
+
         # Generate explanation
         explanation = self._generate_explanation(is_ai_generated, confidence, features, metrics)
-        
+
         # Identify risk factors
         risk_factors = self._identify_risk_factors(features, metrics)
-        
+
         # Generate recommendations
         recommendations = self._generate_recommendations(is_ai_generated, confidence, risk_factors)
-        
+
         return FingerprintResult(
             is_ai_generated=is_ai_generated,
             confidence=confidence,
@@ -559,7 +578,7 @@ class AIFingerprintAgent(BaseAgent):
             risk_factors=risk_factors,
             recommendations=recommendations,
         )
-    
+
     def _generate_explanation(
         self,
         is_ai_generated: bool,
@@ -569,7 +588,7 @@ class AIFingerprintAgent(BaseAgent):
     ) -> str:
         """Generate human-readable explanation of the classification."""
         signals = []
-        
+
         if is_ai_generated:
             if features.get("f_placeholder_code", 0) > 0.5:
                 signals.append("contains placeholder code patterns")
@@ -583,7 +602,7 @@ class AIFingerprintAgent(BaseAgent):
                 signals.append("comment style is unusually consistent")
             if metrics.structure_regularity > 0.7:
                 signals.append("function structure is highly uniform")
-            
+
             if signals:
                 return f"Code appears AI-generated ({confidence:.1%} confidence). Key signals: {', '.join(signals)}."
             return f"Code appears AI-generated ({confidence:.1%} confidence) based on overall pattern analysis."
@@ -595,11 +614,11 @@ class AIFingerprintAgent(BaseAgent):
                 signals.append("diverse vocabulary")
             if metrics.comment_style_consistency < 0.5:
                 signals.append("inconsistent comment style")
-            
+
             if signals:
-                return f"Code appears human-written ({1-confidence:.1%} confidence). Human signals: {', '.join(signals)}."
-            return f"Code appears human-written ({1-confidence:.1%} confidence)."
-    
+                return f"Code appears human-written ({1 - confidence:.1%} confidence). Human signals: {', '.join(signals)}."
+            return f"Code appears human-written ({1 - confidence:.1%} confidence)."
+
     def _identify_risk_factors(
         self,
         features: dict[str, float],
@@ -607,7 +626,7 @@ class AIFingerprintAgent(BaseAgent):
     ) -> list[str]:
         """Identify risk factors in the code."""
         risks = []
-        
+
         if metrics.has_placeholder_code:
             risks.append("Contains placeholder code that may be incomplete")
         if features.get("f_ai_raise_not_implemented", 0) > 0:
@@ -618,9 +637,9 @@ class AIFingerprintAgent(BaseAgent):
             risks.append("Low documentation coverage")
         if not metrics.has_type_hints and metrics.function_count > 2:
             risks.append("Missing type hints reduces code safety")
-        
+
         return risks
-    
+
     def _generate_recommendations(
         self,
         is_ai_generated: bool,
@@ -629,21 +648,21 @@ class AIFingerprintAgent(BaseAgent):
     ) -> list[str]:
         """Generate recommendations based on analysis."""
         recommendations = []
-        
+
         if is_ai_generated and confidence > 0.7:
             recommendations.append("Manual review recommended for AI-generated code")
             recommendations.append("Verify business logic correctness")
             recommendations.append("Run formal verification for critical functions")
-        
+
         if is_ai_generated and confidence > 0.5:
             recommendations.append("Consider adding unit tests to validate behavior")
-        
+
         if "placeholder code" in str(risk_factors).lower():
             recommendations.append("Replace placeholder code with real implementation")
-        
+
         if "NotImplementedError" in str(risk_factors):
             recommendations.append("Implement all stubbed functions before merging")
-        
+
         return recommendations
 
 

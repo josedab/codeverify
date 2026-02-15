@@ -8,18 +8,18 @@ regression detection, and quality metrics over commits.
 
 from __future__ import annotations
 
-import hashlib
 import statistics
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 
 class MetricType(str, Enum):
     """Types of code quality metrics."""
+
     COMPLEXITY = "complexity"
     COVERAGE = "coverage"
     SECURITY_SCORE = "security_score"
@@ -32,6 +32,7 @@ class MetricType(str, Enum):
 
 class TrendDirection(str, Enum):
     """Direction of a trend."""
+
     IMPROVING = "improving"
     DECLINING = "declining"
     STABLE = "stable"
@@ -40,6 +41,7 @@ class TrendDirection(str, Enum):
 
 class RegressionSeverity(str, Enum):
     """Severity of a detected regression."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -49,12 +51,13 @@ class RegressionSeverity(str, Enum):
 @dataclass
 class CommitSnapshot:
     """Snapshot of code quality at a specific commit."""
+
     id: str
     commit_sha: str
     commit_message: str
     author: str
     timestamp: datetime
-    metrics: Dict[str, float]
+    metrics: dict[str, float]
     files_changed: int
     lines_added: int
     lines_removed: int
@@ -62,7 +65,7 @@ class CommitSnapshot:
     verified_functions: int
     total_functions: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -84,6 +87,7 @@ class CommitSnapshot:
 @dataclass
 class MetricTrend:
     """Trend analysis for a specific metric."""
+
     metric_type: MetricType
     direction: TrendDirection
     current_value: float
@@ -93,7 +97,7 @@ class MetricTrend:
     volatility: float
     data_points: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "metric_type": self.metric_type.value,
@@ -110,6 +114,7 @@ class MetricTrend:
 @dataclass
 class DetectedRegression:
     """A detected quality regression."""
+
     id: str
     severity: RegressionSeverity
     metric_type: MetricType
@@ -120,10 +125,10 @@ class DetectedRegression:
     value_after: float
     change_percent: float
     detected_at: datetime
-    affected_files: List[str]
+    affected_files: list[str]
     suggested_action: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -144,18 +149,19 @@ class DetectedRegression:
 @dataclass
 class EvolutionReport:
     """Complete evolution report for a time period."""
+
     id: str
     repository: str
     start_date: datetime
     end_date: datetime
     total_commits: int
-    trends: List[MetricTrend]
-    regressions: List[DetectedRegression]
-    top_contributors: List[Dict[str, Any]]
-    quality_summary: Dict[str, Any]
+    trends: list[MetricTrend]
+    regressions: list[DetectedRegression]
+    top_contributors: list[dict[str, Any]]
+    quality_summary: dict[str, Any]
     generated_at: datetime
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -180,7 +186,7 @@ class TrendAnalyzer:
     def analyze(
         self,
         metric_type: MetricType,
-        values: List[Tuple[datetime, float]],
+        values: list[tuple[datetime, float]],
     ) -> MetricTrend:
         """Analyze trend for a metric."""
         if len(values) < 2:
@@ -274,13 +280,13 @@ class RegressionDetector:
 
     def detect(
         self,
-        snapshots: List[CommitSnapshot],
-    ) -> List[DetectedRegression]:
+        snapshots: list[CommitSnapshot],
+    ) -> list[DetectedRegression]:
         """Detect regressions between consecutive snapshots."""
         if len(snapshots) < 2:
             return []
 
-        regressions: List[DetectedRegression] = []
+        regressions: list[DetectedRegression] = []
         sorted_snapshots = sorted(snapshots, key=lambda s: s.timestamp)
 
         for i in range(1, len(sorted_snapshots)):
@@ -393,7 +399,7 @@ class CodeEvolutionTracker:
     """Main tracker for code evolution over time."""
 
     def __init__(self):
-        self.snapshots: Dict[str, List[CommitSnapshot]] = defaultdict(list)  # repo -> snapshots
+        self.snapshots: dict[str, list[CommitSnapshot]] = defaultdict(list)  # repo -> snapshots
         self.trend_analyzer = TrendAnalyzer()
         self.regression_detector = RegressionDetector()
 
@@ -403,8 +409,8 @@ class CodeEvolutionTracker:
         commit_sha: str,
         commit_message: str,
         author: str,
-        timestamp: Optional[datetime] = None,
-        metrics: Optional[Dict[str, float]] = None,
+        timestamp: datetime | None = None,
+        metrics: dict[str, float] | None = None,
         files_changed: int = 0,
         lines_added: int = 0,
         lines_removed: int = 0,
@@ -434,10 +440,10 @@ class CodeEvolutionTracker:
     def get_snapshots(
         self,
         repository: str,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         limit: int = 100,
-    ) -> List[CommitSnapshot]:
+    ) -> list[CommitSnapshot]:
         """Get snapshots for a repository."""
         snapshots = self.snapshots.get(repository, [])
 
@@ -454,9 +460,9 @@ class CodeEvolutionTracker:
     def analyze_trends(
         self,
         repository: str,
-        metric_types: Optional[List[MetricType]] = None,
+        metric_types: list[MetricType] | None = None,
         days: int = 30,
-    ) -> List[MetricTrend]:
+    ) -> list[MetricTrend]:
         """Analyze trends for specified metrics."""
         cutoff = datetime.now() - timedelta(days=days)
         snapshots = [s for s in self.snapshots.get(repository, []) if s.timestamp >= cutoff]
@@ -485,7 +491,7 @@ class CodeEvolutionTracker:
         self,
         repository: str,
         days: int = 7,
-    ) -> List[DetectedRegression]:
+    ) -> list[DetectedRegression]:
         """Detect regressions in recent commits."""
         cutoff = datetime.now() - timedelta(days=days)
         snapshots = [s for s in self.snapshots.get(repository, []) if s.timestamp >= cutoff]
@@ -506,7 +512,7 @@ class CodeEvolutionTracker:
         regressions = self.detect_regressions(repository, days=min(days, 7))
 
         # Calculate contributor statistics
-        contributor_stats: Dict[str, Dict[str, int]] = defaultdict(
+        contributor_stats: dict[str, dict[str, int]] = defaultdict(
             lambda: {"commits": 0, "lines_added": 0, "lines_removed": 0}
         )
         for s in snapshots:
@@ -526,13 +532,16 @@ class CodeEvolutionTracker:
             oldest = snapshots[-1]
 
             quality_summary = {
-                "current_verification_rate": latest.verified_functions / max(1, latest.total_functions),
-                "initial_verification_rate": oldest.verified_functions / max(1, oldest.total_functions),
+                "current_verification_rate": latest.verified_functions
+                / max(1, latest.total_functions),
+                "initial_verification_rate": oldest.verified_functions
+                / max(1, oldest.total_functions),
                 "current_findings": latest.findings_count,
                 "initial_findings": oldest.findings_count,
                 "total_lines_added": sum(s.lines_added for s in snapshots),
                 "total_lines_removed": sum(s.lines_removed for s in snapshots),
-                "avg_findings_per_commit": sum(s.findings_count for s in snapshots) / len(snapshots),
+                "avg_findings_per_commit": sum(s.findings_count for s in snapshots)
+                / len(snapshots),
             }
         else:
             quality_summary = {}
@@ -555,7 +564,7 @@ class CodeEvolutionTracker:
         repository: str,
         commit_sha_1: str,
         commit_sha_2: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compare two specific commits."""
         snapshots = self.snapshots.get(repository, [])
 
@@ -570,7 +579,7 @@ class CodeEvolutionTracker:
             }
 
         # Calculate differences
-        metric_diffs: Dict[str, Dict[str, float]] = {}
+        metric_diffs: dict[str, dict[str, float]] = {}
         all_metrics = set(snapshot_1.metrics.keys()) | set(snapshot_2.metrics.keys())
 
         for metric in all_metrics:
@@ -594,8 +603,8 @@ class CodeEvolutionTracker:
             "commit_2": snapshot_2.to_dict(),
             "metric_diffs": metric_diffs,
             "verification_rate_change": (
-                (snapshot_2.verified_functions / max(1, snapshot_2.total_functions)) -
-                (snapshot_1.verified_functions / max(1, snapshot_1.total_functions))
+                (snapshot_2.verified_functions / max(1, snapshot_2.total_functions))
+                - (snapshot_1.verified_functions / max(1, snapshot_1.total_functions))
             ),
             "findings_change": snapshot_2.findings_count - snapshot_1.findings_count,
         }
@@ -605,11 +614,12 @@ class CodeEvolutionTracker:
         repository: str,
         metric_type: MetricType,
         days: int = 30,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get historical values for a specific metric."""
         cutoff = datetime.now() - timedelta(days=days)
         snapshots = [
-            s for s in self.snapshots.get(repository, [])
+            s
+            for s in self.snapshots.get(repository, [])
             if s.timestamp >= cutoff and metric_type.value in s.metrics
         ]
 
@@ -624,11 +634,11 @@ class CodeEvolutionTracker:
             for s in snapshots
         ]
 
-    def get_repositories(self) -> List[str]:
+    def get_repositories(self) -> list[str]:
         """Get list of tracked repositories."""
         return list(self.snapshots.keys())
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get tracker statistics."""
         total_snapshots = sum(len(s) for s in self.snapshots.values())
 

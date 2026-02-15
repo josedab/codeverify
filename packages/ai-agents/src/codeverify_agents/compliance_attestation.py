@@ -17,6 +17,7 @@ logger = structlog.get_logger()
 
 class ComplianceFramework(str, Enum):
     """Supported compliance frameworks."""
+
     SOC2 = "soc2"
     HIPAA = "hipaa"
     PCI_DSS = "pci_dss"
@@ -29,6 +30,7 @@ class ComplianceFramework(str, Enum):
 
 class ControlStatus(str, Enum):
     """Status of a compliance control."""
+
     COMPLIANT = "compliant"
     PARTIAL = "partial"
     NON_COMPLIANT = "non_compliant"
@@ -39,6 +41,7 @@ class ControlStatus(str, Enum):
 @dataclass
 class EvidenceItem:
     """A piece of evidence supporting compliance."""
+
     evidence_id: str
     evidence_type: str  # verification_result, code_scan, test_result, documentation
     source: str  # File path, API endpoint, etc.
@@ -51,6 +54,7 @@ class EvidenceItem:
 @dataclass
 class ControlMapping:
     """Mapping between a control and verification results."""
+
     control_id: str
     control_name: str
     description: str
@@ -65,29 +69,30 @@ class ControlMapping:
 @dataclass
 class ComplianceReport:
     """Complete compliance report for a framework."""
+
     report_id: str
     framework: ComplianceFramework
     scope: str  # What was assessed
     generated_at: datetime
     generated_by: str
-    
+
     # Overall status
     overall_status: ControlStatus = ControlStatus.NEEDS_REVIEW
     compliance_score: float = 0.0  # 0-100
-    
+
     # Control details
     controls: list[ControlMapping] = field(default_factory=list)
-    
+
     # Summary statistics
     total_controls: int = 0
     compliant_controls: int = 0
     partial_controls: int = 0
     non_compliant_controls: int = 0
     not_applicable_controls: int = 0
-    
+
     # Audit trail
     audit_log: list[dict[str, Any]] = field(default_factory=list)
-    
+
     # Metadata
     version: str = "1.0"
     valid_until: datetime | None = None
@@ -222,7 +227,7 @@ FRAMEWORK_CONTROLS: dict[ComplianceFramework, list[dict[str, Any]]] = {
 class ComplianceAttestationEngine(BaseAgent):
     """
     Engine for generating compliance attestation reports from verification results.
-    
+
     Maps CodeVerify verification findings to compliance framework controls
     and generates audit-ready reports with evidence artifacts.
     """
@@ -259,15 +264,15 @@ class ComplianceAttestationEngine(BaseAgent):
             AgentResult with compliance report
         """
         start_time = time.time()
-        
+
         framework = context.get("framework", ComplianceFramework.SOC2)
         if isinstance(framework, str):
             framework = ComplianceFramework(framework)
-        
+
         verification_results = context.get("verification_results", [])
         scope = context.get("scope", "Code verification assessment")
         organization = context.get("organization", "Unknown")
-        
+
         try:
             report = await self._generate_report(
                 framework=framework,
@@ -275,9 +280,9 @@ class ComplianceAttestationEngine(BaseAgent):
                 scope=scope,
                 organization=organization,
             )
-            
+
             elapsed_ms = (time.time() - start_time) * 1000
-            
+
             logger.info(
                 "Compliance report generated",
                 framework=framework.value,
@@ -285,13 +290,13 @@ class ComplianceAttestationEngine(BaseAgent):
                 controls=report.total_controls,
                 latency_ms=elapsed_ms,
             )
-            
+
             return AgentResult(
                 success=True,
                 data=self._report_to_dict(report),
                 latency_ms=elapsed_ms,
             )
-            
+
         except Exception as e:
             logger.error("Compliance report generation failed", error=str(e))
             return AgentResult(
@@ -309,10 +314,10 @@ class ComplianceAttestationEngine(BaseAgent):
     ) -> ComplianceReport:
         """Generate a compliance report."""
         report_id = self._generate_report_id(framework, scope)
-        
+
         # Get controls for framework
         controls_def = FRAMEWORK_CONTROLS.get(framework, [])
-        
+
         # Map verification results to controls
         controls = []
         for control_def in controls_def:
@@ -321,23 +326,20 @@ class ComplianceAttestationEngine(BaseAgent):
                 verification_results=verification_results,
             )
             controls.append(control)
-        
+
         # Calculate overall statistics
         total = len(controls)
         compliant = sum(1 for c in controls if c.status == ControlStatus.COMPLIANT)
         partial = sum(1 for c in controls if c.status == ControlStatus.PARTIAL)
         non_compliant = sum(1 for c in controls if c.status == ControlStatus.NON_COMPLIANT)
         not_applicable = sum(1 for c in controls if c.status == ControlStatus.NOT_APPLICABLE)
-        
+
         # Calculate compliance score
         if total - not_applicable > 0:
-            score = (
-                (compliant * 100 + partial * 50) / 
-                ((total - not_applicable) * 100)
-            ) * 100
+            score = ((compliant * 100 + partial * 50) / ((total - not_applicable) * 100)) * 100
         else:
             score = 0.0
-        
+
         # Determine overall status
         if score >= 90:
             overall_status = ControlStatus.COMPLIANT
@@ -345,7 +347,7 @@ class ComplianceAttestationEngine(BaseAgent):
             overall_status = ControlStatus.PARTIAL
         else:
             overall_status = ControlStatus.NON_COMPLIANT
-        
+
         return ComplianceReport(
             report_id=report_id,
             framework=framework,
@@ -379,50 +381,49 @@ class ComplianceAttestationEngine(BaseAgent):
         control_name = control_def["name"]
         description = control_def["description"]
         verification_mappings = control_def.get("verification_mappings", [])
-        
+
         # Find relevant verification results
         evidence = []
         relevant_findings = []
         total_coverage = 0
-        
+
         for result in verification_results:
             result_categories = self._get_result_categories(result)
-            
+
             # Check if this result is relevant to the control
             is_relevant = any(
                 mapping in self._expand_categories(result_categories)
                 for mapping in verification_mappings
             )
-            
+
             if is_relevant:
                 relevant_findings.append(result)
-                
+
                 # Create evidence item
-                evidence.append(EvidenceItem(
-                    evidence_id=f"ev_{control_id}_{len(evidence)}",
-                    evidence_type="verification_result",
-                    source=result.get("file_path", "unknown"),
-                    timestamp=datetime.utcnow(),
-                    summary=result.get("summary", "Verification completed"),
-                    details={
-                        "status": result.get("status", "unknown"),
-                        "findings_count": len(result.get("findings", [])),
-                        "verified_properties": result.get("verified_properties", []),
-                    },
-                ))
-                
+                evidence.append(
+                    EvidenceItem(
+                        evidence_id=f"ev_{control_id}_{len(evidence)}",
+                        evidence_type="verification_result",
+                        source=result.get("file_path", "unknown"),
+                        timestamp=datetime.utcnow(),
+                        summary=result.get("summary", "Verification completed"),
+                        details={
+                            "status": result.get("status", "unknown"),
+                            "findings_count": len(result.get("findings", [])),
+                            "verified_properties": result.get("verified_properties", []),
+                        },
+                    )
+                )
+
                 # Calculate coverage contribution
                 if result.get("status") == "verified":
                     total_coverage += 100
                 elif result.get("status") == "partial":
                     total_coverage += 50
-        
+
         # Calculate verification coverage
-        verification_coverage = (
-            total_coverage / len(relevant_findings)
-            if relevant_findings else 0
-        )
-        
+        verification_coverage = total_coverage / len(relevant_findings) if relevant_findings else 0
+
         # Determine control status
         if not relevant_findings:
             status = ControlStatus.NEEDS_REVIEW
@@ -446,7 +447,7 @@ class ComplianceAttestationEngine(BaseAgent):
             gaps = self._identify_gaps(verification_mappings, relevant_findings)
             recommendations = self._generate_recommendations(gaps)
             manual_review = True
-        
+
         return ControlMapping(
             control_id=control_id,
             control_name=control_name,
@@ -462,23 +463,23 @@ class ComplianceAttestationEngine(BaseAgent):
     def _get_result_categories(self, result: dict[str, Any]) -> list[str]:
         """Extract categories from a verification result."""
         categories = []
-        
+
         # From findings
         for finding in result.get("findings", []):
             if "category" in finding:
                 categories.append(finding["category"])
-        
+
         # From verified properties
         for prop in result.get("verified_properties", []):
             if isinstance(prop, str):
                 categories.append(prop)
             elif isinstance(prop, dict) and "type" in prop:
                 categories.append(prop["type"])
-        
+
         # From result type
         if "type" in result:
             categories.append(result["type"])
-        
+
         return list(set(categories))
 
     def _expand_categories(self, categories: list[str]) -> list[str]:
@@ -500,18 +501,18 @@ class ComplianceAttestationEngine(BaseAgent):
         for finding in findings:
             categories = self._get_result_categories(finding)
             covered.update(self._expand_categories(categories))
-        
+
         gaps = []
         for mapping in verification_mappings:
             if mapping not in covered:
                 gaps.append(f"Missing verification for: {mapping}")
-        
+
         return gaps
 
     def _generate_recommendations(self, gaps: list[str]) -> list[str]:
         """Generate recommendations based on gaps."""
         recommendations = []
-        
+
         for gap in gaps:
             if "authentication" in gap.lower():
                 recommendations.append(
@@ -522,21 +523,15 @@ class ComplianceAttestationEngine(BaseAgent):
                     "Add cryptography verification for data at rest and in transit"
                 )
             elif "logging" in gap.lower() or "audit" in gap.lower():
-                recommendations.append(
-                    "Implement audit logging verification for security events"
-                )
+                recommendations.append("Implement audit logging verification for security events")
             elif "injection" in gap.lower():
-                recommendations.append(
-                    "Add input validation and injection prevention verification"
-                )
+                recommendations.append("Add input validation and injection prevention verification")
             else:
                 recommendations.append(f"Address gap: {gap}")
-        
+
         return recommendations
 
-    def _generate_report_id(
-        self, framework: ComplianceFramework, scope: str
-    ) -> str:
+    def _generate_report_id(self, framework: ComplianceFramework, scope: str) -> str:
         """Generate a unique report ID."""
         content = f"{framework.value}:{scope}:{datetime.utcnow().isoformat()}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
@@ -585,7 +580,7 @@ class ComplianceAttestationEngine(BaseAgent):
     ) -> dict[str, Any]:
         """Generate compliance reports for multiple frameworks."""
         reports = {}
-        
+
         for framework in frameworks:
             result = await self.analyze(
                 code="",
@@ -596,10 +591,10 @@ class ComplianceAttestationEngine(BaseAgent):
                     "organization": organization,
                 },
             )
-            
+
             if result.success:
                 reports[framework.value] = result.data
-        
+
         # Generate cross-framework summary
         summary = {
             "organization": organization,
@@ -609,7 +604,7 @@ class ComplianceAttestationEngine(BaseAgent):
             "reports": reports,
             "overall_summary": self._generate_cross_framework_summary(reports),
         }
-        
+
         return summary
 
     def _generate_cross_framework_summary(
@@ -619,21 +614,20 @@ class ComplianceAttestationEngine(BaseAgent):
         total_controls = 0
         total_compliant = 0
         total_gaps = []
-        
+
         for framework, report in reports.items():
             summary = report.get("summary", {})
             total_controls += summary.get("total_controls", 0)
             total_compliant += summary.get("compliant", 0)
-            
+
             for control in report.get("controls", []):
                 total_gaps.extend(control.get("gaps", []))
-        
+
         return {
             "total_controls_assessed": total_controls,
             "total_compliant": total_compliant,
             "overall_compliance_rate": (
-                round(total_compliant / total_controls * 100, 1)
-                if total_controls > 0 else 0
+                round(total_compliant / total_controls * 100, 1) if total_controls > 0 else 0
             ),
             "unique_gaps": list(set(total_gaps)),
             "gap_count": len(set(total_gaps)),
@@ -643,9 +637,7 @@ class ComplianceAttestationEngine(BaseAgent):
         """Get list of supported compliance frameworks."""
         return [f.value for f in ComplianceFramework]
 
-    def get_framework_controls(
-        self, framework: ComplianceFramework
-    ) -> list[dict[str, Any]]:
+    def get_framework_controls(self, framework: ComplianceFramework) -> list[dict[str, Any]]:
         """Get controls for a specific framework."""
         return FRAMEWORK_CONTROLS.get(framework, [])
 
@@ -662,7 +654,7 @@ class ComplianceAttestationEngine(BaseAgent):
                 f"{report.framework.value} controls and achieved a compliance score of "
                 f"{report.compliance_score}%."
             )
-        
+
         certificate = {
             "certificate_id": f"CERT-{report.report_id}",
             "type": "compliance_attestation",
@@ -682,11 +674,9 @@ class ComplianceAttestationEngine(BaseAgent):
             },
             "signature_placeholder": "DIGITAL_SIGNATURE_REQUIRED",
         }
-        
+
         # Generate signature hash
         content_for_signature = json.dumps(certificate, sort_keys=True)
-        certificate["content_hash"] = hashlib.sha256(
-            content_for_signature.encode()
-        ).hexdigest()
-        
+        certificate["content_hash"] = hashlib.sha256(content_for_signature.encode()).hexdigest()
+
         return certificate

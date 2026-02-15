@@ -175,9 +175,7 @@ class ImportExtractor:
             stripped = line.strip()
 
             # from X import Y, Z as A
-            from_match = re.match(
-                r"^from\s+([\w.]+)\s+import\s+(.+)$", stripped
-            )
+            from_match = re.match(r"^from\s+([\w.]+)\s+import\s+(.+)$", stripped)
             if from_match:
                 module = from_match.group(1)
                 symbols_part = from_match.group(2)
@@ -188,13 +186,15 @@ class ImportExtractor:
                     parts = re.split(r"\s+as\s+", sym_chunk, maxsplit=1)
                     symbol = parts[0].strip()
                     alias = parts[1].strip() if len(parts) > 1 else ""
-                    imports.append(ImportInfo(
-                        module=module,
-                        symbol=symbol,
-                        alias=alias,
-                        line_number=line_number,
-                        is_from_import=True,
-                    ))
+                    imports.append(
+                        ImportInfo(
+                            module=module,
+                            symbol=symbol,
+                            alias=alias,
+                            line_number=line_number,
+                            is_from_import=True,
+                        )
+                    )
                 continue
 
             # import X, Y as A
@@ -208,13 +208,15 @@ class ImportExtractor:
                     parts = re.split(r"\s+as\s+", mod_chunk, maxsplit=1)
                     module = parts[0].strip()
                     alias = parts[1].strip() if len(parts) > 1 else ""
-                    imports.append(ImportInfo(
-                        module=module,
-                        symbol="",
-                        alias=alias,
-                        line_number=line_number,
-                        is_from_import=False,
-                    ))
+                    imports.append(
+                        ImportInfo(
+                            module=module,
+                            symbol="",
+                            alias=alias,
+                            line_number=line_number,
+                            is_from_import=False,
+                        )
+                    )
 
         return imports
 
@@ -241,13 +243,15 @@ class ImportExtractor:
                     parts = re.split(r"\s+as\s+", sym_chunk, maxsplit=1)
                     symbol = parts[0].strip()
                     alias = parts[1].strip() if len(parts) > 1 else ""
-                    imports.append(ImportInfo(
-                        module=module,
-                        symbol=symbol,
-                        alias=alias,
-                        line_number=line_number,
-                        is_from_import=True,
-                    ))
+                    imports.append(
+                        ImportInfo(
+                            module=module,
+                            symbol=symbol,
+                            alias=alias,
+                            line_number=line_number,
+                            is_from_import=True,
+                        )
+                    )
                 continue
 
             # import DefaultExport from 'module'
@@ -258,13 +262,15 @@ class ImportExtractor:
             if default_match:
                 symbol = default_match.group(1)
                 module = default_match.group(2)
-                imports.append(ImportInfo(
-                    module=module,
-                    symbol=symbol,
-                    alias="",
-                    line_number=line_number,
-                    is_from_import=True,
-                ))
+                imports.append(
+                    ImportInfo(
+                        module=module,
+                        symbol=symbol,
+                        alias="",
+                        line_number=line_number,
+                        is_from_import=True,
+                    )
+                )
                 continue
 
             # import * as Alias from 'module'
@@ -275,13 +281,15 @@ class ImportExtractor:
             if star_match:
                 alias = star_match.group(1)
                 module = star_match.group(2)
-                imports.append(ImportInfo(
-                    module=module,
-                    symbol="*",
-                    alias=alias,
-                    line_number=line_number,
-                    is_from_import=True,
-                ))
+                imports.append(
+                    ImportInfo(
+                        module=module,
+                        symbol="*",
+                        alias=alias,
+                        line_number=line_number,
+                        is_from_import=True,
+                    )
+                )
                 continue
 
             # const/require pattern: const x = require('module')
@@ -292,13 +300,15 @@ class ImportExtractor:
             if require_match:
                 alias = require_match.group(1)
                 module = require_match.group(2)
-                imports.append(ImportInfo(
-                    module=module,
-                    symbol="",
-                    alias=alias,
-                    line_number=line_number,
-                    is_from_import=False,
-                ))
+                imports.append(
+                    ImportInfo(
+                        module=module,
+                        symbol="",
+                        alias=alias,
+                        line_number=line_number,
+                        is_from_import=False,
+                    )
+                )
 
         return imports
 
@@ -310,24 +320,22 @@ class ImportExtractor:
 
         # Single import: import "fmt"  or  import alias "pkg"
         for line_number, line in enumerate(code.splitlines(), start=1):
-            single_match = re.match(
-                r"""^\s*import\s+(?:(\w+)\s+)?["']([^"']+)["']""", line
-            )
+            single_match = re.match(r"""^\s*import\s+(?:(\w+)\s+)?["']([^"']+)["']""", line)
             if single_match:
                 alias = single_match.group(1) or ""
                 module = single_match.group(2)
-                imports.append(ImportInfo(
-                    module=module,
-                    symbol="",
-                    alias=alias,
-                    line_number=line_number,
-                    is_from_import=False,
-                ))
+                imports.append(
+                    ImportInfo(
+                        module=module,
+                        symbol="",
+                        alias=alias,
+                        line_number=line_number,
+                        is_from_import=False,
+                    )
+                )
 
         # Grouped import block: import ( ... )
-        group_pattern = re.compile(
-            r"import\s*\((.*?)\)", re.DOTALL
-        )
+        group_pattern = re.compile(r"import\s*\((.*?)\)", re.DOTALL)
         for group_match in group_pattern.finditer(code):
             block = group_match.group(1)
             block_start = code[: group_match.start()].count("\n") + 1
@@ -335,19 +343,19 @@ class ImportExtractor:
                 pkg_line = pkg_line.strip()
                 if not pkg_line:
                     continue
-                pkg_match = re.match(
-                    r"""(?:(\w+)\s+)?["']([^"']+)["']""", pkg_line
-                )
+                pkg_match = re.match(r"""(?:(\w+)\s+)?["']([^"']+)["']""", pkg_line)
                 if pkg_match:
                     alias = pkg_match.group(1) or ""
                     module = pkg_match.group(2)
-                    imports.append(ImportInfo(
-                        module=module,
-                        symbol="",
-                        alias=alias,
-                        line_number=block_start + offset + 1,
-                        is_from_import=False,
-                    ))
+                    imports.append(
+                        ImportInfo(
+                            module=module,
+                            symbol="",
+                            alias=alias,
+                            line_number=block_start + offset + 1,
+                            is_from_import=False,
+                        )
+                    )
 
         return imports
 
@@ -357,9 +365,7 @@ class ImportExtractor:
         """Extract Java import statements."""
         imports: list[ImportInfo] = []
         for line_number, line in enumerate(code.splitlines(), start=1):
-            match = re.match(
-                r"^\s*import\s+(?:static\s+)?([\w.]+(?:\.\*)?)\s*;", line
-            )
+            match = re.match(r"^\s*import\s+(?:static\s+)?([\w.]+(?:\.\*)?)\s*;", line)
             if match:
                 full_path = match.group(1)
                 parts = full_path.rsplit(".", 1)
@@ -368,13 +374,15 @@ class ImportExtractor:
                 else:
                     module = parts[0]
                     symbol = ""
-                imports.append(ImportInfo(
-                    module=module,
-                    symbol=symbol,
-                    alias="",
-                    line_number=line_number,
-                    is_from_import=True,
-                ))
+                imports.append(
+                    ImportInfo(
+                        module=module,
+                        symbol=symbol,
+                        alias="",
+                        line_number=line_number,
+                        is_from_import=True,
+                    )
+                )
 
         return imports
 
@@ -394,87 +402,359 @@ class PackageValidator:
     # Python standard library modules and selected exports
     KNOWN_PACKAGES: dict[str, dict[str, list[str]]] = {
         "python": {
-            "os": ["getcwd", "listdir", "makedirs", "remove", "rename", "environ",
-                    "path", "getenv", "walk", "sep", "linesep", "cpu_count"],
-            "os.path": ["join", "exists", "isfile", "isdir", "basename", "dirname",
-                        "abspath", "splitext", "expanduser", "relpath", "getsize"],
-            "sys": ["argv", "exit", "path", "stdin", "stdout", "stderr",
-                    "version", "platform", "modules", "executable", "maxsize"],
-            "json": ["loads", "dumps", "load", "dump", "JSONDecodeError",
-                     "JSONEncoder", "JSONDecoder"],
-            "pathlib": ["Path", "PurePath", "PosixPath", "WindowsPath",
-                        "PurePosixPath", "PureWindowsPath"],
-            "typing": ["Any", "Dict", "List", "Optional", "Tuple", "Union",
-                       "Set", "Callable", "TypeVar", "Generic", "ClassVar",
-                       "Final", "Literal", "TypedDict", "Protocol",
-                       "NamedTuple", "Sequence", "Mapping", "Iterator"],
-            "collections": ["defaultdict", "OrderedDict", "Counter", "deque",
-                            "namedtuple", "ChainMap", "UserDict", "UserList"],
-            "itertools": ["chain", "combinations", "permutations", "product",
-                          "cycle", "repeat", "islice", "groupby", "starmap",
-                          "zip_longest", "count", "accumulate", "filterfalse"],
-            "functools": ["reduce", "partial", "lru_cache", "wraps",
-                          "total_ordering", "cached_property", "singledispatch",
-                          "cache", "partialmethod"],
-            "dataclasses": ["dataclass", "field", "asdict", "astuple",
-                            "fields", "is_dataclass", "make_dataclass",
-                            "replace", "InitVar", "Field", "FrozenInstanceError"],
-            "asyncio": ["run", "gather", "create_task", "sleep", "wait",
-                        "Event", "Lock", "Queue", "Semaphore", "Task",
-                        "get_event_loop", "new_event_loop", "ensure_future",
-                        "wait_for", "shield", "StreamReader", "StreamWriter"],
-            "re": ["compile", "match", "search", "findall", "finditer", "sub",
-                   "subn", "split", "fullmatch", "Pattern", "Match",
-                   "IGNORECASE", "MULTILINE", "DOTALL", "VERBOSE"],
-            "datetime": ["datetime", "date", "time", "timedelta", "timezone",
-                         "tzinfo", "MINYEAR", "MAXYEAR"],
-            "math": ["sqrt", "ceil", "floor", "log", "log2", "log10", "pow",
-                     "sin", "cos", "tan", "pi", "e", "inf", "nan", "isnan",
-                     "isinf", "factorial", "gcd", "comb", "perm"],
-            "hashlib": ["sha256", "sha512", "md5", "sha1", "sha384",
-                        "blake2b", "blake2s", "new", "algorithms_available",
-                        "algorithms_guaranteed"],
-            "uuid": ["uuid4", "uuid1", "uuid3", "uuid5", "UUID", "NAMESPACE_DNS",
-                     "NAMESPACE_URL", "NAMESPACE_OID", "NAMESPACE_X500"],
+            "os": [
+                "getcwd",
+                "listdir",
+                "makedirs",
+                "remove",
+                "rename",
+                "environ",
+                "path",
+                "getenv",
+                "walk",
+                "sep",
+                "linesep",
+                "cpu_count",
+            ],
+            "os.path": [
+                "join",
+                "exists",
+                "isfile",
+                "isdir",
+                "basename",
+                "dirname",
+                "abspath",
+                "splitext",
+                "expanduser",
+                "relpath",
+                "getsize",
+            ],
+            "sys": [
+                "argv",
+                "exit",
+                "path",
+                "stdin",
+                "stdout",
+                "stderr",
+                "version",
+                "platform",
+                "modules",
+                "executable",
+                "maxsize",
+            ],
+            "json": [
+                "loads",
+                "dumps",
+                "load",
+                "dump",
+                "JSONDecodeError",
+                "JSONEncoder",
+                "JSONDecoder",
+            ],
+            "pathlib": [
+                "Path",
+                "PurePath",
+                "PosixPath",
+                "WindowsPath",
+                "PurePosixPath",
+                "PureWindowsPath",
+            ],
+            "typing": [
+                "Any",
+                "Dict",
+                "List",
+                "Optional",
+                "Tuple",
+                "Union",
+                "Set",
+                "Callable",
+                "TypeVar",
+                "Generic",
+                "ClassVar",
+                "Final",
+                "Literal",
+                "TypedDict",
+                "Protocol",
+                "NamedTuple",
+                "Sequence",
+                "Mapping",
+                "Iterator",
+            ],
+            "collections": [
+                "defaultdict",
+                "OrderedDict",
+                "Counter",
+                "deque",
+                "namedtuple",
+                "ChainMap",
+                "UserDict",
+                "UserList",
+            ],
+            "itertools": [
+                "chain",
+                "combinations",
+                "permutations",
+                "product",
+                "cycle",
+                "repeat",
+                "islice",
+                "groupby",
+                "starmap",
+                "zip_longest",
+                "count",
+                "accumulate",
+                "filterfalse",
+            ],
+            "functools": [
+                "reduce",
+                "partial",
+                "lru_cache",
+                "wraps",
+                "total_ordering",
+                "cached_property",
+                "singledispatch",
+                "cache",
+                "partialmethod",
+            ],
+            "dataclasses": [
+                "dataclass",
+                "field",
+                "asdict",
+                "astuple",
+                "fields",
+                "is_dataclass",
+                "make_dataclass",
+                "replace",
+                "InitVar",
+                "Field",
+                "FrozenInstanceError",
+            ],
+            "asyncio": [
+                "run",
+                "gather",
+                "create_task",
+                "sleep",
+                "wait",
+                "Event",
+                "Lock",
+                "Queue",
+                "Semaphore",
+                "Task",
+                "get_event_loop",
+                "new_event_loop",
+                "ensure_future",
+                "wait_for",
+                "shield",
+                "StreamReader",
+                "StreamWriter",
+            ],
+            "re": [
+                "compile",
+                "match",
+                "search",
+                "findall",
+                "finditer",
+                "sub",
+                "subn",
+                "split",
+                "fullmatch",
+                "Pattern",
+                "Match",
+                "IGNORECASE",
+                "MULTILINE",
+                "DOTALL",
+                "VERBOSE",
+            ],
+            "datetime": [
+                "datetime",
+                "date",
+                "time",
+                "timedelta",
+                "timezone",
+                "tzinfo",
+                "MINYEAR",
+                "MAXYEAR",
+            ],
+            "math": [
+                "sqrt",
+                "ceil",
+                "floor",
+                "log",
+                "log2",
+                "log10",
+                "pow",
+                "sin",
+                "cos",
+                "tan",
+                "pi",
+                "e",
+                "inf",
+                "nan",
+                "isnan",
+                "isinf",
+                "factorial",
+                "gcd",
+                "comb",
+                "perm",
+            ],
+            "hashlib": [
+                "sha256",
+                "sha512",
+                "md5",
+                "sha1",
+                "sha384",
+                "blake2b",
+                "blake2s",
+                "new",
+                "algorithms_available",
+                "algorithms_guaranteed",
+            ],
+            "uuid": [
+                "uuid4",
+                "uuid1",
+                "uuid3",
+                "uuid5",
+                "UUID",
+                "NAMESPACE_DNS",
+                "NAMESPACE_URL",
+                "NAMESPACE_OID",
+                "NAMESPACE_X500",
+            ],
             "http": ["HTTPStatus", "server", "client", "cookies", "cookiejar"],
-            "http.server": ["HTTPServer", "BaseHTTPRequestHandler",
-                            "SimpleHTTPRequestHandler"],
+            "http.server": ["HTTPServer", "BaseHTTPRequestHandler", "SimpleHTTPRequestHandler"],
             "urllib": ["request", "parse", "error", "robotparser"],
-            "urllib.parse": ["urlparse", "urljoin", "urlencode", "quote",
-                             "unquote", "parse_qs", "parse_qsl", "urlsplit"],
+            "urllib.parse": [
+                "urlparse",
+                "urljoin",
+                "urlencode",
+                "quote",
+                "unquote",
+                "parse_qs",
+                "parse_qsl",
+                "urlsplit",
+            ],
         },
         "node": {
-            "fs": ["readFile", "writeFile", "readFileSync", "writeFileSync",
-                   "existsSync", "mkdirSync", "readdirSync", "statSync",
-                   "unlinkSync", "renameSync", "createReadStream",
-                   "createWriteStream", "promises", "watch", "access"],
-            "path": ["join", "resolve", "basename", "dirname", "extname",
-                     "normalize", "parse", "format", "isAbsolute", "relative",
-                     "sep", "delimiter", "posix", "win32"],
-            "http": ["createServer", "request", "get", "Server",
-                     "IncomingMessage", "ServerResponse", "STATUS_CODES",
-                     "METHODS", "Agent", "globalAgent"],
-            "crypto": ["createHash", "createHmac", "createCipheriv",
-                       "createDecipheriv", "randomBytes", "randomUUID",
-                       "pbkdf2", "scrypt", "generateKeyPair", "sign", "verify"],
-            "stream": ["Readable", "Writable", "Transform", "Duplex",
-                       "PassThrough", "pipeline", "finished"],
-            "events": ["EventEmitter", "on", "once", "getEventListeners",
-                       "listenerCount"],
-            "util": ["promisify", "inspect", "format", "types", "TextDecoder",
-                     "TextEncoder", "deprecate", "inherits", "callbackify"],
-            "child_process": ["exec", "execSync", "spawn", "spawnSync",
-                              "fork", "execFile", "execFileSync"],
-            "os": ["hostname", "platform", "arch", "cpus", "totalmem",
-                   "freemem", "homedir", "tmpdir", "type", "release",
-                   "networkInterfaces", "userInfo", "EOL"],
-            "buffer": ["Buffer", "Blob", "SlowBuffer", "transcode",
-                       "isEncoding", "isBuffer", "kMaxLength"],
+            "fs": [
+                "readFile",
+                "writeFile",
+                "readFileSync",
+                "writeFileSync",
+                "existsSync",
+                "mkdirSync",
+                "readdirSync",
+                "statSync",
+                "unlinkSync",
+                "renameSync",
+                "createReadStream",
+                "createWriteStream",
+                "promises",
+                "watch",
+                "access",
+            ],
+            "path": [
+                "join",
+                "resolve",
+                "basename",
+                "dirname",
+                "extname",
+                "normalize",
+                "parse",
+                "format",
+                "isAbsolute",
+                "relative",
+                "sep",
+                "delimiter",
+                "posix",
+                "win32",
+            ],
+            "http": [
+                "createServer",
+                "request",
+                "get",
+                "Server",
+                "IncomingMessage",
+                "ServerResponse",
+                "STATUS_CODES",
+                "METHODS",
+                "Agent",
+                "globalAgent",
+            ],
+            "crypto": [
+                "createHash",
+                "createHmac",
+                "createCipheriv",
+                "createDecipheriv",
+                "randomBytes",
+                "randomUUID",
+                "pbkdf2",
+                "scrypt",
+                "generateKeyPair",
+                "sign",
+                "verify",
+            ],
+            "stream": [
+                "Readable",
+                "Writable",
+                "Transform",
+                "Duplex",
+                "PassThrough",
+                "pipeline",
+                "finished",
+            ],
+            "events": ["EventEmitter", "on", "once", "getEventListeners", "listenerCount"],
+            "util": [
+                "promisify",
+                "inspect",
+                "format",
+                "types",
+                "TextDecoder",
+                "TextEncoder",
+                "deprecate",
+                "inherits",
+                "callbackify",
+            ],
+            "child_process": [
+                "exec",
+                "execSync",
+                "spawn",
+                "spawnSync",
+                "fork",
+                "execFile",
+                "execFileSync",
+            ],
+            "os": [
+                "hostname",
+                "platform",
+                "arch",
+                "cpus",
+                "totalmem",
+                "freemem",
+                "homedir",
+                "tmpdir",
+                "type",
+                "release",
+                "networkInterfaces",
+                "userInfo",
+                "EOL",
+            ],
+            "buffer": [
+                "Buffer",
+                "Blob",
+                "SlowBuffer",
+                "transcode",
+                "isEncoding",
+                "isBuffer",
+                "kMaxLength",
+            ],
         },
     }
 
     def validate_import(
-        self, module: str, symbol: str, language: str,
+        self,
+        module: str,
+        symbol: str,
+        language: str,
     ) -> ValidationResult:
         """Validate whether an import is known to exist.
 
@@ -767,9 +1047,7 @@ class HallucinationDetectorAgent(BaseAgent):
                 success=True,
                 data={
                     "findings": [f.to_dict() for f in findings],
-                    "total_imports": len(
-                        self._extractor.extract_imports(code, language)
-                    ),
+                    "total_imports": len(self._extractor.extract_imports(code, language)),
                     "hallucination_count": len(findings),
                     "risk_score": risk_score,
                 },
@@ -787,7 +1065,9 @@ class HallucinationDetectorAgent(BaseAgent):
     # -- Core detection pipeline ----------------------------------------------
 
     def _extract_and_validate(
-        self, code: str, language: str,
+        self,
+        code: str,
+        language: str,
     ) -> list[HallucinationFinding]:
         """Extract imports from code and validate each against known packages.
 
@@ -817,7 +1097,9 @@ class HallucinationDetectorAgent(BaseAgent):
                 continue
 
             result = self._validator.validate_import(
-                imp.module, imp.symbol, language,
+                imp.module,
+                imp.symbol,
+                language,
             )
             if not result.valid:
                 h_type = (
@@ -825,20 +1107,23 @@ class HallucinationDetectorAgent(BaseAgent):
                     if imp.symbol
                     else HallucinationType.NONEXISTENT_MODULE
                 )
-                findings.append(HallucinationFinding(
-                    type=h_type,
-                    import_path=imp.module,
-                    symbol=imp.symbol,
-                    line_number=imp.line_number,
-                    confidence=result.confidence,
-                    suggestion=result.suggestion,
-                    evidence=result.reason,
-                ))
+                findings.append(
+                    HallucinationFinding(
+                        type=h_type,
+                        import_path=imp.module,
+                        symbol=imp.symbol,
+                        line_number=imp.line_number,
+                        confidence=result.confidence,
+                        suggestion=result.suggestion,
+                        evidence=result.reason,
+                    )
+                )
 
         return findings
 
     def _check_common_hallucinations(
-        self, imports: list[ImportInfo],
+        self,
+        imports: list[ImportInfo],
     ) -> list[HallucinationFinding]:
         """Check extracted imports against the common hallucinations database.
 
@@ -852,7 +1137,8 @@ class HallucinationDetectorAgent(BaseAgent):
 
         for imp in imports:
             result = self._hallucinations_db.check_partial(
-                imp.module, imp.symbol,
+                imp.module,
+                imp.symbol,
             )
             if result is None:
                 continue
@@ -862,19 +1148,19 @@ class HallucinationDetectorAgent(BaseAgent):
             # Determine hallucination type from the result reason
             h_type = self._classify_hallucination(result.get("reason", ""))
 
-            import_path = (
-                f"{imp.module}.{imp.symbol}" if imp.symbol else imp.module
-            )
+            import_path = f"{imp.module}.{imp.symbol}" if imp.symbol else imp.module
 
-            findings.append(HallucinationFinding(
-                type=h_type,
-                import_path=import_path,
-                symbol=imp.symbol or imp.module.rsplit(".", 1)[-1],
-                line_number=imp.line_number,
-                confidence=confidence,
-                suggestion=result.get("suggestion", ""),
-                evidence=result.get("reason", ""),
-            ))
+            findings.append(
+                HallucinationFinding(
+                    type=h_type,
+                    import_path=import_path,
+                    symbol=imp.symbol or imp.module.rsplit(".", 1)[-1],
+                    line_number=imp.line_number,
+                    confidence=confidence,
+                    suggestion=result.get("suggestion", ""),
+                    evidence=result.get("reason", ""),
+                )
+            )
 
         return findings
 

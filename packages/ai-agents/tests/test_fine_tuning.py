@@ -12,11 +12,9 @@ from codeverify_agents.fine_tuning import (
     FineTunedModel,
     FineTuningManager,
     ModelServer,
-    ModelType,
     TrainingConfig,
     TrainingDataset,
     TrainingExample,
-    TrainingJob,
     TrainingPipeline,
     TrainingStatus,
     get_fine_tuning_manager,
@@ -45,9 +43,9 @@ class TestTrainingExample:
             input_context={"language": "python", "file_path": "test.py"},
             expected_output={"findings": [{"title": "Bug"}]},
         )
-        
+
         formatted = example.to_training_format("openai")
-        
+
         assert "messages" in formatted
         assert len(formatted["messages"]) == 3
         assert formatted["messages"][0]["role"] == "system"
@@ -62,9 +60,9 @@ class TestTrainingExample:
             input_context={"language": "python"},
             expected_output={"findings": []},
         )
-        
+
         formatted = example.to_training_format("alpaca")
-        
+
         assert "instruction" in formatted
         assert "input" in formatted
         assert "output" in formatted
@@ -76,31 +74,35 @@ class TestTrainingDataset:
     def test_add_example(self) -> None:
         """Test adding examples to dataset."""
         dataset = TrainingDataset(name="test")
-        
+
         example = TrainingExample(
             input_code="test code",
             expected_output={"findings": []},
         )
         dataset.add_example(example)
-        
+
         assert len(dataset.examples) == 1
         assert dataset.stats["total_examples"] == 1
 
     def test_stats_calculation(self) -> None:
         """Test dataset statistics calculation."""
         dataset = TrainingDataset(name="test")
-        
-        dataset.add_example(TrainingExample(
-            input_code="code1",
-            source_type=DataSourceType.VERIFICATION_RESULTS,
-            quality_score=0.8,
-        ))
-        dataset.add_example(TrainingExample(
-            input_code="code2",
-            source_type=DataSourceType.USER_CORRECTIONS,
-            quality_score=1.0,
-        ))
-        
+
+        dataset.add_example(
+            TrainingExample(
+                input_code="code1",
+                source_type=DataSourceType.VERIFICATION_RESULTS,
+                quality_score=0.8,
+            )
+        )
+        dataset.add_example(
+            TrainingExample(
+                input_code="code2",
+                source_type=DataSourceType.USER_CORRECTIONS,
+                quality_score=1.0,
+            )
+        )
+
         assert dataset.stats["total_examples"] == 2
         assert dataset.stats["avg_quality_score"] == 0.9
         assert DataSourceType.VERIFICATION_RESULTS.value in dataset.stats["by_source"]
@@ -108,20 +110,22 @@ class TestTrainingDataset:
     def test_export(self) -> None:
         """Test dataset export."""
         dataset = TrainingDataset(name="test")
-        dataset.add_example(TrainingExample(
-            input_code="code",
-            input_context={"language": "python"},
-            expected_output={"findings": []},
-            quality_score=0.8,
-        ))
-        
+        dataset.add_example(
+            TrainingExample(
+                input_code="code",
+                input_context={"language": "python"},
+                expected_output={"findings": []},
+                quality_score=0.8,
+            )
+        )
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             output_path = Path(f.name)
-        
+
         try:
             count = dataset.export(output_path, "openai")
             assert count == 1
-            
+
             with open(output_path) as f:
                 data = json.loads(f.readline())
             assert "messages" in data
@@ -136,14 +140,14 @@ class TestDataCollector:
         """Test collecting from verification results."""
         with tempfile.TemporaryDirectory() as tmpdir:
             collector = DataCollector(Path(tmpdir))
-            
+
             example = collector.collect_from_verification(
                 code="def foo(): pass",
                 context={"language": "python"},
                 findings=[{"title": "Bug", "confidence": 0.9}],
                 org_id="test-org",
             )
-            
+
             assert example.source_type == DataSourceType.VERIFICATION_RESULTS
             assert example.org_id == "test-org"
             assert example.quality_score > 0.5
@@ -152,7 +156,7 @@ class TestDataCollector:
         """Test collecting from user corrections."""
         with tempfile.TemporaryDirectory() as tmpdir:
             collector = DataCollector(Path(tmpdir))
-            
+
             example = collector.collect_from_user_correction(
                 code="def foo(): pass",
                 context={"language": "python"},
@@ -160,7 +164,7 @@ class TestDataCollector:
                 corrected_findings=[],
                 org_id="test-org",
             )
-            
+
             assert example.source_type == DataSourceType.USER_CORRECTIONS
             assert example.quality_score == 1.0
             assert example.metadata["correction_type"] == "removed_false_positives"
@@ -169,14 +173,14 @@ class TestDataCollector:
         """Test collecting from dismissed findings."""
         with tempfile.TemporaryDirectory() as tmpdir:
             collector = DataCollector(Path(tmpdir))
-            
+
             example = collector.collect_from_dismissed_finding(
                 code="def foo(): pass",
                 context={"language": "python"},
                 dismissed_finding={"title": "Not a bug"},
                 dismiss_reason="Working as intended",
             )
-            
+
             assert example.source_type == DataSourceType.DISMISSED_FINDINGS
             assert "dismissed_finding" in example.metadata
 
@@ -184,14 +188,14 @@ class TestDataCollector:
         """Test getting datasets."""
         with tempfile.TemporaryDirectory() as tmpdir:
             collector = DataCollector(Path(tmpdir))
-            
+
             collector.collect_from_verification(
                 code="test",
                 context={},
                 findings=[],
                 dataset_name="my_dataset",
             )
-            
+
             dataset = collector.get_dataset("my_dataset")
             assert dataset is not None
             assert len(dataset.examples) == 1
@@ -205,9 +209,9 @@ class TestTrainingPipeline:
         pipeline = TrainingPipeline()
         dataset = TrainingDataset(name="test")
         dataset.add_example(TrainingExample(input_code="test"))
-        
+
         job = pipeline.create_job(dataset)
-        
+
         assert job.status == TrainingStatus.PENDING
         assert job.dataset_id == dataset.id
 
@@ -217,19 +221,21 @@ class TestTrainingPipeline:
         with tempfile.TemporaryDirectory() as tmpdir:
             config = TrainingConfig(output_dir=tmpdir)
             pipeline = TrainingPipeline(config)
-            
+
             dataset = TrainingDataset(name="test")
             for i in range(20):
-                dataset.add_example(TrainingExample(
-                    input_code=f"def func_{i}(): pass",
-                    input_context={"language": "python"},
-                    expected_output={"findings": []},
-                    quality_score=0.8,
-                ))
-            
+                dataset.add_example(
+                    TrainingExample(
+                        input_code=f"def func_{i}(): pass",
+                        input_context={"language": "python"},
+                        expected_output={"findings": []},
+                        quality_score=0.8,
+                    )
+                )
+
             job = pipeline.create_job(dataset, config)
             job = await pipeline.run_training(job, dataset)
-            
+
             assert job.status == TrainingStatus.COMPLETED
             assert job.output_model_path is not None
 
@@ -245,9 +251,9 @@ class TestModelServer:
             org_id="test-org",
             model_path="/path/to/model",
         )
-        
+
         server.register_model(model)
-        
+
         retrieved = server.get_active_model("test-org")
         assert retrieved is not None
         assert retrieved.id == model.id
@@ -260,9 +266,9 @@ class TestModelServer:
             org_id=None,  # Global
             model_path="/path/to/model",
         )
-        
+
         server.register_model(global_model)
-        
+
         # Should get global model when no org-specific model
         retrieved = server.get_active_model("unknown-org")
         assert retrieved is not None
@@ -279,7 +285,7 @@ class TestFineTuningManager:
                 storage_path=Path(tmpdir),
                 models_path=Path(tmpdir) / "models",
             )
-            
+
             # Collect some data
             manager.collector.collect_from_verification(
                 code="test code",
@@ -287,9 +293,9 @@ class TestFineTuningManager:
                 findings=[],
                 dataset_name="test_dataset",
             )
-            
+
             summary = manager.get_training_summary()
-            
+
             assert "datasets" in summary
             assert "models" in summary
             assert len(summary["datasets"]) == 1
@@ -301,10 +307,10 @@ class TestGlobalManager:
     def test_get_manager(self) -> None:
         """Test getting global manager."""
         reset_fine_tuning_manager()
-        
+
         manager1 = get_fine_tuning_manager()
         manager2 = get_fine_tuning_manager()
-        
+
         assert manager1 is manager2
 
     def test_reset_manager(self) -> None:
@@ -312,5 +318,5 @@ class TestGlobalManager:
         manager1 = get_fine_tuning_manager()
         reset_fine_tuning_manager()
         manager2 = get_fine_tuning_manager()
-        
+
         assert manager1 is not manager2

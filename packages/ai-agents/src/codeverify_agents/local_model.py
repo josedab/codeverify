@@ -12,16 +12,14 @@ Key features:
 
 import asyncio
 import hashlib
-import json
 import os
-import shutil
-import tempfile
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator, Callable
+from typing import Any
 
 import structlog
 
@@ -259,6 +257,7 @@ class LlamaCppEngine(InferenceEngine):
             )
 
         import time
+
         start_time = time.time()
 
         try:
@@ -328,8 +327,9 @@ class OllamaEngine(InferenceEngine):
         temperature: float = 0.1,
     ) -> InferenceResult:
         """Generate using Ollama API."""
-        import httpx
         import time
+
+        import httpx
 
         if not self._model_name:
             return InferenceResult(
@@ -440,12 +440,14 @@ class QueryRouter:
         )
 
         # Record for learning
-        self._history.append({
-            "query_hash": hashlib.md5(query.encode()).hexdigest()[:8],
-            "complexity": complexity.value,
-            "use_local": use_local,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        self._history.append(
+            {
+                "query_hash": hashlib.md5(query.encode()).hexdigest()[:8],
+                "complexity": complexity.value,
+                "use_local": use_local,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
         return decision
 
@@ -595,15 +597,17 @@ class ModelManager:
         """List all available models with their status."""
         result = []
         for model_id, info in AVAILABLE_MODELS.items():
-            result.append({
-                "id": model_id,
-                "name": info.name,
-                "size": info.size.value,
-                "file_size_mb": info.file_size_mb,
-                "status": self.get_status(model_id).value,
-                "capabilities": info.capabilities,
-                "description": info.description,
-            })
+            result.append(
+                {
+                    "id": model_id,
+                    "name": info.name,
+                    "size": info.size.value,
+                    "file_size_mb": info.file_size_mb,
+                    "status": self.get_status(model_id).value,
+                    "capabilities": info.capabilities,
+                    "description": info.description,
+                }
+            )
         return result
 
 

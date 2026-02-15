@@ -163,14 +163,16 @@ class DiffSummarizerAgent(BaseAgent):
         if len(diff) > max_diff_length:
             diff = diff[:max_diff_length] + "\n\n... [diff truncated] ..."
 
-        prompt_parts.extend([
-            "",
-            "```diff",
-            diff,
-            "```",
-            "",
-            "Provide a comprehensive summary of these changes.",
-        ])
+        prompt_parts.extend(
+            [
+                "",
+                "```diff",
+                diff,
+                "```",
+                "",
+                "Provide a comprehensive summary of these changes.",
+            ]
+        )
 
         return "\n".join(prompt_parts)
 
@@ -230,7 +232,8 @@ class DiffSummarizerAgent(BaseAgent):
         replacements = {
             "{{summary}}": data.get("summary", ""),
             "{{changes}}": "\n".join(f"- {c}" for c in data.get("behavioral_changes", [])),
-            "{{breaking_changes}}": "\n".join(f"- {c}" for c in data.get("breaking_changes", [])) or "None",
+            "{{breaking_changes}}": "\n".join(f"- {c}" for c in data.get("breaking_changes", []))
+            or "None",
             "{{components}}": ", ".join(data.get("affected_components", [])) or "N/A",
             "{{risk}}": data.get("risk_assessment", {}).get("level", "unknown"),
         }
@@ -297,11 +300,13 @@ class DiffSummarizerAgent(BaseAgent):
             result = await self.summarize_diff(diff, {"commit_sha": commit_sha})
 
             if result.success:
-                entries.append({
-                    "commit": commit_sha[:8],
-                    "entry": result.data.get("changelog_entry", ""),
-                    "category": self._categorize_change(result.data),
-                })
+                entries.append(
+                    {
+                        "commit": commit_sha[:8],
+                        "entry": result.data.get("changelog_entry", ""),
+                        "category": self._categorize_change(result.data),
+                    }
+                )
 
         return entries
 

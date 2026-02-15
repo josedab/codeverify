@@ -299,7 +299,9 @@ class SpecLibrary:
                 z3_template="Length({var}) > 0",
                 smtlib_template="(assert (> (seq.len {var}) 0))",
                 python_template="assert len({var}) > 0",
-                variables=[{"name": "var", "type": "Seq", "description": "The collection to check"}],
+                variables=[
+                    {"name": "var", "type": "Seq", "description": "The collection to check"}
+                ],
                 examples=[
                     {"nl": "items must not be empty", "z3": "Length(items) > 0"},
                 ],
@@ -319,7 +321,10 @@ class SpecLibrary:
                     {"name": "array", "type": "Seq", "description": "Array/list"},
                 ],
                 examples=[
-                    {"nl": "i must be a valid index for items", "z3": "And(i >= 0, i < Length(items))"},
+                    {
+                        "nl": "i must be a valid index for items",
+                        "z3": "And(i >= 0, i < Length(items))",
+                    },
                 ],
             ),
             SpecTemplate(
@@ -331,9 +336,14 @@ class SpecLibrary:
                 z3_template="ForAll([i], Implies(And(i >= 0, i < Length({array})), {array}[i] > 0))",
                 smtlib_template="(assert (forall ((i Int)) (=> (and (>= i 0) (< i (seq.len {array}))) (> (seq.nth {array} i) 0))))",
                 python_template="assert all(x > 0 for x in {array})",
-                variables=[{"name": "array", "type": "Seq(Int)", "description": "Array of integers"}],
+                variables=[
+                    {"name": "array", "type": "Seq(Int)", "description": "Array of integers"}
+                ],
                 examples=[
-                    {"nl": "all elements of prices must be positive", "z3": "ForAll([i], Implies(And(i >= 0, i < Length(prices)), prices[i] > 0))"},
+                    {
+                        "nl": "all elements of prices must be positive",
+                        "z3": "ForAll([i], Implies(And(i >= 0, i < Length(prices)), prices[i] > 0))",
+                    },
                 ],
             ),
             # Implication patterns
@@ -384,7 +394,10 @@ class SpecLibrary:
                     {"name": "total", "type": "Int", "description": "Expected total"},
                 ],
                 examples=[
-                    {"nl": "the sum of credit and debit must equal balance", "z3": "credit + debit == balance"},
+                    {
+                        "nl": "the sum of credit and debit must equal balance",
+                        "z3": "credit + debit == balance",
+                    },
                 ],
             ),
             # String patterns
@@ -403,7 +416,10 @@ class SpecLibrary:
                     {"name": "max", "type": "Int", "description": "Maximum length"},
                 ],
                 examples=[
-                    {"nl": "password length must be between 8 and 128", "z3": "And(Length(password) >= 8, Length(password) <= 128)"},
+                    {
+                        "nl": "password length must be between 8 and 128",
+                        "z3": "And(Length(password) >= 8, Length(password) <= 128)",
+                    },
                 ],
             ),
             # Financial patterns
@@ -418,7 +434,10 @@ class SpecLibrary:
                 python_template="assert {account}.balance >= 0",
                 variables=[{"name": "account", "type": "Account", "description": "Account object"}],
                 examples=[
-                    {"nl": "checking balance must never go negative", "z3": "checking_balance >= 0"},
+                    {
+                        "nl": "checking balance must never go negative",
+                        "z3": "checking_balance >= 0",
+                    },
                 ],
             ),
             # Authentication patterns
@@ -433,7 +452,10 @@ class SpecLibrary:
                 python_template="assert {user}.is_authenticated",
                 variables=[{"name": "user", "type": "User", "description": "User object"}],
                 examples=[
-                    {"nl": "current_user must be authenticated", "z3": "current_user_authenticated == True"},
+                    {
+                        "nl": "current_user must be authenticated",
+                        "z3": "current_user_authenticated == True",
+                    },
                 ],
             ),
             SpecTemplate(
@@ -450,7 +472,10 @@ class SpecLibrary:
                     {"name": "permission", "type": "String", "description": "Required permission"},
                 ],
                 examples=[
-                    {"nl": "admin must have delete permission", "z3": "Contains(admin_permissions, 'delete')"},
+                    {
+                        "nl": "admin must have delete permission",
+                        "z3": "Contains(admin_permissions, 'delete')",
+                    },
                 ],
             ),
         ]
@@ -630,10 +655,37 @@ class NLSpecParser:
 
             # Skip common words
             skip_words = {
-                "must", "should", "be", "is", "not", "null", "none", "empty",
-                "positive", "negative", "between", "and", "or", "if", "then",
-                "all", "every", "each", "in", "of", "the", "a", "an", "to",
-                "greater", "less", "than", "equal", "equals", "true", "false",
+                "must",
+                "should",
+                "be",
+                "is",
+                "not",
+                "null",
+                "none",
+                "empty",
+                "positive",
+                "negative",
+                "between",
+                "and",
+                "or",
+                "if",
+                "then",
+                "all",
+                "every",
+                "each",
+                "in",
+                "of",
+                "the",
+                "a",
+                "an",
+                "to",
+                "greater",
+                "less",
+                "than",
+                "equal",
+                "equals",
+                "true",
+                "false",
             }
 
             if var_name not in skip_words:
@@ -697,7 +749,9 @@ class NLSpecParser:
             questions.append("Which variable should this constraint apply to?")
 
         if "positive" in (spec.predicate or "") and spec.subject:
-            questions.append(f"Should {spec.subject} be strictly positive (> 0) or non-negative (>= 0)?")
+            questions.append(
+                f"Should {spec.subject} be strictly positive (> 0) or non-negative (>= 0)?"
+            )
 
         if spec.predicate == "range" and len(spec.objects) < 2:
             questions.append("What should the upper and lower bounds be?")
@@ -869,7 +923,7 @@ IMPORTANT:
             var_mapping["var1"] = parsed.subject
 
         for i, obj in enumerate(parsed.objects):
-            var_mapping[f"var{i+2}"] = obj
+            var_mapping[f"var{i + 2}"] = obj
             if i == 0:
                 var_mapping["min"] = obj
             elif i == 1:
@@ -994,8 +1048,22 @@ Convert to Z3 formal specification."""
         """
         try:
             from z3 import (
-                And, Array, Bool, ForAll, If, Implies, Int, IntSort, Not, Or,
-                Real, Solver, String, sat, unknown, unsat
+                And,
+                Array,
+                Bool,
+                ForAll,
+                If,
+                Implies,
+                Int,
+                IntSort,
+                Not,
+                Or,
+                Real,
+                Solver,
+                String,
+                sat,
+                unknown,
+                unsat,
             )
 
             solver = Solver()
@@ -1003,10 +1071,18 @@ Convert to Z3 formal specification."""
 
             # Create variables
             local_vars: dict[str, Any] = {
-                "And": And, "Or": Or, "Not": Not, "Implies": Implies,
-                "ForAll": ForAll, "If": If,
-                "Int": Int, "Real": Real, "Bool": Bool, "String": String,
-                "Array": Array, "IntSort": IntSort,
+                "And": And,
+                "Or": Or,
+                "Not": Not,
+                "Implies": Implies,
+                "ForAll": ForAll,
+                "If": If,
+                "Int": Int,
+                "Real": Real,
+                "Bool": Bool,
+                "String": String,
+                "Array": Array,
+                "IntSort": IntSort,
             }
 
             for var_name, var_type in variables.items():
@@ -1118,9 +1194,11 @@ Provide a corrected/refined specification that addresses the feedback."""
             if param_type in ("int", "Int", "integer"):
                 suggestions.append(f"{param_name} must be positive")
                 suggestions.append(f"{param_name} must be non-negative")
-            elif param_type in ("str", "String", "string"):
-                suggestions.append(f"{param_name} must not be empty")
-            elif "list" in param_type.lower() or "array" in param_type.lower():
+            elif (
+                param_type in ("str", "String", "string")
+                or "list" in param_type.lower()
+                or "array" in param_type.lower()
+            ):
                 suggestions.append(f"{param_name} must not be empty")
 
         if return_match:

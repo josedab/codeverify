@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 from uuid import uuid4
 
 
 class ArchitectureType(str, Enum):
     """Types of software architecture."""
+
     MONOLITH = "monolith"
     MICROSERVICES = "microservices"
     MODULAR_MONOLITH = "modular_monolith"
@@ -30,6 +31,7 @@ class ArchitectureType(str, Enum):
 
 class ProjectType(str, Enum):
     """Types of projects."""
+
     WEB_FRONTEND = "web_frontend"
     WEB_BACKEND = "web_backend"
     CLI_TOOL = "cli_tool"
@@ -45,6 +47,7 @@ class ProjectType(str, Enum):
 
 class ConventionType(str, Enum):
     """Types of coding conventions."""
+
     NAMING = "naming"
     FORMATTING = "formatting"
     STRUCTURE = "structure"
@@ -57,6 +60,7 @@ class ConventionType(str, Enum):
 
 class Severity(str, Enum):
     """Finding severity levels."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -67,13 +71,14 @@ class Severity(str, Enum):
 @dataclass
 class DetectedArchitecture:
     """Detected architecture information."""
+
     type: ArchitectureType
     confidence: float
-    indicators: List[str]
-    layers: List[str]
-    components: List[str]
+    indicators: list[str]
+    layers: list[str]
+    components: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "type": self.type.value,
@@ -87,16 +92,17 @@ class DetectedArchitecture:
 @dataclass
 class DetectedPattern:
     """A detected coding pattern."""
+
     id: str
     name: str
     pattern_type: str
     description: str
     occurrences: int
-    examples: List[str]
-    file_patterns: List[str]
+    examples: list[str]
+    file_patterns: list[str]
     confidence: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -113,15 +119,16 @@ class DetectedPattern:
 @dataclass
 class Convention:
     """A detected coding convention."""
+
     id: str
     type: ConventionType
     name: str
     description: str
     rule: str
-    examples: List[str]
+    examples: list[str]
     adherence_rate: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -137,19 +144,20 @@ class Convention:
 @dataclass
 class ProjectContext:
     """Complete project context."""
+
     id: str
     name: str
     project_type: ProjectType
     architecture: DetectedArchitecture
-    patterns: List[DetectedPattern]
-    conventions: List[Convention]
-    languages: Dict[str, int]  # language -> file count
-    frameworks: List[str]
-    dependencies: List[str]
+    patterns: list[DetectedPattern]
+    conventions: list[Convention]
+    languages: dict[str, int]  # language -> file count
+    frameworks: list[str]
+    dependencies: list[str]
     created_at: datetime
     updated_at: datetime
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -169,12 +177,13 @@ class ProjectContext:
 @dataclass
 class SeverityAdjustment:
     """A severity adjustment based on context."""
+
     original_severity: Severity
     adjusted_severity: Severity
     reason: str
-    context_factors: List[str]
+    context_factors: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "original_severity": self.original_severity.value,
@@ -187,16 +196,17 @@ class SeverityAdjustment:
 @dataclass
 class ContextualFinding:
     """A finding with contextual information."""
+
     finding_id: str
     finding_type: str
     original_severity: Severity
     adjusted_severity: Severity
-    adjustment: Optional[SeverityAdjustment]
+    adjustment: SeverityAdjustment | None
     relevance_score: float
-    context_notes: List[str]
-    similar_patterns: List[str]
+    context_notes: list[str]
+    similar_patterns: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "finding_id": self.finding_id,
@@ -253,14 +263,14 @@ class ArchitectureDetector:
 
     def detect(
         self,
-        file_paths: List[str],
-        file_contents: Optional[Dict[str, str]] = None,
+        file_paths: list[str],
+        file_contents: dict[str, str] | None = None,
     ) -> DetectedArchitecture:
         """Detect architecture from file structure."""
-        scores: Dict[ArchitectureType, float] = defaultdict(float)
-        indicators: Dict[ArchitectureType, List[str]] = defaultdict(list)
-        layers: Set[str] = set()
-        components: Set[str] = set()
+        scores: dict[ArchitectureType, float] = defaultdict(float)
+        indicators: dict[ArchitectureType, list[str]] = defaultdict(list)
+        layers: set[str] = set()
+        components: set[str] = set()
 
         # Analyze file paths
         for path in file_paths:
@@ -337,12 +347,12 @@ class PatternExtractor:
 
     def extract(
         self,
-        file_paths: List[str],
-        file_contents: Dict[str, str],
-    ) -> List[DetectedPattern]:
+        file_paths: list[str],
+        file_contents: dict[str, str],
+    ) -> list[DetectedPattern]:
         """Extract patterns from code."""
-        patterns: List[DetectedPattern] = []
-        pattern_occurrences: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
+        patterns: list[DetectedPattern] = []
+        pattern_occurrences: dict[str, list[tuple[str, str]]] = defaultdict(list)
 
         for path, content in file_contents.items():
             for pattern_name, pattern_regex in self.PATTERNS.items():
@@ -356,16 +366,18 @@ class PatternExtractor:
 
         for pattern_name, occurrences in pattern_occurrences.items():
             if len(occurrences) >= 2:  # Only include if used multiple times
-                patterns.append(DetectedPattern(
-                    id=str(uuid4()),
-                    name=pattern_name.replace("_", " ").title(),
-                    pattern_type="design_pattern",
-                    description=f"Detected {pattern_name} pattern usage",
-                    occurrences=len(occurrences),
-                    examples=[f"{path}: {ex}" for path, ex in occurrences[:3]],
-                    file_patterns=[path for path, _ in occurrences[:5]],
-                    confidence=min(1.0, len(occurrences) / 10),
-                ))
+                patterns.append(
+                    DetectedPattern(
+                        id=str(uuid4()),
+                        name=pattern_name.replace("_", " ").title(),
+                        pattern_type="design_pattern",
+                        description=f"Detected {pattern_name} pattern usage",
+                        occurrences=len(occurrences),
+                        examples=[f"{path}: {ex}" for path, ex in occurrences[:3]],
+                        file_patterns=[path for path, _ in occurrences[:5]],
+                        confidence=min(1.0, len(occurrences) / 10),
+                    )
+                )
 
         return patterns
 
@@ -375,11 +387,11 @@ class ConventionDetector:
 
     def detect(
         self,
-        file_paths: List[str],
-        file_contents: Dict[str, str],
-    ) -> List[Convention]:
+        file_paths: list[str],
+        file_contents: dict[str, str],
+    ) -> list[Convention]:
         """Detect coding conventions."""
-        conventions: List[Convention] = []
+        conventions: list[Convention] = []
 
         # Detect naming conventions
         naming_conv = self._detect_naming_conventions(file_contents)
@@ -403,11 +415,11 @@ class ConventionDetector:
 
         return conventions
 
-    def _detect_naming_conventions(self, file_contents: Dict[str, str]) -> Optional[Convention]:
+    def _detect_naming_conventions(self, file_contents: dict[str, str]) -> Convention | None:
         """Detect naming conventions."""
         snake_case = 0
         camel_case = 0
-        examples: List[str] = []
+        examples: list[str] = []
 
         for content in file_contents.values():
             # Check function definitions
@@ -415,7 +427,9 @@ class ConventionDetector:
             camel_funcs = re.findall(r"def\s+([a-z][a-zA-Z0-9]*)\s*\(", content)
 
             snake_case += len([f for f in snake_funcs if "_" in f])
-            camel_case += len([f for f in camel_funcs if "_" not in f and any(c.isupper() for c in f)])
+            camel_case += len(
+                [f for f in camel_funcs if "_" not in f and any(c.isupper() for c in f)]
+            )
 
             for func in snake_funcs[:2]:
                 if "_" in func:
@@ -444,11 +458,11 @@ class ConventionDetector:
 
         return None
 
-    def _detect_doc_conventions(self, file_contents: Dict[str, str]) -> Optional[Convention]:
+    def _detect_doc_conventions(self, file_contents: dict[str, str]) -> Convention | None:
         """Detect documentation conventions."""
         docstrings = 0
         functions = 0
-        examples: List[str] = []
+        examples: list[str] = []
 
         for content in file_contents.values():
             func_matches = re.findall(
@@ -477,11 +491,11 @@ class ConventionDetector:
 
         return None
 
-    def _detect_error_conventions(self, file_contents: Dict[str, str]) -> Optional[Convention]:
+    def _detect_error_conventions(self, file_contents: dict[str, str]) -> Convention | None:
         """Detect error handling conventions."""
         try_blocks = 0
         custom_exceptions = 0
-        examples: List[str] = []
+        examples: list[str] = []
 
         for content in file_contents.values():
             try_blocks += len(re.findall(r"\btry\s*:", content))
@@ -506,14 +520,14 @@ class ConventionDetector:
 
     def _detect_test_conventions(
         self,
-        file_paths: List[str],
-        file_contents: Dict[str, str],
-    ) -> Optional[Convention]:
+        file_paths: list[str],
+        file_contents: dict[str, str],
+    ) -> Convention | None:
         """Detect testing conventions."""
         test_files = [p for p in file_paths if "test" in p.lower()]
         pytest_tests = 0
         unittest_tests = 0
-        examples: List[str] = []
+        examples: list[str] = []
 
         for path, content in file_contents.items():
             if "test" in path.lower():
@@ -582,7 +596,7 @@ class SeverityAdjuster:
         context: ProjectContext,
     ) -> SeverityAdjustment:
         """Adjust severity based on context."""
-        factors: List[str] = []
+        factors: list[str] = []
         adjustment_direction = None
         reason = "No contextual adjustment needed"
 
@@ -607,7 +621,13 @@ class SeverityAdjuster:
                     break
 
         # Calculate adjusted severity
-        severity_order = [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH, Severity.CRITICAL]
+        severity_order = [
+            Severity.INFO,
+            Severity.LOW,
+            Severity.MEDIUM,
+            Severity.HIGH,
+            Severity.CRITICAL,
+        ]
         current_idx = severity_order.index(original_severity)
 
         if adjustment_direction == "increase" and current_idx < len(severity_order) - 1:
@@ -634,14 +654,14 @@ class ContextAwareAnalyzer:
         self.convention_detector = ConventionDetector()
         self.severity_adjuster = SeverityAdjuster()
 
-        self.contexts: Dict[str, ProjectContext] = {}
+        self.contexts: dict[str, ProjectContext] = {}
 
     def analyze_project(
         self,
         project_name: str,
-        file_paths: List[str],
-        file_contents: Dict[str, str],
-        dependencies: Optional[List[str]] = None,
+        file_paths: list[str],
+        file_contents: dict[str, str],
+        dependencies: list[str] | None = None,
     ) -> ProjectContext:
         """Analyze a project and build context."""
         # Detect architecture
@@ -654,7 +674,7 @@ class ContextAwareAnalyzer:
         conventions = self.convention_detector.detect(file_paths, file_contents)
 
         # Detect languages from file extensions
-        languages: Dict[str, int] = defaultdict(int)
+        languages: dict[str, int] = defaultdict(int)
         for path in file_paths:
             ext = path.split(".")[-1] if "." in path else "unknown"
             languages[ext] += 1
@@ -684,20 +704,26 @@ class ContextAwareAnalyzer:
 
     def _detect_project_type(
         self,
-        file_paths: List[str],
-        file_contents: Dict[str, str],
-        languages: Dict[str, int],
+        file_paths: list[str],
+        file_contents: dict[str, str],
+        languages: dict[str, int],
     ) -> ProjectType:
         """Detect project type."""
         paths_lower = [p.lower() for p in file_paths]
         all_content = " ".join(file_contents.values())
 
         # Check for web frontend
-        if "package.json" in paths_lower and ("react" in all_content.lower() or "vue" in all_content.lower()):
+        if "package.json" in paths_lower and (
+            "react" in all_content.lower() or "vue" in all_content.lower()
+        ):
             return ProjectType.WEB_FRONTEND
 
         # Check for API service
-        if "fastapi" in all_content.lower() or "flask" in all_content.lower() or "express" in all_content.lower():
+        if (
+            "fastapi" in all_content.lower()
+            or "flask" in all_content.lower()
+            or "express" in all_content.lower()
+        ):
             return ProjectType.API_SERVICE
 
         # Check for CLI tool
@@ -709,11 +735,19 @@ class ContextAwareAnalyzer:
             return ProjectType.LIBRARY
 
         # Check for ML project
-        if "tensorflow" in all_content.lower() or "pytorch" in all_content.lower() or "sklearn" in all_content.lower():
+        if (
+            "tensorflow" in all_content.lower()
+            or "pytorch" in all_content.lower()
+            or "sklearn" in all_content.lower()
+        ):
             return ProjectType.ML_PROJECT
 
         # Check for data pipeline
-        if "airflow" in all_content.lower() or "luigi" in all_content.lower() or "prefect" in all_content.lower():
+        if (
+            "airflow" in all_content.lower()
+            or "luigi" in all_content.lower()
+            or "prefect" in all_content.lower()
+        ):
             return ProjectType.DATA_PIPELINE
 
         # Default to web backend
@@ -724,11 +758,11 @@ class ContextAwareAnalyzer:
 
     def _detect_frameworks(
         self,
-        file_contents: Dict[str, str],
-        dependencies: List[str],
-    ) -> List[str]:
+        file_contents: dict[str, str],
+        dependencies: list[str],
+    ) -> list[str]:
         """Detect frameworks used."""
-        frameworks: Set[str] = set()
+        frameworks: set[str] = set()
         all_content = " ".join(file_contents.values()).lower()
 
         framework_patterns = {
@@ -754,7 +788,7 @@ class ContextAwareAnalyzer:
         # Check dependencies
         for dep in dependencies:
             dep_lower = dep.lower()
-            for framework in framework_patterns.keys():
+            for framework in framework_patterns:
                 if framework.lower() in dep_lower:
                     frameworks.add(framework)
 
@@ -766,13 +800,17 @@ class ContextAwareAnalyzer:
         finding_type: str,
         original_severity: str,
         context_id: str,
-        code_snippet: Optional[str] = None,
+        code_snippet: str | None = None,
     ) -> ContextualFinding:
         """Adjust finding severity based on context."""
         context = self.contexts.get(context_id)
         if not context:
             # Return unadjusted finding
-            sev = Severity(original_severity) if original_severity in [s.value for s in Severity] else Severity.MEDIUM
+            sev = (
+                Severity(original_severity)
+                if original_severity in [s.value for s in Severity]
+                else Severity.MEDIUM
+            )
             return ContextualFinding(
                 finding_id=finding_id,
                 finding_type=finding_type,
@@ -784,7 +822,11 @@ class ContextAwareAnalyzer:
                 similar_patterns=[],
             )
 
-        sev = Severity(original_severity) if original_severity in [s.value for s in Severity] else Severity.MEDIUM
+        sev = (
+            Severity(original_severity)
+            if original_severity in [s.value for s in Severity]
+            else Severity.MEDIUM
+        )
 
         # Get severity adjustment
         adjustment = self.severity_adjuster.adjust(finding_type, sev, context)
@@ -830,9 +872,9 @@ class ContextAwareAnalyzer:
 
         return min(1.5, relevance)
 
-    def _find_similar_patterns(self, finding_type: str, context: ProjectContext) -> List[str]:
+    def _find_similar_patterns(self, finding_type: str, context: ProjectContext) -> list[str]:
         """Find similar patterns in the project."""
-        similar: List[str] = []
+        similar: list[str] = []
         finding_lower = finding_type.lower()
 
         for pattern in context.patterns:
@@ -841,9 +883,9 @@ class ContextAwareAnalyzer:
 
         return similar[:5]
 
-    def _generate_context_notes(self, finding_type: str, context: ProjectContext) -> List[str]:
+    def _generate_context_notes(self, finding_type: str, context: ProjectContext) -> list[str]:
         """Generate context notes for a finding."""
-        notes: List[str] = []
+        notes: list[str] = []
 
         notes.append(f"Project type: {context.project_type.value}")
         notes.append(f"Architecture: {context.architecture.type.value}")
@@ -853,15 +895,15 @@ class ContextAwareAnalyzer:
 
         return notes
 
-    def get_context(self, context_id: str) -> Optional[ProjectContext]:
+    def get_context(self, context_id: str) -> ProjectContext | None:
         """Get a project context by ID."""
         return self.contexts.get(context_id)
 
-    def list_contexts(self) -> List[ProjectContext]:
+    def list_contexts(self) -> list[ProjectContext]:
         """List all project contexts."""
         return list(self.contexts.values())
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get analyzer statistics."""
         if not self.contexts:
             return {
@@ -872,8 +914,8 @@ class ContextAwareAnalyzer:
                 "total_conventions": 0,
             }
 
-        arch_types: Dict[str, int] = defaultdict(int)
-        proj_types: Dict[str, int] = defaultdict(int)
+        arch_types: dict[str, int] = defaultdict(int)
+        proj_types: dict[str, int] = defaultdict(int)
         total_patterns = 0
         total_conventions = 0
 

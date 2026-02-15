@@ -9,18 +9,17 @@ model fine-tuning when appropriate.
 from __future__ import annotations
 
 import hashlib
-import json
-import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 
 class FeedbackType(str, Enum):
     """Types of user feedback."""
+
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     FALSE_POSITIVE = "false_positive"
@@ -31,6 +30,7 @@ class FeedbackType(str, Enum):
 
 class FindingCategory(str, Enum):
     """Categories of findings."""
+
     SECURITY = "security"
     PERFORMANCE = "performance"
     STYLE = "style"
@@ -43,6 +43,7 @@ class FindingCategory(str, Enum):
 
 class LearningStatus(str, Enum):
     """Status of learning operations."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -52,18 +53,19 @@ class LearningStatus(str, Enum):
 @dataclass
 class FeedbackRecord:
     """Record of user feedback on a finding."""
+
     id: str
     finding_id: str
     finding_type: str
     finding_category: FindingCategory
     feedback_type: FeedbackType
-    user_id: Optional[str]
-    code_snippet: Optional[str]
-    context: Dict[str, Any]
+    user_id: str | None
+    code_snippet: str | None
+    context: dict[str, Any]
     timestamp: datetime
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -82,18 +84,19 @@ class FeedbackRecord:
 @dataclass
 class LearnedPattern:
     """A pattern learned from feedback."""
+
     id: str
     pattern_type: str
     description: str
     category: FindingCategory
     confidence: float
     support_count: int  # Number of feedback records supporting this pattern
-    examples: List[str]
+    examples: list[str]
     learned_at: datetime
     last_updated: datetime
     is_active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -112,17 +115,18 @@ class LearnedPattern:
 @dataclass
 class LearningMetrics:
     """Metrics for the learning engine."""
+
     total_feedback: int
-    feedback_by_type: Dict[str, int]
-    feedback_by_category: Dict[str, int]
+    feedback_by_type: dict[str, int]
+    feedback_by_category: dict[str, int]
     patterns_learned: int
     active_patterns: int
     accuracy_improvement: float
     false_positive_reduction: float
-    last_training_time: Optional[datetime]
-    next_training_eligible: Optional[datetime]
+    last_training_time: datetime | None
+    next_training_eligible: datetime | None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_feedback": self.total_feedback,
@@ -132,23 +136,28 @@ class LearningMetrics:
             "active_patterns": self.active_patterns,
             "accuracy_improvement": self.accuracy_improvement,
             "false_positive_reduction": self.false_positive_reduction,
-            "last_training_time": self.last_training_time.isoformat() if self.last_training_time else None,
-            "next_training_eligible": self.next_training_eligible.isoformat() if self.next_training_eligible else None,
+            "last_training_time": self.last_training_time.isoformat()
+            if self.last_training_time
+            else None,
+            "next_training_eligible": self.next_training_eligible.isoformat()
+            if self.next_training_eligible
+            else None,
         }
 
 
 @dataclass
 class TrainingTrigger:
     """Criteria for triggering model fine-tuning."""
+
     id: str
     trigger_type: str
     threshold: float
     current_value: float
     is_triggered: bool
-    triggered_at: Optional[datetime]
+    triggered_at: datetime | None
     description: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -164,17 +173,18 @@ class TrainingTrigger:
 @dataclass
 class TrainingJob:
     """A model fine-tuning job."""
+
     id: str
     status: LearningStatus
     trigger_id: str
     feedback_count: int
     patterns_included: int
     started_at: datetime
-    completed_at: Optional[datetime]
-    metrics: Dict[str, float] = field(default_factory=dict)
-    error: Optional[str] = None
+    completed_at: datetime | None
+    metrics: dict[str, float] = field(default_factory=dict)
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -193,10 +203,10 @@ class FeedbackCollector:
     """Collects and stores user feedback."""
 
     def __init__(self):
-        self.feedback_records: Dict[str, FeedbackRecord] = {}
-        self.feedback_by_finding: Dict[str, List[str]] = defaultdict(list)
-        self.feedback_by_user: Dict[str, List[str]] = defaultdict(list)
-        self.feedback_by_category: Dict[str, List[str]] = defaultdict(list)
+        self.feedback_records: dict[str, FeedbackRecord] = {}
+        self.feedback_by_finding: dict[str, list[str]] = defaultdict(list)
+        self.feedback_by_user: dict[str, list[str]] = defaultdict(list)
+        self.feedback_by_category: dict[str, list[str]] = defaultdict(list)
 
     def record_feedback(
         self,
@@ -204,10 +214,10 @@ class FeedbackCollector:
         finding_type: str,
         category: FindingCategory,
         feedback_type: FeedbackType,
-        user_id: Optional[str] = None,
-        code_snippet: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        user_id: str | None = None,
+        code_snippet: str | None = None,
+        context: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FeedbackRecord:
         """Record user feedback on a finding."""
         record_id = str(uuid4())
@@ -233,16 +243,16 @@ class FeedbackCollector:
 
         return record
 
-    def get_feedback(self, record_id: str) -> Optional[FeedbackRecord]:
+    def get_feedback(self, record_id: str) -> FeedbackRecord | None:
         """Get a feedback record by ID."""
         return self.feedback_records.get(record_id)
 
-    def get_feedback_for_finding(self, finding_id: str) -> List[FeedbackRecord]:
+    def get_feedback_for_finding(self, finding_id: str) -> list[FeedbackRecord]:
         """Get all feedback for a finding."""
         record_ids = self.feedback_by_finding.get(finding_id, [])
         return [self.feedback_records[rid] for rid in record_ids if rid in self.feedback_records]
 
-    def get_feedback_by_category(self, category: FindingCategory) -> List[FeedbackRecord]:
+    def get_feedback_by_category(self, category: FindingCategory) -> list[FeedbackRecord]:
         """Get all feedback for a category."""
         record_ids = self.feedback_by_category.get(category.value, [])
         return [self.feedback_records[rid] for rid in record_ids if rid in self.feedback_records]
@@ -250,8 +260,8 @@ class FeedbackCollector:
     def get_recent_feedback(
         self,
         hours: int = 24,
-        category: Optional[FindingCategory] = None,
-    ) -> List[FeedbackRecord]:
+        category: FindingCategory | None = None,
+    ) -> list[FeedbackRecord]:
         """Get recent feedback records."""
         cutoff = datetime.now() - timedelta(hours=hours)
         records = []
@@ -263,10 +273,10 @@ class FeedbackCollector:
 
         return sorted(records, key=lambda r: r.timestamp, reverse=True)
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get feedback statistics."""
-        by_type: Dict[str, int] = defaultdict(int)
-        by_category: Dict[str, int] = defaultdict(int)
+        by_type: dict[str, int] = defaultdict(int)
+        by_category: dict[str, int] = defaultdict(int)
 
         for record in self.feedback_records.values():
             by_type[record.feedback_type.value] += 1
@@ -287,16 +297,16 @@ class PatternLearner:
     def __init__(self, min_support: int = 3, min_confidence: float = 0.7):
         self.min_support = min_support
         self.min_confidence = min_confidence
-        self.patterns: Dict[str, LearnedPattern] = {}
-        self.pattern_by_category: Dict[str, List[str]] = defaultdict(list)
+        self.patterns: dict[str, LearnedPattern] = {}
+        self.pattern_by_category: dict[str, list[str]] = defaultdict(list)
 
     def analyze_feedback(
         self,
-        feedback_records: List[FeedbackRecord],
-    ) -> List[LearnedPattern]:
+        feedback_records: list[FeedbackRecord],
+    ) -> list[LearnedPattern]:
         """Analyze feedback records to learn patterns."""
         # Group feedback by finding type and outcome
-        type_outcomes: Dict[str, Dict[str, List[FeedbackRecord]]] = defaultdict(
+        type_outcomes: dict[str, dict[str, list[FeedbackRecord]]] = defaultdict(
             lambda: defaultdict(list)
         )
 
@@ -352,15 +362,15 @@ class PatternLearner:
         self,
         finding_type: str,
         pattern_type: str,
-        records: List[FeedbackRecord],
+        records: list[FeedbackRecord],
         description: str,
-    ) -> Optional[LearnedPattern]:
+    ) -> LearnedPattern | None:
         """Create a learned pattern from feedback records."""
         if len(records) < self.min_support:
             return None
 
         # Determine dominant category
-        category_counts: Dict[str, int] = defaultdict(int)
+        category_counts: dict[str, int] = defaultdict(int)
         for record in records:
             category_counts[record.finding_category.value] += 1
 
@@ -396,13 +406,13 @@ class PatternLearner:
 
     def _analyze_code_snippets(
         self,
-        records: List[FeedbackRecord],
-    ) -> List[LearnedPattern]:
+        records: list[FeedbackRecord],
+    ) -> list[LearnedPattern]:
         """Analyze code snippets for common patterns."""
         patterns = []
 
         # Group by code snippet hash
-        snippet_groups: Dict[str, List[FeedbackRecord]] = defaultdict(list)
+        snippet_groups: dict[str, list[FeedbackRecord]] = defaultdict(list)
 
         for record in records:
             if record.code_snippet:
@@ -420,7 +430,7 @@ class PatternLearner:
                     pattern = LearnedPattern(
                         id=str(uuid4()),
                         pattern_type="code_pattern_fp",
-                        description=f"Code pattern frequently marked as false positive",
+                        description="Code pattern frequently marked as false positive",
                         category=group[0].finding_category,
                         confidence=fp_count / len(group),
                         support_count=len(group),
@@ -444,16 +454,16 @@ class PatternLearner:
                 normalized.append(stripped)
         return "\n".join(normalized)
 
-    def get_pattern(self, pattern_id: str) -> Optional[LearnedPattern]:
+    def get_pattern(self, pattern_id: str) -> LearnedPattern | None:
         """Get a pattern by ID."""
         return self.patterns.get(pattern_id)
 
-    def get_patterns_by_category(self, category: FindingCategory) -> List[LearnedPattern]:
+    def get_patterns_by_category(self, category: FindingCategory) -> list[LearnedPattern]:
         """Get patterns for a category."""
         pattern_ids = self.pattern_by_category.get(category.value, [])
         return [self.patterns[pid] for pid in pattern_ids if pid in self.patterns]
 
-    def get_active_patterns(self) -> List[LearnedPattern]:
+    def get_active_patterns(self) -> list[LearnedPattern]:
         """Get all active patterns."""
         return [p for p in self.patterns.values() if p.is_active]
 
@@ -465,10 +475,10 @@ class PatternLearner:
             return True
         return False
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get pattern statistics."""
-        by_type: Dict[str, int] = defaultdict(int)
-        by_category: Dict[str, int] = defaultdict(int)
+        by_type: dict[str, int] = defaultdict(int)
+        by_category: dict[str, int] = defaultdict(int)
 
         for pattern in self.patterns.values():
             by_type[pattern.pattern_type] += 1
@@ -481,7 +491,8 @@ class PatternLearner:
             "active_patterns": active_count,
             "by_type": dict(by_type),
             "by_category": dict(by_category),
-            "avg_confidence": sum(p.confidence for p in self.patterns.values()) / max(1, len(self.patterns)),
+            "avg_confidence": sum(p.confidence for p in self.patterns.values())
+            / max(1, len(self.patterns)),
         }
 
 
@@ -498,9 +509,9 @@ class TrainingManager:
         self.fp_rate_threshold = fp_rate_threshold
         self.training_cooldown_hours = training_cooldown_hours
 
-        self.triggers: Dict[str, TrainingTrigger] = {}
-        self.jobs: Dict[str, TrainingJob] = {}
-        self.last_training_time: Optional[datetime] = None
+        self.triggers: dict[str, TrainingTrigger] = {}
+        self.jobs: dict[str, TrainingJob] = {}
+        self.last_training_time: datetime | None = None
 
         # Initialize default triggers
         self._init_default_triggers()
@@ -524,7 +535,7 @@ class TrainingManager:
             current_value=0,
             is_triggered=False,
             triggered_at=None,
-            description=f"Trigger when false positive rate exceeds {self.fp_rate_threshold*100}%",
+            description=f"Trigger when false positive rate exceeds {self.fp_rate_threshold * 100}%",
         )
 
         self.triggers["pattern_drift"] = TrainingTrigger(
@@ -542,7 +553,7 @@ class TrainingManager:
         feedback_count: int,
         fp_rate: float,
         pattern_drift: float = 0.0,
-    ) -> List[TrainingTrigger]:
+    ) -> list[TrainingTrigger]:
         """Update trigger values and check if any are triggered."""
         triggered = []
 
@@ -572,13 +583,16 @@ class TrainingManager:
 
         return triggered
 
-    def can_train(self) -> Tuple[bool, str]:
+    def can_train(self) -> tuple[bool, str]:
         """Check if training is allowed."""
         if self.last_training_time:
             cooldown_end = self.last_training_time + timedelta(hours=self.training_cooldown_hours)
             if datetime.now() < cooldown_end:
                 remaining = cooldown_end - datetime.now()
-                return False, f"Training cooldown active. {remaining.seconds // 3600} hours remaining."
+                return (
+                    False,
+                    f"Training cooldown active. {remaining.seconds // 3600} hours remaining.",
+                )
 
         # Check if any trigger is active
         active_triggers = [t for t in self.triggers.values() if t.is_triggered]
@@ -610,8 +624,8 @@ class TrainingManager:
     async def run_training(
         self,
         job_id: str,
-        feedback_records: List[FeedbackRecord],
-        patterns: List[LearnedPattern],
+        feedback_records: list[FeedbackRecord],
+        patterns: list[LearnedPattern],
     ) -> TrainingJob:
         """Run a training job (simulated)."""
         job = self.jobs.get(job_id)
@@ -625,7 +639,9 @@ class TrainingManager:
             # In production, this would call the actual fine-tuning pipeline
 
             # Calculate improvement metrics
-            fp_before = sum(1 for r in feedback_records if r.feedback_type == FeedbackType.FALSE_POSITIVE)
+            fp_before = sum(
+                1 for r in feedback_records if r.feedback_type == FeedbackType.FALSE_POSITIVE
+            )
             fp_rate_before = fp_before / max(1, len(feedback_records))
 
             # Simulated improvement
@@ -656,16 +672,16 @@ class TrainingManager:
 
         return job
 
-    def get_job(self, job_id: str) -> Optional[TrainingJob]:
+    def get_job(self, job_id: str) -> TrainingJob | None:
         """Get a training job by ID."""
         return self.jobs.get(job_id)
 
-    def get_recent_jobs(self, limit: int = 10) -> List[TrainingJob]:
+    def get_recent_jobs(self, limit: int = 10) -> list[TrainingJob]:
         """Get recent training jobs."""
         jobs = sorted(self.jobs.values(), key=lambda j: j.started_at, reverse=True)
         return jobs[:limit]
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get training statistics."""
         completed = [j for j in self.jobs.values() if j.status == LearningStatus.COMPLETED]
 
@@ -677,7 +693,9 @@ class TrainingManager:
             "completed_jobs": len(completed),
             "failed_jobs": sum(1 for j in self.jobs.values() if j.status == LearningStatus.FAILED),
             "avg_improvement": avg_improvement,
-            "last_training": self.last_training_time.isoformat() if self.last_training_time else None,
+            "last_training": self.last_training_time.isoformat()
+            if self.last_training_time
+            else None,
             "triggers": {tid: t.to_dict() for tid, t in self.triggers.items()},
         }
 
@@ -696,8 +714,8 @@ class ContinuousLearningEngine:
         self.learner = PatternLearner(min_pattern_support, min_pattern_confidence)
         self.trainer = TrainingManager(feedback_threshold, fp_rate_threshold)
 
-        self._accuracy_history: List[Tuple[datetime, float]] = []
-        self._fp_rate_history: List[Tuple[datetime, float]] = []
+        self._accuracy_history: list[tuple[datetime, float]] = []
+        self._fp_rate_history: list[tuple[datetime, float]] = []
 
     def record_feedback(
         self,
@@ -705,12 +723,16 @@ class ContinuousLearningEngine:
         finding_type: str,
         category: str,
         feedback_type: str,
-        user_id: Optional[str] = None,
-        code_snippet: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
+        user_id: str | None = None,
+        code_snippet: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> FeedbackRecord:
         """Record user feedback."""
-        cat = FindingCategory(category) if category in [c.value for c in FindingCategory] else FindingCategory.OTHER
+        cat = (
+            FindingCategory(category)
+            if category in [c.value for c in FindingCategory]
+            else FindingCategory.OTHER
+        )
         fb_type = FeedbackType(feedback_type)
 
         record = self.collector.record_feedback(
@@ -733,7 +755,7 @@ class ContinuousLearningEngine:
 
         return record
 
-    def learn_patterns(self, hours: int = 168) -> List[LearnedPattern]:
+    def learn_patterns(self, hours: int = 168) -> list[LearnedPattern]:
         """Learn patterns from recent feedback."""
         recent = self.collector.get_recent_feedback(hours=hours)
         if not recent:
@@ -742,7 +764,7 @@ class ContinuousLearningEngine:
         patterns = self.learner.analyze_feedback(recent)
         return patterns
 
-    async def trigger_training(self) -> Optional[TrainingJob]:
+    async def trigger_training(self) -> TrainingJob | None:
         """Trigger training if conditions are met."""
         can_train, reason = self.trainer.can_train()
         if not can_train:
@@ -775,7 +797,9 @@ class ContinuousLearningEngine:
 
         return job
 
-    def get_recommendation(self, finding_type: str, code_snippet: Optional[str] = None) -> Dict[str, Any]:
+    def get_recommendation(
+        self, finding_type: str, code_snippet: str | None = None
+    ) -> dict[str, Any]:
         """Get recommendation based on learned patterns."""
         patterns = self.learner.get_active_patterns()
 
@@ -784,18 +808,22 @@ class ContinuousLearningEngine:
         for pattern in patterns:
             if pattern.pattern_type == "false_positive_pattern":
                 if finding_type in pattern.description:
-                    relevant.append({
-                        "type": "suppress",
-                        "confidence": pattern.confidence,
-                        "reason": pattern.description,
-                    })
+                    relevant.append(
+                        {
+                            "type": "suppress",
+                            "confidence": pattern.confidence,
+                            "reason": pattern.description,
+                        }
+                    )
             elif pattern.pattern_type == "acceptance_pattern":
                 if finding_type in pattern.description:
-                    relevant.append({
-                        "type": "highlight",
-                        "confidence": pattern.confidence,
-                        "reason": pattern.description,
-                    })
+                    relevant.append(
+                        {
+                            "type": "highlight",
+                            "confidence": pattern.confidence,
+                            "reason": pattern.description,
+                        }
+                    )
 
         if not relevant:
             return {"recommendation": "standard", "patterns_checked": len(patterns)}
@@ -841,7 +869,7 @@ class ContinuousLearningEngine:
             next_training_eligible=next_eligible,
         )
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get comprehensive statistics."""
         return {
             "feedback": self.collector.get_statistics(),
@@ -850,7 +878,7 @@ class ContinuousLearningEngine:
             "metrics": self.get_metrics().to_dict(),
         }
 
-    def export_data(self) -> Dict[str, Any]:
+    def export_data(self) -> dict[str, Any]:
         """Export all learning data."""
         return {
             "feedback": [r.to_dict() for r in self.collector.feedback_records.values()],

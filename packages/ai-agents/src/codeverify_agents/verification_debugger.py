@@ -13,7 +13,6 @@ Features:
 """
 
 import hashlib
-import json
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -299,6 +298,7 @@ Provide a clear, helpful explanation."""
         """Check if Z3 is available."""
         try:
             import z3
+
             return True
         except ImportError:
             logger.warning("Z3 not available, some features will be limited")
@@ -399,8 +399,18 @@ Provide a clear, helpful explanation."""
 
         try:
             from z3 import (
-                And, Bool, ForAll, If, Implies, Int, Not, Or, Real, Solver,
-                String, is_false, is_true, sat, unknown, unsat
+                And,
+                Bool,
+                ForAll,
+                If,
+                Implies,
+                Int,
+                Not,
+                Or,
+                Real,
+                Solver,
+                sat,
+                unsat,
             )
 
             solver = Solver()
@@ -421,9 +431,15 @@ Provide a clear, helpful explanation."""
             # Build Z3 context
             z3_context = {
                 **z3_vars,
-                "And": And, "Or": Or, "Not": Not, "Implies": Implies,
-                "ForAll": ForAll, "If": If,
-                "Int": Int, "Real": Real, "Bool": Bool,
+                "And": And,
+                "Or": Or,
+                "Not": Not,
+                "Implies": Implies,
+                "ForAll": ForAll,
+                "If": If,
+                "Int": Int,
+                "Real": Real,
+                "Bool": Bool,
             }
 
             # Add constraints
@@ -497,7 +513,9 @@ Provide a clear, helpful explanation."""
                 session=session,
                 message=f"Verification completed: {session.status.value}",
                 execution_time_ms=exec_time,
-                unsatisfiable_core=unsat_core if session.status == VerificationStatus.UNSAT else None,
+                unsatisfiable_core=unsat_core
+                if session.status == VerificationStatus.UNSAT
+                else None,
                 suggested_fixes=fixes,
                 natural_language_explanation=explanation,
             )
@@ -532,11 +550,13 @@ Provide a clear, helpful explanation."""
 
                 try:
                     from z3 import Bool
+
                     tracker = Bool(f"track_{c_id}")
                     tracking_vars[c_id] = tracker
 
                     expr = eval(constraint.z3_expr, {"__builtins__": {}}, z3_context)
                     from z3 import Implies
+
                     solver.add(Implies(tracker, expr))
                 except Exception:
                     pass
@@ -567,12 +587,14 @@ Provide a clear, helpful explanation."""
     ) -> None:
         """Create proof steps for satisfiable result."""
         # Step 1: State the goal
-        session.proof_steps.append(ProofStep(
-            step_id=self._generate_id(),
-            step_type=ProofStepType.ASSUMPTION,
-            description="Goal: Find values satisfying all constraints",
-            active_constraints=list(session.constraints.keys()),
-        ))
+        session.proof_steps.append(
+            ProofStep(
+                step_id=self._generate_id(),
+                step_type=ProofStepType.ASSUMPTION,
+                description="Goal: Find values satisfying all constraints",
+                active_constraints=list(session.constraints.keys()),
+            )
+        )
 
         # Step 2: Show the solution
         bindings = {}
@@ -580,12 +602,14 @@ Provide a clear, helpful explanation."""
             val = model.eval(z3_var)
             bindings[var_name] = str(val)
 
-        session.proof_steps.append(ProofStep(
-            step_id=self._generate_id(),
-            step_type=ProofStepType.QED,
-            description=f"Found satisfying assignment",
-            variable_bindings=bindings,
-        ))
+        session.proof_steps.append(
+            ProofStep(
+                step_id=self._generate_id(),
+                step_type=ProofStepType.QED,
+                description="Found satisfying assignment",
+                variable_bindings=bindings,
+            )
+        )
 
     def _create_unsat_proof_steps(
         self,
@@ -594,30 +618,36 @@ Provide a clear, helpful explanation."""
     ) -> None:
         """Create proof steps for unsatisfiable result."""
         # Step 1: State the goal
-        session.proof_steps.append(ProofStep(
-            step_id=self._generate_id(),
-            step_type=ProofStepType.ASSUMPTION,
-            description="Goal: Find values satisfying all constraints",
-            active_constraints=list(session.constraints.keys()),
-        ))
+        session.proof_steps.append(
+            ProofStep(
+                step_id=self._generate_id(),
+                step_type=ProofStepType.ASSUMPTION,
+                description="Goal: Find values satisfying all constraints",
+                active_constraints=list(session.constraints.keys()),
+            )
+        )
 
         # Step 2: Identify conflicting constraints
         if unsat_core:
             conflict_desc = "Conflicting constraints: " + ", ".join(unsat_core)
-            session.proof_steps.append(ProofStep(
-                step_id=self._generate_id(),
-                step_type=ProofStepType.DERIVATION,
-                description=conflict_desc,
-                input_facts=unsat_core,
-                output_fact="contradiction",
-            ))
+            session.proof_steps.append(
+                ProofStep(
+                    step_id=self._generate_id(),
+                    step_type=ProofStepType.DERIVATION,
+                    description=conflict_desc,
+                    input_facts=unsat_core,
+                    output_fact="contradiction",
+                )
+            )
 
         # Step 3: Contradiction
-        session.proof_steps.append(ProofStep(
-            step_id=self._generate_id(),
-            step_type=ProofStepType.CONTRADICTION,
-            description="No satisfying assignment exists",
-        ))
+        session.proof_steps.append(
+            ProofStep(
+                step_id=self._generate_id(),
+                step_type=ProofStepType.CONTRADICTION,
+                description="No satisfying assignment exists",
+            )
+        )
 
     async def _generate_explanation(self, session: DebugSession) -> str:
         """Generate natural language explanation of the verification result."""
@@ -664,11 +694,15 @@ Provide a clear, helpful explanation."""
             return "\n".join(parts)
 
         elif session.status == VerificationStatus.UNSAT:
-            parts = ["The verification failed. The constraints cannot all be satisfied simultaneously."]
+            parts = [
+                "The verification failed. The constraints cannot all be satisfied simultaneously."
+            ]
             if session.counterexamples:
                 ce = session.counterexamples[0]
                 if ce.violated_constraints:
-                    parts.append(f"The conflicting constraints are: {', '.join(ce.violated_constraints)}")
+                    parts.append(
+                        f"The conflicting constraints are: {', '.join(ce.violated_constraints)}"
+                    )
             return "\n".join(parts)
 
         else:
@@ -748,39 +782,47 @@ Provide a clear, helpful explanation."""
 
         # Add variable nodes
         for var_name, var in session.variables.items():
-            nodes.append({
-                "id": f"var_{var_name}",
-                "type": "variable",
-                "label": var_name,
-                "data": var.to_dict(),
-            })
+            nodes.append(
+                {
+                    "id": f"var_{var_name}",
+                    "type": "variable",
+                    "label": var_name,
+                    "data": var.to_dict(),
+                }
+            )
 
         # Add constraint nodes
         for c_id, constraint in session.constraints.items():
-            nodes.append({
-                "id": f"con_{c_id}",
-                "type": "constraint",
-                "label": c_id,
-                "data": constraint.to_dict(),
-                "is_active": constraint.is_active,
-            })
+            nodes.append(
+                {
+                    "id": f"con_{c_id}",
+                    "type": "constraint",
+                    "label": c_id,
+                    "data": constraint.to_dict(),
+                    "is_active": constraint.is_active,
+                }
+            )
 
             # Add edges to involved variables
             for var_name in session.variables:
                 if var_name in constraint.expression:
-                    edges.append({
-                        "source": f"var_{var_name}",
-                        "target": f"con_{c_id}",
-                        "type": "involves",
-                    })
+                    edges.append(
+                        {
+                            "source": f"var_{var_name}",
+                            "target": f"con_{c_id}",
+                            "type": "involves",
+                        }
+                    )
 
             # Add dependency edges
             for dep_id in constraint.depends_on:
-                edges.append({
-                    "source": f"con_{dep_id}",
-                    "target": f"con_{c_id}",
-                    "type": "depends_on",
-                })
+                edges.append(
+                    {
+                        "source": f"con_{dep_id}",
+                        "target": f"con_{c_id}",
+                        "type": "depends_on",
+                    }
+                )
 
         return {
             "nodes": nodes,
@@ -807,9 +849,7 @@ Provide a clear, helpful explanation."""
 
     def _generate_id(self) -> str:
         """Generate a unique ID."""
-        return hashlib.sha256(
-            f"{time.time()}{len(self._sessions)}".encode()
-        ).hexdigest()[:12]
+        return hashlib.sha256(f"{time.time()}{len(self._sessions)}".encode()).hexdigest()[:12]
 
     def get_statistics(self) -> dict[str, Any]:
         """Get debugger statistics."""

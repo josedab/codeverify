@@ -1,190 +1,38 @@
 """CodeVerify AI Agents - LLM-powered code analysis agents."""
 
-from codeverify_agents.base import AgentConfig, AgentResult, BaseAgent, CodeContext, ParsedResponse
-from codeverify_agents.diff_summarizer import DiffSummarizerAgent
-from codeverify_agents.factory import (
-    AgentFactory,
-    DefaultLLMClientProvider,
-    LLMClientProvider,
-    MockLLMClientProvider,
-    get_llm_provider,
-    reset_llm_provider,
-    set_llm_provider,
+# Killer Feature 4: Agentic Auto-Fix PRs
+from codeverify_agents.agentic_autofix import (
+    AgenticAutoFix,
+    AutoFixResult,
+    FixGenerator,
+    FixPR,
+    FixStatus,
+    FixTemplates,
+    GeneratedFix,
 )
-from codeverify_agents.pair_reviewer import (
-    CodeRegion,
-    FeedbackLearner,
-    InlineFinding,
-    PairReviewerAgent,
-    ReviewCategory,
-    ReviewContext,
-    ReviewFeedback,
-    ReviewPriority,
-    SmartThrottler,
+from codeverify_agents.agentic_autofix import (
+    Finding as AutoFixFinding,
 )
-from codeverify_agents.retry import (
-    RetryConfig,
-    async_retry,
-    retry,
-    with_llm_retry,
-    DEFAULT_LLM_RETRY_CONFIG,
+from codeverify_agents.agentic_autofix import (
+    FixCategory as AutoFixCategory,
 )
-from codeverify_agents.security import SecurityAgent
-from codeverify_agents.semantic import SemanticAgent
-from codeverify_agents.spec_generator import (
-    ClassInvariant,
-    FunctionContract as SpecFunctionContract,
-    GeneratedSpec,
-    SpecificationGeneratorAgent,
-    SpecificationSource,
-    SpecificationType,
-    TypeInfo,
+from codeverify_agents.agentic_autofix import (
+    FixVerifier as AutoFixVerifier,
 )
-from codeverify_agents.synthesis import SynthesisAgent
-from codeverify_agents.trust_score import (
-    TrustScoreAgent,
-    TrustScoreResult,
-    TrustScoreFactors,
-    # Decomposed components (SRP compliance)
-    AIDetector,
-    PatternMatcher,
-    ComplexityAnalyzer,
-    VerificationCoverageCalculator,
-    HistoricalAccuracyTracker,
-    TrustScoreCalculator,
-    RecommendationGenerator,
-    calculate_code_hash,
+from codeverify_agents.agentic_autofix import (
+    TestGenerator as AutoFixTestGenerator,
 )
 
-# Feature 4: Threat Modeling Agent
-from codeverify_agents.threat_modeling import (
-    AttackSurface,
-    OWASPCategory,
-    STRIDECategory,
-    Threat,
-    ThreatModel,
-    ThreatModelingAgent,
-)
-
-# Feature 5: Regression Oracle
-from codeverify_agents.regression_oracle import (
-    BugRecord,
-    ChangeMetrics,
-    HistoricalSignal,
-    RegressionOracle,
-    RiskLevel,
-    RiskPrediction,
-)
-
-# Feature 6: Multi-Model Consensus
-from codeverify_agents.multi_model_consensus import (
-    ConsensusFinding,
-    ConsensusResult,
-    ConsensusStrategy,
-    ModelConfig,
-    ModelFinding,
-    ModelProvider,
-    MultiModelConsensus,
-)
-
-# Feature 8: Compliance Attestation Engine
-from codeverify_agents.compliance_attestation import (
-    ComplianceAttestationEngine,
-    ComplianceFramework,
-    ComplianceReport,
-    ControlMapping,
-    ControlStatus,
-    EvidenceItem,
-)
-
-# Feature 10: Cross-Language Verification Bridge
-from codeverify_agents.cross_language_bridge import (
-    CrossLanguageVerificationBridge,
-    CrossLanguageVerificationResult,
-    FunctionContract,
-    InterfaceContract,
-    Language,
-    LanguageBinding,
-    TypeContract,
-)
-
-# Next-Gen Feature 2: AI Regression Test Generator
-from codeverify_agents.test_generator import (
-    Counterexample as CounterexampleToTest,  # Alias for backwards compatibility
-    GeneratedTest,
-    TestFramework,
-    TestGeneratorAgent,
-    TestGenerationResult as TestSuite,  # Alias for backwards compatibility
-)
-
-# Next-Gen Feature 5: Natural Language Invariant Specs
-from codeverify_agents.nl_invariants import (
-    NaturalLanguageInvariant as InvariantSpec,  # Alias for backwards compatibility
-    NaturalLanguageInvariantAgent as NaturalLanguageInvariantsAgent,  # Alias
-    ParsedConstraint,
-    Z3Compiler as Z3Assertion,  # Alias for backwards compatibility
-)
-
-# Next-Gen Feature 6: Semantic Diff Visualization
-from codeverify_agents.semantic_diff import (
-    BehaviorChange,
-    ChangeType,
-    SemanticDiffAgent,
-    SemanticDiffResult,
-)
-
-# Next-Gen Feature 8: Team Learning Mode
-from codeverify_agents.team_learning import (
-    OrgHealthReport,
-    PatternOccurrence,
-    SystemicPattern,
-    TeamLearningAgent,
-    TeamMetrics,
-    TrainingRecommendation,
-)
-
-# Next-Gen Feature 9: Competing Model Arbitration
-from codeverify_agents.model_arbitrator import (
-    ArbitratedFinding,
-    ArbitrationResult,
-    ArbitrationVote,
-    CompetingModelArbitrator,
-    ModelProfile,
-    ModelSpecialization,
-    VotingMethod,
-)
-
-# Feature: LLM Fine-Tuning Pipeline
-from codeverify_agents.fine_tuning import (
-    DataCollector,
-    DataSourceType,
-    FineTunedModel,
-    FineTuningManager,
-    ModelServer,
-    ModelType,
-    TrainingConfig,
-    TrainingDataset,
-    TrainingExample,
-    TrainingJob,
-    TrainingMetrics,
-    TrainingPipeline,
-    TrainingStatus,
-    get_fine_tuning_manager,
-    reset_fine_tuning_manager,
-)
-
-# Feature: Self-Healing Code Suggestions
-from codeverify_agents.self_healing import (
-    BugReport,
-    FixCategory,
-    FixGenerationResult,
-    FixVerifier,
-    ProofStatus,
-    SelfHealingAgent,
-    SelfHealingManager,
-    VerifiedFix,
-    get_self_healing_manager,
-    reset_self_healing_manager,
+# Next-Gen Feature: AI Drift Detector
+from codeverify_agents.ai_drift_detector import (
+    AICodeSnapshot,
+    AIDriftDetector,
+    AlertType,
+    DriftAlert,
+    DriftCategory,
+    DriftMetrics,
+    DriftReport,
+    DriftSeverity,
 )
 
 # Killer Feature 1: AI Code Fingerprinting & Origin Detection
@@ -197,20 +45,20 @@ from codeverify_agents.ai_fingerprint import (
     FingerprintResult,
     compute_code_hash,
 )
+from codeverify_agents.base import AgentConfig, AgentResult, BaseAgent, CodeContext, ParsedResponse
 
-# Killer Feature 4: Agentic Auto-Fix PRs
-from codeverify_agents.agentic_autofix import (
-    AgenticAutoFix,
-    AutoFixResult,
-    Finding as AutoFixFinding,
-    FixCategory as AutoFixCategory,
-    FixGenerator,
-    FixPR,
-    FixStatus,
-    FixTemplates,
-    FixVerifier as AutoFixVerifier,
-    GeneratedFix,
-    TestGenerator as AutoFixTestGenerator,
+# Next-Gen Feature: Code Evolution Tracker
+from codeverify_agents.code_evolution import (
+    CodeEvolutionTracker,
+    CommitSnapshot,
+    DetectedRegression,
+    EvolutionReport,
+    MetricTrend,
+    MetricType,
+    RegressionDetector,
+    RegressionSeverity,
+    TrendAnalyzer,
+    TrendDirection,
 )
 
 # Killer Feature 6: Codebase Intelligence Engine
@@ -227,103 +75,14 @@ from codeverify_agents.codebase_intelligence import (
     PatternType,
 )
 
-# Killer Feature 8: Intent-to-Code Traceability
-from codeverify_agents.intent_traceability import (
-    AlignmentChecker,
-    ChangeScope,
-    CodeChangeAnalyzer,
-    CodeChangeSummary,
-    ExtractedIntent,
-    IntentExtractor,
-    IntentTraceabilityEngine,
-    IssueDetails,
-    IssueProvider,
-    TraceabilityFinding,
-    TraceabilityResult,
-    TraceabilityStatus,
-    create_traceability_engine,
-)
-
-# Follow-up Item 4: AI Model Integration for Fingerprinting
-from codeverify_agents.model_integration import (
-    AICodeDetector,
-    FeatureExtractor as MLFeatureExtractor,
-    HuggingFaceModelBackend,
-    MockModelBackend,
-    ModelBackend,
-    ModelConfig as MLModelConfig,
-    ModelEnsemble,
-    ModelRegistry,
-    ONNXModelBackend,
-    PredictionResult,
-    detect_ai_code,
-    get_detector,
-)
-
-# Next-Gen Feature: Formal Specification Assistant
-from codeverify_agents.formal_spec_assistant import (
-    ConversionResult,
-    FormalSpecAssistant,
-    NLSpecParser,
-    ParsedSpec,
-    SpecComplexity,
-    SpecDomain,
-    SpecLibrary,
-    SpecTemplate,
-)
-
-# Next-Gen Feature: AI Drift Detector
-from codeverify_agents.ai_drift_detector import (
-    AIDriftDetector,
-    AICodeSnapshot,
-    AlertType,
-    DriftAlert,
-    DriftCategory,
-    DriftMetrics,
-    DriftReport,
-    DriftSeverity,
-)
-
-# Next-Gen Feature: Verification Debugger
-from codeverify_agents.verification_debugger import (
-    Constraint,
-    ConstraintType,
-    Counterexample,
-    DebugResult,
-    DebugSession,
-    ProofStep,
-    ProofStepType,
-    Variable,
-    VerificationDebugger,
-    VerificationStatus,
-)
-
-# Next-Gen Feature: Smart Code Search
-from codeverify_agents.smart_code_search import (
-    CodeCluster,
-    CodeType,
-    CodeUnit,
-    DuplicateGroup,
-    SearchMode,
-    SearchQuery,
-    SearchResult,
-    SmartCodeSearch,
-)
-
-# Next-Gen Feature: Continuous Learning Engine
-from codeverify_agents.continuous_learning import (
-    ContinuousLearningEngine,
-    FeedbackCollector,
-    FeedbackRecord,
-    FeedbackType,
-    FindingCategory,
-    LearnedPattern,
-    LearningMetrics,
-    LearningStatus,
-    PatternLearner,
-    TrainingJob,
-    TrainingManager,
-    TrainingTrigger,
+# Feature 8: Compliance Attestation Engine
+from codeverify_agents.compliance_attestation import (
+    ComplianceAttestationEngine,
+    ComplianceFramework,
+    ComplianceReport,
+    ControlMapping,
+    ControlStatus,
+    EvidenceItem,
 )
 
 # Next-Gen Feature: Context-Aware Analysis
@@ -345,18 +104,78 @@ from codeverify_agents.context_aware_analysis import (
     SeverityAdjustment,
 )
 
-# Next-Gen Feature: Code Evolution Tracker
-from codeverify_agents.code_evolution import (
-    CodeEvolutionTracker,
-    CommitSnapshot,
-    DetectedRegression,
-    EvolutionReport,
-    MetricTrend,
-    MetricType,
-    RegressionDetector,
-    RegressionSeverity,
-    TrendAnalyzer,
-    TrendDirection,
+# Next-Gen Feature: Continuous Learning Engine
+from codeverify_agents.continuous_learning import (
+    ContinuousLearningEngine,
+    FeedbackCollector,
+    FeedbackRecord,
+    FeedbackType,
+    FindingCategory,
+    LearnedPattern,
+    LearningMetrics,
+    LearningStatus,
+    PatternLearner,
+    TrainingJob,
+    TrainingManager,
+    TrainingTrigger,
+)
+
+# Feature 10: Cross-Language Verification Bridge
+from codeverify_agents.cross_language_bridge import (
+    CrossLanguageVerificationBridge,
+    CrossLanguageVerificationResult,
+    FunctionContract,
+    InterfaceContract,
+    Language,
+    LanguageBinding,
+    TypeContract,
+)
+
+# Next-Gen Feature: Dependency Vulnerability Scanner
+from codeverify_agents.dependency_scanner import (
+    CVE,
+    CVEDatabase,
+    DependencyNode,
+    DependencyParser,
+    DependencyType,
+    DependencyVulnerabilityScanner,
+    Package,
+    PackageEcosystem,
+    ScanResult,
+    UpgradeAdvisor,
+    UpgradePath,
+    UpgradeRisk,
+    VulnerabilitySeverity,
+    VulnerablePackage,
+)
+from codeverify_agents.diff_summarizer import DiffSummarizerAgent
+from codeverify_agents.factory import (
+    AgentFactory,
+    DefaultLLMClientProvider,
+    LLMClientProvider,
+    MockLLMClientProvider,
+    get_llm_provider,
+    reset_llm_provider,
+    set_llm_provider,
+)
+
+# Feature: LLM Fine-Tuning Pipeline
+from codeverify_agents.fine_tuning import (
+    DataCollector,
+    DataSourceType,
+    FineTunedModel,
+    FineTuningManager,
+    ModelServer,
+    ModelType,
+    TrainingConfig,
+    TrainingDataset,
+    TrainingExample,
+    TrainingJob,
+    TrainingMetrics,
+    TrainingPipeline,
+    TrainingStatus,
+    get_fine_tuning_manager,
+    reset_fine_tuning_manager,
 )
 
 # Next-Gen Feature: Automated Fix Verification
@@ -376,22 +195,264 @@ from codeverify_agents.fix_verification import (
     VerificationResult,
 )
 
-# Next-Gen Feature: Dependency Vulnerability Scanner
-from codeverify_agents.dependency_scanner import (
-    CVE,
-    CVEDatabase,
-    DependencyNode,
-    DependencyParser,
-    DependencyType,
-    DependencyVulnerabilityScanner,
-    Package,
-    PackageEcosystem,
-    ScanResult,
-    UpgradeAdvisor,
-    UpgradePath,
-    UpgradeRisk,
-    VulnerablePackage,
-    VulnerabilitySeverity,
+# Next-Gen Feature: Formal Specification Assistant
+from codeverify_agents.formal_spec_assistant import (
+    ConversionResult,
+    FormalSpecAssistant,
+    NLSpecParser,
+    ParsedSpec,
+    SpecComplexity,
+    SpecDomain,
+    SpecLibrary,
+    SpecTemplate,
+)
+
+# Killer Feature 8: Intent-to-Code Traceability
+from codeverify_agents.intent_traceability import (
+    AlignmentChecker,
+    ChangeScope,
+    CodeChangeAnalyzer,
+    CodeChangeSummary,
+    ExtractedIntent,
+    IntentExtractor,
+    IntentTraceabilityEngine,
+    IssueDetails,
+    IssueProvider,
+    TraceabilityFinding,
+    TraceabilityResult,
+    TraceabilityStatus,
+    create_traceability_engine,
+)
+
+# Next-Gen Feature 9: Competing Model Arbitration
+from codeverify_agents.model_arbitrator import (
+    ArbitratedFinding,
+    ArbitrationResult,
+    ArbitrationVote,
+    CompetingModelArbitrator,
+    ModelProfile,
+    ModelSpecialization,
+    VotingMethod,
+)
+
+# Follow-up Item 4: AI Model Integration for Fingerprinting
+from codeverify_agents.model_integration import (
+    AICodeDetector,
+    HuggingFaceModelBackend,
+    MockModelBackend,
+    ModelBackend,
+    ModelEnsemble,
+    ModelRegistry,
+    ONNXModelBackend,
+    PredictionResult,
+    detect_ai_code,
+    get_detector,
+)
+from codeverify_agents.model_integration import (
+    FeatureExtractor as MLFeatureExtractor,
+)
+from codeverify_agents.model_integration import (
+    ModelConfig as MLModelConfig,
+)
+
+# Feature 6: Multi-Model Consensus
+from codeverify_agents.multi_model_consensus import (
+    ConsensusFinding,
+    ConsensusResult,
+    ConsensusStrategy,
+    ModelConfig,
+    ModelFinding,
+    ModelProvider,
+    MultiModelConsensus,
+)
+
+# Next-Gen Feature 5: Natural Language Invariant Specs
+from codeverify_agents.nl_invariants import (
+    NaturalLanguageInvariant as InvariantSpec,  # Alias for backwards compatibility
+)
+from codeverify_agents.nl_invariants import (
+    NaturalLanguageInvariantAgent as NaturalLanguageInvariantsAgent,  # Alias
+)
+from codeverify_agents.nl_invariants import (
+    ParsedConstraint,
+)
+from codeverify_agents.nl_invariants import (
+    Z3Compiler as Z3Assertion,  # Alias for backwards compatibility
+)
+from codeverify_agents.pair_reviewer import (
+    CodeRegion,
+    FeedbackLearner,
+    InlineFinding,
+    PairReviewerAgent,
+    ReviewCategory,
+    ReviewContext,
+    ReviewFeedback,
+    ReviewPriority,
+    SmartThrottler,
+)
+
+# Feature 5: Regression Oracle
+from codeverify_agents.regression_oracle import (
+    BugRecord,
+    ChangeMetrics,
+    HistoricalSignal,
+    RegressionOracle,
+    RiskLevel,
+    RiskPrediction,
+)
+from codeverify_agents.retry import (
+    DEFAULT_LLM_RETRY_CONFIG,
+    RetryConfig,
+    async_retry,
+    retry,
+    with_llm_retry,
+)
+from codeverify_agents.security import SecurityAgent
+
+# Feature: Self-Healing Code Suggestions
+from codeverify_agents.self_healing import (
+    BugReport,
+    FixCategory,
+    FixGenerationResult,
+    FixVerifier,
+    ProofStatus,
+    SelfHealingAgent,
+    SelfHealingManager,
+    VerifiedFix,
+    get_self_healing_manager,
+    reset_self_healing_manager,
+)
+from codeverify_agents.semantic import SemanticAgent
+
+# Next-Gen Feature 6: Semantic Diff Visualization
+from codeverify_agents.semantic_diff import (
+    BehaviorChange,
+    ChangeType,
+    SemanticDiffAgent,
+    SemanticDiffResult,
+)
+
+# Next-Gen Feature: Smart Code Search
+from codeverify_agents.smart_code_search import (
+    CodeCluster,
+    CodeType,
+    CodeUnit,
+    DuplicateGroup,
+    SearchMode,
+    SearchQuery,
+    SearchResult,
+    SmartCodeSearch,
+)
+from codeverify_agents.spec_generator import (
+    ClassInvariant,
+    GeneratedSpec,
+    SpecificationGeneratorAgent,
+    SpecificationSource,
+    SpecificationType,
+    TypeInfo,
+)
+from codeverify_agents.spec_generator import (
+    FunctionContract as SpecFunctionContract,
+)
+from codeverify_agents.synthesis import SynthesisAgent
+
+# Next-Gen Feature 8: Team Learning Mode
+from codeverify_agents.team_learning import (
+    OrgHealthReport,
+    PatternOccurrence,
+    SystemicPattern,
+    TeamLearningAgent,
+    TeamMetrics,
+    TrainingRecommendation,
+)
+
+# Next-Gen Feature 2: AI Regression Test Generator
+from codeverify_agents.test_generator import (
+    Counterexample as CounterexampleToTest,  # Alias for backwards compatibility
+)
+from codeverify_agents.test_generator import (
+    GeneratedTest,
+    TestFramework,
+    TestGeneratorAgent,
+)
+from codeverify_agents.test_generator import (
+    TestGenerationResult as TestSuite,  # Alias for backwards compatibility
+)
+
+# Feature 4: Threat Modeling Agent
+from codeverify_agents.threat_modeling import (
+    AttackSurface,
+    OWASPCategory,
+    STRIDECategory,
+    Threat,
+    ThreatModel,
+    ThreatModelingAgent,
+)
+from codeverify_agents.trust_score import (
+    # Decomposed components (SRP compliance)
+    AIDetector,
+    ComplexityAnalyzer,
+    HistoricalAccuracyTracker,
+    PatternMatcher,
+    RecommendationGenerator,
+    TrustScoreAgent,
+    TrustScoreCalculator,
+    TrustScoreFactors,
+    TrustScoreResult,
+    VerificationCoverageCalculator,
+    calculate_code_hash,
+)
+
+# Next-Gen Feature: Verification Debugger
+from codeverify_agents.verification_debugger import (
+    Constraint,
+    ConstraintType,
+    Counterexample,
+    DebugResult,
+    DebugSession,
+    ProofStep,
+    ProofStepType,
+    Variable,
+    VerificationDebugger,
+    VerificationStatus,
+)
+
+# Next-Gen Feature: Fix Approval Workflow (v0.4.0)
+from codeverify_agents.fix_approval import (
+    ApprovalNotifier,
+    ApprovalPolicy,
+    ApprovalRequest,
+    ApprovalStatus,
+    ApprovalUrgency,
+    ChannelAdapter,
+    GitHubAdapter,
+    NotificationChannel,
+    NotificationPayload,
+    SlackAdapter,
+    TeamsAdapter,
+    WebhookAdapter,
+)
+
+# Next-Gen Feature: Verification Budget Optimizer (v0.4.0)
+from codeverify_agents.verification_budget import (
+    BudgetConfig,
+    BudgetUsage,
+    CostReport,
+    VerificationAllocation,
+    VerificationBudgetOptimizer,
+    VerificationDepth,
+)
+
+# Next-Gen Feature: Model Comparison Engine (v0.4.0)
+from codeverify_agents.model_comparison import (
+    AccuracyMetrics,
+    BenchmarkSample,
+    ModelBenchmark,
+    ModelComparisonEngine,
+    ModelCostProfile,
+    ModelProvider,
+    ModelResult,
+    RoutingRecommendation,
 )
 
 __all__ = [
@@ -710,4 +771,33 @@ __all__ = [
     "UpgradeRisk",
     "VulnerablePackage",
     "VulnerabilitySeverity",
+    # Fix Approval Workflow
+    "ApprovalNotifier",
+    "ApprovalPolicy",
+    "ApprovalRequest",
+    "ApprovalStatus",
+    "ApprovalUrgency",
+    "ChannelAdapter",
+    "GitHubAdapter",
+    "NotificationChannel",
+    "NotificationPayload",
+    "SlackAdapter",
+    "TeamsAdapter",
+    "WebhookAdapter",
+    # Verification Budget Optimizer
+    "BudgetConfig",
+    "BudgetUsage",
+    "CostReport",
+    "VerificationAllocation",
+    "VerificationBudgetOptimizer",
+    "VerificationDepth",
+    # Model Comparison Engine
+    "AccuracyMetrics",
+    "BenchmarkSample",
+    "ModelBenchmark",
+    "ModelComparisonEngine",
+    "ModelCostProfile",
+    "ModelProvider",
+    "ModelResult",
+    "RoutingRecommendation",
 ]

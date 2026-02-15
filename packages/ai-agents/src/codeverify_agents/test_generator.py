@@ -18,6 +18,7 @@ logger = structlog.get_logger()
 
 class TestFramework(str, Enum):
     """Supported test frameworks."""
+
     PYTEST = "pytest"
     UNITTEST = "unittest"
     JEST = "jest"
@@ -29,6 +30,7 @@ class TestFramework(str, Enum):
 
 class Language(str, Enum):
     """Programming languages for test generation."""
+
     PYTHON = "python"
     TYPESCRIPT = "typescript"
     JAVASCRIPT = "javascript"
@@ -39,6 +41,7 @@ class Language(str, Enum):
 @dataclass
 class Counterexample:
     """A counterexample from verification."""
+
     variables: dict[str, Any]
     expected_behavior: str
     actual_behavior: str | None = None
@@ -48,6 +51,7 @@ class Counterexample:
 @dataclass
 class GeneratedTest:
     """A generated test case."""
+
     name: str
     description: str
     code: str
@@ -65,6 +69,7 @@ class GeneratedTest:
 @dataclass
 class TestGenerationResult:
     """Result of test generation."""
+
     tests: list[GeneratedTest]
     coverage_delta: float | None = None
     suggestions: list[str] = field(default_factory=list)
@@ -102,7 +107,7 @@ class Test{class_name}(unittest.TestCase):
         """
         {test_body}
 ''',
-    (Language.TYPESCRIPT, TestFramework.JEST): '''
+    (Language.TYPESCRIPT, TestFramework.JEST): """
 {imports}
 
 describe('{target}', () => {{
@@ -112,8 +117,8 @@ describe('{target}', () => {{
         {test_body}
     }});
 }});
-''',
-    (Language.TYPESCRIPT, TestFramework.VITEST): '''
+""",
+    (Language.TYPESCRIPT, TestFramework.VITEST): """
 {imports}
 
 describe('{target}', () => {{
@@ -123,8 +128,8 @@ describe('{target}', () => {{
         {test_body}
     }});
 }});
-''',
-    (Language.GO, TestFramework.GO_TEST): '''
+""",
+    (Language.GO, TestFramework.GO_TEST): """
 package {package}
 
 {imports}
@@ -134,14 +139,14 @@ func Test{name}(t *testing.T) {{
     // Generated from verification counterexample
     {test_body}
 }}
-''',
+""",
 }
 
 
 class TestGeneratorAgent(BaseAgent):
     """
     Agent for generating regression tests from verification counterexamples.
-    
+
     Takes verification results with counterexamples and produces idiomatic
     test cases in the appropriate test framework.
     """
@@ -164,7 +169,7 @@ class TestGeneratorAgent(BaseAgent):
     async def analyze(self, code: str, context: dict[str, Any]) -> AgentResult:
         """
         Generate tests from verification results.
-        
+
         Args:
             code: The source code that was verified
             context: Additional context including:
@@ -172,7 +177,7 @@ class TestGeneratorAgent(BaseAgent):
                 - file_path: Path to the source file
                 - language: Programming language
                 - framework: Optional test framework override
-                
+
         Returns:
             AgentResult with generated tests
         """
@@ -181,23 +186,23 @@ class TestGeneratorAgent(BaseAgent):
                 context.get("language"),
                 context.get("file_path", ""),
             )
-            
+
             framework = context.get("framework") or self.default_frameworks.get(language)
             if not framework:
                 return AgentResult(
                     success=False,
                     error=f"No test framework configured for {language}",
                 )
-            
+
             verification_results = context.get("verification_results", {})
             counterexamples = self._extract_counterexamples(verification_results)
-            
+
             if not counterexamples:
                 return AgentResult(
                     success=True,
                     data={"tests": [], "message": "No counterexamples to generate tests from"},
                 )
-            
+
             result = await self.generate_tests(
                 code=code,
                 counterexamples=counterexamples,
@@ -205,7 +210,7 @@ class TestGeneratorAgent(BaseAgent):
                 framework=framework,
                 context=context,
             )
-            
+
             return AgentResult(
                 success=True,
                 data={
@@ -214,7 +219,7 @@ class TestGeneratorAgent(BaseAgent):
                     "suggestions": result.suggestions,
                 },
             )
-            
+
         except Exception as e:
             logger.error("Test generation failed", error=str(e))
             return AgentResult(success=False, error=str(e))
@@ -226,7 +231,7 @@ class TestGeneratorAgent(BaseAgent):
             for lang in Language:
                 if lang.value == hint_lower:
                     return lang
-        
+
         if file_path.endswith(".py"):
             return Language.PYTHON
         elif file_path.endswith((".ts", ".tsx")):
@@ -237,7 +242,7 @@ class TestGeneratorAgent(BaseAgent):
             return Language.GO
         elif file_path.endswith(".java"):
             return Language.JAVA
-        
+
         return Language.PYTHON
 
     def _extract_counterexamples(
@@ -246,12 +251,12 @@ class TestGeneratorAgent(BaseAgent):
     ) -> list[tuple[str, Counterexample]]:
         """Extract counterexamples from verification results."""
         counterexamples = []
-        
+
         # Handle various result formats
         results = verification_results.get("results", [])
         if isinstance(results, dict):
             results = [results]
-        
+
         for result in results:
             if result.get("satisfiable") and result.get("counterexample"):
                 ce = Counterexample(
@@ -261,7 +266,7 @@ class TestGeneratorAgent(BaseAgent):
                 )
                 target = result.get("target_function", result.get("var_name", "unknown"))
                 counterexamples.append((target, ce))
-        
+
         # Also check findings
         for finding in verification_results.get("findings", []):
             if finding.get("counterexample"):
@@ -272,7 +277,7 @@ class TestGeneratorAgent(BaseAgent):
                 )
                 target = finding.get("target_function", "unknown")
                 counterexamples.append((target, ce))
-        
+
         return counterexamples
 
     async def generate_tests(
@@ -286,7 +291,7 @@ class TestGeneratorAgent(BaseAgent):
         """Generate tests from counterexamples."""
         tests: list[GeneratedTest] = []
         suggestions: list[str] = []
-        
+
         for target_function, counterexample in counterexamples:
             test = await self._generate_single_test(
                 code=code,
@@ -298,18 +303,16 @@ class TestGeneratorAgent(BaseAgent):
             )
             if test:
                 tests.append(test)
-        
+
         # Add edge case variants
-        edge_case_tests = await self._generate_edge_cases(
-            tests, language, framework
-        )
+        edge_case_tests = await self._generate_edge_cases(tests, language, framework)
         tests.extend(edge_case_tests)
-        
+
         if not tests:
             suggestions.append(
                 "No tests could be generated - counterexamples may need manual review"
             )
-        
+
         return TestGenerationResult(
             tests=tests,
             suggestions=suggestions,
@@ -328,10 +331,10 @@ class TestGeneratorAgent(BaseAgent):
         try:
             # Extract function signature from code
             signature = self._extract_function_signature(code, target_function, language)
-            
+
             # Generate test name
             test_name = self._generate_test_name(target_function, counterexample)
-            
+
             # Generate test body based on verification type
             test_body = self._generate_test_body(
                 target_function,
@@ -340,15 +343,15 @@ class TestGeneratorAgent(BaseAgent):
                 language,
                 framework,
             )
-            
+
             # Generate imports
             imports = self._generate_imports(language, framework, context)
-            
+
             # Apply template
             template = TEST_TEMPLATES.get((language, framework))
             if not template:
                 template = self._get_fallback_template(language)
-            
+
             test_code = template.format(
                 imports="\n".join(imports),
                 name=test_name,
@@ -360,11 +363,11 @@ class TestGeneratorAgent(BaseAgent):
                 setup="",
                 package=context.get("package", "main"),
             )
-            
+
             # Determine test file name
             source_file = context.get("file_path", "unknown")
             test_file = self._generate_test_filename(source_file, language, framework)
-            
+
             return GeneratedTest(
                 name=test_name,
                 description=f"Regression test: {counterexample.expected_behavior}",
@@ -377,7 +380,7 @@ class TestGeneratorAgent(BaseAgent):
                 imports=imports,
                 tags=["generated", "regression", counterexample.verification_type],
             )
-            
+
         except Exception as e:
             logger.warning(
                 "Failed to generate test",
@@ -398,28 +401,28 @@ class TestGeneratorAgent(BaseAgent):
             "parameters": [],
             "return_type": None,
         }
-        
+
         if language == Language.PYTHON:
-            pattern = rf'def\s+{function_name}\s*\(([^)]*)\)\s*(?:->\s*([^:]+))?:'
+            pattern = rf"def\s+{function_name}\s*\(([^)]*)\)\s*(?:->\s*([^:]+))?:"
             match = re.search(pattern, code)
             if match:
                 params_str = match.group(1)
                 signature["return_type"] = match.group(2).strip() if match.group(2) else None
                 signature["parameters"] = self._parse_python_params(params_str)
-                
+
         elif language in (Language.TYPESCRIPT, Language.JAVASCRIPT):
-            pattern = rf'(?:function\s+{function_name}|{function_name}\s*=\s*(?:async\s+)?\([^)]*\)\s*=>|{function_name}\s*\([^)]*\))\s*(?::\s*([^{{]+))?'
+            pattern = rf"(?:function\s+{function_name}|{function_name}\s*=\s*(?:async\s+)?\([^)]*\)\s*=>|{function_name}\s*\([^)]*\))\s*(?::\s*([^{{]+))?"
             match = re.search(pattern, code)
             if match:
                 signature["return_type"] = match.group(1).strip() if match.group(1) else None
-        
+
         elif language == Language.GO:
-            pattern = rf'func\s+{function_name}\s*\(([^)]*)\)\s*(?:\(([^)]*)\)|(\w+))?'
+            pattern = rf"func\s+{function_name}\s*\(([^)]*)\)\s*(?:\(([^)]*)\)|(\w+))?"
             match = re.search(pattern, code)
             if match:
                 params_str = match.group(1)
                 signature["return_type"] = match.group(2) or match.group(3)
-        
+
         return signature
 
     def _parse_python_params(self, params_str: str) -> list[dict[str, Any]]:
@@ -427,12 +430,12 @@ class TestGeneratorAgent(BaseAgent):
         params = []
         if not params_str.strip():
             return params
-        
+
         for param in params_str.split(","):
             param = param.strip()
             if not param or param == "self":
                 continue
-            
+
             if ":" in param:
                 name, type_hint = param.split(":", 1)
                 name = name.strip().split("=")[0].strip()
@@ -441,7 +444,7 @@ class TestGeneratorAgent(BaseAgent):
             else:
                 name = param.split("=")[0].strip()
                 params.append({"name": name, "type": "Any"})
-        
+
         return params
 
     def _generate_test_name(
@@ -452,7 +455,7 @@ class TestGeneratorAgent(BaseAgent):
         """Generate a descriptive test name."""
         # Create name from counterexample type
         ce_type = counterexample.expected_behavior.lower()
-        
+
         if "overflow" in ce_type:
             suffix = "overflow_detected"
         elif "bounds" in ce_type or "index" in ce_type:
@@ -463,10 +466,10 @@ class TestGeneratorAgent(BaseAgent):
             suffix = "division_by_zero"
         else:
             suffix = "regression"
-        
+
         # Sanitize function name
-        safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', target_function)
-        
+        safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", target_function)
+
         return f"{safe_name}_{suffix}"
 
     def _generate_test_body(
@@ -480,20 +483,14 @@ class TestGeneratorAgent(BaseAgent):
         """Generate the test body based on language and framework."""
         variables = counterexample.variables
         expected = counterexample.expected_behavior.lower()
-        
+
         if language == Language.PYTHON:
-            return self._generate_python_test_body(
-                target_function, variables, expected, framework
-            )
+            return self._generate_python_test_body(target_function, variables, expected, framework)
         elif language in (Language.TYPESCRIPT, Language.JAVASCRIPT):
-            return self._generate_ts_test_body(
-                target_function, variables, expected, framework
-            )
+            return self._generate_ts_test_body(target_function, variables, expected, framework)
         elif language == Language.GO:
-            return self._generate_go_test_body(
-                target_function, variables, expected
-            )
-        
+            return self._generate_go_test_body(target_function, variables, expected)
+
         return f"# Test for {target_function} with inputs {variables}"
 
     def _generate_python_test_body(
@@ -505,44 +502,44 @@ class TestGeneratorAgent(BaseAgent):
     ) -> str:
         """Generate Python test body."""
         lines = []
-        
+
         # Setup variables
         for name, value in variables.items():
             if isinstance(value, str) and value != "null":
                 lines.append(f'    {name} = "{value}"')
             elif value == "null":
-                lines.append(f'    {name} = None')
+                lines.append(f"    {name} = None")
             else:
-                lines.append(f'    {name} = {value}')
-        
+                lines.append(f"    {name} = {value}")
+
         # Generate assertion based on expected behavior
         if "overflow" in expected:
-            lines.append(f'    # Verify overflow is handled')
-            lines.append(f'    with pytest.raises((OverflowError, ValueError)):')
+            lines.append("    # Verify overflow is handled")
+            lines.append("    with pytest.raises((OverflowError, ValueError)):")
             args = ", ".join(variables.keys())
-            lines.append(f'        {target}({args})')
+            lines.append(f"        {target}({args})")
         elif "bounds" in expected or "index" in expected:
-            lines.append(f'    # Verify bounds checking')
-            lines.append(f'    with pytest.raises(IndexError):')
+            lines.append("    # Verify bounds checking")
+            lines.append("    with pytest.raises(IndexError):")
             args = ", ".join(variables.keys())
-            lines.append(f'        {target}({args})')
+            lines.append(f"        {target}({args})")
         elif "null" in expected or "none" in expected:
-            lines.append(f'    # Verify null handling')
-            lines.append(f'    with pytest.raises((TypeError, AttributeError)):')
+            lines.append("    # Verify null handling")
+            lines.append("    with pytest.raises((TypeError, AttributeError)):")
             args = ", ".join(variables.keys())
-            lines.append(f'        {target}({args})')
+            lines.append(f"        {target}({args})")
         elif "division" in expected or "zero" in expected:
-            lines.append(f'    # Verify division by zero handling')
-            lines.append(f'    with pytest.raises(ZeroDivisionError):')
+            lines.append("    # Verify division by zero handling")
+            lines.append("    with pytest.raises(ZeroDivisionError):")
             args = ", ".join(variables.keys())
-            lines.append(f'        {target}({args})')
+            lines.append(f"        {target}({args})")
         else:
             # Generic test
             args = ", ".join(variables.keys())
-            lines.append(f'    result = {target}({args})')
-            lines.append(f'    # Verify result is valid')
-            lines.append(f'    assert result is not None')
-        
+            lines.append(f"    result = {target}({args})")
+            lines.append("    # Verify result is valid")
+            lines.append("    assert result is not None")
+
         return "\n".join(lines)
 
     def _generate_ts_test_body(
@@ -554,25 +551,25 @@ class TestGeneratorAgent(BaseAgent):
     ) -> str:
         """Generate TypeScript/JavaScript test body."""
         lines = []
-        
+
         # Setup variables
         for name, value in variables.items():
             if isinstance(value, str) and value != "null":
                 lines.append(f'        const {name} = "{value}";')
             elif value == "null":
-                lines.append(f'        const {name} = null;')
+                lines.append(f"        const {name} = null;")
             else:
-                lines.append(f'        const {name} = {value};')
-        
+                lines.append(f"        const {name} = {value};")
+
         # Generate assertion
         args = ", ".join(variables.keys())
-        
+
         if any(word in expected for word in ["overflow", "bounds", "null", "zero"]):
-            lines.append(f'        expect(() => {target}({args})).toThrow();')
+            lines.append(f"        expect(() => {target}({args})).toThrow();")
         else:
-            lines.append(f'        const result = {target}({args});')
-            lines.append(f'        expect(result).toBeDefined();')
-        
+            lines.append(f"        const result = {target}({args});")
+            lines.append("        expect(result).toBeDefined();")
+
         return "\n".join(lines)
 
     def _generate_go_test_body(
@@ -583,25 +580,25 @@ class TestGeneratorAgent(BaseAgent):
     ) -> str:
         """Generate Go test body."""
         lines = []
-        
+
         # Setup variables
         for name, value in variables.items():
             if isinstance(value, str) and value != "null":
                 lines.append(f'    {name} := "{value}"')
             elif value == "null":
-                lines.append(f'    var {name} interface{{}} = nil')
+                lines.append(f"    var {name} interface{{}} = nil")
             else:
-                lines.append(f'    {name} := {value}')
-        
+                lines.append(f"    {name} := {value}")
+
         # Add test logic (Go uses panic/recover or error returns)
         args = ", ".join(variables.keys())
-        lines.append(f'    defer func() {{')
-        lines.append(f'        if r := recover(); r == nil {{')
+        lines.append("    defer func() {")
+        lines.append("        if r := recover(); r == nil {")
         lines.append(f'            t.Errorf("{target} should have panicked")')
-        lines.append(f'        }}')
-        lines.append(f'    }}()')
-        lines.append(f'    {target}({args})')
-        
+        lines.append("        }")
+        lines.append("    }()")
+        lines.append(f"    {target}({args})")
+
         return "\n".join(lines)
 
     def _generate_imports(
@@ -612,31 +609,31 @@ class TestGeneratorAgent(BaseAgent):
     ) -> list[str]:
         """Generate import statements."""
         imports = []
-        
+
         if language == Language.PYTHON:
             if framework == TestFramework.PYTEST:
                 imports.append("import pytest")
             else:
                 imports.append("import unittest")
-            
+
             # Add import for the module under test
             module = context.get("module_name")
             if module:
                 imports.append(f"from {module} import *")
-                
+
         elif language in (Language.TYPESCRIPT, Language.JAVASCRIPT):
             source_file = context.get("file_path", "")
             if source_file:
                 # Convert to relative import
                 module_name = source_file.replace(".ts", "").replace(".js", "")
                 imports.append(f"import {{ * }} from '{module_name}';")
-            
+
             if framework == TestFramework.VITEST:
                 imports.append("import { describe, it, expect } from 'vitest';")
-                
+
         elif language == Language.GO:
             imports.append('import "testing"')
-        
+
         return imports
 
     def _generate_test_filename(
@@ -651,17 +648,22 @@ class TestGeneratorAgent(BaseAgent):
             return f"test_{base.split('/')[-1]}.py"
         elif language in (Language.TYPESCRIPT, Language.JAVASCRIPT):
             ext = ".test.ts" if language == Language.TYPESCRIPT else ".test.js"
-            base = source_file.replace(".ts", "").replace(".tsx", "").replace(".js", "").replace(".jsx", "")
+            base = (
+                source_file.replace(".ts", "")
+                .replace(".tsx", "")
+                .replace(".js", "")
+                .replace(".jsx", "")
+            )
             return f"{base.split('/')[-1]}{ext}"
         elif language == Language.GO:
             base = source_file.replace(".go", "")
             return f"{base.split('/')[-1]}_test.go"
-        
+
         return f"test_generated.{language.value}"
 
     def _to_class_name(self, name: str) -> str:
         """Convert function name to class name."""
-        parts = re.split(r'[_\-]', name)
+        parts = re.split(r"[_\-]", name)
         return "".join(part.capitalize() for part in parts)
 
     def _get_fallback_template(self, language: Language) -> str:
@@ -677,11 +679,11 @@ def test_{name}():
     """
     {test_body}
 '''
-        return '''
+        return """
 // {description}
 // Counterexample: {counterexample}
 {test_body}
-'''
+"""
 
     async def _generate_edge_cases(
         self,
@@ -691,11 +693,11 @@ def test_{name}():
     ) -> list[GeneratedTest]:
         """Generate additional edge case tests from base tests."""
         edge_cases: list[GeneratedTest] = []
-        
+
         for test in base_tests:
             # Generate boundary variants
             variants = self._generate_boundary_variants(test.counterexample)
-            
+
             for i, variant in enumerate(variants):
                 variant_test = GeneratedTest(
                     name=f"{test.name}_variant_{i}",
@@ -708,7 +710,7 @@ def test_{name}():
                     counterexample=variant,
                     tags=["generated", "edge_case"],
                 )
-                
+
                 # Regenerate test body for variant
                 test_body = self._generate_test_body(
                     test.target_function,
@@ -717,8 +719,10 @@ def test_{name}():
                     language,
                     framework,
                 )
-                
-                template = TEST_TEMPLATES.get((language, framework)) or self._get_fallback_template(language)
+
+                template = TEST_TEMPLATES.get((language, framework)) or self._get_fallback_template(
+                    language
+                )
                 variant_test.code = template.format(
                     imports="\n".join(test.imports),
                     name=variant_test.name,
@@ -730,9 +734,9 @@ def test_{name}():
                     setup="",
                     package="main",
                 ).strip()
-                
+
                 edge_cases.append(variant_test)
-        
+
         return edge_cases
 
     def _generate_boundary_variants(
@@ -741,7 +745,7 @@ def test_{name}():
     ) -> list[Counterexample]:
         """Generate boundary value variants from a counterexample."""
         variants = []
-        
+
         for var_name, value in counterexample.variables.items():
             if isinstance(value, int):
                 # Generate boundary values
@@ -749,12 +753,14 @@ def test_{name}():
                     if boundary != value:
                         new_vars = counterexample.variables.copy()
                         new_vars[var_name] = boundary
-                        variants.append(Counterexample(
-                            variables=new_vars,
-                            expected_behavior=f"Boundary test: {var_name}={boundary}",
-                            verification_type="edge_case",
-                        ))
-        
+                        variants.append(
+                            Counterexample(
+                                variables=new_vars,
+                                expected_behavior=f"Boundary test: {var_name}={boundary}",
+                                verification_type="edge_case",
+                            )
+                        )
+
         # Limit variants
         return variants[:3]
 
