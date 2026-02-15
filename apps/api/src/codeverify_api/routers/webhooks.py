@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.config import settings
-from codeverify_api.services.analysis_service import AnalysisService
 from codeverify_api.db.database import get_db
+from codeverify_api.services.analysis_service import AnalysisService
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -20,9 +20,7 @@ def verify_github_signature(payload: bytes, signature: str, secret: str) -> bool
     """Verify GitHub webhook signature."""
     if not signature or not secret:
         return False
-    expected = "sha256=" + hmac.new(
-        secret.encode("utf-8"), payload, hashlib.sha256
-    ).hexdigest()
+    expected = "sha256=" + hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
 
 
@@ -37,9 +35,7 @@ def verify_bitbucket_signature(payload: bytes, signature: str, secret: str) -> b
     """Verify Bitbucket webhook signature."""
     if not signature or not secret:
         return False
-    expected = hmac.new(
-        secret.encode("utf-8"), payload, hashlib.sha256
-    ).hexdigest()
+    expected = hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
 
 
@@ -307,12 +303,13 @@ async def handle_installation_event(
     db: AsyncSession,
 ) -> dict[str, Any]:
     """Handle GitHub App installation events.
-    
+
     Processes installation created/deleted events to manage
     organizations and repositories in the database.
     """
+    from sqlalchemy import select
+
     from codeverify_api.db.models import Installation, Organization, Repository
-    from sqlalchemy import select, delete
 
     action = data.get("action")
     installation = data.get("installation", {})
@@ -412,6 +409,7 @@ async def handle_installation_event(
         if existing:
             # Update suspended_at to mark as deleted
             from datetime import datetime
+
             existing.suspended_at = datetime.utcnow()
             logger.info("Marked installation as deleted", installation_id=installation_id)
 
@@ -430,6 +428,7 @@ async def handle_installation_event(
 
         if existing:
             from datetime import datetime
+
             existing.suspended_at = datetime.utcnow()
             logger.info("Suspended installation", installation_id=installation_id)
 

@@ -10,9 +10,7 @@ Provides REST API endpoints for monitoring AI code quality drift:
 
 from __future__ import annotations
 
-import time
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -20,11 +18,12 @@ from pydantic import BaseModel, Field
 # Import AI Drift Detector
 try:
     from codeverify_agents.ai_drift_detector import (
-        AIDriftDetector,
         AICodeSnapshot,
+        AIDriftDetector,
         DriftCategory,
         DriftSeverity,
     )
+
     AI_DRIFT_DETECTOR_AVAILABLE = True
 except ImportError:
     AI_DRIFT_DETECTOR_AVAILABLE = False
@@ -37,7 +36,7 @@ except ImportError:
 router = APIRouter(prefix="/api/v1/drift", tags=["ai-drift"])
 
 # Singleton detector instance
-_drift_detector: Optional[AIDriftDetector] = None
+_drift_detector: AIDriftDetector | None = None
 
 
 def get_drift_detector() -> AIDriftDetector:
@@ -55,58 +54,64 @@ def get_drift_detector() -> AIDriftDetector:
 
 class RecordSnapshotRequest(BaseModel):
     """Request to record an AI code snapshot."""
+
     file_path: str = Field(..., description="Path to the file")
     code: str = Field(..., description="The code content")
     trust_score: float = Field(..., ge=0, le=100, description="Trust score (0-100)")
     ai_probability: float = Field(..., ge=0, le=1, description="AI probability (0-1)")
-    findings: List[Dict[str, Any]] = Field(default_factory=list, description="Analysis findings")
+    findings: list[dict[str, Any]] = Field(default_factory=list, description="Analysis findings")
 
     # Optional metadata
-    detected_model: Optional[str] = Field(None, description="Detected AI model")
-    complexity_score: Optional[float] = Field(None, ge=0, le=100)
-    security_score: Optional[float] = Field(None, ge=0, le=100)
-    test_coverage: Optional[float] = Field(None, ge=0, le=100)
-    documentation_score: Optional[float] = Field(None, ge=0, le=100)
-    was_reviewed: Optional[bool] = Field(False, description="Whether code was reviewed")
-    review_depth: Optional[float] = Field(None, ge=0, le=1)
-    time_to_accept: Optional[float] = Field(None, ge=0)
-    author: Optional[str] = Field(None, description="Code author")
-    commit_hash: Optional[str] = Field(None, description="Git commit hash")
+    detected_model: str | None = Field(None, description="Detected AI model")
+    complexity_score: float | None = Field(None, ge=0, le=100)
+    security_score: float | None = Field(None, ge=0, le=100)
+    test_coverage: float | None = Field(None, ge=0, le=100)
+    documentation_score: float | None = Field(None, ge=0, le=100)
+    was_reviewed: bool | None = Field(False, description="Whether code was reviewed")
+    review_depth: float | None = Field(None, ge=0, le=1)
+    time_to_accept: float | None = Field(None, ge=0)
+    author: str | None = Field(None, description="Code author")
+    commit_hash: str | None = Field(None, description="Git commit hash")
 
 
 class SnapshotResponse(BaseModel):
     """Response after recording a snapshot."""
+
     snapshot_id: str
     timestamp: str
-    immediate_alerts: List[Dict[str, Any]]
+    immediate_alerts: list[dict[str, Any]]
 
 
 class DriftReportRequest(BaseModel):
     """Request to generate a drift report."""
+
     days: int = Field(30, ge=1, le=365, description="Number of days to analyze")
 
 
 class EstablishBaselineRequest(BaseModel):
     """Request to establish baseline metrics."""
+
     days: int = Field(30, ge=7, le=90, description="Days of data to use for baseline")
 
 
 class AlertsRequest(BaseModel):
     """Request to filter alerts."""
-    severity: Optional[str] = Field(None, description="Filter by severity")
-    category: Optional[str] = Field(None, description="Filter by category")
+
+    severity: str | None = Field(None, description="Filter by severity")
+    category: str | None = Field(None, description="Filter by category")
 
 
 class UpdateThresholdsRequest(BaseModel):
     """Request to update detection thresholds."""
-    trust_score_min: Optional[float] = Field(None, ge=0, le=100)
-    trust_score_decline: Optional[float] = Field(None, ge=0, le=100)
-    security_score_min: Optional[float] = Field(None, ge=0, le=100)
-    review_rate_min: Optional[float] = Field(None, ge=0, le=100)
-    acceptance_spike: Optional[float] = Field(None, ge=0, le=100)
-    critical_finding_max: Optional[float] = Field(None, ge=0, le=1)
-    complexity_increase: Optional[float] = Field(None, ge=0, le=100)
-    test_coverage_min: Optional[float] = Field(None, ge=0, le=100)
+
+    trust_score_min: float | None = Field(None, ge=0, le=100)
+    trust_score_decline: float | None = Field(None, ge=0, le=100)
+    security_score_min: float | None = Field(None, ge=0, le=100)
+    review_rate_min: float | None = Field(None, ge=0, le=100)
+    acceptance_spike: float | None = Field(None, ge=0, le=100)
+    critical_finding_max: float | None = Field(None, ge=0, le=1)
+    complexity_increase: float | None = Field(None, ge=0, le=100)
+    test_coverage_min: float | None = Field(None, ge=0, le=100)
 
 
 # =============================================================================
@@ -118,7 +123,7 @@ class UpdateThresholdsRequest(BaseModel):
     "/snapshot",
     response_model=SnapshotResponse,
     summary="Record AI Code Snapshot",
-    description="Record an AI-generated code snapshot for drift tracking"
+    description="Record an AI-generated code snapshot for drift tracking",
 )
 async def record_snapshot(request: RecordSnapshotRequest) -> SnapshotResponse:
     """
@@ -128,17 +133,11 @@ async def record_snapshot(request: RecordSnapshotRequest) -> SnapshotResponse:
     or analyzed. The detector uses these snapshots to track quality trends.
     """
     if not AI_DRIFT_DETECTOR_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="AI Drift Detector is not available"
-        )
+        raise HTTPException(status_code=503, detail="AI Drift Detector is not available")
 
     detector = get_drift_detector()
     if not detector:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize AI Drift Detector"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize AI Drift Detector")
 
     # Build optional metadata
     metadata = {}
@@ -186,9 +185,9 @@ async def record_snapshot(request: RecordSnapshotRequest) -> SnapshotResponse:
 @router.post(
     "/report",
     summary="Generate Drift Report",
-    description="Generate a comprehensive drift analysis report"
+    description="Generate a comprehensive drift analysis report",
 )
-async def generate_drift_report(request: DriftReportRequest) -> Dict[str, Any]:
+async def generate_drift_report(request: DriftReportRequest) -> dict[str, Any]:
     """
     Generate a drift analysis report.
 
@@ -196,17 +195,11 @@ async def generate_drift_report(request: DriftReportRequest) -> Dict[str, Any]:
     active alerts, and recommendations.
     """
     if not AI_DRIFT_DETECTOR_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="AI Drift Detector is not available"
-        )
+        raise HTTPException(status_code=503, detail="AI Drift Detector is not available")
 
     detector = get_drift_detector()
     if not detector:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize AI Drift Detector"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize AI Drift Detector")
 
     report = detector.generate_report(request.days)
     return report.to_dict()
@@ -215,9 +208,9 @@ async def generate_drift_report(request: DriftReportRequest) -> Dict[str, Any]:
 @router.post(
     "/baseline",
     summary="Establish Baseline",
-    description="Establish baseline metrics from historical data"
+    description="Establish baseline metrics from historical data",
 )
-async def establish_baseline(request: EstablishBaselineRequest) -> Dict[str, Any]:
+async def establish_baseline(request: EstablishBaselineRequest) -> dict[str, Any]:
     """
     Establish baseline metrics.
 
@@ -225,17 +218,11 @@ async def establish_baseline(request: EstablishBaselineRequest) -> Dict[str, Any
     enabling drift detection by comparison.
     """
     if not AI_DRIFT_DETECTOR_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="AI Drift Detector is not available"
-        )
+        raise HTTPException(status_code=503, detail="AI Drift Detector is not available")
 
     detector = get_drift_detector()
     if not detector:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize AI Drift Detector"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize AI Drift Detector")
 
     metrics = detector.establish_baseline(request.days)
 
@@ -246,15 +233,11 @@ async def establish_baseline(request: EstablishBaselineRequest) -> Dict[str, Any
     }
 
 
-@router.get(
-    "/alerts",
-    summary="Get Active Alerts",
-    description="Get active drift alerts"
-)
+@router.get("/alerts", summary="Get Active Alerts", description="Get active drift alerts")
 async def get_alerts(
-    severity: Optional[str] = None,
-    category: Optional[str] = None,
-) -> Dict[str, Any]:
+    severity: str | None = None,
+    category: str | None = None,
+) -> dict[str, Any]:
     """
     Get active drift alerts.
 
@@ -262,17 +245,11 @@ async def get_alerts(
     or category (quality_degradation, security_risk_increase, etc.)
     """
     if not AI_DRIFT_DETECTOR_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="AI Drift Detector is not available"
-        )
+        raise HTTPException(status_code=503, detail="AI Drift Detector is not available")
 
     detector = get_drift_detector()
     if not detector:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize AI Drift Detector"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize AI Drift Detector")
 
     # Parse filters
     severity_filter = None
@@ -284,7 +261,7 @@ async def get_alerts(
         except ValueError:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid severity: {severity}. Valid values: low, medium, high, critical"
+                detail=f"Invalid severity: {severity}. Valid values: low, medium, high, critical",
             )
 
     if category:
@@ -293,8 +270,7 @@ async def get_alerts(
         except ValueError:
             valid = [c.value for c in DriftCategory]
             raise HTTPException(
-                status_code=400,
-                detail=f"Invalid category: {category}. Valid values: {valid}"
+                status_code=400, detail=f"Invalid category: {category}. Valid values: {valid}"
             )
 
     alerts = detector.get_active_alerts(severity_filter, category_filter)
@@ -310,11 +286,9 @@ async def get_alerts(
 
 
 @router.get(
-    "/stats",
-    summary="Get Detector Statistics",
-    description="Get drift detector statistics"
+    "/stats", summary="Get Detector Statistics", description="Get drift detector statistics"
 )
-async def get_stats() -> Dict[str, Any]:
+async def get_stats() -> dict[str, Any]:
     """Get detector statistics."""
     if not AI_DRIFT_DETECTOR_AVAILABLE:
         return {
@@ -338,26 +312,20 @@ async def get_stats() -> Dict[str, Any]:
 @router.put(
     "/thresholds",
     summary="Update Detection Thresholds",
-    description="Update thresholds for drift detection"
+    description="Update thresholds for drift detection",
 )
-async def update_thresholds(request: UpdateThresholdsRequest) -> Dict[str, Any]:
+async def update_thresholds(request: UpdateThresholdsRequest) -> dict[str, Any]:
     """
     Update detection thresholds.
 
     Allows customizing when alerts are triggered.
     """
     if not AI_DRIFT_DETECTOR_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="AI Drift Detector is not available"
-        )
+        raise HTTPException(status_code=503, detail="AI Drift Detector is not available")
 
     detector = get_drift_detector()
     if not detector:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize AI Drift Detector"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize AI Drift Detector")
 
     # Update thresholds
     updates = request.dict(exclude_none=True)
@@ -371,29 +339,19 @@ async def update_thresholds(request: UpdateThresholdsRequest) -> Dict[str, Any]:
     }
 
 
-@router.delete(
-    "/data",
-    summary="Clear Drift Data",
-    description="Clear all stored drift data"
-)
-async def clear_data() -> Dict[str, Any]:
+@router.delete("/data", summary="Clear Drift Data", description="Clear all stored drift data")
+async def clear_data() -> dict[str, Any]:
     """
     Clear all drift data.
 
     Use with caution - this removes all historical snapshots and alerts.
     """
     if not AI_DRIFT_DETECTOR_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="AI Drift Detector is not available"
-        )
+        raise HTTPException(status_code=503, detail="AI Drift Detector is not available")
 
     detector = get_drift_detector()
     if not detector:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize AI Drift Detector"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize AI Drift Detector")
 
     detector.clear_data()
 
@@ -406,26 +364,20 @@ async def clear_data() -> Dict[str, Any]:
 @router.get(
     "/health",
     summary="Get Current Health Score",
-    description="Get the current AI code health score"
+    description="Get the current AI code health score",
 )
-async def get_health_score(days: int = 7) -> Dict[str, Any]:
+async def get_health_score(days: int = 7) -> dict[str, Any]:
     """
     Get current health score.
 
     Quick endpoint to check overall AI code health.
     """
     if not AI_DRIFT_DETECTOR_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="AI Drift Detector is not available"
-        )
+        raise HTTPException(status_code=503, detail="AI Drift Detector is not available")
 
     detector = get_drift_detector()
     if not detector:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize AI Drift Detector"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize AI Drift Detector")
 
     report = detector.generate_report(days)
 

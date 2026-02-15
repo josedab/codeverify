@@ -9,10 +9,9 @@ import hashlib
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
-
 import structlog
+from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 
@@ -144,38 +143,42 @@ def quick_pattern_analysis(code: str, language: str) -> list[dict[str, Any]]:
     for pattern, category, severity, title in SECURITY_PATTERNS:
         matches = list(re.finditer(pattern, code, re.IGNORECASE))
         for match in matches[:3]:  # Limit to 3 per pattern
-            line_num = code[:match.start()].count('\n') + 1
-            findings.append({
-                "id": f"quick-{finding_id}",
-                "category": category,
-                "severity": severity,
-                "title": title,
-                "description": f"Pattern detected: {match.group()}",
-                "file_path": "clipboard",
-                "line_start": line_num,
-                "line_end": line_num,
-                "confidence": 0.85,
-                "verification_type": "pattern",
-            })
+            line_num = code[: match.start()].count("\n") + 1
+            findings.append(
+                {
+                    "id": f"quick-{finding_id}",
+                    "category": category,
+                    "severity": severity,
+                    "title": title,
+                    "description": f"Pattern detected: {match.group()}",
+                    "file_path": "clipboard",
+                    "line_start": line_num,
+                    "line_end": line_num,
+                    "confidence": 0.85,
+                    "verification_type": "pattern",
+                }
+            )
             finding_id += 1
 
     # Check logic patterns
     for pattern, category, severity, title in LOGIC_PATTERNS:
         matches = list(re.finditer(pattern, code, re.IGNORECASE))
         for match in matches[:3]:
-            line_num = code[:match.start()].count('\n') + 1
-            findings.append({
-                "id": f"quick-{finding_id}",
-                "category": category,
-                "severity": severity,
-                "title": title,
-                "description": f"Pattern detected: {match.group()}",
-                "file_path": "clipboard",
-                "line_start": line_num,
-                "line_end": line_num,
-                "confidence": 0.75,
-                "verification_type": "pattern",
-            })
+            line_num = code[: match.start()].count("\n") + 1
+            findings.append(
+                {
+                    "id": f"quick-{finding_id}",
+                    "category": category,
+                    "severity": severity,
+                    "title": title,
+                    "description": f"Pattern detected: {match.group()}",
+                    "file_path": "clipboard",
+                    "line_start": line_num,
+                    "line_end": line_num,
+                    "confidence": 0.75,
+                    "verification_type": "pattern",
+                }
+            )
             finding_id += 1
 
     return findings
@@ -224,7 +227,9 @@ def quick_ai_detection(code: str) -> tuple[bool, float, str]:
     return is_ai, confidence, detected_model
 
 
-def quick_trust_score(code: str, findings: list[dict[str, Any]], is_ai: bool, ai_confidence: float) -> float:
+def quick_trust_score(
+    code: str, findings: list[dict[str, Any]], is_ai: bool, ai_confidence: float
+) -> float:
     """Calculate quick trust score."""
     import re
 

@@ -1,14 +1,14 @@
 """Feedback router for collecting user feedback on findings."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import hashlib
+from datetime import datetime
 from typing import Any
 from uuid import UUID
-import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.auth.dependencies import get_current_user
@@ -20,16 +20,15 @@ router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 class FeedbackCreate(BaseModel):
     """Schema for creating feedback."""
-    
+
     finding_id: UUID = Field(..., description="ID of the finding")
     feedback_type: str = Field(
         ...,
-        description="Type of feedback: 'false_positive', 'helpful', 'not_helpful', 'incorrect_severity'"
+        description="Type of feedback: 'false_positive', 'helpful', 'not_helpful', 'incorrect_severity'",
     )
     comment: str | None = Field(None, description="Optional comment")
     suggested_severity: str | None = Field(
-        None,
-        description="Suggested severity if incorrect_severity"
+        None, description="Suggested severity if incorrect_severity"
     )
     # Additional context for learning
     finding_title: str | None = Field(None, description="Title of the finding")
@@ -39,7 +38,7 @@ class FeedbackCreate(BaseModel):
 
 class FeedbackResponse(BaseModel):
     """Schema for feedback response."""
-    
+
     id: UUID
     finding_id: UUID
     user_id: UUID
@@ -51,7 +50,7 @@ class FeedbackResponse(BaseModel):
 
 class FalsePositivePattern(BaseModel):
     """A learned false positive pattern."""
-    
+
     pattern_hash: str
     finding_title: str
     finding_category: str
@@ -79,24 +78,23 @@ async def create_feedback(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Submit feedback on a finding.
-    
+
     This feeds into the false positive learning system.
     """
     import uuid
-    
+
     # Validate feedback type
     valid_types = ["false_positive", "helpful", "not_helpful", "incorrect_severity"]
     if feedback.feedback_type not in valid_types:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid feedback type. Must be one of: {valid_types}"
+            status_code=400, detail=f"Invalid feedback type. Must be one of: {valid_types}"
         )
-    
+
     # Create feedback record
     feedback_record = {
         "id": uuid.uuid4(),
         "finding_id": feedback.finding_id,
-        "user_id": current_user.id if hasattr(current_user, 'id') else uuid.uuid4(),
+        "user_id": current_user.id if hasattr(current_user, "id") else uuid.uuid4(),
         "feedback_type": feedback.feedback_type,
         "comment": feedback.comment,
         "suggested_severity": feedback.suggested_severity,
@@ -105,9 +103,9 @@ async def create_feedback(
         "code_pattern": feedback.code_pattern,
         "created_at": datetime.utcnow(),
     }
-    
+
     _feedback_store.append(feedback_record)
-    
+
     # Update false positive patterns if applicable
     if feedback.feedback_type == "false_positive" and feedback.finding_title:
         _update_false_positive_pattern(
@@ -115,7 +113,7 @@ async def create_feedback(
             category=feedback.finding_category or "unknown",
             code_pattern=feedback.code_pattern,
         )
-    
+
     return feedback_record
 
 
@@ -126,17 +124,18 @@ def _update_false_positive_pattern(
 ) -> None:
     """Update the false positive pattern database."""
     pattern_hash = _compute_pattern_hash(title, category, code_pattern)
-    
+
     if pattern_hash in _false_positive_patterns:
         # Increment occurrence count
         _false_positive_patterns[pattern_hash]["occurrence_count"] += 1
         _false_positive_patterns[pattern_hash]["last_seen"] = datetime.utcnow()
-        
+
         # Adjust confidence based on occurrences
         occurrences = _false_positive_patterns[pattern_hash]["occurrence_count"]
         # More reports = lower confidence in this finding type
         _false_positive_patterns[pattern_hash]["confidence_adjustment"] = min(
-            0.5, occurrences * 0.1  # Max 50% confidence reduction
+            0.5,
+            occurrences * 0.1,  # Max 50% confidence reduction
         )
     else:
         # New pattern
@@ -168,25 +167,20 @@ async def get_feedback_stats(
 ) -> dict[str, Any]:
     """Get feedback statistics including false positive analysis."""
     total = len(_feedback_store)
-    
+
     by_type = {}
     for feedback in _feedback_store:
         ftype = feedback["feedback_type"]
         by_type[ftype] = by_type.get(ftype, 0) + 1
-    
+
     false_positive_count = by_type.get("false_positive", 0)
-    false_positive_rate = (
-        false_positive_count / total * 100
-        if total > 0 else 0
-    )
-    
+    false_positive_rate = false_positive_count / total * 100 if total > 0 else 0
+
     # Get top false positive patterns
     top_patterns = sorted(
-        _false_positive_patterns.values(),
-        key=lambda x: x["occurrence_count"],
-        reverse=True
+        _false_positive_patterns.values(), key=lambda x: x["occurrence_count"], reverse=True
     )[:10]
-    
+
     return {
         "total_feedback": total,
         "by_type": by_type,
@@ -203,14 +197,14 @@ async def get_learned_patterns(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get all learned false positive patterns.
-    
+
     These patterns are used to adjust confidence scores in future analyses.
     """
     patterns = list(_false_positive_patterns.values())
-    
+
     # Sort by occurrence count
     patterns.sort(key=lambda x: x["occurrence_count"], reverse=True)
-    
+
     return {
         "total_patterns": len(patterns),
         "patterns": patterns,
@@ -227,11 +221,11 @@ async def get_confidence_adjustment(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Check if a finding matches a known false positive pattern.
-    
+
     Returns the confidence adjustment to apply.
     """
     pattern_hash = _compute_pattern_hash(finding_title, category, code_pattern)
-    
+
     if pattern_hash in _false_positive_patterns:
         pattern = _false_positive_patterns[pattern_hash]
         return {
@@ -239,9 +233,11 @@ async def get_confidence_adjustment(
             "pattern_hash": pattern_hash,
             "confidence_adjustment": pattern["confidence_adjustment"],
             "occurrence_count": pattern["occurrence_count"],
-            "recommendation": "Consider reducing confidence score" if pattern["occurrence_count"] > 3 else "Monitor pattern",
+            "recommendation": "Consider reducing confidence score"
+            if pattern["occurrence_count"] > 3
+            else "Monitor pattern",
         }
-    
+
     return {
         "matches_pattern": False,
         "confidence_adjustment": 0.0,
@@ -261,17 +257,17 @@ async def dismiss_finding(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Dismiss a finding and optionally learn the pattern.
-    
+
     This is a convenience endpoint that combines feedback creation
     with pattern learning.
     """
     import uuid
-    
+
     # Create dismiss feedback
     feedback_record = {
         "id": uuid.uuid4(),
         "finding_id": finding_id,
-        "user_id": current_user.id if hasattr(current_user, 'id') else uuid.uuid4(),
+        "user_id": current_user.id if hasattr(current_user, "id") else uuid.uuid4(),
         "feedback_type": "false_positive",
         "comment": reason,
         "suggested_severity": None,
@@ -281,9 +277,9 @@ async def dismiss_finding(
         "created_at": datetime.utcnow(),
         "dismissed": True,
     }
-    
+
     _feedback_store.append(feedback_record)
-    
+
     # Learn pattern if requested
     pattern_learned = False
     if learn_pattern and finding_title:
@@ -293,7 +289,7 @@ async def dismiss_finding(
             code_pattern=code_pattern,
         )
         pattern_learned = True
-    
+
     return {
         "dismissed": True,
         "finding_id": str(finding_id),

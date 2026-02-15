@@ -2,16 +2,15 @@
 
 This module provides SAML 2.0 SSO authentication support for enterprise customers.
 """
+
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
-import hashlib
-import hmac
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -20,7 +19,7 @@ router = APIRouter(prefix="/sso", tags=["sso"])
 
 class SAMLConfig(BaseModel):
     """SAML configuration for an organization."""
-    
+
     organization_id: UUID
     idp_entity_id: str = Field(..., description="Identity Provider Entity ID")
     idp_sso_url: str = Field(..., description="IdP SSO URL")
@@ -34,7 +33,7 @@ class SAMLConfig(BaseModel):
             "name": "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
             "groups": "http://schemas.xmlsoap.org/claims/Group",
         },
-        description="Mapping of CodeVerify attributes to SAML attributes"
+        description="Mapping of CodeVerify attributes to SAML attributes",
     )
     enforce_sso: bool = Field(False, description="Require SSO for all users")
     domains: list[str] = Field(default_factory=list, description="Email domains for SSO")
@@ -42,7 +41,7 @@ class SAMLConfig(BaseModel):
 
 class SAMLConfigCreate(BaseModel):
     """Schema for creating SAML configuration."""
-    
+
     idp_entity_id: str
     idp_sso_url: str
     idp_slo_url: str | None = None
@@ -54,7 +53,7 @@ class SAMLConfigCreate(BaseModel):
 
 class SAMLConfigResponse(BaseModel):
     """Response schema for SAML configuration."""
-    
+
     organization_id: UUID
     idp_entity_id: str
     idp_sso_url: str
@@ -70,7 +69,7 @@ class SAMLConfigResponse(BaseModel):
 
 class SAMLAuthRequest(BaseModel):
     """SAML authentication request."""
-    
+
     request_id: str
     organization_id: UUID
     created_at: datetime
@@ -102,7 +101,7 @@ def _generate_sp_metadata(config: SAMLConfig, base_url: str) -> str:
 def _generate_authn_request(config: SAMLConfig, request_id: str) -> str:
     """Generate SAML AuthnRequest."""
     issue_instant = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    
+
     return f"""<?xml version="1.0"?>
 <samlp:AuthnRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
                     xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
@@ -125,16 +124,16 @@ async def create_saml_config(
     request: Request,
 ) -> dict[str, Any]:
     """Configure SAML SSO for an organization.
-    
+
     This endpoint requires organization admin privileges.
     """
     base_url = str(request.base_url).rstrip("/")
-    
+
     # Generate SP details
     sp_entity_id = f"{base_url}/sso/metadata/{organization_id}"
     sp_acs_url = f"{base_url}/sso/acs/{organization_id}"
     sp_metadata_url = f"{base_url}/sso/metadata/{organization_id}"
-    
+
     saml_config = SAMLConfig(
         organization_id=organization_id,
         idp_entity_id=config.idp_entity_id,
@@ -147,9 +146,9 @@ async def create_saml_config(
         enforce_sso=config.enforce_sso,
         domains=config.domains,
     )
-    
+
     _saml_configs[str(organization_id)] = saml_config
-    
+
     return {
         "organization_id": organization_id,
         "idp_entity_id": config.idp_entity_id,
@@ -172,10 +171,10 @@ async def get_saml_config(
 ) -> dict[str, Any]:
     """Get SAML configuration for an organization."""
     config = _saml_configs.get(str(organization_id))
-    
+
     if not config:
         raise HTTPException(status_code=404, detail="SAML configuration not found")
-    
+
     return {
         "organization_id": organization_id,
         "idp_entity_id": config.idp_entity_id,
@@ -198,9 +197,9 @@ async def delete_saml_config(
     """Delete SAML configuration for an organization."""
     if str(organization_id) not in _saml_configs:
         raise HTTPException(status_code=404, detail="SAML configuration not found")
-    
+
     del _saml_configs[str(organization_id)]
-    
+
     return {"status": "deleted"}
 
 
@@ -210,17 +209,17 @@ async def get_sp_metadata(
     request: Request,
 ) -> Response:
     """Get Service Provider SAML metadata XML.
-    
+
     This endpoint provides the SP metadata for IdP configuration.
     """
     config = _saml_configs.get(str(organization_id))
-    
+
     if not config:
         raise HTTPException(status_code=404, detail="SAML configuration not found")
-    
+
     base_url = str(request.base_url).rstrip("/")
     metadata = _generate_sp_metadata(config, base_url)
-    
+
     return Response(
         content=metadata,
         media_type="application/xml",
@@ -236,17 +235,17 @@ async def initiate_sso_login(
     redirect_uri: str | None = None,
 ) -> RedirectResponse:
     """Initiate SAML SSO login flow.
-    
+
     Redirects to the IdP for authentication.
     """
     config = _saml_configs.get(str(organization_id))
-    
+
     if not config:
         raise HTTPException(status_code=404, detail="SAML configuration not found")
-    
+
     # Generate request ID
     request_id = f"_codeverify_{uuid4().hex}"
-    
+
     # Store pending request
     auth_request = SAMLAuthRequest(
         request_id=request_id,
@@ -255,21 +254,21 @@ async def initiate_sso_login(
         relay_state=redirect_uri,
     )
     _pending_auth_requests[request_id] = auth_request
-    
+
     # Generate AuthnRequest
     authn_request = _generate_authn_request(config, request_id)
-    
+
     # Base64 encode
     encoded_request = base64.b64encode(authn_request.encode()).decode()
-    
+
     # Build redirect URL
     # In production, would use proper URL encoding and signature
     redirect_url = f"{config.idp_sso_url}?SAMLRequest={encoded_request}"
-    
+
     if redirect_uri:
         relay_state = base64.b64encode(redirect_uri.encode()).decode()
         redirect_url += f"&RelayState={relay_state}"
-    
+
     return RedirectResponse(url=redirect_url, status_code=302)
 
 
@@ -279,35 +278,35 @@ async def assertion_consumer_service(
     request: Request,
 ) -> dict[str, Any]:
     """Assertion Consumer Service - receives SAML response from IdP.
-    
+
     This endpoint processes the SAML response and creates a session.
     """
     config = _saml_configs.get(str(organization_id))
-    
+
     if not config:
         raise HTTPException(status_code=404, detail="SAML configuration not found")
-    
+
     # Parse form data
     form_data = await request.form()
     saml_response = form_data.get("SAMLResponse")
     relay_state = form_data.get("RelayState")
-    
+
     if not saml_response:
         raise HTTPException(status_code=400, detail="Missing SAMLResponse")
-    
+
     try:
         # Decode SAML response
         decoded_response = base64.b64decode(saml_response).decode()
-        
+
         # In production, would:
         # 1. Verify XML signature using IdP certificate
         # 2. Verify assertion conditions (NotBefore, NotOnOrAfter)
         # 3. Verify audience restriction
         # 4. Extract attributes using configured mapping
-        
+
         # For demo, return mock user data
         # Real implementation would use python3-saml or similar library
-        
+
         user_data = {
             "email": "user@example.com",  # Would extract from assertion
             "name": "Example User",
@@ -316,7 +315,7 @@ async def assertion_consumer_service(
             "auth_method": "saml",
             "authenticated_at": datetime.utcnow().isoformat(),
         }
-        
+
         # Decode relay state for redirect
         redirect_uri = None
         if relay_state:
@@ -324,14 +323,14 @@ async def assertion_consumer_service(
                 redirect_uri = base64.b64decode(relay_state).decode()
             except Exception:
                 pass
-        
+
         return {
             "status": "authenticated",
             "user": user_data,
             "redirect_uri": redirect_uri,
             "message": "SAML authentication successful. In production, this would create a session and redirect.",
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to process SAML response: {str(e)}")
 
@@ -341,14 +340,14 @@ async def initiate_sso_logout(
     organization_id: UUID,
 ) -> dict[str, Any]:
     """Initiate SAML Single Logout.
-    
+
     Logs out the user from CodeVerify and optionally from the IdP.
     """
     config = _saml_configs.get(str(organization_id))
-    
+
     if not config:
         raise HTTPException(status_code=404, detail="SAML configuration not found")
-    
+
     if config.idp_slo_url:
         # Would generate LogoutRequest and redirect to IdP
         return {
@@ -369,11 +368,11 @@ async def check_sso_domain(
     email: str,
 ) -> dict[str, Any]:
     """Check if an email domain requires SSO.
-    
+
     Used during login to determine if user should be redirected to SSO.
     """
     domain = email.split("@")[-1].lower() if "@" in email else ""
-    
+
     for org_id, config in _saml_configs.items():
         if domain in [d.lower() for d in config.domains]:
             return {
@@ -382,7 +381,7 @@ async def check_sso_domain(
                 "organization_id": org_id,
                 "login_url": f"/sso/login/{org_id}",
             }
-    
+
     return {
         "sso_required": False,
         "sso_available": False,
@@ -394,19 +393,19 @@ async def test_sso_connection(
     organization_id: UUID,
 ) -> dict[str, Any]:
     """Test SSO connection with the IdP.
-    
+
     Validates configuration and connectivity.
     """
     config = _saml_configs.get(str(organization_id))
-    
+
     if not config:
         raise HTTPException(status_code=404, detail="SAML configuration not found")
-    
+
     # In production, would:
     # 1. Fetch IdP metadata if available
     # 2. Verify certificate validity
     # 3. Test connectivity to SSO URL
-    
+
     checks = {
         "configuration_valid": True,
         "idp_entity_id": config.idp_entity_id,
@@ -417,7 +416,7 @@ async def test_sso_connection(
         "domains_configured": len(config.domains),
         "enforce_sso": config.enforce_sso,
     }
-    
+
     return {
         "status": "ok",
         "checks": checks,

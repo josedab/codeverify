@@ -1,7 +1,6 @@
 """Verification Debugger API endpoints."""
 
 from typing import Any
-from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -15,7 +14,9 @@ class VerifyWithTraceRequest(BaseModel):
     formula: str = Field(..., description="SMT-LIB formatted formula")
     name: str = Field(default="Verification", description="Name for this verification")
     description: str | None = Field(default=None, description="Optional description")
-    timeout_ms: int = Field(default=60000, ge=1000, le=300000, description="Timeout in milliseconds")
+    timeout_ms: int = Field(
+        default=60000, ge=1000, le=300000, description="Timeout in milliseconds"
+    )
 
 
 class VerificationStepResponse(BaseModel):
@@ -49,7 +50,9 @@ class VerificationTraceResponse(BaseModel):
 class InteractiveSessionRequest(BaseModel):
     """Request for interactive session operations."""
 
-    action: str = Field(..., description="Action: add_variable, add_constraint, check, push, pop, reset")
+    action: str = Field(
+        ..., description="Action: add_variable, add_constraint, check, push, pop, reset"
+    )
     data: dict[str, Any] = Field(default_factory=dict, description="Action-specific data")
 
 
@@ -123,6 +126,7 @@ async def create_interactive_session(
     Returns a session ID that can be used for subsequent operations.
     """
     import uuid
+
     from codeverify_verifier.debugger import create_interactive_session
 
     session_id = str(uuid.uuid4())
@@ -255,9 +259,7 @@ async def explain_verification(
 
     if result == "sat":
         explanation["summary"] = "⚠️ Potential issue found"
-        explanation["meaning"] = (
-            "The verification found inputs that violate the checked property."
-        )
+        explanation["meaning"] = "The verification found inputs that violate the checked property."
         if counterexample:
             explanation["evidence"].append("Counterexample values:")
             for var, value in counterexample.items():
@@ -269,9 +271,7 @@ async def explain_verification(
 
     elif result == "unsat":
         explanation["summary"] = "✅ Property verified correct"
-        explanation["meaning"] = (
-            "No inputs can violate the property - the code is correct."
-        )
+        explanation["meaning"] = "No inputs can violate the property - the code is correct."
         explanation["recommendations"] = [
             "No action required for this property",
         ]

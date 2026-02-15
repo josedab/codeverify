@@ -1,6 +1,5 @@
 """Health check endpoints."""
 
-import os
 from typing import Any
 
 import redis.asyncio as redis
@@ -8,8 +7,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from codeverify_api.db.database import get_db
 from codeverify_api.config import settings
+from codeverify_api.db.database import get_db
 
 router = APIRouter()
 
@@ -48,12 +47,9 @@ async def readiness_check(
     """Readiness check - verifies all dependencies are available."""
     db_status = await check_database(db)
     redis_status = await check_redis()
-    
-    all_healthy = (
-        db_status["status"] == "healthy" and
-        redis_status["status"] == "healthy"
-    )
-    
+
+    all_healthy = db_status["status"] == "healthy" and redis_status["status"] == "healthy"
+
     return {
         "status": "ready" if all_healthy else "not_ready",
         "checks": {
@@ -76,12 +72,9 @@ async def detailed_health_check(
     """Detailed health check with all component statuses."""
     db_status = await check_database(db)
     redis_status = await check_redis()
-    
-    all_healthy = (
-        db_status["status"] == "healthy" and
-        redis_status["status"] == "healthy"
-    )
-    
+
+    all_healthy = db_status["status"] == "healthy" and redis_status["status"] == "healthy"
+
     return {
         "status": "healthy" if all_healthy else "degraded",
         "version": "0.1.0",

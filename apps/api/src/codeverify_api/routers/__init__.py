@@ -1,4 +1,5 @@
 """API Routers."""
+
 from codeverify_api.routers import (
     analyses,
     auth,

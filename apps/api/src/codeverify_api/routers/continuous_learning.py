@@ -10,7 +10,7 @@ Provides REST API endpoints for continuous learning from user feedback:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -23,6 +23,7 @@ try:
         FindingCategory,
         LearningStatus,
     )
+
     CONTINUOUS_LEARNING_AVAILABLE = True
 except ImportError:
     CONTINUOUS_LEARNING_AVAILABLE = False
@@ -35,7 +36,7 @@ except ImportError:
 router = APIRouter(prefix="/api/v1/learning", tags=["continuous-learning"])
 
 # Singleton engine instance
-_learning_engine: Optional[ContinuousLearningEngine] = None
+_learning_engine: ContinuousLearningEngine | None = None
 
 
 def get_learning_engine() -> ContinuousLearningEngine:
@@ -53,17 +54,21 @@ def get_learning_engine() -> ContinuousLearningEngine:
 
 class FeedbackRequest(BaseModel):
     """Request to record feedback."""
+
     finding_id: str = Field(..., description="ID of the finding")
     finding_type: str = Field(..., description="Type of the finding")
     category: str = Field("other", description="Category: security, performance, style, bug, etc.")
-    feedback_type: str = Field(..., description="Feedback: accepted, rejected, false_positive, etc.")
-    user_id: Optional[str] = Field(None, description="User ID if available")
-    code_snippet: Optional[str] = Field(None, description="Related code snippet")
-    context: Optional[Dict[str, Any]] = Field(None, description="Additional context")
+    feedback_type: str = Field(
+        ..., description="Feedback: accepted, rejected, false_positive, etc."
+    )
+    user_id: str | None = Field(None, description="User ID if available")
+    code_snippet: str | None = Field(None, description="Related code snippet")
+    context: dict[str, Any] | None = Field(None, description="Additional context")
 
 
 class FeedbackResponse(BaseModel):
     """Response with feedback record."""
+
     id: str
     finding_id: str
     feedback_type: str
@@ -73,17 +78,20 @@ class FeedbackResponse(BaseModel):
 
 class LearnRequest(BaseModel):
     """Request to learn patterns."""
+
     hours: int = Field(168, ge=1, le=720, description="Hours of feedback to analyze")
 
 
 class RecommendationRequest(BaseModel):
     """Request for a recommendation."""
+
     finding_type: str = Field(..., description="Type of the finding")
-    code_snippet: Optional[str] = Field(None, description="Code snippet for context")
+    code_snippet: str | None = Field(None, description="Code snippet for context")
 
 
 class TrainingRequest(BaseModel):
     """Request to trigger training."""
+
     force: bool = Field(False, description="Force training even if cooldown active")
 
 
@@ -96,7 +104,7 @@ class TrainingRequest(BaseModel):
     "/feedback",
     response_model=FeedbackResponse,
     summary="Record Feedback",
-    description="Record user feedback on a finding"
+    description="Record user feedback on a finding",
 )
 async def record_feedback(request: FeedbackRequest) -> FeedbackResponse:
     """
@@ -105,16 +113,12 @@ async def record_feedback(request: FeedbackRequest) -> FeedbackResponse:
     This feedback is used to learn patterns and improve detection accuracy.
     """
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     record = engine.record_feedback(
@@ -136,28 +140,20 @@ async def record_feedback(request: FeedbackRequest) -> FeedbackResponse:
     )
 
 
-@router.get(
-    "/feedback",
-    summary="Get Recent Feedback",
-    description="Get recent feedback records"
-)
+@router.get("/feedback", summary="Get Recent Feedback", description="Get recent feedback records")
 async def get_feedback(
     hours: int = 24,
-    category: Optional[str] = None,
+    category: str | None = None,
     limit: int = 50,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get recent feedback records."""
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     cat = None
@@ -177,12 +173,8 @@ async def get_feedback(
     }
 
 
-@router.post(
-    "/learn",
-    summary="Learn Patterns",
-    description="Learn patterns from recent feedback"
-)
-async def learn_patterns(request: LearnRequest) -> Dict[str, Any]:
+@router.post("/learn", summary="Learn Patterns", description="Learn patterns from recent feedback")
+async def learn_patterns(request: LearnRequest) -> dict[str, Any]:
     """
     Learn patterns from recent feedback.
 
@@ -190,16 +182,12 @@ async def learn_patterns(request: LearnRequest) -> Dict[str, Any]:
     and code patterns that can improve detection accuracy.
     """
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     patterns = engine.learn_patterns(hours=request.hours)
@@ -211,27 +199,19 @@ async def learn_patterns(request: LearnRequest) -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/patterns",
-    summary="Get Learned Patterns",
-    description="Get all learned patterns"
-)
+@router.get("/patterns", summary="Get Learned Patterns", description="Get all learned patterns")
 async def get_patterns(
     active_only: bool = True,
-    category: Optional[str] = None,
-) -> Dict[str, Any]:
+    category: str | None = None,
+) -> dict[str, Any]:
     """Get learned patterns."""
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     if category:
@@ -254,30 +234,23 @@ async def get_patterns(
 @router.post(
     "/patterns/{pattern_id}/deactivate",
     summary="Deactivate Pattern",
-    description="Deactivate a learned pattern"
+    description="Deactivate a learned pattern",
 )
-async def deactivate_pattern(pattern_id: str) -> Dict[str, Any]:
+async def deactivate_pattern(pattern_id: str) -> dict[str, Any]:
     """Deactivate a learned pattern."""
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     success = engine.learner.deactivate_pattern(pattern_id)
 
     if not success:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Pattern not found: {pattern_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Pattern not found: {pattern_id}")
 
     return {
         "deactivated": True,
@@ -288,25 +261,21 @@ async def deactivate_pattern(pattern_id: str) -> Dict[str, Any]:
 @router.post(
     "/recommend",
     summary="Get Recommendation",
-    description="Get recommendation based on learned patterns"
+    description="Get recommendation based on learned patterns",
 )
-async def get_recommendation(request: RecommendationRequest) -> Dict[str, Any]:
+async def get_recommendation(request: RecommendationRequest) -> dict[str, Any]:
     """
     Get recommendation for a finding based on learned patterns.
 
     Returns whether the finding should be suppressed, highlighted, or shown normally.
     """
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     recommendation = engine.get_recommendation(
@@ -320,9 +289,9 @@ async def get_recommendation(request: RecommendationRequest) -> Dict[str, Any]:
 @router.post(
     "/train",
     summary="Trigger Training",
-    description="Trigger model fine-tuning if conditions are met"
+    description="Trigger model fine-tuning if conditions are met",
 )
-async def trigger_training(request: TrainingRequest) -> Dict[str, Any]:
+async def trigger_training(request: TrainingRequest) -> dict[str, Any]:
     """
     Trigger model fine-tuning.
 
@@ -330,16 +299,12 @@ async def trigger_training(request: TrainingRequest) -> Dict[str, Any]:
     false positive rate exceeds threshold.
     """
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     if not request.force:
@@ -367,21 +332,17 @@ async def trigger_training(request: TrainingRequest) -> Dict[str, Any]:
 @router.get(
     "/train/status",
     summary="Get Training Status",
-    description="Get current training status and triggers"
+    description="Get current training status and triggers",
 )
-async def get_training_status() -> Dict[str, Any]:
+async def get_training_status() -> dict[str, Any]:
     """Get training status and trigger information."""
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     can_train, reason = engine.trainer.can_train()
@@ -397,24 +358,16 @@ async def get_training_status() -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/train/jobs",
-    summary="Get Training Jobs",
-    description="Get training job history"
-)
-async def get_training_jobs(limit: int = 10) -> Dict[str, Any]:
+@router.get("/train/jobs", summary="Get Training Jobs", description="Get training job history")
+async def get_training_jobs(limit: int = 10) -> dict[str, Any]:
     """Get training job history."""
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     jobs = engine.trainer.get_recent_jobs(limit=limit)
@@ -426,11 +379,9 @@ async def get_training_jobs(limit: int = 10) -> Dict[str, Any]:
 
 
 @router.get(
-    "/metrics",
-    summary="Get Learning Metrics",
-    description="Get learning metrics and improvements"
+    "/metrics", summary="Get Learning Metrics", description="Get learning metrics and improvements"
 )
-async def get_metrics() -> Dict[str, Any]:
+async def get_metrics() -> dict[str, Any]:
     """Get learning metrics."""
     if not CONTINUOUS_LEARNING_AVAILABLE:
         return {
@@ -453,12 +404,8 @@ async def get_metrics() -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/stats",
-    summary="Get Statistics",
-    description="Get comprehensive learning statistics"
-)
-async def get_stats() -> Dict[str, Any]:
+@router.get("/stats", summary="Get Statistics", description="Get comprehensive learning statistics")
+async def get_stats() -> dict[str, Any]:
     """Get comprehensive learning statistics."""
     if not CONTINUOUS_LEARNING_AVAILABLE:
         return {
@@ -479,47 +426,31 @@ async def get_stats() -> Dict[str, Any]:
     return stats
 
 
-@router.get(
-    "/export",
-    summary="Export Data",
-    description="Export all learning data"
-)
-async def export_data() -> Dict[str, Any]:
+@router.get("/export", summary="Export Data", description="Export all learning data")
+async def export_data() -> dict[str, Any]:
     """Export all learning data."""
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     return engine.export_data()
 
 
-@router.delete(
-    "/data",
-    summary="Clear Data",
-    description="Clear all learning data"
-)
-async def clear_data() -> Dict[str, Any]:
+@router.delete("/data", summary="Clear Data", description="Clear all learning data")
+async def clear_data() -> dict[str, Any]:
     """Clear all learning data."""
     if not CONTINUOUS_LEARNING_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Continuous Learning Engine is not available"
-        )
+        raise HTTPException(status_code=503, detail="Continuous Learning Engine is not available")
 
     engine = get_learning_engine()
     if not engine:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Continuous Learning Engine"
+            status_code=503, detail="Failed to initialize Continuous Learning Engine"
         )
 
     engine.clear_data()

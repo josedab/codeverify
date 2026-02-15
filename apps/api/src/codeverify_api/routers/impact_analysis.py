@@ -56,7 +56,9 @@ class ImpactReport(BaseModel):
 
 class DependencyParseRequest(BaseModel):
     content: str = Field(description="File content to parse")
-    file_type: str = Field(description="File type: package.json, pyproject.toml, go.mod, requirements.txt, pom.xml")
+    file_type: str = Field(
+        description="File type: package.json, pyproject.toml, go.mod, requirements.txt, pom.xml"
+    )
 
 
 # In-memory repository graph
@@ -185,13 +187,15 @@ async def analyze_impact(request: ImpactAnalysisRequest) -> ImpactReport:
     impacted = []
     for dep_id in dependents:
         repo = _repos.get(dep_id, {})
-        impacted.append(ImpactedRepo(
-            repo_id=dep_id,
-            name=repo.get("name", dep_id),
-            org=repo.get("org", ""),
-            dependency_chain=[request.repo_id, dep_id],
-            impact_reason=f"Depends on {_repos[request.repo_id]['name']}",
-        ))
+        impacted.append(
+            ImpactedRepo(
+                repo_id=dep_id,
+                name=repo.get("name", dep_id),
+                org=repo.get("org", ""),
+                dependency_chain=[request.repo_id, dep_id],
+                impact_reason=f"Depends on {_repos[request.repo_id]['name']}",
+            )
+        )
 
     recommendations = []
     if severity in ("high", "critical"):
@@ -231,8 +235,7 @@ async def get_blast_radius(repo_id: str) -> dict[str, Any]:
         "transitive_dependents": len(dependents) - len(direct),
         "total_blast_radius": len(dependents),
         "dependent_repos": [
-            {"repo_id": d, "name": _repos.get(d, {}).get("name", d)}
-            for d in dependents
+            {"repo_id": d, "name": _repos.get(d, {}).get("name", d)} for d in dependents
         ],
     }
 
@@ -240,10 +243,7 @@ async def get_blast_radius(repo_id: str) -> dict[str, Any]:
 @router.get("/graph")
 async def get_dependency_graph() -> dict[str, Any]:
     """Get the full dependency graph."""
-    nodes = [
-        {"id": r["repo_id"], "name": r["name"], "org": r["org"]}
-        for r in _repos.values()
-    ]
+    nodes = [{"id": r["repo_id"], "name": r["name"], "org": r["org"]} for r in _repos.values()]
     edges = []
     for source, targets in _dependency_graph.items():
         for target in targets:
@@ -269,11 +269,23 @@ async def parse_dependencies(request: DependencyParseRequest) -> list[PackageRef
         try:
             data = json.loads(request.content)
             for name, version in data.get("dependencies", {}).items():
-                deps.append(PackageReference(name=name, version=version, source_file="package.json", dep_type="direct"))
+                deps.append(
+                    PackageReference(
+                        name=name, version=version, source_file="package.json", dep_type="direct"
+                    )
+                )
             for name, version in data.get("devDependencies", {}).items():
-                deps.append(PackageReference(name=name, version=version, source_file="package.json", dep_type="dev"))
+                deps.append(
+                    PackageReference(
+                        name=name, version=version, source_file="package.json", dep_type="dev"
+                    )
+                )
             for name, version in data.get("peerDependencies", {}).items():
-                deps.append(PackageReference(name=name, version=version, source_file="package.json", dep_type="peer"))
+                deps.append(
+                    PackageReference(
+                        name=name, version=version, source_file="package.json", dep_type="peer"
+                    )
+                )
         except json.JSONDecodeError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON")
 
@@ -285,7 +297,14 @@ async def parse_dependencies(request: DependencyParseRequest) -> list[PackageRef
                 if match:
                     name = match.group(1)
                     version = (match.group(2) or "") + (match.group(3) or "")
-                    deps.append(PackageReference(name=name, version=version or "*", source_file="requirements.txt", dep_type="direct"))
+                    deps.append(
+                        PackageReference(
+                            name=name,
+                            version=version or "*",
+                            source_file="requirements.txt",
+                            dep_type="direct",
+                        )
+                    )
 
     elif request.file_type == "go.mod":
         in_require = False
@@ -300,6 +319,10 @@ async def parse_dependencies(request: DependencyParseRequest) -> list[PackageRef
             if in_require or stripped.startswith("require "):
                 parts = stripped.replace("require ", "").strip().split()
                 if len(parts) >= 2:
-                    deps.append(PackageReference(name=parts[0], version=parts[1], source_file="go.mod", dep_type="direct"))
+                    deps.append(
+                        PackageReference(
+                            name=parts[0], version=parts[1], source_file="go.mod", dep_type="direct"
+                        )
+                    )
 
     return deps

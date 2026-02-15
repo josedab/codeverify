@@ -5,17 +5,17 @@ from typing import Annotated, Any
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from codeverify_api.auth.dependencies import TokenData, get_current_user
 from codeverify_api.auth.github import GitHubOAuth
 from codeverify_api.auth.jwt import create_access_token
-from codeverify_api.auth.dependencies import get_current_user, TokenData
 from codeverify_api.config import settings
-from codeverify_api.db import get_db, User
+from codeverify_api.db import User, get_db
 from codeverify_api.utils.encryption import encrypt_token
 
 router = APIRouter()
@@ -55,7 +55,7 @@ async def login(
     github = GitHubOAuth()
     callback_url = f"{settings.API_HOST}:{settings.API_PORT}/api/v1/auth/callback"
     if settings.ENVIRONMENT != "development":
-        callback_url = f"https://api.codeverify.dev/api/v1/auth/callback"
+        callback_url = "https://api.codeverify.dev/api/v1/auth/callback"
 
     authorize_url = github.get_authorize_url(state=state, redirect_uri=callback_url)
 
@@ -106,9 +106,7 @@ async def oauth_callback(
     email = await github.get_primary_email(access_token)
 
     # Find or create user
-    result = await db.execute(
-        select(User).where(User.github_id == github_user["id"])
-    )
+    result = await db.execute(select(User).where(User.github_id == github_user["id"]))
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -176,9 +174,7 @@ async def exchange_token(
     email = await github.get_primary_email(access_token)
 
     # Find or create user
-    result = await db.execute(
-        select(User).where(User.github_id == github_user["id"])
-    )
+    result = await db.execute(select(User).where(User.github_id == github_user["id"]))
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -218,9 +214,7 @@ async def get_current_user_info(
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
     """Get current authenticated user info."""
-    result = await db.execute(
-        select(User).where(User.id == current_user.user_id)
-    )
+    result = await db.execute(select(User).where(User.id == current_user.user_id))
     user = result.scalar_one_or_none()
 
     if user is None:

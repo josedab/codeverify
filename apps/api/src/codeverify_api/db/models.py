@@ -26,17 +26,13 @@ class Organization(Base):
 
     __tablename__ = "organizations"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     github_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     login: Mapped[str] = mapped_column(String(255), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     settings: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -52,17 +48,13 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     github_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     username: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     access_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -76,9 +68,7 @@ class OrgMembership(Base):
 
     __tablename__ = "org_memberships"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE")
     )
@@ -86,9 +76,7 @@ class OrgMembership(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )
     role: Mapped[str] = mapped_column(String(50), default="member")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     organization: Mapped["Organization"] = relationship(back_populates="users")
@@ -100,9 +88,7 @@ class Repository(Base):
 
     __tablename__ = "repositories"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     github_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     org_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True
@@ -113,9 +99,7 @@ class Repository(Base):
     default_branch: Mapped[str] = mapped_column(String(255), default="main")
     settings: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -130,9 +114,7 @@ class Installation(Base):
 
     __tablename__ = "installations"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     github_installation_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     org_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True
@@ -141,9 +123,7 @@ class Installation(Base):
     permissions: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     events: Mapped[list[str]] = mapped_column(JSON, default=list)
     suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -157,9 +137,7 @@ class Analysis(Base):
 
     __tablename__ = "analyses"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     repo_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE")
     )
@@ -175,9 +153,7 @@ class Analysis(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     extra_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -193,9 +169,7 @@ class Finding(Base):
 
     __tablename__ = "findings"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     analysis_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("analyses.id", ondelete="CASCADE")
     )
@@ -218,9 +192,7 @@ class Finding(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     dismissed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     analysis: Mapped["Analysis"] = relationship(back_populates="findings")
@@ -231,9 +203,7 @@ class AnalysisStage(Base):
 
     __tablename__ = "analysis_stages"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     analysis_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("analyses.id", ondelete="CASCADE")
     )
@@ -244,9 +214,7 @@ class AnalysisStage(Base):
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     result: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     analysis: Mapped["Analysis"] = relationship(back_populates="stages")
@@ -257,9 +225,7 @@ class CustomRule(Base):
 
     __tablename__ = "custom_rules"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True
     )
@@ -275,9 +241,7 @@ class CustomRule(Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -288,9 +252,7 @@ class ApiKey(Base):
 
     __tablename__ = "api_keys"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE")
     )
@@ -303,9 +265,7 @@ class ApiKey(Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class AuditLog(Base):
@@ -313,9 +273,7 @@ class AuditLog(Base):
 
     __tablename__ = "audit_logs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True
     )
@@ -328,9 +286,7 @@ class AuditLog(Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Webhook(Base):
@@ -338,9 +294,7 @@ class Webhook(Base):
 
     __tablename__ = "webhooks"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE")
     )
@@ -348,14 +302,14 @@ class Webhook(Base):
     secret_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     events: Mapped[list[str]] = mapped_column(JSON, default=list)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     failure_count: Mapped[int] = mapped_column(Integer, default=0)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -369,9 +323,7 @@ class WebhookDelivery(Base):
 
     __tablename__ = "webhook_deliveries"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     webhook_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("webhooks.id", ondelete="CASCADE")
     )
@@ -393,15 +345,15 @@ class CodebaseScan(Base):
 
     __tablename__ = "codebase_scans"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     repo_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE")
     )
     branch: Mapped[str] = mapped_column(String(255), default="main")
     status: Mapped[str] = mapped_column(String(50), default="pending")
-    triggered_by: Mapped[str] = mapped_column(String(50), default="manual")  # manual, schedule, webhook
+    triggered_by: Mapped[str] = mapped_column(
+        String(50), default="manual"
+    )  # manual, schedule, webhook
     config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -409,9 +361,7 @@ class CodebaseScan(Base):
     findings_count: Mapped[int] = mapped_column(Integer, default=0)
     results: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class ScanSchedule(Base):
@@ -419,9 +369,7 @@ class ScanSchedule(Base):
 
     __tablename__ = "scan_schedules"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     repo_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE")
     )
@@ -434,9 +382,7 @@ class ScanSchedule(Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -447,9 +393,7 @@ class NotificationConfig(Base):
 
     __tablename__ = "notification_configs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE")
     )
@@ -461,9 +405,7 @@ class NotificationConfig(Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -474,9 +416,7 @@ class TrustScoreCache(Base):
 
     __tablename__ = "trust_score_cache"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     repo_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE")
     )
@@ -496,9 +436,7 @@ class DiffSummaryCache(Base):
 
     __tablename__ = "diff_summary_cache"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     repo_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE")
     )
@@ -518,9 +456,7 @@ class VerificationAttestation(Base):
 
     __tablename__ = "verification_attestations"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True
     )
@@ -530,14 +466,18 @@ class VerificationAttestation(Base):
     analysis_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("analyses.id", ondelete="SET NULL"), nullable=True
     )
-    attestation_type: Mapped[str] = mapped_column(String(50), nullable=False)  # analysis, repository, release, file
+    attestation_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # analysis, repository, release, file
     repo_full_name: Mapped[str] = mapped_column(String(512), nullable=False)
     ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
     commit_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
     file_paths: Mapped[list[str]] = mapped_column(JSON, default=list)
     scope: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     evidence: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    tier: Mapped[str | None] = mapped_column(String(50), nullable=True)  # bronze, silver, gold, platinum
+    tier: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # bronze, silver, gold, platinum
     passed: Mapped[bool] = mapped_column(Boolean, default=False)
     signature: Mapped[str | None] = mapped_column(Text, nullable=True)
     attestation_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -546,9 +486,7 @@ class VerificationAttestation(Base):
     )
     extra_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class VerificationBadge(Base):
@@ -556,9 +494,7 @@ class VerificationBadge(Base):
 
     __tablename__ = "verification_badges"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     attestation_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("verification_attestations.id", ondelete="CASCADE")
     )
@@ -574,9 +510,7 @@ class VerificationBadge(Base):
     view_count: Mapped[int] = mapped_column(Integer, default=0)
     last_viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class CertificationHistory(Base):
@@ -584,9 +518,7 @@ class CertificationHistory(Base):
 
     __tablename__ = "certification_history"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     repo_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE")
     )
@@ -595,8 +527,8 @@ class CertificationHistory(Base):
     )
     previous_tier: Mapped[str | None] = mapped_column(String(50), nullable=True)
     new_tier: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    reason: Mapped[str] = mapped_column(String(255), nullable=False)  # upgrade, downgrade, expired, initial
+    reason: Mapped[str] = mapped_column(
+        String(255), nullable=False
+    )  # upgrade, downgrade, expired, initial
     evidence_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

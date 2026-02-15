@@ -2,15 +2,19 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 router = APIRouter()
 
 
 class PolicyConditionModel(BaseModel):
-    field: str = Field(description="Context field to evaluate (e.g., file_path, severity, language)")
-    operator: str = Field(description="Comparison operator: equals, not_equals, contains, matches, greater_than, less_than, in")
+    field: str = Field(
+        description="Context field to evaluate (e.g., file_path, severity, language)"
+    )
+    operator: str = Field(
+        description="Comparison operator: equals, not_equals, contains, matches, greater_than, less_than, in"
+    )
     value: Any = Field(description="Value to compare against")
 
 
@@ -21,7 +25,9 @@ class PolicyRuleModel(BaseModel):
     conditions: list[PolicyConditionModel]
     action: str = Field(description="Action: allow, deny, warn")
     scope: str = Field(default="file", description="Scope: file, function, module, repository")
-    verification_depth: str | None = Field(default=None, description="Depth: pattern, static, ai, formal, full")
+    verification_depth: str | None = Field(
+        default=None, description="Depth: pattern, static, ai, formal, full"
+    )
     priority: int = Field(default=0)
     enabled: bool = True
 
@@ -36,7 +42,9 @@ class PolicySetModel(BaseModel):
 
 class EvaluateRequest(BaseModel):
     policy: PolicySetModel
-    context: dict[str, Any] = Field(description="Evaluation context: file_path, severity, language, findings, etc.")
+    context: dict[str, Any] = Field(
+        description="Evaluation context: file_path, severity, language, findings, etc."
+    )
 
 
 class EvaluationResult(BaseModel):
@@ -69,7 +77,13 @@ BUILT_IN_POLICIES: list[dict[str, Any]] = [
         "id": "auth-files-require-formal",
         "name": "Auth files require formal verification",
         "description": "Authentication and authorization files must pass formal verification",
-        "conditions": [{"field": "file_path", "operator": "matches", "value": ".*(auth|login|session|permission|oauth|jwt).*"}],
+        "conditions": [
+            {
+                "field": "file_path",
+                "operator": "matches",
+                "value": ".*(auth|login|session|permission|oauth|jwt).*",
+            }
+        ],
         "action": "deny",
         "verification_depth": "formal",
         "priority": 100,
@@ -78,7 +92,13 @@ BUILT_IN_POLICIES: list[dict[str, Any]] = [
         "id": "test-files-warn-only",
         "name": "Test files only warn",
         "description": "Test files should only produce warnings, never block",
-        "conditions": [{"field": "file_path", "operator": "matches", "value": ".*(test_|_test|spec\\.|__tests__).*"}],
+        "conditions": [
+            {
+                "field": "file_path",
+                "operator": "matches",
+                "value": ".*(test_|_test|spec\\.|__tests__).*",
+            }
+        ],
         "action": "warn",
         "verification_depth": "static",
         "priority": 90,
@@ -104,7 +124,13 @@ BUILT_IN_POLICIES: list[dict[str, Any]] = [
         "id": "config-files-skip",
         "name": "Skip config file verification",
         "description": "Configuration files don't need verification",
-        "conditions": [{"field": "file_path", "operator": "matches", "value": ".*(config|settings|\\.env|\\.yml|\\.yaml|\\.json|\\.toml).*"}],
+        "conditions": [
+            {
+                "field": "file_path",
+                "operator": "matches",
+                "value": ".*(config|settings|\\.env|\\.yml|\\.yaml|\\.json|\\.toml).*",
+            }
+        ],
         "action": "allow",
         "verification_depth": "pattern",
         "priority": 70,
@@ -113,7 +139,13 @@ BUILT_IN_POLICIES: list[dict[str, Any]] = [
         "id": "api-endpoints-security",
         "name": "API endpoints require security scan",
         "description": "Files with API route definitions require security analysis",
-        "conditions": [{"field": "file_path", "operator": "matches", "value": ".*(router|route|endpoint|controller|handler|view).*"}],
+        "conditions": [
+            {
+                "field": "file_path",
+                "operator": "matches",
+                "value": ".*(router|route|endpoint|controller|handler|view).*",
+            }
+        ],
         "action": "warn",
         "verification_depth": "ai",
         "priority": 75,
@@ -140,7 +172,13 @@ BUILT_IN_POLICIES: list[dict[str, Any]] = [
         "id": "dependency-changes-strict",
         "name": "Dependency changes need scrutiny",
         "description": "Changes to lock files and dependency manifests require review",
-        "conditions": [{"field": "file_path", "operator": "matches", "value": ".*(package-lock|yarn\\.lock|Pipfile\\.lock|poetry\\.lock|go\\.sum|pom\\.xml).*"}],
+        "conditions": [
+            {
+                "field": "file_path",
+                "operator": "matches",
+                "value": ".*(package-lock|yarn\\.lock|Pipfile\\.lock|poetry\\.lock|go\\.sum|pom\\.xml).*",
+            }
+        ],
         "action": "warn",
         "verification_depth": "ai",
         "priority": 85,
@@ -149,7 +187,9 @@ BUILT_IN_POLICIES: list[dict[str, Any]] = [
         "id": "documentation-skip",
         "name": "Skip documentation files",
         "description": "Documentation doesn't need code verification",
-        "conditions": [{"field": "file_path", "operator": "matches", "value": ".*\\.(md|rst|txt|adoc)$"}],
+        "conditions": [
+            {"field": "file_path", "operator": "matches", "value": ".*\\.(md|rst|txt|adoc)$"}
+        ],
         "action": "allow",
         "verification_depth": "pattern",
         "priority": 50,
@@ -200,15 +240,21 @@ def _evaluate_policy(policy: PolicySetModel, context: dict[str, Any]) -> list[Ev
             else:
                 all_match = False
 
-        reason = f"All conditions matched: {', '.join(matched_conditions)}" if all_match else "Not all conditions matched"
-        results.append(EvaluationResult(
-            rule_id=rule.id,
-            rule_name=rule.name,
-            action=rule.action if all_match else policy.default_action,
-            matched=all_match,
-            reason=reason,
-            matched_conditions=matched_conditions,
-        ))
+        reason = (
+            f"All conditions matched: {', '.join(matched_conditions)}"
+            if all_match
+            else "Not all conditions matched"
+        )
+        results.append(
+            EvaluationResult(
+                rule_id=rule.id,
+                rule_name=rule.name,
+                action=rule.action if all_match else policy.default_action,
+                matched=all_match,
+                reason=reason,
+                matched_conditions=matched_conditions,
+            )
+        )
 
     return results
 

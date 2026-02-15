@@ -1,7 +1,8 @@
 """Compliance Attestation API endpoints."""
 
-from typing import Any
 from datetime import datetime
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -99,12 +100,15 @@ async def generate_compliance_report(
 
     verification_results = [r.model_dump() for r in request.verification_results]
 
-    result = await engine.analyze("", {
-        "framework": framework,
-        "verification_results": verification_results,
-        "scope": request.scope,
-        "organization": request.organization,
-    })
+    result = await engine.analyze(
+        "",
+        {
+            "framework": framework,
+            "verification_results": verification_results,
+            "scope": request.scope,
+            "organization": request.organization,
+        },
+    )
 
     if not result.success:
         raise HTTPException(
@@ -175,8 +179,11 @@ async def generate_attestation_certificate(
 
     # In production, you'd retrieve the report from storage
     # For now, return a mock certificate structure
-    from codeverify_agents.compliance_attestation import ComplianceReport, ComplianceFramework, ControlStatus
-    from datetime import datetime
+    from codeverify_agents.compliance_attestation import (
+        ComplianceFramework,
+        ComplianceReport,
+        ControlStatus,
+    )
 
     mock_report = ComplianceReport(
         report_id=request.report_id,

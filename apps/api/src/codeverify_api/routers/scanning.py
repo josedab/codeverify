@@ -13,8 +13,12 @@ class ScanConfigRequest(BaseModel):
     """Request to configure a scan."""
 
     repo_full_name: str
-    scan_type: str = Field(default="full", description="Scan type: full, incremental, security, verification, quality")
-    schedule: str = Field(default="manual", description="Schedule: manual, daily, weekly, monthly, on_push")
+    scan_type: str = Field(
+        default="full", description="Scan type: full, incremental, security, verification, quality"
+    )
+    schedule: str = Field(
+        default="manual", description="Schedule: manual, daily, weekly, monthly, on_push"
+    )
     branch: str | None = None
 
     include_security: bool = True
@@ -71,8 +75,10 @@ async def trigger_scan(request: TriggerScanRequest) -> ScanResultSummary:
     """
     from codeverify_core.scanning import (
         ScanConfiguration,
-        ScanType,
         ScanSchedule,
+        ScanType,
+    )
+    from codeverify_core.scanning import (
         trigger_scan as do_trigger_scan,
     )
 
@@ -98,7 +104,9 @@ async def trigger_scan(request: TriggerScanRequest) -> ScanResultSummary:
         total_findings=result.total_findings,
         security_score=result.security_score.score if result.security_score else None,
         quality_score=result.quality_metrics.overall_score if result.quality_metrics else None,
-        verification_coverage=result.verification_coverage.coverage_percentage if result.verification_coverage else None,
+        verification_coverage=result.verification_coverage.coverage_percentage
+        if result.verification_coverage
+        else None,
         tech_debt_hours=result.tech_debt_hours,
     )
 
@@ -136,7 +144,9 @@ async def get_scan_result(scan_id: str) -> dict[str, Any]:
         "lines_of_code": result.lines_of_code,
         "security_score": result.security_score.dict() if result.security_score else None,
         "quality_metrics": result.quality_metrics.dict() if result.quality_metrics else None,
-        "verification_coverage": result.verification_coverage.dict() if result.verification_coverage else None,
+        "verification_coverage": result.verification_coverage.dict()
+        if result.verification_coverage
+        else None,
         "total_findings": result.total_findings,
         "findings_by_severity": result.findings_by_severity,
         "findings_by_category": result.findings_by_category,
@@ -220,8 +230,10 @@ async def create_scheduled_scan(request: ScanConfigRequest) -> dict[str, Any]:
     """Create a scheduled scan for a repository."""
     from codeverify_core.scanning import (
         ScanConfiguration,
-        ScanType,
         ScanSchedule,
+        ScanType,
+    )
+    from codeverify_core.scanning import (
         create_scheduled_scan as do_create_scheduled,
     )
 

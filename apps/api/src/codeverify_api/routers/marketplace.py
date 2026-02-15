@@ -8,21 +8,14 @@ This module provides:
 """
 
 import hashlib
-import secrets
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
-from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from codeverify_api.auth.dependencies import get_current_user, get_current_user_optional
-from codeverify_api.db.database import get_db
-from codeverify_api.config import settings
-from codeverify_api.db.models import User
+from codeverify_api.auth.dependencies import get_current_user
 from codeverify_core.agent_sdk import (
     AgentCapability,
     AgentCategory,
@@ -246,7 +239,7 @@ async def search_agents(
 ) -> SearchAgentsResponse:
     """
     Search and browse marketplace agents.
-    
+
     Filter by category, capabilities, languages, tags, price, and author.
     Sort by downloads, rating, update date, or name.
     """
@@ -256,7 +249,8 @@ async def search_agents(
     if query:
         query_lower = query.lower()
         agents = [
-            a for a in agents
+            a
+            for a in agents
             if query_lower in a["qualified_name"].lower()
             or query_lower in a["description"].lower()
             or any(query_lower in t.lower() for t in a.get("tags", []))
@@ -269,10 +263,7 @@ async def search_agents(
         agents = [a for a in agents if capability.value in a["capabilities"]]
 
     if language:
-        agents = [
-            a for a in agents
-            if language.value in a["languages"] or "all" in a["languages"]
-        ]
+        agents = [a for a in agents if language.value in a["languages"] or "all" in a["languages"]]
 
     if tag:
         agents = [a for a in agents if tag.lower() in [t.lower() for t in a.get("tags", [])]]
@@ -372,7 +363,7 @@ async def publish_agent(
 ) -> AgentDetailResponse:
     """
     Publish a new agent or new version to the marketplace.
-    
+
     Upload a .cvagent package file.
     """
     # Read package
@@ -440,12 +431,14 @@ async def publish_agent(
     if agent_id not in _agent_versions:
         _agent_versions[agent_id] = []
 
-    _agent_versions[agent_id].append({
-        "version": manifest.version,
-        "changelog": changelog,
-        "published_at": now,
-        "checksum": agent_data["package_checksum"],
-    })
+    _agent_versions[agent_id].append(
+        {
+            "version": manifest.version,
+            "changelog": changelog,
+            "published_at": now,
+            "checksum": agent_data["package_checksum"],
+        }
+    )
 
     # Initialize download counter
     if agent_id not in _agent_downloads:
@@ -469,7 +462,7 @@ async def download_agent(
 ) -> dict[str, str]:
     """
     Get download URL for an agent package.
-    
+
     Returns a signed URL for downloading the .cvagent file.
     """
     qualified_name = f"{author}/{name}"
@@ -639,7 +632,7 @@ async def get_agent_stats(
 ) -> UsageStatsResponse:
     """
     Get usage statistics for an agent.
-    
+
     Only available to agent owner.
     """
     qualified_name = f"{author}/{name}"

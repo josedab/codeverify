@@ -1,6 +1,7 @@
 """Cross-Language Verification API endpoints."""
 
 from typing import Any
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -52,9 +53,7 @@ class InferContractRequest(BaseModel):
     code: str = Field(..., description="The code to analyze")
     language: str = Field(..., description="Programming language: python, typescript")
     symbol_name: str = Field(..., description="Name of the function or class")
-    symbol_type: str = Field(
-        default="function", description="Type: function or interface"
-    )
+    symbol_type: str = Field(default="function", description="Type: function or interface")
 
 
 class InferContractResponse(BaseModel):
@@ -119,11 +118,14 @@ async def infer_contract(request: InferContractRequest) -> InferContractResponse
 
     bridge = CrossLanguageVerificationBridge()
 
-    result = await bridge.analyze(request.code, {
-        "language": request.language,
-        "symbol_name": request.symbol_name,
-        "symbol_type": request.symbol_type,
-    })
+    result = await bridge.analyze(
+        request.code,
+        {
+            "language": request.language,
+            "symbol_name": request.symbol_name,
+            "symbol_type": request.symbol_type,
+        },
+    )
 
     if not result.success:
         raise HTTPException(
@@ -162,11 +164,14 @@ async def verify_against_contract(
 
     bridge = CrossLanguageVerificationBridge()
 
-    result = await bridge.analyze(request.code, {
-        "language": request.language,
-        "contract_id": request.contract_id,
-        "contract_type": request.contract_type,
-    })
+    result = await bridge.analyze(
+        request.code,
+        {
+            "language": request.language,
+            "contract_id": request.contract_id,
+            "contract_type": request.contract_type,
+        },
+    )
 
     if not result.success:
         raise HTTPException(
@@ -302,12 +307,9 @@ async def get_all_type_mappings() -> dict[str, dict[str, dict[str, str]]]:
     """
     Get all type mappings between languages.
     """
-    from codeverify_agents.cross_language_bridge import TYPE_MAPPINGS, Language
+    from codeverify_agents.cross_language_bridge import TYPE_MAPPINGS
 
     return {
-        base_type: {
-            lang.value: mapped_type
-            for lang, mapped_type in mappings.items()
-        }
+        base_type: {lang.value: mapped_type for lang, mapped_type in mappings.items()}
         for base_type, mappings in TYPE_MAPPINGS.items()
     }

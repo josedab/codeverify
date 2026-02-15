@@ -1,7 +1,6 @@
 """JWT token handling."""
 
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from jose import JWTError, jwt
@@ -36,14 +35,14 @@ def create_access_token(
 ) -> str:
     """Create a new JWT access token."""
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(hours=settings.JWT_EXPIRATION_HOURS)
+        expire = datetime.now(UTC) + timedelta(hours=settings.JWT_EXPIRATION_HOURS)
 
     payload = {
         "sub": str(user_id),
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "github_id": github_id,
         "username": username,
     }

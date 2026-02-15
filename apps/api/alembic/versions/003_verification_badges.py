@@ -5,18 +5,18 @@ Revises: 002_next_gen_features
 Create Date: 2024-01-30
 
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 from alembic import op
-
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "003_verification_badges"
-down_revision: Union[str, None] = "002_next_gen_features"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "002_next_gen_features"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -49,10 +49,18 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["parent_attestation_id"], ["verification_attestations.id"]),
     )
     op.create_index("ix_verification_attestations_org_id", "verification_attestations", ["org_id"])
-    op.create_index("ix_verification_attestations_repo_id", "verification_attestations", ["repo_id"])
-    op.create_index("ix_verification_attestations_repo_full_name", "verification_attestations", ["repo_full_name"])
+    op.create_index(
+        "ix_verification_attestations_repo_id", "verification_attestations", ["repo_id"]
+    )
+    op.create_index(
+        "ix_verification_attestations_repo_full_name",
+        "verification_attestations",
+        ["repo_full_name"],
+    )
     op.create_index("ix_verification_attestations_tier", "verification_attestations", ["tier"])
-    op.create_index("ix_verification_attestations_created_at", "verification_attestations", ["created_at"])
+    op.create_index(
+        "ix_verification_attestations_created_at", "verification_attestations", ["created_at"]
+    )
 
     # Create verification_badges table
     op.create_table(
@@ -71,11 +79,15 @@ def upgrade() -> None:
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.PrimaryKeyConstraint("id"),
-        sa.ForeignKeyConstraint(["attestation_id"], ["verification_attestations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["attestation_id"], ["verification_attestations.id"], ondelete="CASCADE"
+        ),
         sa.ForeignKeyConstraint(["repo_id"], ["repositories.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_verification_badges_token", "verification_badges", ["token"], unique=True)
-    op.create_index("ix_verification_badges_repo_full_name", "verification_badges", ["repo_full_name"])
+    op.create_index(
+        "ix_verification_badges_repo_full_name", "verification_badges", ["repo_full_name"]
+    )
 
     # Create certification_history table
     op.create_table(
@@ -90,7 +102,9 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["repo_id"], ["repositories.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["attestation_id"], ["verification_attestations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["attestation_id"], ["verification_attestations.id"], ondelete="CASCADE"
+        ),
     )
     op.create_index("ix_certification_history_repo_id", "certification_history", ["repo_id"])
     op.create_index("ix_certification_history_created_at", "certification_history", ["created_at"])

@@ -1,4 +1,5 @@
 """Export router for compliance reports (CSV/PDF)."""
+
 from __future__ import annotations
 
 import csv
@@ -7,22 +8,21 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.auth.dependencies import get_current_user
 from codeverify_api.db.database import get_db
-from codeverify_api.db.models import Analysis, User
+from codeverify_api.db.models import User
 
 router = APIRouter(prefix="/export", tags=["export"])
 
 
 class ExportFilters(BaseModel):
     """Filters for export."""
-    
+
     organization_id: UUID | None = None
     repository_id: UUID | None = None
     start_date: datetime | None = None
@@ -34,7 +34,7 @@ class ExportFilters(BaseModel):
 
 class ExportResponse(BaseModel):
     """Export job response."""
-    
+
     export_id: str
     status: str
     format: str
@@ -44,7 +44,7 @@ class ExportResponse(BaseModel):
 def _generate_csv_content(analyses: list[dict[str, Any]]) -> str:
     """Generate CSV content from analyses."""
     output = io.StringIO()
-    
+
     # Define columns
     fieldnames = [
         "analysis_id",
@@ -62,15 +62,15 @@ def _generate_csv_content(analyses: list[dict[str, Any]]) -> str:
         "completed_at",
         "duration_seconds",
     ]
-    
+
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
-    
+
     for analysis in analyses:
         summary = analysis.get("summary", {}) or {}
         started = analysis.get("started_at")
         completed = analysis.get("completed_at")
-        
+
         duration = None
         if started and completed:
             try:
@@ -81,7 +81,7 @@ def _generate_csv_content(analyses: list[dict[str, Any]]) -> str:
                 duration = (completed - started).total_seconds()
             except Exception:
                 pass
-        
+
         row = {
             "analysis_id": str(analysis.get("id", "")),
             "repository": analysis.get("repo_full_name", ""),
@@ -99,14 +99,14 @@ def _generate_csv_content(analyses: list[dict[str, Any]]) -> str:
             "duration_seconds": duration,
         }
         writer.writerow(row)
-    
+
     return output.getvalue()
 
 
 def _generate_findings_csv(findings: list[dict[str, Any]]) -> str:
     """Generate CSV content from findings."""
     output = io.StringIO()
-    
+
     fieldnames = [
         "finding_id",
         "analysis_id",
@@ -121,10 +121,10 @@ def _generate_findings_csv(findings: list[dict[str, Any]]) -> str:
         "verification_type",
         "fix_suggestion",
     ]
-    
+
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
-    
+
     for finding in findings:
         row = {
             "finding_id": finding.get("id", ""),
@@ -141,7 +141,7 @@ def _generate_findings_csv(findings: list[dict[str, Any]]) -> str:
             "fix_suggestion": (finding.get("fix_suggestion", "") or "")[:200],
         }
         writer.writerow(row)
-    
+
     return output.getvalue()
 
 
@@ -152,13 +152,13 @@ def _generate_pdf_content(
     date_range: str,
 ) -> bytes:
     """Generate PDF report content.
-    
+
     Note: Uses simple text-based PDF generation.
     For production, consider using reportlab or weasyprint.
     """
     # Simple PDF structure (minimal implementation)
     # In production, use a proper PDF library
-    
+
     lines = []
     lines.append("CodeVerify Compliance Report")
     lines.append("=" * 50)
@@ -169,24 +169,26 @@ def _generate_pdf_content(
     lines.append("")
     lines.append("=" * 50)
     lines.append("")
-    
+
     # Summary statistics
     total_analyses = len(analyses)
     passed = sum(1 for a in analyses if (a.get("summary") or {}).get("pass", True))
     failed = total_analyses - passed
-    
+
     total_findings = len(findings)
     critical = sum(1 for f in findings if f.get("severity") == "critical")
     high = sum(1 for f in findings if f.get("severity") == "high")
     medium = sum(1 for f in findings if f.get("severity") == "medium")
     low = sum(1 for f in findings if f.get("severity") == "low")
-    
+
     lines.append("EXECUTIVE SUMMARY")
     lines.append("-" * 30)
     lines.append(f"Total Analyses: {total_analyses}")
     lines.append(f"  - Passed: {passed}")
     lines.append(f"  - Failed: {failed}")
-    lines.append(f"  - Pass Rate: {passed/total_analyses*100:.1f}%" if total_analyses else "N/A")
+    lines.append(
+        f"  - Pass Rate: {passed / total_analyses * 100:.1f}%" if total_analyses else "N/A"
+    )
     lines.append("")
     lines.append(f"Total Findings: {total_findings}")
     lines.append(f"  - Critical: {critical}")
@@ -196,48 +198,54 @@ def _generate_pdf_content(
     lines.append("")
     lines.append("=" * 50)
     lines.append("")
-    
+
     # Analyses detail
     lines.append("ANALYSES DETAIL")
     lines.append("-" * 30)
-    
+
     for analysis in analyses[:50]:
         summary = analysis.get("summary") or {}
-        lines.append(f"  {analysis.get('repo_full_name', 'Unknown')} PR #{analysis.get('pr_number', '?')}")
+        lines.append(
+            f"  {analysis.get('repo_full_name', 'Unknown')} PR #{analysis.get('pr_number', '?')}"
+        )
         lines.append(f"    Status: {'PASS' if summary.get('pass', True) else 'FAIL'}")
         lines.append(f"    Findings: {summary.get('total_issues', 0)}")
         lines.append("")
-    
+
     if len(analyses) > 50:
         lines.append(f"  ... and {len(analyses) - 50} more analyses")
-    
+
     lines.append("")
     lines.append("=" * 50)
     lines.append("")
-    
+
     # Critical findings detail
     critical_findings = [f for f in findings if f.get("severity") in ("critical", "high")]
-    
+
     if critical_findings:
         lines.append("CRITICAL & HIGH SEVERITY FINDINGS")
         lines.append("-" * 30)
-        
+
         for finding in critical_findings[:20]:
-            lines.append(f"  [{finding.get('severity', '').upper()}] {finding.get('title', 'Unknown')}")
-            lines.append(f"    File: {finding.get('file_path', '')}:{finding.get('line_start', '')}")
+            lines.append(
+                f"  [{finding.get('severity', '').upper()}] {finding.get('title', 'Unknown')}"
+            )
+            lines.append(
+                f"    File: {finding.get('file_path', '')}:{finding.get('line_start', '')}"
+            )
             lines.append(f"    Category: {finding.get('category', '')}")
             if finding.get("description"):
                 desc = finding["description"][:100]
                 lines.append(f"    Description: {desc}...")
             lines.append("")
-        
+
         if len(critical_findings) > 20:
             lines.append(f"  ... and {len(critical_findings) - 20} more critical/high findings")
-    
+
     lines.append("")
     lines.append("=" * 50)
     lines.append("END OF REPORT")
-    
+
     # Convert to bytes (simple text-based "PDF")
     # For production, use reportlab
     content = "\n".join(lines)
@@ -252,7 +260,14 @@ _mock_analyses: list[dict[str, Any]] = [
         "pr_number": 42,
         "head_sha": "abc123def456",
         "status": "completed",
-        "summary": {"total_issues": 3, "critical": 0, "high": 1, "medium": 2, "low": 0, "pass": True},
+        "summary": {
+            "total_issues": 3,
+            "critical": 0,
+            "high": 1,
+            "medium": 2,
+            "low": 0,
+            "pass": True,
+        },
         "started_at": datetime.utcnow() - timedelta(hours=2),
         "completed_at": datetime.utcnow() - timedelta(hours=1, minutes=55),
     },
@@ -286,18 +301,18 @@ async def export_analyses_csv(
     current_user: User = Depends(get_current_user),
 ) -> StreamingResponse:
     """Export analyses to CSV format.
-    
+
     Generates a CSV file with analysis summaries for compliance reporting.
     """
     # In production, would filter by organization_id, repository_id, dates
     # For now, use mock data
     analyses = _mock_analyses
-    
+
     csv_content = _generate_csv_content(analyses)
-    
+
     # Generate filename with date
     filename = f"codeverify_analyses_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
-    
+
     return StreamingResponse(
         iter([csv_content]),
         media_type="text/csv",
@@ -317,24 +332,24 @@ async def export_findings_csv(
     current_user: User = Depends(get_current_user),
 ) -> StreamingResponse:
     """Export findings to CSV format.
-    
+
     Generates a CSV file with all findings for compliance reporting.
     """
     findings = _mock_findings
-    
+
     # Apply filters
     if severities:
         sev_list = [s.strip().lower() for s in severities.split(",")]
         findings = [f for f in findings if f.get("severity", "").lower() in sev_list]
-    
+
     if categories:
         cat_list = [c.strip().lower() for c in categories.split(",")]
         findings = [f for f in findings if f.get("category", "").lower() in cat_list]
-    
+
     csv_content = _generate_findings_csv(findings)
-    
+
     filename = f"codeverify_findings_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
-    
+
     return StreamingResponse(
         iter([csv_content]),
         media_type="text/csv",
@@ -351,24 +366,24 @@ async def export_compliance_pdf(
     current_user: User = Depends(get_current_user),
 ) -> StreamingResponse:
     """Generate PDF compliance report.
-    
+
     Comprehensive report suitable for compliance audits and management review.
     Uses ReportLab for professional PDF generation.
     """
     from codeverify_api.services.pdf_generator import generate_pdf_report
-    
+
     # In production, would query actual data
     analyses = _mock_analyses
     findings = _mock_findings
-    
+
     # Format date range
     if start_date and end_date:
         date_range = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
     else:
         date_range = "All time"
-    
+
     organization_name = "Organization"  # Would get from database
-    
+
     # Generate PDF using reportlab
     pdf_content = generate_pdf_report(
         analyses=analyses,
@@ -376,9 +391,9 @@ async def export_compliance_pdf(
         organization_name=organization_name,
         date_range=date_range,
     )
-    
+
     filename = f"codeverify_compliance_report_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
-    
+
     return StreamingResponse(
         iter([pdf_content]),
         media_type="application/pdf",
@@ -395,25 +410,25 @@ async def get_export_summary(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get summary of data available for export.
-    
+
     Use this to preview what will be included in exports.
     """
     analyses = _mock_analyses
     findings = _mock_findings
-    
+
     total_analyses = len(analyses)
     total_findings = len(findings)
-    
+
     severity_breakdown = {}
     for finding in findings:
         sev = finding.get("severity", "unknown")
         severity_breakdown[sev] = severity_breakdown.get(sev, 0) + 1
-    
+
     category_breakdown = {}
     for finding in findings:
         cat = finding.get("category", "unknown")
         category_breakdown[cat] = category_breakdown.get(cat, 0) + 1
-    
+
     return {
         "total_analyses": total_analyses,
         "total_findings": total_findings,

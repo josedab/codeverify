@@ -5,11 +5,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.db.database import get_db
-from codeverify_api.db.models import TrustScoreCache, Repository
+from codeverify_api.db.models import TrustScoreCache
 
 router = APIRouter()
 
@@ -268,7 +268,7 @@ async def get_trust_score_stats(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Get trust score statistics for a repository or organization."""
-    from datetime import timedelta, datetime
+    from datetime import datetime, timedelta
 
     cutoff = datetime.utcnow() - timedelta(days=days)
 

@@ -4,14 +4,16 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 router = APIRouter()
 
 
 class RecordEventRequest(BaseModel):
-    event_type: str = Field(description="Event type: finding_detected, finding_fixed, analysis_completed, etc.")
+    event_type: str = Field(
+        description="Event type: finding_detected, finding_fixed, analysis_completed, etc."
+    )
     repo_id: str
     finding_id: str | None = None
     severity: str | None = None
@@ -25,7 +27,9 @@ class RecordEventResponse(BaseModel):
 
 class FindingLifecycleUpdate(BaseModel):
     finding_id: str
-    new_status: str = Field(description="Status: detected, acknowledged, fix_in_progress, fixed, verified, false_positive, wont_fix")
+    new_status: str = Field(
+        description="Status: detected, acknowledged, fix_in_progress, fixed, verified, false_positive, wont_fix"
+    )
     repo_id: str
     severity: str | None = None
 
@@ -136,10 +140,7 @@ async def generate_roi_report(
     cutoff = time.time() - (period_days * 86400)
 
     # Filter findings within period
-    period_findings = {
-        fid: f for fid, f in _findings.items()
-        if f["detected_at"] >= cutoff
-    }
+    period_findings = {fid: f for fid, f in _findings.items() if f["detected_at"] >= cutoff}
 
     # Aggregate by severity
     by_severity: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
@@ -239,10 +240,10 @@ async def get_executive_summary(
 
 | Severity | Count |
 |----------|-------|
-| Critical | {report.findings_by_severity.get('critical', 0)} |
-| High | {report.findings_by_severity.get('high', 0)} |
-| Medium | {report.findings_by_severity.get('medium', 0)} |
-| Low | {report.findings_by_severity.get('low', 0)} |
+| Critical | {report.findings_by_severity.get("critical", 0)} |
+| High | {report.findings_by_severity.get("high", 0)} |
+| Medium | {report.findings_by_severity.get("medium", 0)} |
+| Low | {report.findings_by_severity.get("low", 0)} |
 
 ## Summary
 

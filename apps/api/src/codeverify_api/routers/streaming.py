@@ -4,9 +4,10 @@ import asyncio
 import json
 import re
 import time
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -38,39 +39,174 @@ class DiagnosticModel(BaseModel):
 # Pattern-based checks for quick analysis
 PATTERNS: dict[str, list[dict[str, Any]]] = {
     "python": [
-        {"pattern": r"\bexcept\s*:", "message": "Bare except clause catches all exceptions including SystemExit", "severity": 2, "code": "W001"},
-        {"pattern": r"def\s+\w+\(.*?=\s*\[\]", "message": "Mutable default argument (list)", "severity": 2, "code": "W002"},
-        {"pattern": r"def\s+\w+\(.*?=\s*\{\}", "message": "Mutable default argument (dict)", "severity": 2, "code": "W003"},
-        {"pattern": r"==\s*None\b", "message": "Use 'is None' instead of '== None'", "severity": 3, "code": "W004"},
-        {"pattern": r"!=\s*None\b", "message": "Use 'is not None' instead of '!= None'", "severity": 3, "code": "W005"},
-        {"pattern": r"\beval\s*\(", "message": "Use of eval() is a security risk", "severity": 1, "code": "S001"},
-        {"pattern": r"\bexec\s*\(", "message": "Use of exec() is a security risk", "severity": 1, "code": "S002"},
-        {"pattern": r"password\s*=\s*['\"]", "message": "Hardcoded password detected", "severity": 1, "code": "S003"},
-        {"pattern": r"import\s+pickle", "message": "pickle can execute arbitrary code during deserialization", "severity": 2, "code": "S004"},
-        {"pattern": r"\.format\(.*\)", "message": "Consider using f-strings for better readability", "severity": 4, "code": "I001"},
+        {
+            "pattern": r"\bexcept\s*:",
+            "message": "Bare except clause catches all exceptions including SystemExit",
+            "severity": 2,
+            "code": "W001",
+        },
+        {
+            "pattern": r"def\s+\w+\(.*?=\s*\[\]",
+            "message": "Mutable default argument (list)",
+            "severity": 2,
+            "code": "W002",
+        },
+        {
+            "pattern": r"def\s+\w+\(.*?=\s*\{\}",
+            "message": "Mutable default argument (dict)",
+            "severity": 2,
+            "code": "W003",
+        },
+        {
+            "pattern": r"==\s*None\b",
+            "message": "Use 'is None' instead of '== None'",
+            "severity": 3,
+            "code": "W004",
+        },
+        {
+            "pattern": r"!=\s*None\b",
+            "message": "Use 'is not None' instead of '!= None'",
+            "severity": 3,
+            "code": "W005",
+        },
+        {
+            "pattern": r"\beval\s*\(",
+            "message": "Use of eval() is a security risk",
+            "severity": 1,
+            "code": "S001",
+        },
+        {
+            "pattern": r"\bexec\s*\(",
+            "message": "Use of exec() is a security risk",
+            "severity": 1,
+            "code": "S002",
+        },
+        {
+            "pattern": r"password\s*=\s*['\"]",
+            "message": "Hardcoded password detected",
+            "severity": 1,
+            "code": "S003",
+        },
+        {
+            "pattern": r"import\s+pickle",
+            "message": "pickle can execute arbitrary code during deserialization",
+            "severity": 2,
+            "code": "S004",
+        },
+        {
+            "pattern": r"\.format\(.*\)",
+            "message": "Consider using f-strings for better readability",
+            "severity": 4,
+            "code": "I001",
+        },
     ],
     "typescript": [
-        {"pattern": r":\s*any\b", "message": "Avoid using 'any' type", "severity": 2, "code": "TS001"},
-        {"pattern": r"!\.", "message": "Non-null assertion operator (!) may hide null errors", "severity": 2, "code": "TS002"},
-        {"pattern": r"==\s", "message": "Use === instead of == for strict equality", "severity": 2, "code": "TS003"},
-        {"pattern": r"!=\s", "message": "Use !== instead of != for strict inequality", "severity": 2, "code": "TS004"},
-        {"pattern": r"console\.(log|debug|warn)\(", "message": "Remove console statement before production", "severity": 3, "code": "TS005"},
-        {"pattern": r"@ts-ignore", "message": "Avoid @ts-ignore - fix the type error instead", "severity": 2, "code": "TS006"},
-        {"pattern": r"var\s+\w+", "message": "Use 'let' or 'const' instead of 'var'", "severity": 2, "code": "TS007"},
+        {
+            "pattern": r":\s*any\b",
+            "message": "Avoid using 'any' type",
+            "severity": 2,
+            "code": "TS001",
+        },
+        {
+            "pattern": r"!\.",
+            "message": "Non-null assertion operator (!) may hide null errors",
+            "severity": 2,
+            "code": "TS002",
+        },
+        {
+            "pattern": r"==\s",
+            "message": "Use === instead of == for strict equality",
+            "severity": 2,
+            "code": "TS003",
+        },
+        {
+            "pattern": r"!=\s",
+            "message": "Use !== instead of != for strict inequality",
+            "severity": 2,
+            "code": "TS004",
+        },
+        {
+            "pattern": r"console\.(log|debug|warn)\(",
+            "message": "Remove console statement before production",
+            "severity": 3,
+            "code": "TS005",
+        },
+        {
+            "pattern": r"@ts-ignore",
+            "message": "Avoid @ts-ignore - fix the type error instead",
+            "severity": 2,
+            "code": "TS006",
+        },
+        {
+            "pattern": r"var\s+\w+",
+            "message": "Use 'let' or 'const' instead of 'var'",
+            "severity": 2,
+            "code": "TS007",
+        },
     ],
     "go": [
-        {"pattern": r"\b_\s*=\s*\w+\(", "message": "Error return value ignored", "severity": 2, "code": "GO001"},
-        {"pattern": r"fmt\.Print(ln|f)?\(", "message": "Use structured logging instead of fmt.Print", "severity": 3, "code": "GO002"},
-        {"pattern": r"panic\(", "message": "Avoid panic() in library code - return errors instead", "severity": 2, "code": "GO003"},
-        {"pattern": r"os\.Exit\(", "message": "os.Exit() prevents defer from running", "severity": 2, "code": "GO004"},
-        {"pattern": r"\.\(\*?\w+\)\s*$", "message": "Unchecked type assertion - use comma-ok pattern", "severity": 2, "code": "GO005"},
+        {
+            "pattern": r"\b_\s*=\s*\w+\(",
+            "message": "Error return value ignored",
+            "severity": 2,
+            "code": "GO001",
+        },
+        {
+            "pattern": r"fmt\.Print(ln|f)?\(",
+            "message": "Use structured logging instead of fmt.Print",
+            "severity": 3,
+            "code": "GO002",
+        },
+        {
+            "pattern": r"panic\(",
+            "message": "Avoid panic() in library code - return errors instead",
+            "severity": 2,
+            "code": "GO003",
+        },
+        {
+            "pattern": r"os\.Exit\(",
+            "message": "os.Exit() prevents defer from running",
+            "severity": 2,
+            "code": "GO004",
+        },
+        {
+            "pattern": r"\.\(\*?\w+\)\s*$",
+            "message": "Unchecked type assertion - use comma-ok pattern",
+            "severity": 2,
+            "code": "GO005",
+        },
     ],
     "java": [
-        {"pattern": r"catch\s*\(\s*Exception\s+\w+\s*\)\s*\{\s*\}", "message": "Empty catch block swallows exceptions", "severity": 1, "code": "J001"},
-        {"pattern": r"System\.out\.print", "message": "Use a logging framework instead of System.out", "severity": 3, "code": "J002"},
-        {"pattern": r"\bnew\s+Date\(\)", "message": "Use java.time API instead of legacy Date", "severity": 3, "code": "J003"},
-        {"pattern": r"catch\s*\(\s*Throwable\b", "message": "Catching Throwable catches errors that shouldn't be caught", "severity": 1, "code": "J004"},
-        {"pattern": r"@SuppressWarnings", "message": "Review suppressed warnings", "severity": 3, "code": "J005"},
+        {
+            "pattern": r"catch\s*\(\s*Exception\s+\w+\s*\)\s*\{\s*\}",
+            "message": "Empty catch block swallows exceptions",
+            "severity": 1,
+            "code": "J001",
+        },
+        {
+            "pattern": r"System\.out\.print",
+            "message": "Use a logging framework instead of System.out",
+            "severity": 3,
+            "code": "J002",
+        },
+        {
+            "pattern": r"\bnew\s+Date\(\)",
+            "message": "Use java.time API instead of legacy Date",
+            "severity": 3,
+            "code": "J003",
+        },
+        {
+            "pattern": r"catch\s*\(\s*Throwable\b",
+            "message": "Catching Throwable catches errors that shouldn't be caught",
+            "severity": 1,
+            "code": "J004",
+        },
+        {
+            "pattern": r"@SuppressWarnings",
+            "message": "Review suppressed warnings",
+            "severity": 3,
+            "code": "J005",
+        },
     ],
 }
 
@@ -84,17 +220,19 @@ def _run_pattern_stage(code: str, language: str) -> list[dict[str, Any]]:
     for i, line in enumerate(lines):
         for p in patterns:
             if re.search(p["pattern"], line):
-                diagnostics.append({
-                    "line": i + 1,
-                    "character": 0,
-                    "end_line": i + 1,
-                    "end_character": len(line),
-                    "severity": p["severity"],
-                    "message": p["message"],
-                    "source": "codeverify",
-                    "code": p["code"],
-                    "stage": "pattern",
-                })
+                diagnostics.append(
+                    {
+                        "line": i + 1,
+                        "character": 0,
+                        "end_line": i + 1,
+                        "end_character": len(line),
+                        "severity": p["severity"],
+                        "message": p["message"],
+                        "source": "codeverify",
+                        "code": p["code"],
+                        "stage": "pattern",
+                    }
+                )
 
     return diagnostics
 
@@ -118,17 +256,19 @@ def _run_ai_stage(code: str, language: str) -> list[dict[str, Any]]:
                     if stripped and not stripped.startswith("#"):
                         break
                 if not has_docstring:
-                    diagnostics.append({
-                        "line": i + 1,
-                        "character": 0,
-                        "end_line": i + 1,
-                        "end_character": len(line),
-                        "severity": 3,
-                        "message": f"Function missing docstring",
-                        "source": "codeverify-ai",
-                        "code": "AI001",
-                        "stage": "ai",
-                    })
+                    diagnostics.append(
+                        {
+                            "line": i + 1,
+                            "character": 0,
+                            "end_line": i + 1,
+                            "end_character": len(line),
+                            "severity": 3,
+                            "message": "Function missing docstring",
+                            "source": "codeverify-ai",
+                            "code": "AI001",
+                            "stage": "ai",
+                        }
+                    )
 
     return diagnostics
 
@@ -142,17 +282,19 @@ def _run_formal_stage(code: str, language: str) -> list[dict[str, Any]]:
     for i, line in enumerate(lines):
         if "/" in line and "import" not in line and "#" not in line.split("/")[0]:
             if re.search(r"\b\w+\s*/\s*\w+", line):
-                diagnostics.append({
-                    "line": i + 1,
-                    "character": 0,
-                    "end_line": i + 1,
-                    "end_character": len(line),
-                    "severity": 2,
-                    "message": "Potential division by zero (formal verification pending)",
-                    "source": "codeverify-z3",
-                    "code": "Z3001",
-                    "stage": "formal",
-                })
+                diagnostics.append(
+                    {
+                        "line": i + 1,
+                        "character": 0,
+                        "end_line": i + 1,
+                        "end_character": len(line),
+                        "severity": 2,
+                        "message": "Potential division by zero (formal verification pending)",
+                        "source": "codeverify-z3",
+                        "code": "Z3001",
+                        "stage": "formal",
+                    }
+                )
 
     return diagnostics
 

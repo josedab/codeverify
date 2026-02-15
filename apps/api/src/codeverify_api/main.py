@@ -1,47 +1,79 @@
 """CodeVerify API - Main Application"""
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-
-from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from codeverify_api.config import settings
-from codeverify_api.routers import analyses, auth, health, organizations, repositories, stats, webhooks
-from codeverify_api.routers import feedback, usage, export, sso, trust_score, debugger, rules, diff_summarizer, scanning, notifications, public_api, internal, badges, marketplace, continuous_verification
-from codeverify_api.routers import collaboration, formal_specs, cross_repo, regression, replay, nl_queries, network
-from codeverify_api.routers import audit_logs
-# Next-gen feature routers (v0.3.0)
-from codeverify_api.routers import threat_modeling, risk_prediction, consensus, compliance, cost_optimization, cross_language
-from codeverify_api.routers import verification_api
-from codeverify_api.routers import paste_interception
-from codeverify_api.routers import ai_drift
-from codeverify_api.routers import verification_debugger
-from codeverify_api.routers import code_search
-from codeverify_api.routers import continuous_learning
-from codeverify_api.routers import context_analysis
-from codeverify_api.routers import code_evolution
-from codeverify_api.routers import fix_verification
-from codeverify_api.routers import dependency_scanner
-# Next-gen planning features (v0.4.0)
-from codeverify_api.routers import verification_cache
-from codeverify_api.routers import tenancy
-from codeverify_api.routers import language_support
-from codeverify_api.routers import streaming
-from codeverify_api.routers import autofix
-from codeverify_api.routers import hallucination
-from codeverify_api.routers import telemetry
-from codeverify_api.routers import policy_engine
-from codeverify_api.routers import impact_analysis
-from codeverify_api.routers import copilot
+from codeverify_api.middleware.metrics import setup_metrics
 from codeverify_api.middleware.rate_limit import setup_rate_limiting
 from codeverify_api.middleware.security import setup_security_headers
-from codeverify_api.middleware.metrics import setup_metrics
 from codeverify_api.middleware.sentry import setup_sentry
+
+# Next-gen feature routers (v0.3.0)
+# Next-gen planning features (v0.4.0)
+from codeverify_api.routers import (
+    ai_drift,
+    analyses,
+    audit_logs,
+    auth,
+    autofix,
+    badges,
+    code_evolution,
+    code_search,
+    collaboration,
+    compliance,
+    consensus,
+    context_analysis,
+    continuous_learning,
+    continuous_verification,
+    copilot,
+    cost_optimization,
+    cross_language,
+    cross_repo,
+    debugger,
+    dependency_scanner,
+    diff_summarizer,
+    export,
+    feedback,
+    fix_verification,
+    formal_specs,
+    hallucination,
+    health,
+    impact_analysis,
+    internal,
+    language_support,
+    marketplace,
+    network,
+    nl_queries,
+    notifications,
+    organizations,
+    paste_interception,
+    policy_engine,
+    public_api,
+    regression,
+    replay,
+    repositories,
+    risk_prediction,
+    rules,
+    scanning,
+    sso,
+    stats,
+    streaming,
+    telemetry,
+    tenancy,
+    threat_modeling,
+    trust_score,
+    usage,
+    verification_api,
+    verification_cache,
+    verification_debugger,
+    webhooks,
+)
 
 logger = structlog.get_logger()
 
@@ -112,7 +144,9 @@ app.include_router(audit_logs.router, prefix="/api/v1", tags=["audit-logs"])
 
 # Next-gen features (v0.3.0)
 app.include_router(threat_modeling.router, prefix="/api/v1/threat-model", tags=["threat-modeling"])
-app.include_router(risk_prediction.router, prefix="/api/v1/risk-prediction", tags=["risk-prediction"])
+app.include_router(
+    risk_prediction.router, prefix="/api/v1/risk-prediction", tags=["risk-prediction"]
+)
 app.include_router(consensus.router, prefix="/api/v1/consensus", tags=["consensus-verification"])
 app.include_router(compliance.router, prefix="/api/v1/compliance", tags=["compliance-attestation"])
 app.include_router(cost_optimization.router, prefix="/api/v1/cost", tags=["cost-optimization"])
@@ -122,7 +156,9 @@ app.include_router(cross_language.router, prefix="/api/v1/cross-language", tags=
 app.include_router(verification_api.router, tags=["verification-api"])
 
 # Paste Interception (Real-Time AI Code Detection)
-app.include_router(paste_interception.router, prefix="/api/v1/analyses", tags=["paste-interception"])
+app.include_router(
+    paste_interception.router, prefix="/api/v1/analyses", tags=["paste-interception"]
+)
 
 # AI Drift Detection
 app.include_router(ai_drift.router, tags=["ai-drift"])
@@ -154,7 +190,9 @@ app.include_router(tenancy.router, prefix="/api/v1/tenants", tags=["multi-tenanc
 app.include_router(language_support.router, prefix="/api/v1/languages", tags=["language-support"])
 app.include_router(streaming.router, prefix="/api/v1/streaming", tags=["streaming-verification"])
 app.include_router(autofix.router, prefix="/api/v1/autofix", tags=["auto-fix"])
-app.include_router(hallucination.router, prefix="/api/v1/hallucination", tags=["hallucination-detection"])
+app.include_router(
+    hallucination.router, prefix="/api/v1/hallucination", tags=["hallucination-detection"]
+)
 app.include_router(telemetry.router, prefix="/api/v1/telemetry", tags=["telemetry-roi"])
 app.include_router(policy_engine.router, prefix="/api/v1/policies", tags=["policy-engine"])
 app.include_router(impact_analysis.router, prefix="/api/v1/impact", tags=["impact-analysis"])

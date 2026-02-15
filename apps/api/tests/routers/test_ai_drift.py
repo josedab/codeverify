@@ -378,9 +378,9 @@ class TestDriftDetection:
         assert data["health_score"] < 100
         # Trust trend should be negative or alerts present
         has_quality_concern = (
-            data["current_metrics"]["trust_trend"] < 0 or
-            len(data["alerts"]) > 0 or
-            data["health_trend"] == "declining"
+            data["current_metrics"]["trust_trend"] < 0
+            or len(data["alerts"]) > 0
+            or data["health_trend"] == "declining"
         )
         assert has_quality_concern
 
@@ -405,8 +405,8 @@ class TestDriftDetection:
         # Should generate review alert
         alerts = data["immediate_alerts"]
         review_alerts = [
-            a for a in alerts
-            if "review" in a.get("category", "").lower() or
-               "review" in a.get("message", "").lower()
+            a
+            for a in alerts
+            if "review" in a.get("category", "").lower() or "review" in a.get("message", "").lower()
         ]
         assert len(review_alerts) > 0 or len(alerts) > 0

@@ -189,10 +189,7 @@ async def generate_changelog(
     agent = DiffSummarizerAgent()
 
     # Convert to list of tuples
-    diffs = [
-        (d.get("commit_sha", "unknown"), d.get("diff", ""))
-        for d in request.diffs
-    ]
+    diffs = [(d.get("commit_sha", "unknown"), d.get("diff", "")) for d in request.diffs]
 
     entries = await agent.generate_changelog_entries(diffs)
 

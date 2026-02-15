@@ -1,9 +1,9 @@
 """Notifications API endpoints for Slack and Teams integration."""
 
-from typing import Any
 from datetime import datetime
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -66,8 +66,8 @@ async def create_notification_config(
 ) -> dict[str, Any]:
     """Create a notification configuration for a repository."""
     from codeverify_core.notifications import (
-        NotificationConfig,
         NotificationChannel,
+        NotificationConfig,
         NotificationType,
         save_config_for_repo,
     )
@@ -116,11 +116,11 @@ async def get_notification_configs(repo_full_name: str) -> dict[str, Any]:
 async def test_notification(request: TestNotificationRequest) -> dict[str, Any]:
     """Send a test notification to verify webhook configuration."""
     from codeverify_core.notifications import (
-        NotificationSender,
-        NotificationConfig,
-        NotificationChannel,
-        NotificationType,
         AnalysisNotification,
+        NotificationChannel,
+        NotificationConfig,
+        NotificationSender,
+        NotificationType,
     )
 
     sender = NotificationSender()
@@ -165,8 +165,8 @@ async def send_analysis_notification(
 ) -> dict[str, Any]:
     """Send an analysis notification to configured channels."""
     from codeverify_core.notifications import (
-        NotificationSender,
         AnalysisNotification,
+        NotificationSender,
         get_configs_for_repo,
     )
 
@@ -254,12 +254,12 @@ async def get_notification_templates() -> dict[str, Any]:
                                     "text": {
                                         "type": "plain_text",
                                         "text": "✅ CodeVerify Analysis Complete",
-                                    }
+                                    },
                                 }
-                            ]
+                            ],
                         }
                     ]
-                }
+                },
             }
         },
         "teams": {
@@ -270,9 +270,9 @@ async def get_notification_templates() -> dict[str, Any]:
                     "@context": "http://schema.org/extensions",
                     "themeColor": "00FF00",
                     "summary": "CodeVerify Analysis Complete",
-                }
+                },
             }
-        }
+        },
     }
 
 

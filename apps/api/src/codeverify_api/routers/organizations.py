@@ -5,18 +5,19 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from codeverify_api.db.database import get_db
-from codeverify_api.db.models import Organization, Repository, OrgMembership
+from codeverify_api.db.models import Organization, OrgMembership, Repository
 
 router = APIRouter()
 
 
 class OrganizationSettings(BaseModel):
     """Organization settings model."""
+
     default_enabled: bool | None = None
     default_verification_checks: list[str] | None = None
     default_ai_analysis: bool | None = None
@@ -109,7 +110,12 @@ async def get_organization_settings(
     # Return settings with defaults
     default_settings = {
         "default_enabled": True,
-        "default_verification_checks": ["null_safety", "array_bounds", "integer_overflow", "division_by_zero"],
+        "default_verification_checks": [
+            "null_safety",
+            "array_bounds",
+            "integer_overflow",
+            "division_by_zero",
+        ],
         "default_ai_analysis": True,
         "default_thresholds": {"critical": 0, "high": 0, "medium": 5, "low": 10},
         "require_reviews": False,

@@ -1,66 +1,55 @@
 """Prometheus metrics configuration for CodeVerify API."""
+
 from __future__ import annotations
 
-from prometheus_fastapi_instrumentator import Instrumentator, metrics
-from prometheus_client import Counter, Histogram, Gauge
 from fastapi import FastAPI
-
+from prometheus_client import Counter, Gauge, Histogram
+from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
 # Custom metrics
 ANALYSES_TOTAL = Counter(
-    "codeverify_analyses_total",
-    "Total number of analyses",
-    ["status", "conclusion"]
+    "codeverify_analyses_total", "Total number of analyses", ["status", "conclusion"]
 )
 
 ANALYSES_DURATION = Histogram(
     "codeverify_analysis_duration_seconds",
     "Analysis duration in seconds",
     ["repository", "stage"],
-    buckets=(1, 5, 10, 30, 60, 120, 300, 600)
+    buckets=(1, 5, 10, 30, 60, 120, 300, 600),
 )
 
 FINDINGS_TOTAL = Counter(
     "codeverify_findings_total",
     "Total number of findings",
-    ["severity", "category", "verification_type"]
+    ["severity", "category", "verification_type"],
 )
 
-ACTIVE_ANALYSES = Gauge(
-    "codeverify_active_analyses",
-    "Number of currently running analyses"
-)
+ACTIVE_ANALYSES = Gauge("codeverify_active_analyses", "Number of currently running analyses")
 
 GITHUB_API_REQUESTS = Counter(
-    "codeverify_github_api_requests_total",
-    "Total GitHub API requests",
-    ["endpoint", "status"]
+    "codeverify_github_api_requests_total", "Total GitHub API requests", ["endpoint", "status"]
 )
 
 LLM_API_REQUESTS = Counter(
-    "codeverify_llm_api_requests_total",
-    "Total LLM API requests",
-    ["provider", "model", "status"]
+    "codeverify_llm_api_requests_total", "Total LLM API requests", ["provider", "model", "status"]
 )
 
 LLM_API_LATENCY = Histogram(
     "codeverify_llm_api_latency_seconds",
     "LLM API request latency",
     ["provider", "model"],
-    buckets=(0.5, 1, 2, 5, 10, 30, 60)
+    buckets=(0.5, 1, 2, 5, 10, 30, 60),
 )
 
 Z3_VERIFICATION_DURATION = Histogram(
     "codeverify_z3_verification_seconds",
     "Z3 verification duration",
     ["check_type", "result"],
-    buckets=(0.1, 0.5, 1, 5, 10, 30)
+    buckets=(0.1, 0.5, 1, 5, 10, 30),
 )
 
 WEBHOOK_EVENTS = Counter(
-    "codeverify_webhook_events_total",
-    "Total webhook events received",
-    ["event_type", "action"]
+    "codeverify_webhook_events_total", "Total webhook events received", ["event_type", "action"]
 )
 
 
@@ -75,7 +64,7 @@ def setup_metrics(app: FastAPI) -> Instrumentator:
         inprogress_name="codeverify_http_requests_inprogress",
         inprogress_labels=True,
     )
-    
+
     # Add default metrics
     instrumentator.add(
         metrics.default(
@@ -83,7 +72,7 @@ def setup_metrics(app: FastAPI) -> Instrumentator:
             metric_subsystem="http",
         )
     )
-    
+
     # Add latency histogram
     instrumentator.add(
         metrics.latency(
@@ -92,7 +81,7 @@ def setup_metrics(app: FastAPI) -> Instrumentator:
             buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
         )
     )
-    
+
     # Add request size
     instrumentator.add(
         metrics.request_size(
@@ -100,7 +89,7 @@ def setup_metrics(app: FastAPI) -> Instrumentator:
             metric_subsystem="http",
         )
     )
-    
+
     # Add response size
     instrumentator.add(
         metrics.response_size(
@@ -108,13 +97,13 @@ def setup_metrics(app: FastAPI) -> Instrumentator:
             metric_subsystem="http",
         )
     )
-    
+
     # Instrument the app
     instrumentator.instrument(app)
-    
+
     # Expose metrics endpoint
     instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
-    
+
     return instrumentator
 
 
@@ -138,9 +127,7 @@ def record_analysis_stage(repository: str, stage: str, duration_seconds: float):
 def record_finding(severity: str, category: str, verification_type: str):
     """Record a finding."""
     FINDINGS_TOTAL.labels(
-        severity=severity,
-        category=category,
-        verification_type=verification_type
+        severity=severity, category=category, verification_type=verification_type
     ).inc()
 
 

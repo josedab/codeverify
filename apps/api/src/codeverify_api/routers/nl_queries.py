@@ -12,11 +12,10 @@ from __future__ import annotations
 import hashlib
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
-
 
 router = APIRouter(prefix="/api/v1/nl-query", tags=["nl-queries"])
 
@@ -25,8 +24,10 @@ router = APIRouter(prefix="/api/v1/nl-query", tags=["nl-queries"])
 # Request/Response Models
 # =============================================================================
 
+
 class QueryRequest(BaseModel):
     """Request for natural language query."""
+
     question: str = Field(..., description="Natural language question")
     code: str = Field(..., description="Code to verify")
     language: str = Field("python", description="Programming language")
@@ -34,30 +35,33 @@ class QueryRequest(BaseModel):
 
 class ParseOnlyRequest(BaseModel):
     """Request to parse without verification."""
+
     question: str = Field(..., description="Question to parse")
 
 
 class ParsedQueryResponse(BaseModel):
     """Parsed query response."""
+
     query_id: str
     query_type: str
-    subject: Optional[str]
-    predicate: Optional[str]
-    context: Optional[str]
-    z3_query: Optional[str]
-    constraint: Optional[str]
+    subject: str | None
+    predicate: str | None
+    context: str | None
+    z3_query: str | None
+    constraint: str | None
     confidence: float
 
 
 class VerificationAnswerResponse(BaseModel):
     """Verification answer response."""
+
     query_id: str
     result: str
     answer: str
     explanation: str
-    proof_steps: List[str]
-    counterexample: Optional[Dict[str, Any]]
-    suggestions: List[str]
+    proof_steps: list[str]
+    counterexample: dict[str, Any] | None
+    suggestions: list[str]
     verification_time_ms: float
 
 
@@ -66,12 +70,20 @@ class VerificationAnswerResponse(BaseModel):
 # =============================================================================
 
 # Query history per user/session
-_query_history: List[Dict[str, Any]] = []
+_query_history: list[dict[str, Any]] = []
 
 # Query types
 QUERY_TYPES = [
-    "null_check", "bounds_check", "value_check", "reachability",
-    "termination", "exception", "invariant", "comparison", "type_check", "unknown"
+    "null_check",
+    "bounds_check",
+    "value_check",
+    "reachability",
+    "termination",
+    "exception",
+    "invariant",
+    "comparison",
+    "type_check",
+    "unknown",
 ]
 
 # Proof results
@@ -82,43 +94,46 @@ PROOF_RESULTS = ["proven", "disproven", "unknown", "timeout"]
 # API Endpoints
 # =============================================================================
 
+
 @router.post(
     "/query",
     response_model=VerificationAnswerResponse,
     summary="Ask Verification Question",
-    description="Ask a natural language question about code verification"
+    description="Ask a natural language question about code verification",
 )
 async def query(request: QueryRequest) -> VerificationAnswerResponse:
     """
     Ask a natural language verification question.
-    
+
     Examples:
     - "Can x ever be null?"
     - "Is the index always within bounds?"
     - "What values can result have?"
     """
     start_time = time.time()
-    
+
     # Parse the question
     parsed = _parse_query(request.question)
-    
+
     # Perform verification
     result, details = _verify(parsed, request.code, request.language)
-    
+
     # Generate answer
     answer = _generate_answer(parsed, result, details)
-    
+
     answer["verification_time_ms"] = (time.time() - start_time) * 1000
-    
+
     # Store in history
-    _query_history.append({
-        "question": request.question,
-        "parsed": parsed,
-        "result": result,
-        "answer": answer["answer"],
-        "timestamp": time.time(),
-    })
-    
+    _query_history.append(
+        {
+            "question": request.question,
+            "parsed": parsed,
+            "result": result,
+            "answer": answer["answer"],
+            "timestamp": time.time(),
+        }
+    )
+
     return VerificationAnswerResponse(
         query_id=parsed["query_id"],
         result=result,
@@ -135,12 +150,12 @@ async def query(request: QueryRequest) -> VerificationAnswerResponse:
     "/parse",
     response_model=ParsedQueryResponse,
     summary="Parse Question",
-    description="Parse a natural language question without verifying"
+    description="Parse a natural language question without verifying",
 )
 async def parse_question(request: ParseOnlyRequest) -> ParsedQueryResponse:
     """Parse a question without verification."""
     parsed = _parse_query(request.question)
-    
+
     return ParsedQueryResponse(
         query_id=parsed["query_id"],
         query_type=parsed["query_type"],
@@ -156,9 +171,9 @@ async def parse_question(request: ParseOnlyRequest) -> ParsedQueryResponse:
 @router.get(
     "/examples",
     summary="Get Example Questions",
-    description="Get example questions that can be asked"
+    description="Get example questions that can be asked",
 )
-async def get_examples() -> Dict[str, Any]:
+async def get_examples() -> dict[str, Any]:
     """Get example questions."""
     return {
         "examples": [
@@ -206,12 +221,8 @@ async def get_examples() -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/history",
-    summary="Get Query History",
-    description="Get recent query history"
-)
-async def get_history(limit: int = 20) -> Dict[str, Any]:
+@router.get("/history", summary="Get Query History", description="Get recent query history")
+async def get_history(limit: int = 20) -> dict[str, Any]:
     """Get query history."""
     return {
         "queries": _query_history[-limit:],
@@ -219,34 +230,34 @@ async def get_history(limit: int = 20) -> Dict[str, Any]:
     }
 
 
-@router.post(
-    "/batch",
-    summary="Batch Query",
-    description="Ask multiple questions at once"
-)
+@router.post("/batch", summary="Batch Query", description="Ask multiple questions at once")
 async def batch_query(
-    questions: List[str],
+    questions: list[str],
     code: str,
     language: str = "python",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Ask multiple questions about the same code."""
     results = []
-    
+
     for question in questions:
         try:
             request = QueryRequest(question=question, code=code, language=language)
             result = await query(request)
-            results.append({
-                "question": question,
-                "result": result.result,
-                "answer": result.answer,
-            })
+            results.append(
+                {
+                    "question": question,
+                    "result": result.result,
+                    "answer": result.answer,
+                }
+            )
         except Exception as e:
-            results.append({
-                "question": question,
-                "error": str(e),
-            })
-    
+            results.append(
+                {
+                    "question": question,
+                    "error": str(e),
+                }
+            )
+
     return {
         "results": results,
         "total": len(results),
@@ -255,11 +266,9 @@ async def batch_query(
 
 
 @router.get(
-    "/query-types",
-    summary="List Query Types",
-    description="Get list of supported query types"
+    "/query-types", summary="List Query Types", description="Get list of supported query types"
 )
-async def list_query_types() -> Dict[str, Any]:
+async def list_query_types() -> dict[str, Any]:
     """List supported query types."""
     return {
         "query_types": [
@@ -280,12 +289,11 @@ async def list_query_types() -> Dict[str, Any]:
 # Helper Functions
 # =============================================================================
 
-def _parse_query(question: str) -> Dict[str, Any]:
+
+def _parse_query(question: str) -> dict[str, Any]:
     """Parse a natural language question."""
-    query_id = hashlib.sha256(
-        f"{time.time()}-{question}".encode()
-    ).hexdigest()[:16]
-    
+    query_id = hashlib.sha256(f"{time.time()}-{question}".encode()).hexdigest()[:16]
+
     parsed = {
         "query_id": query_id,
         "original_text": question,
@@ -297,9 +305,9 @@ def _parse_query(question: str) -> Dict[str, Any]:
         "constraint": None,
         "confidence": 0.5,
     }
-    
+
     question_lower = question.lower()
-    
+
     # Null check patterns
     null_patterns = [
         r"can\s+(?:the\s+)?(\w+)\s+(?:ever\s+)?be\s+(?:null|none)",
@@ -314,7 +322,7 @@ def _parse_query(question: str) -> Dict[str, Any]:
             parsed["predicate"] = "== None"
             parsed["confidence"] = 0.9
             break
-    
+
     # Bounds check patterns
     if parsed["query_type"] == "unknown":
         bounds_patterns = [
@@ -330,7 +338,7 @@ def _parse_query(question: str) -> Dict[str, Any]:
                 parsed["predicate"] = "within_bounds"
                 parsed["confidence"] = 0.9
                 break
-    
+
     # Value check patterns
     if parsed["query_type"] == "unknown":
         value_patterns = [
@@ -345,16 +353,20 @@ def _parse_query(question: str) -> Dict[str, Any]:
                 parsed["predicate"] = "possible_values"
                 parsed["confidence"] = 0.85
                 break
-    
+
     # Termination patterns
     if parsed["query_type"] == "unknown":
         if "terminate" in question_lower or "finish" in question_lower or "end" in question_lower:
-            if "loop" in question_lower or "function" in question_lower or "recursion" in question_lower:
+            if (
+                "loop" in question_lower
+                or "function" in question_lower
+                or "recursion" in question_lower
+            ):
                 parsed["query_type"] = "termination"
                 parsed["subject"] = "loop"
                 parsed["predicate"] = "terminates"
                 parsed["confidence"] = 0.85
-    
+
     # Exception patterns
     if parsed["query_type"] == "unknown":
         if "exception" in question_lower or "throw" in question_lower or "raise" in question_lower:
@@ -362,7 +374,7 @@ def _parse_query(question: str) -> Dict[str, Any]:
             parsed["subject"] = "function"
             parsed["predicate"] = "throws"
             parsed["confidence"] = 0.85
-    
+
     # Comparison patterns
     if parsed["query_type"] == "unknown":
         comp_patterns = [
@@ -378,7 +390,7 @@ def _parse_query(question: str) -> Dict[str, Any]:
                 parsed["context"] = match.group(3) if len(match.groups()) > 2 else None
                 parsed["confidence"] = 0.85
                 break
-    
+
     # Invariant patterns
     if parsed["query_type"] == "unknown":
         inv_patterns = [
@@ -396,22 +408,22 @@ def _parse_query(question: str) -> Dict[str, Any]:
                     parsed["predicate"] = match.group(1).strip()
                 parsed["confidence"] = 0.75
                 break
-    
+
     # Generate Z3 query
     parsed["z3_query"] = _generate_z3_query(parsed)
     parsed["constraint"] = _generate_constraint(parsed)
-    
+
     return parsed
 
 
-def _generate_z3_query(parsed: Dict[str, Any]) -> Optional[str]:
+def _generate_z3_query(parsed: dict[str, Any]) -> str | None:
     """Generate Z3 query from parsed question."""
     subject = parsed.get("subject")
     if not subject:
         return None
-    
+
     query_type = parsed["query_type"]
-    
+
     if query_type == "null_check":
         return f"s.add({subject} == None)\nresult = s.check()"
     elif query_type == "bounds_check":
@@ -420,18 +432,18 @@ def _generate_z3_query(parsed: Dict[str, Any]) -> Optional[str]:
         other = parsed.get("context", "other")
         op = parsed.get("predicate", ">")
         return f"s.add(Not({subject} {op} {other}))\nresult = s.check()"
-    
+
     return None
 
 
-def _generate_constraint(parsed: Dict[str, Any]) -> Optional[str]:
+def _generate_constraint(parsed: dict[str, Any]) -> str | None:
     """Generate human-readable constraint."""
     subject = parsed.get("subject")
     if not subject:
         return None
-    
+
     query_type = parsed["query_type"]
-    
+
     if query_type == "null_check":
         return f"{subject} is not null/None"
     elif query_type == "bounds_check":
@@ -440,20 +452,20 @@ def _generate_constraint(parsed: Dict[str, Any]) -> Optional[str]:
         other = parsed.get("context", "other")
         op = parsed.get("predicate", ">")
         return f"{subject} {op} {other}"
-    
+
     return None
 
 
 def _verify(
-    parsed: Dict[str, Any],
+    parsed: dict[str, Any],
     code: str,
     language: str,
-) -> tuple[str, Dict[str, Any]]:
+) -> tuple[str, dict[str, Any]]:
     """Perform verification."""
     query_type = parsed["query_type"]
     subject = parsed.get("subject")
-    details: Dict[str, Any] = {}
-    
+    details: dict[str, Any] = {}
+
     if query_type == "null_check":
         return _verify_null(subject, code)
     elif query_type == "bounds_check":
@@ -466,15 +478,15 @@ def _verify(
         return _verify_termination(code)
     elif query_type == "comparison":
         return _verify_comparison(parsed, code)
-    
+
     return "unknown", details
 
 
-def _verify_null(subject: Optional[str], code: str) -> tuple[str, Dict[str, Any]]:
+def _verify_null(subject: str | None, code: str) -> tuple[str, dict[str, Any]]:
     """Verify null safety."""
     if not subject:
         return "unknown", {}
-    
+
     if "return None" in code:
         if "Optional" in code or "| None" in code:
             return "proven", {}
@@ -484,22 +496,22 @@ def _verify_null(subject: Optional[str], code: str) -> tuple[str, Dict[str, Any]
                     "scenario": "Function returns None without Optional type",
                 }
             }
-    
+
     if f"{subject} = None" in code or f"{subject}=None" in code:
         return "disproven", {
             "counterexample": {
                 "scenario": f"{subject} is assigned None",
             }
         }
-    
+
     return "proven", {}
 
 
-def _verify_bounds(subject: Optional[str], code: str) -> tuple[str, Dict[str, Any]]:
+def _verify_bounds(subject: str | None, code: str) -> tuple[str, dict[str, Any]]:
     """Verify bounds safety."""
     if not subject:
         return "unknown", {}
-    
+
     if f"[{subject}]" in code:
         if f"if {subject} <" in code or f"if 0 <= {subject}" in code:
             return "proven", {}
@@ -509,18 +521,18 @@ def _verify_bounds(subject: Optional[str], code: str) -> tuple[str, Dict[str, An
                     "scenario": f"Array access [{subject}] without bounds check",
                 }
             }
-    
+
     return "proven", {}
 
 
-def _verify_values(subject: Optional[str], code: str) -> tuple[str, Dict[str, Any]]:
+def _verify_values(subject: str | None, code: str) -> tuple[str, dict[str, Any]]:
     """Find possible values."""
     if not subject:
         return "unknown", {}
-    
+
     values = []
     assignments = re.findall(rf"{subject}\s*=\s*(.+)", code)
-    
+
     for assignment in assignments:
         val = assignment.strip().rstrip(";").strip()
         if val.isdigit():
@@ -529,30 +541,30 @@ def _verify_values(subject: Optional[str], code: str) -> tuple[str, Dict[str, An
             values.append(val)
         elif val.startswith('"') or val.startswith("'"):
             values.append(val.strip("\"'"))
-    
+
     return "proven", {"values": values}
 
 
-def _verify_exceptions(code: str) -> tuple[str, Dict[str, Any]]:
+def _verify_exceptions(code: str) -> tuple[str, dict[str, Any]]:
     """Verify exception safety."""
     exceptions = []
-    
+
     raises = re.findall(r"raise\s+(\w+)", code)
     exceptions.extend(raises)
-    
+
     if "/" in code and "try" not in code:
         exceptions.append("ZeroDivisionError")
-    
+
     if "[" in code and "try" not in code:
         exceptions.append("IndexError")
-    
+
     if exceptions:
         return "disproven", {"exceptions": list(set(exceptions))}
-    
+
     return "proven", {}
 
 
-def _verify_termination(code: str) -> tuple[str, Dict[str, Any]]:
+def _verify_termination(code: str) -> tuple[str, dict[str, Any]]:
     """Verify termination."""
     # Simple heuristic
     if "while True" in code:
@@ -560,31 +572,31 @@ def _verify_termination(code: str) -> tuple[str, Dict[str, Any]]:
             return "disproven", {
                 "reason": "Infinite while True loop without break",
             }
-    
+
     return "unknown", {}
 
 
-def _verify_comparison(parsed: Dict[str, Any], code: str) -> tuple[str, Dict[str, Any]]:
+def _verify_comparison(parsed: dict[str, Any], code: str) -> tuple[str, dict[str, Any]]:
     """Verify comparison."""
     return "unknown", {}
 
 
 def _generate_answer(
-    parsed: Dict[str, Any],
+    parsed: dict[str, Any],
     result: str,
-    details: Dict[str, Any],
-) -> Dict[str, Any]:
+    details: dict[str, Any],
+) -> dict[str, Any]:
     """Generate human-readable answer."""
     query_type = parsed["query_type"]
     subject = parsed.get("subject", "the value")
-    
-    answer: Dict[str, Any] = {
+
+    answer: dict[str, Any] = {
         "answer": "",
         "explanation": "",
         "proof_steps": [],
         "suggestions": [],
     }
-    
+
     if query_type == "null_check":
         if result == "proven":
             answer["answer"] = f"No, {subject} can never be null/None."
@@ -600,12 +612,12 @@ def _generate_answer(
             answer["counterexample"] = details.get("counterexample")
             answer["suggestions"] = [
                 f"Add a null check before using {subject}",
-                f"Use Optional type annotation",
+                "Use Optional type annotation",
             ]
         else:
             answer["answer"] = f"Unable to determine if {subject} can be null."
             answer["explanation"] = "Verification was inconclusive."
-    
+
     elif query_type == "bounds_check":
         if result == "proven":
             answer["answer"] = f"Yes, {subject} is always within bounds."
@@ -617,7 +629,7 @@ def _generate_answer(
             answer["suggestions"] = [
                 f"Add bounds check: if 0 <= {subject} < len(array)",
             ]
-    
+
     elif query_type == "value_check":
         values = details.get("values", [])
         if values:
@@ -626,7 +638,7 @@ def _generate_answer(
         else:
             answer["answer"] = f"{subject} appears unconstrained."
             answer["explanation"] = "No specific value constraints found."
-    
+
     elif query_type == "exception":
         if result == "proven":
             answer["answer"] = "No, the code cannot throw an exception."
@@ -636,7 +648,7 @@ def _generate_answer(
             answer["answer"] = f"Yes, can throw: {', '.join(exceptions)}"
             answer["explanation"] = "Found potential exception sources."
             answer["suggestions"] = ["Add try/except blocks"]
-    
+
     elif query_type == "termination":
         if result == "proven":
             answer["answer"] = "Yes, the code always terminates."
@@ -648,13 +660,11 @@ def _generate_answer(
         else:
             answer["answer"] = "Unable to prove termination."
             answer["explanation"] = "Analysis was inconclusive."
-    
+
     else:
         answer["answer"] = "I couldn't understand your question."
         answer["explanation"] = (
-            "Try asking questions like:\n"
-            "- 'Can x ever be null?'\n"
-            "- 'Is the index within bounds?'"
+            "Try asking questions like:\n- 'Can x ever be null?'\n- 'Is the index within bounds?'"
         )
-    
+
     return answer

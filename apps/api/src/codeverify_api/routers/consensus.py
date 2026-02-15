@@ -1,6 +1,7 @@
 """Consensus Verification API endpoints."""
 
 from typing import Any
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -81,7 +82,7 @@ async def verify_with_consensus(
     Only findings that achieve consensus across models are included
     in the consensus_findings. Model-specific findings are tracked separately.
     """
-    from codeverify_agents import MultiModelConsensus, ConsensusStrategy
+    from codeverify_agents import ConsensusStrategy, MultiModelConsensus
 
     try:
         strategy = ConsensusStrategy(request.consensus_strategy)
@@ -93,10 +94,13 @@ async def verify_with_consensus(
 
     consensus = MultiModelConsensus(consensus_strategy=strategy)
 
-    result = await consensus.analyze(request.code, {
-        "file_path": request.file_path,
-        "language": request.language,
-    })
+    result = await consensus.analyze(
+        request.code,
+        {
+            "file_path": request.file_path,
+            "language": request.language,
+        },
+    )
 
     if not result.success:
         raise HTTPException(
@@ -111,8 +115,7 @@ async def verify_with_consensus(
         overall_confidence=result.data["overall_confidence"],
         total_latency_ms=result.data["total_latency_ms"],
         consensus_findings=[
-            ConsensusFindingResponse(**f)
-            for f in result.data["consensus_findings"]
+            ConsensusFindingResponse(**f) for f in result.data["consensus_findings"]
         ],
         model_only_findings={
             model: [ModelFindingResponse(**f) for f in findings]
@@ -161,10 +164,7 @@ async def verify_with_escalation(
             total_latency_ms=result.latency_ms,
             consensus_findings=[],
             model_only_findings={
-                "primary": [
-                    ModelFindingResponse(**f)
-                    for f in result.data.get("findings", [])
-                ]
+                "primary": [ModelFindingResponse(**f) for f in result.data.get("findings", [])]
             },
             summary={"mode": "fast", "escalated": False},
         )
@@ -202,8 +202,5 @@ async def get_available_models() -> dict[str, list[dict[str, str]]]:
     from codeverify_agents.multi_model_consensus import ModelProvider
 
     return {
-        "models": [
-            {"id": m.value, "name": m.name.replace("_", " ").title()}
-            for m in ModelProvider
-        ]
+        "models": [{"id": m.value, "name": m.name.replace("_", " ").title()} for m in ModelProvider]
     }

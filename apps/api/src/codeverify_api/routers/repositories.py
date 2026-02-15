@@ -5,18 +5,18 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.db.database import get_db
-from codeverify_api.db.models import Repository, Analysis
-from codeverify_api.db.repositories import RepositoryRepository
+from codeverify_api.db.models import Analysis, Repository
 
 router = APIRouter()
 
 
 class RepositorySettings(BaseModel):
     """Repository settings model."""
+
     enabled: bool | None = None
     auto_analyze: bool | None = None
     verification_checks: list[str] | None = None
@@ -120,7 +120,12 @@ async def get_repository_settings(
     default_settings = {
         "enabled": repo.enabled,
         "auto_analyze": True,
-        "verification_checks": ["null_safety", "array_bounds", "integer_overflow", "division_by_zero"],
+        "verification_checks": [
+            "null_safety",
+            "array_bounds",
+            "integer_overflow",
+            "division_by_zero",
+        ],
         "ai_analysis": True,
         "thresholds": {"critical": 0, "high": 0, "medium": 5, "low": 10},
         "exclude_patterns": ["node_modules/**", "venv/**", "*.min.js"],

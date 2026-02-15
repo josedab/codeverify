@@ -34,7 +34,7 @@ class GitHubClient:
 
         # Read private key
         try:
-            with open(settings.GITHUB_APP_PRIVATE_KEY_PATH, "r") as f:
+            with open(settings.GITHUB_APP_PRIVATE_KEY_PATH) as f:
                 private_key = f.read()
         except FileNotFoundError:
             # Try using the key directly (for env var storage)
@@ -277,7 +277,7 @@ class GitHubClient:
         start_line: int | None = None,
     ) -> dict[str, Any]:
         """Create a suggested change comment (one-click apply).
-        
+
         Uses GitHub's suggestion syntax which renders as a one-click "Apply" button.
         For multi-line suggestions, provide start_line.
         """
@@ -290,7 +290,7 @@ class GitHubClient:
             "side": "RIGHT",
             "body": body,
         }
-        
+
         # Multi-line suggestion
         if start_line and start_line != line:
             data["start_line"] = start_line
@@ -313,16 +313,16 @@ class GitHubClient:
         event: str = "COMMENT",
     ) -> dict[str, Any]:
         """Create a PR review with multiple inline suggestions.
-        
+
         This is the one-click fix feature - creates suggestions that users
         can apply directly from the GitHub UI.
         """
         comments = []
-        
+
         for finding in findings:
             if not finding.get("fix_suggestion"):
                 continue
-                
+
             file_path = finding.get("file_path", "")
             line_start = finding.get("line_start", 1)
             line_end = finding.get("line_end") or line_start
@@ -331,11 +331,11 @@ class GitHubClient:
             description = finding.get("description", "")
             severity = finding.get("severity", "medium")
             confidence = finding.get("confidence", 0)
-            
+
             # Build comment body with suggestion
             severity_emoji = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}
             emoji = severity_emoji.get(severity, "⚪")
-            
+
             body_parts = [
                 f"{emoji} **{title}**",
                 "",
@@ -349,29 +349,29 @@ class GitHubClient:
                 fix,
                 "```",
             ]
-            
+
             comment: dict[str, Any] = {
                 "path": file_path,
                 "line": line_end,
                 "body": "\n".join(body_parts),
             }
-            
+
             # Multi-line change
             if line_start != line_end:
                 comment["start_line"] = line_start
-            
+
             comments.append(comment)
-        
+
         # Create the review with all comments
         data: dict[str, Any] = {
             "commit_id": commit_sha,
             "body": summary_body,
             "event": event,
         }
-        
+
         if comments:
             data["comments"] = comments[:50]  # GitHub limit
-        
+
         return await self._request(
             "POST",
             f"/repos/{owner}/{repo}/pulls/{pr_number}/reviews",
@@ -388,26 +388,28 @@ class GitHubClient:
     ) -> list[dict[str, Any]]:
         """Create individual inline comments for findings without suggestions."""
         results = []
-        
+
         for finding in findings:
             # Skip if already has fix suggestion (handled by review)
             if finding.get("fix_suggestion"):
                 continue
-                
+
             file_path = finding.get("file_path", "")
             line = finding.get("line_start", 1)
             title = finding.get("title", "Issue")
             description = finding.get("description", "")
             severity = finding.get("severity", "medium")
             verification_type = finding.get("verification_type", "ai")
-            
+
             severity_emoji = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}
             emoji = severity_emoji.get(severity, "⚪")
-            
-            verification_badge = "🔬 Formally Verified" if verification_type == "formal" else "🤖 AI Detected"
-            
+
+            verification_badge = (
+                "🔬 Formally Verified" if verification_type == "formal" else "🤖 AI Detected"
+            )
+
             body = f"{emoji} **{title}**\n\n{description}\n\n_{verification_badge}_"
-            
+
             try:
                 result = await self.create_review_comment(
                     owner=owner,
@@ -421,7 +423,7 @@ class GitHubClient:
                 results.append(result)
             except Exception as e:
                 logger.warning(f"Failed to create inline comment: {e}")
-        
+
         return results
 
 
@@ -498,33 +500,39 @@ def format_pr_comment(
             line = finding.get("line_start", "")
             description = finding.get("description", "")
 
-            lines.extend([
-                f"<details>",
-                f"<summary>{emoji} <b>{title}</b> ({file_path}:{line})</summary>",
-                "",
-                description,
-                "",
-            ])
+            lines.extend(
+                [
+                    "<details>",
+                    f"<summary>{emoji} <b>{title}</b> ({file_path}:{line})</summary>",
+                    "",
+                    description,
+                    "",
+                ]
+            )
 
             if fix := finding.get("fix_suggestion"):
-                lines.extend([
-                    "**Suggested fix:**",
-                    "```suggestion",
-                    fix,
-                    "```",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "**Suggested fix:**",
+                        "```suggestion",
+                        fix,
+                        "```",
+                        "",
+                    ]
+                )
 
             lines.extend(["</details>", ""])
 
         if len(findings) > 10:
             lines.append(f"*...and {len(findings) - 10} more findings*")
 
-    lines.extend([
-        "",
-        "---",
-        "*Powered by [CodeVerify](https://codeverify.dev) - AI-powered code review with formal verification*",
-    ])
+    lines.extend(
+        [
+            "",
+            "---",
+            "*Powered by [CodeVerify](https://codeverify.dev) - AI-powered code review with formal verification*",
+        ]
+    )
 
     if details_url:
         lines.insert(-1, f"[View full report]({details_url})")

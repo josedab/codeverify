@@ -1,6 +1,7 @@
 """Threat Modeling API endpoints."""
 
 from typing import Any
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 

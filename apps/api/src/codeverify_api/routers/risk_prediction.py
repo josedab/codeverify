@@ -1,7 +1,8 @@
 """Risk Prediction API endpoints (Regression Oracle)."""
 
-from typing import Any
 from datetime import datetime
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -178,7 +179,9 @@ async def predict_risk_batch(request: BatchRiskRequest) -> BatchRiskResponse:
                     verification_priority=result.data["verification_priority"],
                     risk_factors=[RiskFactorResponse(**f) for f in result.data["risk_factors"]],
                     recommended_actions=result.data["recommended_actions"],
-                    similar_past_bugs=[SimilarBugResponse(**b) for b in result.data["similar_past_bugs"]],
+                    similar_past_bugs=[
+                        SimilarBugResponse(**b) for b in result.data["similar_past_bugs"]
+                    ],
                 )
             )
 
@@ -202,7 +205,7 @@ async def record_bug(request: BugRecordRequest) -> dict[str, Any]:
 
     This helps improve future predictions by learning from actual bugs.
     """
-    from codeverify_agents import RegressionOracle, BugRecord
+    from codeverify_agents import BugRecord, RegressionOracle
     from codeverify_agents.regression_oracle import ChangeMetrics
 
     oracle = RegressionOracle()
@@ -249,13 +252,15 @@ async def submit_prediction_feedback(
     from codeverify_agents import RegressionOracle
 
     oracle = RegressionOracle()
-    oracle.update_weights([
-        {
-            "change_id": change_id,
-            "predicted_risk": predicted_risk,
-            "was_bug": was_bug,
-        }
-    ])
+    oracle.update_weights(
+        [
+            {
+                "change_id": change_id,
+                "predicted_risk": predicted_risk,
+                "was_bug": was_bug,
+            }
+        ]
+    )
 
     return {
         "status": "received",

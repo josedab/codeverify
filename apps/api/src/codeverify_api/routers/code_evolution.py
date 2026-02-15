@@ -11,7 +11,7 @@ Provides REST API endpoints for tracking code evolution:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -21,9 +21,10 @@ try:
     from codeverify_agents.code_evolution import (
         CodeEvolutionTracker,
         MetricType,
-        TrendDirection,
         RegressionSeverity,
+        TrendDirection,
     )
+
     CODE_EVOLUTION_AVAILABLE = True
 except ImportError:
     CODE_EVOLUTION_AVAILABLE = False
@@ -36,7 +37,7 @@ except ImportError:
 router = APIRouter(prefix="/api/v1/evolution", tags=["code-evolution"])
 
 # Singleton tracker instance
-_tracker: Optional[CodeEvolutionTracker] = None
+_tracker: CodeEvolutionTracker | None = None
 
 
 def get_tracker() -> CodeEvolutionTracker:
@@ -54,12 +55,13 @@ def get_tracker() -> CodeEvolutionTracker:
 
 class RecordSnapshotRequest(BaseModel):
     """Request to record a commit snapshot."""
+
     repository: str = Field(..., description="Repository identifier")
     commit_sha: str = Field(..., description="Git commit SHA")
     commit_message: str = Field(..., description="Commit message")
     author: str = Field(..., description="Commit author")
-    timestamp: Optional[str] = Field(None, description="Commit timestamp (ISO format)")
-    metrics: Optional[Dict[str, float]] = Field(None, description="Quality metrics")
+    timestamp: str | None = Field(None, description="Commit timestamp (ISO format)")
+    metrics: dict[str, float] | None = Field(None, description="Quality metrics")
     files_changed: int = Field(0, ge=0, description="Number of files changed")
     lines_added: int = Field(0, ge=0, description="Lines added")
     lines_removed: int = Field(0, ge=0, description="Lines removed")
@@ -70,6 +72,7 @@ class RecordSnapshotRequest(BaseModel):
 
 class SnapshotResponse(BaseModel):
     """Response with snapshot information."""
+
     id: str
     commit_sha: str
     repository: str
@@ -78,13 +81,15 @@ class SnapshotResponse(BaseModel):
 
 class AnalyzeTrendsRequest(BaseModel):
     """Request to analyze trends."""
+
     repository: str = Field(..., description="Repository identifier")
-    metric_types: Optional[List[str]] = Field(None, description="Metrics to analyze")
+    metric_types: list[str] | None = Field(None, description="Metrics to analyze")
     days: int = Field(30, ge=1, le=365, description="Days to analyze")
 
 
 class CompareCommitsRequest(BaseModel):
     """Request to compare commits."""
+
     repository: str = Field(..., description="Repository identifier")
     commit_sha_1: str = Field(..., description="First commit SHA")
     commit_sha_2: str = Field(..., description="Second commit SHA")
@@ -99,7 +104,7 @@ class CompareCommitsRequest(BaseModel):
     "/snapshot",
     response_model=SnapshotResponse,
     summary="Record Snapshot",
-    description="Record a commit snapshot with quality metrics"
+    description="Record a commit snapshot with quality metrics",
 )
 async def record_snapshot(request: RecordSnapshotRequest) -> SnapshotResponse:
     """
@@ -108,17 +113,11 @@ async def record_snapshot(request: RecordSnapshotRequest) -> SnapshotResponse:
     This should be called after each commit analysis to track evolution.
     """
     if not CODE_EVOLUTION_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Code Evolution Tracker is not available"
-        )
+        raise HTTPException(status_code=503, detail="Code Evolution Tracker is not available")
 
     tracker = get_tracker()
     if not tracker:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Code Evolution Tracker"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Code Evolution Tracker")
 
     timestamp = None
     if request.timestamp:
@@ -151,30 +150,23 @@ async def record_snapshot(request: RecordSnapshotRequest) -> SnapshotResponse:
 
 
 @router.get(
-    "/snapshots/{repository}",
-    summary="Get Snapshots",
-    description="Get snapshots for a repository"
+    "/snapshots/{repository}", summary="Get Snapshots", description="Get snapshots for a repository"
 )
 async def get_snapshots(
     repository: str,
     days: int = 30,
     limit: int = 50,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get snapshots for a repository."""
     if not CODE_EVOLUTION_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Code Evolution Tracker is not available"
-        )
+        raise HTTPException(status_code=503, detail="Code Evolution Tracker is not available")
 
     tracker = get_tracker()
     if not tracker:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Code Evolution Tracker"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Code Evolution Tracker")
 
     from datetime import timedelta
+
     start_date = datetime.now() - timedelta(days=days)
 
     snapshots = tracker.get_snapshots(
@@ -190,29 +182,19 @@ async def get_snapshots(
     }
 
 
-@router.post(
-    "/trends",
-    summary="Analyze Trends",
-    description="Analyze metric trends over time"
-)
-async def analyze_trends(request: AnalyzeTrendsRequest) -> Dict[str, Any]:
+@router.post("/trends", summary="Analyze Trends", description="Analyze metric trends over time")
+async def analyze_trends(request: AnalyzeTrendsRequest) -> dict[str, Any]:
     """
     Analyze trends for specified metrics.
 
     Returns trend direction, slope, and volatility for each metric.
     """
     if not CODE_EVOLUTION_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Code Evolution Tracker is not available"
-        )
+        raise HTTPException(status_code=503, detail="Code Evolution Tracker is not available")
 
     tracker = get_tracker()
     if not tracker:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Code Evolution Tracker"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Code Evolution Tracker")
 
     metric_types = None
     if request.metric_types:
@@ -240,29 +222,23 @@ async def analyze_trends(request: AnalyzeTrendsRequest) -> Dict[str, Any]:
 @router.get(
     "/regressions/{repository}",
     summary="Detect Regressions",
-    description="Detect quality regressions in recent commits"
+    description="Detect quality regressions in recent commits",
 )
 async def detect_regressions(
     repository: str,
     days: int = 7,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Detect quality regressions in recent commits.
 
     Returns regressions with severity, affected commits, and suggested actions.
     """
     if not CODE_EVOLUTION_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Code Evolution Tracker is not available"
-        )
+        raise HTTPException(status_code=503, detail="Code Evolution Tracker is not available")
 
     tracker = get_tracker()
     if not tracker:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Code Evolution Tracker"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Code Evolution Tracker")
 
     regressions = tracker.detect_regressions(
         repository=repository,
@@ -281,29 +257,23 @@ async def detect_regressions(
 @router.get(
     "/report/{repository}",
     summary="Generate Report",
-    description="Generate comprehensive evolution report"
+    description="Generate comprehensive evolution report",
 )
 async def generate_report(
     repository: str,
     days: int = 30,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate comprehensive evolution report.
 
     Includes trends, regressions, contributor stats, and quality summary.
     """
     if not CODE_EVOLUTION_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Code Evolution Tracker is not available"
-        )
+        raise HTTPException(status_code=503, detail="Code Evolution Tracker is not available")
 
     tracker = get_tracker()
     if not tracker:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Code Evolution Tracker"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Code Evolution Tracker")
 
     report = tracker.generate_report(
         repository=repository,
@@ -313,29 +283,19 @@ async def generate_report(
     return report.to_dict()
 
 
-@router.post(
-    "/compare",
-    summary="Compare Commits",
-    description="Compare two specific commits"
-)
-async def compare_commits(request: CompareCommitsRequest) -> Dict[str, Any]:
+@router.post("/compare", summary="Compare Commits", description="Compare two specific commits")
+async def compare_commits(request: CompareCommitsRequest) -> dict[str, Any]:
     """
     Compare two specific commits.
 
     Returns metric differences between the commits.
     """
     if not CODE_EVOLUTION_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Code Evolution Tracker is not available"
-        )
+        raise HTTPException(status_code=503, detail="Code Evolution Tracker is not available")
 
     tracker = get_tracker()
     if not tracker:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Code Evolution Tracker"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Code Evolution Tracker")
 
     result = tracker.compare_commits(
         repository=request.repository,
@@ -349,34 +309,25 @@ async def compare_commits(request: CompareCommitsRequest) -> Dict[str, Any]:
 @router.get(
     "/metric/{repository}/{metric_type}",
     summary="Get Metric History",
-    description="Get historical values for a specific metric"
+    description="Get historical values for a specific metric",
 )
 async def get_metric_history(
     repository: str,
     metric_type: str,
     days: int = 30,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get historical values for a specific metric."""
     if not CODE_EVOLUTION_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Code Evolution Tracker is not available"
-        )
+        raise HTTPException(status_code=503, detail="Code Evolution Tracker is not available")
 
     tracker = get_tracker()
     if not tracker:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Code Evolution Tracker"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Code Evolution Tracker")
 
     try:
         mt = MetricType(metric_type)
     except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid metric type: {metric_type}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid metric type: {metric_type}")
 
     history = tracker.get_metric_history(
         repository=repository,
@@ -393,24 +344,16 @@ async def get_metric_history(
 
 
 @router.get(
-    "/repositories",
-    summary="List Repositories",
-    description="List all tracked repositories"
+    "/repositories", summary="List Repositories", description="List all tracked repositories"
 )
-async def list_repositories() -> Dict[str, Any]:
+async def list_repositories() -> dict[str, Any]:
     """List all tracked repositories."""
     if not CODE_EVOLUTION_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Code Evolution Tracker is not available"
-        )
+        raise HTTPException(status_code=503, detail="Code Evolution Tracker is not available")
 
     tracker = get_tracker()
     if not tracker:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Code Evolution Tracker"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Code Evolution Tracker")
 
     repos = tracker.get_repositories()
 
@@ -420,12 +363,8 @@ async def list_repositories() -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/metric-types",
-    summary="Get Metric Types",
-    description="Get available metric types"
-)
-async def get_metric_types() -> Dict[str, Any]:
+@router.get("/metric-types", summary="Get Metric Types", description="Get available metric types")
+async def get_metric_types() -> dict[str, Any]:
     """Get available metric types."""
     if not CODE_EVOLUTION_AVAILABLE:
         return {
@@ -450,12 +389,8 @@ async def get_metric_types() -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/stats",
-    summary="Get Statistics",
-    description="Get tracker statistics"
-)
-async def get_stats() -> Dict[str, Any]:
+@router.get("/stats", summary="Get Statistics", description="Get tracker statistics")
+async def get_stats() -> dict[str, Any]:
     """Get tracker statistics."""
     if not CODE_EVOLUTION_AVAILABLE:
         return {
@@ -479,30 +414,21 @@ async def get_stats() -> Dict[str, Any]:
 @router.delete(
     "/repository/{repository}",
     summary="Clear Repository",
-    description="Clear evolution data for a repository"
+    description="Clear evolution data for a repository",
 )
-async def clear_repository(repository: str) -> Dict[str, Any]:
+async def clear_repository(repository: str) -> dict[str, Any]:
     """Clear evolution data for a repository."""
     if not CODE_EVOLUTION_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Code Evolution Tracker is not available"
-        )
+        raise HTTPException(status_code=503, detail="Code Evolution Tracker is not available")
 
     tracker = get_tracker()
     if not tracker:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Code Evolution Tracker"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Code Evolution Tracker")
 
     success = tracker.clear_repository(repository)
 
     if not success:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Repository not found: {repository}"
-        )
+        raise HTTPException(status_code=404, detail=f"Repository not found: {repository}")
 
     return {
         "cleared": True,

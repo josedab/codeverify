@@ -1,7 +1,8 @@
 """Cost Optimization API endpoints."""
 
 from typing import Any
-from fastapi import APIRouter, HTTPException, status, Query
+
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -87,7 +88,7 @@ async def plan_verification(request: VerificationPlanRequest) -> VerificationPla
 
     Returns the recommended verification depth with cost estimates.
     """
-    from codeverify_core import VerificationCostOptimizer, BudgetConstraints
+    from codeverify_core import BudgetConstraints, VerificationCostOptimizer
 
     optimizer = VerificationCostOptimizer()
 
@@ -139,7 +140,7 @@ async def plan_batch_verification(request: BatchPlanRequest) -> dict[str, Any]:
 
     Optimizes allocation across all items based on risk.
     """
-    from codeverify_core import VerificationCostOptimizer, BudgetConstraints
+    from codeverify_core import BudgetConstraints, VerificationCostOptimizer
 
     optimizer = VerificationCostOptimizer()
 
@@ -240,10 +241,7 @@ async def get_cost_model() -> dict[str, list[CostModelResponse]]:
     model = optimizer.get_cost_model()
 
     return {
-        "cost_model": [
-            CostModelResponse(depth=depth, **costs)
-            for depth, costs in model.items()
-        ]
+        "cost_model": [CostModelResponse(depth=depth, **costs) for depth, costs in model.items()]
     }
 
 

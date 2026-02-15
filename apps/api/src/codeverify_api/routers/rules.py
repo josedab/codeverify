@@ -1,7 +1,6 @@
 """Custom Rules API endpoints."""
 
 from typing import Any
-from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -22,7 +21,9 @@ class RuleConditionRequest(BaseModel):
 class RuleActionRequest(BaseModel):
     """Request model for a rule action."""
 
-    action_type: str = Field(default="report", description="Action type: report, suggest_fix, block")
+    action_type: str = Field(
+        default="report", description="Action type: report, suggest_fix, block"
+    )
     message: str = Field(..., description="Message to display when rule matches")
     fix_template: str | None = Field(default=None, description="Template for suggested fix")
 
@@ -32,12 +33,18 @@ class CreateRuleRequest(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100)
     description: str = Field(default="")
-    rule_type: str = Field(default="pattern", description="Rule type: pattern, ast, semantic, composite")
-    severity: str = Field(default="medium", description="Severity: critical, high, medium, low, info")
+    rule_type: str = Field(
+        default="pattern", description="Rule type: pattern, ast, semantic, composite"
+    )
+    severity: str = Field(
+        default="medium", description="Severity: critical, high, medium, low, info"
+    )
     scope: str = Field(default="line", description="Scope: file, function, class, block, line")
     conditions: list[RuleConditionRequest] = Field(default_factory=list)
     actions: list[RuleActionRequest] = Field(default_factory=list)
-    condition_logic: str = Field(default="AND", description="Logic for combining conditions: AND or OR")
+    condition_logic: str = Field(
+        default="AND", description="Logic for combining conditions: AND or OR"
+    )
     enabled: bool = Field(default=True)
     languages: list[str] = Field(default_factory=list, description="Languages this rule applies to")
     file_patterns: list[str] = Field(default_factory=list, description="Glob patterns for files")
@@ -87,7 +94,9 @@ class TestRuleResponse(BaseModel):
 class EvaluateRulesRequest(BaseModel):
     """Request to evaluate multiple rules against code."""
 
-    rule_ids: list[str] = Field(default_factory=list, description="IDs of rules to evaluate (empty = all)")
+    rule_ids: list[str] = Field(
+        default_factory=list, description="IDs of rules to evaluate (empty = all)"
+    )
     code: str = Field(..., description="Code to evaluate")
     file_path: str = Field(..., description="File path")
     language: str = Field(default="python")
@@ -101,16 +110,15 @@ _rules: dict[str, dict[str, Any]] = {}
 async def create_rule(request: CreateRuleRequest) -> RuleResponse:
     """Create a new custom rule."""
     from uuid import uuid4
-    from datetime import datetime
 
     from codeverify_core.rules import (
-        CustomRule,
-        RuleType,
-        RuleSeverity,
-        RuleScope,
-        RuleCondition,
-        RuleAction,
         ConditionOperator,
+        CustomRule,
+        RuleAction,
+        RuleCondition,
+        RuleScope,
+        RuleSeverity,
+        RuleType,
     )
 
     # Convert request to CustomRule
@@ -179,17 +187,14 @@ async def list_rules(
         rules = [r for r in rules if tag in r.get("tags", [])]
 
     if language:
-        rules = [
-            r for r in rules
-            if not r.get("languages") or language in r.get("languages", [])
-        ]
+        rules = [r for r in rules if not r.get("languages") or language in r.get("languages", [])]
 
     if severity:
         rules = [r for r in rules if r.get("severity") == severity]
 
     # Pagination
     total = len(rules)
-    rules = rules[offset:offset + limit]
+    rules = rules[offset : offset + limit]
 
     return [RuleResponse(**r) for r in rules]
 
@@ -294,14 +299,14 @@ async def test_rule(request: TestRuleRequest) -> TestRuleResponse:
     from uuid import uuid4
 
     from codeverify_core.rules import (
-        CustomRule,
-        RuleType,
-        RuleSeverity,
-        RuleScope,
-        RuleCondition,
-        RuleAction,
         ConditionOperator,
+        CustomRule,
+        RuleAction,
+        RuleCondition,
         RuleEvaluator,
+        RuleScope,
+        RuleSeverity,
+        RuleType,
     )
 
     start_time = time.time()
@@ -369,10 +374,7 @@ async def evaluate_rules(request: EvaluateRulesRequest) -> list[dict[str, Any]]:
 
     # Get rules to evaluate
     if request.rule_ids:
-        rules_to_eval = [
-            _rules[rid] for rid in request.rule_ids
-            if rid in _rules
-        ]
+        rules_to_eval = [_rules[rid] for rid in request.rule_ids if rid in _rules]
     else:
         rules_to_eval = list(_rules.values())
 
@@ -418,7 +420,6 @@ async def export_rules(
     from codeverify_core.rules import CustomRule
 
     if format == "yaml":
-        import yaml
         rules_yaml = []
         for rule_dict in _rules.values():
             rule = CustomRule.from_dict(rule_dict)

@@ -7,35 +7,34 @@ from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.auth.dependencies import get_current_user_optional
-from codeverify_api.db.database import get_db
 from codeverify_api.config import settings
+from codeverify_api.db.database import get_db
 from codeverify_api.db.models import (
     Analysis,
     CertificationHistory,
     Repository,
+)
+from codeverify_api.db.models import (
     VerificationAttestation as AttestationDB,
+)
+from codeverify_api.db.models import (
     VerificationBadge as BadgeDB,
 )
 from codeverify_core.badges import (
+    TIER_REQUIREMENTS,
     AttestationSubject,
     AttestationType,
-    Badge,
-    BadgeConfig,
-    CertificationResult,
     CertificationTier,
-    TIER_REQUIREMENTS,
     TierRequirements,
     VerificationAttestation,
     VerificationEvidence,
     VerificationScope,
     create_attestation,
-    create_badge,
     evaluate_tier,
 )
 
@@ -174,10 +173,10 @@ def generate_badge_svg(
   <rect rx="0" x="{label_width}" width="{message_width}" height="20" fill="{bg_color}"/>
   <rect rx="0" width="{total_width}" height="20" fill="url(#b)"/>
   <g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">
-    <text x="{label_width/2}" y="15" fill="#010101" fill-opacity=".3">{label}</text>
-    <text x="{label_width/2}" y="14">{label}</text>
-    <text x="{label_width + message_width/2}" y="15" fill="#010101" fill-opacity=".3">{message}</text>
-    <text x="{label_width + message_width/2}" y="14">{message}</text>
+    <text x="{label_width / 2}" y="15" fill="#010101" fill-opacity=".3">{label}</text>
+    <text x="{label_width / 2}" y="14">{label}</text>
+    <text x="{label_width + message_width / 2}" y="15" fill="#010101" fill-opacity=".3">{message}</text>
+    <text x="{label_width + message_width / 2}" y="14">{message}</text>
   </g>
 </svg>'''
 
@@ -197,10 +196,10 @@ def generate_badge_svg(
     <rect width="{total_width}" height="20" fill="url(#s)"/>
   </g>
   <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
-    <text aria-hidden="true" x="{label_width*5}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">{label}</text>
-    <text x="{label_width*5}" y="140" transform="scale(.1)" fill="#fff">{label}</text>
-    <text aria-hidden="true" x="{(label_width + message_width/2)*10}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">{message}</text>
-    <text x="{(label_width + message_width/2)*10}" y="140" transform="scale(.1)" fill="#fff">{message}</text>
+    <text aria-hidden="true" x="{label_width * 5}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">{label}</text>
+    <text x="{label_width * 5}" y="140" transform="scale(.1)" fill="#fff">{label}</text>
+    <text aria-hidden="true" x="{(label_width + message_width / 2) * 10}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)">{message}</text>
+    <text x="{(label_width + message_width / 2) * 10}" y="140" transform="scale(.1)" fill="#fff">{message}</text>
   </g>
 </svg>'''
 
@@ -247,13 +246,10 @@ async def create_verification_attestation(
     # Get evidence from analysis if provided
     evidence = request.evidence
     if request.analysis_id and not evidence:
-        result = await db.execute(
-            select(Analysis).where(Analysis.id == request.analysis_id)
-        )
+        result = await db.execute(select(Analysis).where(Analysis.id == request.analysis_id))
         analysis = result.scalar_one_or_none()
         if analysis:
             # Build evidence from analysis
-            from sqlalchemy import func as sqlfunc
             from codeverify_api.db.models import Finding
 
             findings_result = await db.execute(
@@ -363,8 +359,14 @@ async def create_verification_attestation(
         previous_tier = last_history.new_tier if last_history else None
 
         if previous_tier != (attestation.tier.value if attestation.tier else None):
-            reason = "initial" if not previous_tier else (
-                "upgrade" if _tier_rank(attestation.tier) > _tier_rank(previous_tier) else "downgrade"
+            reason = (
+                "initial"
+                if not previous_tier
+                else (
+                    "upgrade"
+                    if _tier_rank(attestation.tier) > _tier_rank(previous_tier)
+                    else "downgrade"
+                )
             )
             history = CertificationHistory(
                 repo_id=repo.id,
@@ -418,9 +420,7 @@ async def get_attestation(
     db: AsyncSession = Depends(get_db),
 ) -> AttestationResponse:
     """Get an attestation by ID."""
-    result = await db.execute(
-        select(AttestationDB).where(AttestationDB.id == attestation_id)
-    )
+    result = await db.execute(select(AttestationDB).where(AttestationDB.id == attestation_id))
     attestation = result.scalar_one_or_none()
 
     if not attestation:
@@ -531,9 +531,7 @@ async def get_badge_svg(
     # Remove .svg extension if present
     token = token.replace(".svg", "")
 
-    result = await db.execute(
-        select(BadgeDB).where(BadgeDB.token == token)
-    )
+    result = await db.execute(select(BadgeDB).where(BadgeDB.token == token))
     badge = result.scalar_one_or_none()
 
     if not badge:
@@ -573,9 +571,7 @@ async def verify_badge(
     db: AsyncSession = Depends(get_db),
 ) -> VerifyAttestationResponse:
     """Verify a badge's authenticity and status."""
-    result = await db.execute(
-        select(BadgeDB).where(BadgeDB.token == token)
-    )
+    result = await db.execute(select(BadgeDB).where(BadgeDB.token == token))
     badge = result.scalar_one_or_none()
 
     if not badge:
@@ -592,9 +588,7 @@ async def verify_badge(
         )
 
     # Get attestation
-    result = await db.execute(
-        select(AttestationDB).where(AttestationDB.id == badge.attestation_id)
-    )
+    result = await db.execute(select(AttestationDB).where(AttestationDB.id == badge.attestation_id))
     attestation = result.scalar_one_or_none()
 
     if not attestation:
@@ -637,11 +631,7 @@ async def verify_badge(
         )
         signature_valid = att_obj.verify_signature(settings.JWT_SECRET)
 
-    valid = (
-        not expired
-        and attestation.passed
-        and (signature_valid is None or signature_valid)
-    )
+    valid = not expired and attestation.passed and (signature_valid is None or signature_valid)
 
     return VerifyAttestationResponse(
         valid=valid,
@@ -721,9 +711,7 @@ async def get_certification_history(
     """Get certification history for a repository."""
     # Find repository
     repo_full_name = f"{owner}/{repo}"
-    result = await db.execute(
-        select(Repository).where(Repository.full_name == repo_full_name)
-    )
+    result = await db.execute(select(Repository).where(Repository.full_name == repo_full_name))
     repository = result.scalar_one_or_none()
 
     if not repository:
@@ -766,7 +754,7 @@ async def get_certification_leaderboard(
         query = query.where(AttestationDB.tier == tier.lower())
 
     # Get latest attestation per repo
-    from sqlalchemy import func, distinct
+    from sqlalchemy import func
 
     subquery = (
         select(
@@ -827,22 +815,17 @@ async def get_ci_status(
 ) -> CIStatusResponse:
     """
     Get CI/CD compatible verification status for a repository.
-    
+
     Use this endpoint in CI/CD pipelines to check verification status.
     Returns GitHub-compatible commit status format.
     """
     repo_full_name = f"{owner}/{repo}"
 
     # Build query for latest attestation
-    query = (
-        select(AttestationDB)
-        .where(AttestationDB.repo_full_name == repo_full_name)
-    )
+    query = select(AttestationDB).where(AttestationDB.repo_full_name == repo_full_name)
 
     if ref:
-        query = query.where(
-            (AttestationDB.ref == ref) | (AttestationDB.commit_sha == ref)
-        )
+        query = query.where((AttestationDB.ref == ref) | (AttestationDB.commit_sha == ref))
 
     query = query.order_by(AttestationDB.created_at.desc()).limit(1)
 
@@ -896,7 +879,7 @@ async def get_badge_widget(
 ) -> Response:
     """
     Get an embeddable widget for a repository.
-    
+
     Formats:
     - svg: SVG image (default)
     - html: HTML embed snippet
@@ -927,7 +910,7 @@ async def get_badge_widget(
             )
         elif format == "markdown":
             return Response(
-                content=f'[![CodeVerify]({base_url}/api/v1/badges/repos/{owner}/{repo}/widget?format=svg)]({base_url}/repos/{owner}/{repo})',
+                content=f"[![CodeVerify]({base_url}/api/v1/badges/repos/{owner}/{repo}/widget?format=svg)]({base_url}/repos/{owner}/{repo})",
                 media_type="text/plain",
             )
         else:
@@ -938,8 +921,12 @@ async def get_badge_widget(
 
     # Check expiration
     expired = attestation.expires_at and datetime.utcnow() > attestation.expires_at
-    color = get_badge_color(attestation.tier if not expired else None, attestation.passed and not expired)
-    message = get_badge_message(attestation.tier if not expired else None, attestation.passed and not expired)
+    color = get_badge_color(
+        attestation.tier if not expired else None, attestation.passed and not expired
+    )
+    message = get_badge_message(
+        attestation.tier if not expired else None, attestation.passed and not expired
+    )
 
     if expired:
         message = "expired"
@@ -962,11 +949,12 @@ async def get_badge_widget(
         )
     elif format == "markdown":
         return Response(
-            content=f'[![CodeVerify: {message}]({widget_url})]({verify_url})',
+            content=f"[![CodeVerify: {message}]({widget_url})]({verify_url})",
             media_type="text/plain",
         )
     else:
         import json
+
         data = {
             "verified": attestation.passed and not expired,
             "tier": attestation.tier,
@@ -1003,9 +991,9 @@ async def get_package_verification(
 ) -> PackageVerificationResponse:
     """
     Get verification status for a package on npm, PyPI, or other registries.
-    
+
     Supported registries: npm, pypi, maven, nuget, crates
-    
+
     Package name formats:
     - npm: @scope/package or package
     - pypi: package-name
@@ -1015,7 +1003,7 @@ async def get_package_verification(
     """
     registry = registry.lower()
     valid_registries = ["npm", "pypi", "maven", "nuget", "crates"]
-    
+
     if registry not in valid_registries:
         raise HTTPException(
             status_code=400,
@@ -1085,8 +1073,12 @@ async def get_package_badge(
         return Response(content=svg, media_type="image/svg+xml")
 
     expired = attestation.expires_at and datetime.utcnow() > attestation.expires_at
-    color = get_badge_color(attestation.tier if not expired else None, attestation.passed and not expired)
-    message = get_badge_message(attestation.tier if not expired else None, attestation.passed and not expired)
+    color = get_badge_color(
+        attestation.tier if not expired else None, attestation.passed and not expired
+    )
+    message = get_badge_message(
+        attestation.tier if not expired else None, attestation.passed and not expired
+    )
 
     if expired:
         message = "expired"
@@ -1112,7 +1104,7 @@ async def create_package_attestation(
 ) -> AttestationResponse:
     """
     Create a verification attestation for a package.
-    
+
     Links a package version to a repository verification.
     """
     # Create attestation with package metadata

@@ -10,7 +10,7 @@ Provides REST API endpoints for interactive verification debugging:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -18,10 +18,11 @@ from pydantic import BaseModel, Field
 # Import Verification Debugger
 try:
     from codeverify_agents.verification_debugger import (
-        VerificationDebugger,
         ConstraintType,
+        VerificationDebugger,
         VerificationStatus,
     )
+
     VERIFICATION_DEBUGGER_AVAILABLE = True
 except ImportError:
     VERIFICATION_DEBUGGER_AVAILABLE = False
@@ -33,7 +34,7 @@ except ImportError:
 router = APIRouter(prefix="/api/v1/debug", tags=["verification-debugger"])
 
 # Singleton debugger instance
-_debugger: Optional[VerificationDebugger] = None
+_debugger: VerificationDebugger | None = None
 
 
 def get_debugger() -> VerificationDebugger:
@@ -51,23 +52,26 @@ def get_debugger() -> VerificationDebugger:
 
 class ConstraintInput(BaseModel):
     """Input for a constraint."""
+
     type: str = Field("assertion", description="Constraint type")
     expression: str = Field(..., description="Human-readable expression")
-    z3_expr: Optional[str] = Field(None, description="Z3 expression (defaults to expression)")
-    description: Optional[str] = Field("", description="Description of the constraint")
-    source_file: Optional[str] = Field(None, description="Source file")
-    source_line: Optional[int] = Field(None, description="Source line number")
-    depends_on: Optional[List[str]] = Field(default_factory=list, description="Dependency IDs")
+    z3_expr: str | None = Field(None, description="Z3 expression (defaults to expression)")
+    description: str | None = Field("", description="Description of the constraint")
+    source_file: str | None = Field(None, description="Source file")
+    source_line: int | None = Field(None, description="Source line number")
+    depends_on: list[str] | None = Field(default_factory=list, description="Dependency IDs")
 
 
 class CreateSessionRequest(BaseModel):
     """Request to create a debug session."""
-    constraints: List[ConstraintInput] = Field(..., description="Constraints to verify")
-    variables: Dict[str, str] = Field(..., description="Variable name to type mapping")
+
+    constraints: list[ConstraintInput] = Field(..., description="Constraints to verify")
+    variables: dict[str, str] = Field(..., description="Variable name to type mapping")
 
 
 class SessionResponse(BaseModel):
     """Response with session information."""
+
     session_id: str
     status: str
     num_constraints: int
@@ -77,22 +81,26 @@ class SessionResponse(BaseModel):
 
 class VerifyRequest(BaseModel):
     """Request to run verification."""
+
     session_id: str = Field(..., description="Session ID")
 
 
 class StepRequest(BaseModel):
     """Request to step in the proof."""
+
     session_id: str = Field(..., description="Session ID")
 
 
 class DisableConstraintRequest(BaseModel):
     """Request to disable a constraint."""
+
     session_id: str = Field(..., description="Session ID")
     constraint_id: str = Field(..., description="Constraint ID to disable")
 
 
 class AddAssumptionRequest(BaseModel):
     """Request to add an assumption."""
+
     session_id: str = Field(..., description="Session ID")
     assumption: str = Field(..., description="Z3 expression for assumption")
 
@@ -106,7 +114,7 @@ class AddAssumptionRequest(BaseModel):
     "/session",
     response_model=SessionResponse,
     summary="Create Debug Session",
-    description="Create a new verification debugging session"
+    description="Create a new verification debugging session",
 )
 async def create_session(request: CreateSessionRequest) -> SessionResponse:
     """
@@ -115,30 +123,26 @@ async def create_session(request: CreateSessionRequest) -> SessionResponse:
     Provide constraints and variables to set up the verification problem.
     """
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     # Convert constraints
     constraints = []
     for c in request.constraints:
-        constraints.append({
-            "type": c.type,
-            "expression": c.expression,
-            "z3_expr": c.z3_expr or c.expression,
-            "description": c.description or "",
-            "source_file": c.source_file,
-            "source_line": c.source_line,
-            "depends_on": c.depends_on or [],
-        })
+        constraints.append(
+            {
+                "type": c.type,
+                "expression": c.expression,
+                "z3_expr": c.z3_expr or c.expression,
+                "description": c.description or "",
+                "source_file": c.source_file,
+                "source_line": c.source_line,
+                "depends_on": c.depends_on or [],
+            }
+        )
 
     session = debugger.create_session(constraints, request.variables)
 
@@ -152,97 +156,60 @@ async def create_session(request: CreateSessionRequest) -> SessionResponse:
 
 
 @router.post(
-    "/verify",
-    summary="Run Verification",
-    description="Run verification on a debug session"
+    "/verify", summary="Run Verification", description="Run verification on a debug session"
 )
-async def run_verification(request: VerifyRequest) -> Dict[str, Any]:
+async def run_verification(request: VerifyRequest) -> dict[str, Any]:
     """
     Run verification and populate proof steps.
 
     Returns the verification result with counterexamples if unsatisfiable.
     """
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     session = debugger.get_session(request.session_id)
     if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session not found: {request.session_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Session not found: {request.session_id}")
 
     result = await debugger.verify(session)
 
     return result.to_dict()
 
 
-@router.get(
-    "/session/{session_id}",
-    summary="Get Session",
-    description="Get full session details"
-)
-async def get_session(session_id: str) -> Dict[str, Any]:
+@router.get("/session/{session_id}", summary="Get Session", description="Get full session details")
+async def get_session(session_id: str) -> dict[str, Any]:
     """Get session details including all constraints and proof steps."""
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     session = debugger.get_session(session_id)
     if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session not found: {session_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
 
     return session.to_dict()
 
 
-@router.post(
-    "/step/forward",
-    summary="Step Forward",
-    description="Step forward in the proof"
-)
-async def step_forward(request: StepRequest) -> Dict[str, Any]:
+@router.post("/step/forward", summary="Step Forward", description="Step forward in the proof")
+async def step_forward(request: StepRequest) -> dict[str, Any]:
     """Step forward in the proof."""
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     session = debugger.get_session(request.session_id)
     if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session not found: {request.session_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Session not found: {request.session_id}")
 
     step = debugger.step_forward(session)
 
@@ -255,32 +222,19 @@ async def step_forward(request: StepRequest) -> Dict[str, Any]:
     }
 
 
-@router.post(
-    "/step/backward",
-    summary="Step Backward",
-    description="Step backward in the proof"
-)
-async def step_backward(request: StepRequest) -> Dict[str, Any]:
+@router.post("/step/backward", summary="Step Backward", description="Step backward in the proof")
+async def step_backward(request: StepRequest) -> dict[str, Any]:
     """Step backward in the proof."""
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     session = debugger.get_session(request.session_id)
     if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session not found: {request.session_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Session not found: {request.session_id}")
 
     step = debugger.step_backward(session)
 
@@ -296,29 +250,20 @@ async def step_backward(request: StepRequest) -> Dict[str, Any]:
 @router.get(
     "/step/current/{session_id}",
     summary="Get Current Step",
-    description="Get the current proof step"
+    description="Get the current proof step",
 )
-async def get_current_step(session_id: str) -> Dict[str, Any]:
+async def get_current_step(session_id: str) -> dict[str, Any]:
     """Get the current proof step."""
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     session = debugger.get_session(session_id)
     if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session not found: {session_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
 
     step = debugger.get_current_step(session)
 
@@ -332,40 +277,30 @@ async def get_current_step(session_id: str) -> Dict[str, Any]:
 @router.post(
     "/constraint/disable",
     summary="Disable Constraint",
-    description="Disable a constraint for what-if analysis"
+    description="Disable a constraint for what-if analysis",
 )
-async def disable_constraint(request: DisableConstraintRequest) -> Dict[str, Any]:
+async def disable_constraint(request: DisableConstraintRequest) -> dict[str, Any]:
     """
     Disable a constraint.
 
     Useful for what-if analysis to see which constraint is causing issues.
     """
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     session = debugger.get_session(request.session_id)
     if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session not found: {request.session_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Session not found: {request.session_id}")
 
     success = debugger.disable_constraint(session, request.constraint_id)
 
     if not success:
         raise HTTPException(
-            status_code=404,
-            detail=f"Constraint not found: {request.constraint_id}"
+            status_code=404, detail=f"Constraint not found: {request.constraint_id}"
         )
 
     return {
@@ -376,31 +311,20 @@ async def disable_constraint(request: DisableConstraintRequest) -> Dict[str, Any
 
 
 @router.post(
-    "/constraint/enable",
-    summary="Enable Constraint",
-    description="Re-enable a disabled constraint"
+    "/constraint/enable", summary="Enable Constraint", description="Re-enable a disabled constraint"
 )
-async def enable_constraint(request: DisableConstraintRequest) -> Dict[str, Any]:
+async def enable_constraint(request: DisableConstraintRequest) -> dict[str, Any]:
     """Re-enable a disabled constraint."""
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     session = debugger.get_session(request.session_id)
     if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session not found: {request.session_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Session not found: {request.session_id}")
 
     success = debugger.enable_constraint(session, request.constraint_id)
 
@@ -412,35 +336,24 @@ async def enable_constraint(request: DisableConstraintRequest) -> Dict[str, Any]
 
 
 @router.post(
-    "/assumption",
-    summary="Add Assumption",
-    description="Add a user assumption to the verification"
+    "/assumption", summary="Add Assumption", description="Add a user assumption to the verification"
 )
-async def add_assumption(request: AddAssumptionRequest) -> Dict[str, Any]:
+async def add_assumption(request: AddAssumptionRequest) -> dict[str, Any]:
     """
     Add a user assumption.
 
     Useful for exploring what happens under specific conditions.
     """
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     session = debugger.get_session(request.session_id)
     if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session not found: {request.session_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Session not found: {request.session_id}")
 
     debugger.add_assumption(session, request.assumption)
 
@@ -454,45 +367,32 @@ async def add_assumption(request: AddAssumptionRequest) -> Dict[str, Any]:
 @router.get(
     "/graph/{session_id}",
     summary="Get Constraint Graph",
-    description="Get the constraint dependency graph"
+    description="Get the constraint dependency graph",
 )
-async def get_constraint_graph(session_id: str) -> Dict[str, Any]:
+async def get_constraint_graph(session_id: str) -> dict[str, Any]:
     """
     Get the constraint dependency graph.
 
     Returns nodes and edges for visualization.
     """
     if not VERIFICATION_DEBUGGER_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Verification Debugger is not available"
-        )
+        raise HTTPException(status_code=503, detail="Verification Debugger is not available")
 
     debugger = get_debugger()
     if not debugger:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Verification Debugger"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Verification Debugger")
 
     session = debugger.get_session(session_id)
     if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session not found: {session_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
 
     graph = debugger.get_constraint_graph(session)
 
     return graph
 
 
-@router.get(
-    "/stats",
-    summary="Get Debugger Statistics",
-    description="Get debugger statistics"
-)
-async def get_stats() -> Dict[str, Any]:
+@router.get("/stats", summary="Get Debugger Statistics", description="Get debugger statistics")
+async def get_stats() -> dict[str, Any]:
     """Get debugger statistics."""
     if not VERIFICATION_DEBUGGER_AVAILABLE:
         return {

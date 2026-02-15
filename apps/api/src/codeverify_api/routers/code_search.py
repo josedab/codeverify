@@ -10,7 +10,7 @@ Provides REST API endpoints for semantic code search:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -18,12 +18,13 @@ from pydantic import BaseModel, Field
 # Import Smart Code Search
 try:
     from codeverify_agents.smart_code_search import (
-        SmartCodeSearch,
-        CodeUnit,
         CodeType,
-        SearchQuery,
+        CodeUnit,
         SearchMode,
+        SearchQuery,
+        SmartCodeSearch,
     )
+
     SMART_CODE_SEARCH_AVAILABLE = True
 except ImportError:
     SMART_CODE_SEARCH_AVAILABLE = False
@@ -37,7 +38,7 @@ except ImportError:
 router = APIRouter(prefix="/api/v1/search", tags=["code-search"])
 
 # Singleton search engine instance
-_search_engine: Optional[SmartCodeSearch] = None
+_search_engine: SmartCodeSearch | None = None
 
 
 def get_search_engine() -> SmartCodeSearch:
@@ -55,42 +56,47 @@ def get_search_engine() -> SmartCodeSearch:
 
 class CodeUnitInput(BaseModel):
     """Input for a code unit to index."""
-    id: Optional[str] = Field(None, description="Unique ID (auto-generated if not provided)")
+
+    id: str | None = Field(None, description="Unique ID (auto-generated if not provided)")
     code: str = Field(..., description="The code content")
     code_type: str = Field("snippet", description="Type: function, class, method, module, snippet")
-    name: Optional[str] = Field(None, description="Name of the code unit")
-    file_path: Optional[str] = Field(None, description="Source file path")
-    line_start: Optional[int] = Field(None, description="Start line number")
-    line_end: Optional[int] = Field(None, description="End line number")
+    name: str | None = Field(None, description="Name of the code unit")
+    file_path: str | None = Field(None, description="Source file path")
+    line_start: int | None = Field(None, description="Start line number")
+    line_end: int | None = Field(None, description="End line number")
     language: str = Field("python", description="Programming language")
-    docstring: Optional[str] = Field(None, description="Docstring/documentation")
-    signature: Optional[str] = Field(None, description="Function/method signature")
+    docstring: str | None = Field(None, description="Docstring/documentation")
+    signature: str | None = Field(None, description="Function/method signature")
 
 
 class IndexRequest(BaseModel):
     """Request to index code units."""
-    code_units: List[CodeUnitInput] = Field(..., description="Code units to index")
+
+    code_units: list[CodeUnitInput] = Field(..., description="Code units to index")
     generate_embeddings: bool = Field(False, description="Generate semantic embeddings")
 
 
 class SearchRequest(BaseModel):
     """Request to search code."""
+
     query: str = Field(..., description="Search query")
     mode: str = Field("hybrid", description="Search mode: semantic, structural, hybrid")
-    language: Optional[str] = Field(None, description="Filter by language")
-    code_type: Optional[str] = Field(None, description="Filter by code type")
-    file_pattern: Optional[str] = Field(None, description="Filter by file pattern regex")
+    language: str | None = Field(None, description="Filter by language")
+    code_type: str | None = Field(None, description="Filter by code type")
+    file_pattern: str | None = Field(None, description="Filter by file pattern regex")
     max_results: int = Field(10, ge=1, le=100, description="Maximum results")
     min_similarity: float = Field(0.5, ge=0, le=1, description="Minimum similarity score")
 
 
 class FindDuplicatesRequest(BaseModel):
     """Request to find duplicate code."""
+
     threshold: float = Field(0.9, ge=0.5, le=1.0, description="Similarity threshold")
 
 
 class FindRelatedRequest(BaseModel):
     """Request to find related code."""
+
     code: str = Field(..., description="Code to find related items for")
     code_type: str = Field("snippet", description="Type of the code")
     max_results: int = Field(5, ge=1, le=20, description="Maximum results")
@@ -98,6 +104,7 @@ class FindRelatedRequest(BaseModel):
 
 class ClusterRequest(BaseModel):
     """Request to cluster code."""
+
     num_clusters: int = Field(10, ge=2, le=50, description="Number of clusters")
 
 
@@ -106,29 +113,19 @@ class ClusterRequest(BaseModel):
 # =============================================================================
 
 
-@router.post(
-    "/index",
-    summary="Index Code",
-    description="Index code units for searching"
-)
-async def index_code(request: IndexRequest) -> Dict[str, Any]:
+@router.post("/index", summary="Index Code", description="Index code units for searching")
+async def index_code(request: IndexRequest) -> dict[str, Any]:
     """
     Index code units for searching.
 
     Provide code snippets to be indexed for semantic and structural search.
     """
     if not SMART_CODE_SEARCH_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Smart Code Search is not available"
-        )
+        raise HTTPException(status_code=503, detail="Smart Code Search is not available")
 
     search_engine = get_search_engine()
     if not search_engine:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Smart Code Search"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Smart Code Search")
 
     # Convert to CodeUnit objects
     code_units = []
@@ -167,12 +164,8 @@ async def index_code(request: IndexRequest) -> Dict[str, Any]:
     }
 
 
-@router.post(
-    "/query",
-    summary="Search Code",
-    description="Search for code matching a query"
-)
-async def search_code(request: SearchRequest) -> Dict[str, Any]:
+@router.post("/query", summary="Search Code", description="Search for code matching a query")
+async def search_code(request: SearchRequest) -> dict[str, Any]:
     """
     Search for code matching a query.
 
@@ -180,17 +173,11 @@ async def search_code(request: SearchRequest) -> Dict[str, Any]:
     and hybrid search modes.
     """
     if not SMART_CODE_SEARCH_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Smart Code Search is not available"
-        )
+        raise HTTPException(status_code=503, detail="Smart Code Search is not available")
 
     search_engine = get_search_engine()
     if not search_engine:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Smart Code Search"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Smart Code Search")
 
     # Build query
     try:
@@ -226,28 +213,20 @@ async def search_code(request: SearchRequest) -> Dict[str, Any]:
 
 
 @router.post(
-    "/duplicates",
-    summary="Find Duplicates",
-    description="Find duplicate or near-duplicate code"
+    "/duplicates", summary="Find Duplicates", description="Find duplicate or near-duplicate code"
 )
-async def find_duplicates(request: FindDuplicatesRequest) -> Dict[str, Any]:
+async def find_duplicates(request: FindDuplicatesRequest) -> dict[str, Any]:
     """
     Find duplicate or near-duplicate code.
 
     Returns groups of code that are identical or semantically similar.
     """
     if not SMART_CODE_SEARCH_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Smart Code Search is not available"
-        )
+        raise HTTPException(status_code=503, detail="Smart Code Search is not available")
 
     search_engine = get_search_engine()
     if not search_engine:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Smart Code Search"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Smart Code Search")
 
     groups = search_engine.find_duplicates(request.threshold)
 
@@ -259,28 +238,20 @@ async def find_duplicates(request: FindDuplicatesRequest) -> Dict[str, Any]:
 
 
 @router.post(
-    "/related",
-    summary="Find Related Code",
-    description="Find code related to a given snippet"
+    "/related", summary="Find Related Code", description="Find code related to a given snippet"
 )
-async def find_related(request: FindRelatedRequest) -> Dict[str, Any]:
+async def find_related(request: FindRelatedRequest) -> dict[str, Any]:
     """
     Find code related to a given snippet.
 
     Useful for understanding how similar patterns are used elsewhere.
     """
     if not SMART_CODE_SEARCH_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Smart Code Search is not available"
-        )
+        raise HTTPException(status_code=503, detail="Smart Code Search is not available")
 
     search_engine = get_search_engine()
     if not search_engine:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Smart Code Search"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Smart Code Search")
 
     # Create temporary code unit
     try:
@@ -309,29 +280,19 @@ async def find_related(request: FindRelatedRequest) -> Dict[str, Any]:
     }
 
 
-@router.post(
-    "/cluster",
-    summary="Cluster Code",
-    description="Cluster code by semantic similarity"
-)
-async def cluster_code(request: ClusterRequest) -> Dict[str, Any]:
+@router.post("/cluster", summary="Cluster Code", description="Cluster code by semantic similarity")
+async def cluster_code(request: ClusterRequest) -> dict[str, Any]:
     """
     Cluster code by semantic similarity.
 
     Groups related code together for analysis and organization.
     """
     if not SMART_CODE_SEARCH_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Smart Code Search is not available"
-        )
+        raise HTTPException(status_code=503, detail="Smart Code Search is not available")
 
     search_engine = get_search_engine()
     if not search_engine:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Smart Code Search"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Smart Code Search")
 
     clusters = search_engine.cluster_code(request.num_clusters)
 
@@ -341,12 +302,8 @@ async def cluster_code(request: ClusterRequest) -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/stats",
-    summary="Get Search Statistics",
-    description="Get search engine statistics"
-)
-async def get_stats() -> Dict[str, Any]:
+@router.get("/stats", summary="Get Search Statistics", description="Get search engine statistics")
+async def get_stats() -> dict[str, Any]:
     """Get search engine statistics."""
     if not SMART_CODE_SEARCH_AVAILABLE:
         return {
@@ -367,25 +324,15 @@ async def get_stats() -> Dict[str, Any]:
     return stats
 
 
-@router.delete(
-    "/index",
-    summary="Clear Index",
-    description="Clear the search index"
-)
-async def clear_index() -> Dict[str, Any]:
+@router.delete("/index", summary="Clear Index", description="Clear the search index")
+async def clear_index() -> dict[str, Any]:
     """Clear the search index."""
     if not SMART_CODE_SEARCH_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Smart Code Search is not available"
-        )
+        raise HTTPException(status_code=503, detail="Smart Code Search is not available")
 
     search_engine = get_search_engine()
     if not search_engine:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Smart Code Search"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Smart Code Search")
 
     search_engine.clear_index()
 

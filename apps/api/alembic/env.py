@@ -8,8 +8,8 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from codeverify_api.db.database import Base
 from codeverify_api.db import models  # noqa: F401 - Import models for metadata
+from codeverify_api.db.database import Base
 
 config = context.config
 if config.config_file_name is not None:

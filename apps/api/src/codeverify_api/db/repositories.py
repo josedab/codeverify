@@ -4,11 +4,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, and_, desc
+from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from codeverify_api.db.models import Analysis, Finding, AnalysisStage, Repository
+from codeverify_api.db.models import Analysis, AnalysisStage, Finding, Repository
 from codeverify_api.db.repository import BaseRepository
 
 

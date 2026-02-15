@@ -11,11 +11,15 @@ router = APIRouter()
 class HallucinationCheckRequest(BaseModel):
     code: str = Field(description="Source code to check for hallucinated APIs")
     language: str = Field(default="python", description="Programming language")
-    check_registry: bool = Field(default=False, description="Validate against live package registries")
+    check_registry: bool = Field(
+        default=False, description="Validate against live package registries"
+    )
 
 
 class HallucinationFinding(BaseModel):
-    type: str = Field(description="Type: nonexistent_module, nonexistent_function, wrong_signature, deprecated_api")
+    type: str = Field(
+        description="Type: nonexistent_module, nonexistent_function, wrong_signature, deprecated_api"
+    )
     import_path: str
     symbol: str
     line_number: int
@@ -28,7 +32,9 @@ class HallucinationCheckResponse(BaseModel):
     findings: list[HallucinationFinding]
     total_imports_checked: int
     hallucinations_found: int
-    confidence_score: float = Field(description="Overall confidence that code is hallucination-free (0-1)")
+    confidence_score: float = Field(
+        description="Overall confidence that code is hallucination-free (0-1)"
+    )
 
 
 # Known hallucinated APIs that AI models commonly generate
@@ -86,25 +92,113 @@ KNOWN_HALLUCINATIONS: dict[str, dict[str, str]] = {
 # Known valid stdlib modules for quick validation
 VALID_STDLIB: dict[str, set[str]] = {
     "python": {
-        "os", "sys", "json", "re", "math", "datetime", "pathlib", "typing",
-        "collections", "itertools", "functools", "hashlib", "uuid", "io",
-        "dataclasses", "enum", "abc", "asyncio", "logging", "subprocess",
-        "tempfile", "shutil", "glob", "fnmatch", "textwrap", "string",
-        "struct", "copy", "pprint", "traceback", "unittest", "http",
-        "urllib", "socket", "ssl", "email", "html", "xml", "csv",
-        "sqlite3", "contextlib", "threading", "multiprocessing", "queue",
-        "argparse", "configparser", "secrets", "hmac", "base64", "pickle",
-        "shelve", "marshal", "time", "calendar", "random", "statistics",
-        "decimal", "fractions", "operator", "inspect", "dis", "ast",
-        "token", "tokenize", "pdb", "profile", "timeit", "heapq", "bisect",
-        "array", "weakref", "types", "importlib", "pkgutil", "warnings",
+        "os",
+        "sys",
+        "json",
+        "re",
+        "math",
+        "datetime",
+        "pathlib",
+        "typing",
+        "collections",
+        "itertools",
+        "functools",
+        "hashlib",
+        "uuid",
+        "io",
+        "dataclasses",
+        "enum",
+        "abc",
+        "asyncio",
+        "logging",
+        "subprocess",
+        "tempfile",
+        "shutil",
+        "glob",
+        "fnmatch",
+        "textwrap",
+        "string",
+        "struct",
+        "copy",
+        "pprint",
+        "traceback",
+        "unittest",
+        "http",
+        "urllib",
+        "socket",
+        "ssl",
+        "email",
+        "html",
+        "xml",
+        "csv",
+        "sqlite3",
+        "contextlib",
+        "threading",
+        "multiprocessing",
+        "queue",
+        "argparse",
+        "configparser",
+        "secrets",
+        "hmac",
+        "base64",
+        "pickle",
+        "shelve",
+        "marshal",
+        "time",
+        "calendar",
+        "random",
+        "statistics",
+        "decimal",
+        "fractions",
+        "operator",
+        "inspect",
+        "dis",
+        "ast",
+        "token",
+        "tokenize",
+        "pdb",
+        "profile",
+        "timeit",
+        "heapq",
+        "bisect",
+        "array",
+        "weakref",
+        "types",
+        "importlib",
+        "pkgutil",
+        "warnings",
     },
     "node": {
-        "fs", "path", "http", "https", "crypto", "stream", "events",
-        "util", "child_process", "os", "buffer", "url", "querystring",
-        "net", "dns", "tls", "zlib", "readline", "cluster", "worker_threads",
-        "assert", "console", "process", "timers", "v8", "vm", "wasi",
-        "perf_hooks", "async_hooks", "string_decoder",
+        "fs",
+        "path",
+        "http",
+        "https",
+        "crypto",
+        "stream",
+        "events",
+        "util",
+        "child_process",
+        "os",
+        "buffer",
+        "url",
+        "querystring",
+        "net",
+        "dns",
+        "tls",
+        "zlib",
+        "readline",
+        "cluster",
+        "worker_threads",
+        "assert",
+        "console",
+        "process",
+        "timers",
+        "v8",
+        "vm",
+        "wasi",
+        "perf_hooks",
+        "async_hooks",
+        "string_decoder",
     },
 }
 
@@ -164,7 +258,9 @@ def _extract_imports(code: str, language: str) -> list[dict[str, Any]]:
     return imports
 
 
-def _check_hallucinations(imports: list[dict[str, Any]], language: str) -> list[HallucinationFinding]:
+def _check_hallucinations(
+    imports: list[dict[str, Any]], language: str
+) -> list[HallucinationFinding]:
     """Check imports against known hallucination database."""
     findings = []
     known = KNOWN_HALLUCINATIONS.get(language, {})
@@ -177,27 +273,31 @@ def _check_hallucinations(imports: list[dict[str, Any]], language: str) -> list[
         if symbol:
             full_path = f"{module}.{symbol}"
             if full_path in known:
-                findings.append(HallucinationFinding(
-                    type="nonexistent_function",
-                    import_path=module,
-                    symbol=symbol,
-                    line_number=imp["line"],
-                    confidence=0.95,
-                    suggestion=known[full_path],
-                    evidence=f"'{full_path}' is a commonly hallucinated API",
-                ))
+                findings.append(
+                    HallucinationFinding(
+                        type="nonexistent_function",
+                        import_path=module,
+                        symbol=symbol,
+                        line_number=imp["line"],
+                        confidence=0.95,
+                        suggestion=known[full_path],
+                        evidence=f"'{full_path}' is a commonly hallucinated API",
+                    )
+                )
 
         # Check module-level hallucinations
         if module in known:
-            findings.append(HallucinationFinding(
-                type="nonexistent_module",
-                import_path=module,
-                symbol=symbol or "",
-                line_number=imp["line"],
-                confidence=0.9,
-                suggestion=known[module],
-                evidence=f"'{module}' is a commonly hallucinated module",
-            ))
+            findings.append(
+                HallucinationFinding(
+                    type="nonexistent_module",
+                    import_path=module,
+                    symbol=symbol or "",
+                    line_number=imp["line"],
+                    confidence=0.9,
+                    suggestion=known[module],
+                    evidence=f"'{module}' is a commonly hallucinated module",
+                )
+            )
 
     return findings
 

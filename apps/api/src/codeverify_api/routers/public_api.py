@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ router = APIRouter()
 
 # API Key models
 
+
 class APIKeyCreate(BaseModel):
     """Request to create an API key."""
 
@@ -24,7 +25,9 @@ class APIKeyCreate(BaseModel):
         default_factory=lambda: ["read"],
         description="Scopes: read, write, admin",
     )
-    expires_in_days: int | None = Field(default=None, description="Days until expiration (None = never)")
+    expires_in_days: int | None = Field(
+        default=None, description="Days until expiration (None = never)"
+    )
 
 
 class APIKey(BaseModel):
@@ -90,6 +93,7 @@ _webhook_deliveries: list[dict[str, Any]] = []
 
 # API Key management
 
+
 @router.post("/keys", response_model=APIKeyWithSecret, status_code=status.HTTP_201_CREATED)
 async def create_api_key(request: APIKeyCreate) -> APIKeyWithSecret:
     """
@@ -107,6 +111,7 @@ async def create_api_key(request: APIKeyCreate) -> APIKeyWithSecret:
     expires_at = None
     if request.expires_in_days:
         from datetime import timedelta
+
         expires_at = now + timedelta(days=request.expires_in_days)
 
     key_data = {
@@ -165,6 +170,7 @@ async def revoke_api_key(key_id: str) -> dict[str, Any]:
 
 
 # Webhook management
+
 
 @router.post("/webhooks", response_model=Webhook, status_code=status.HTTP_201_CREATED)
 async def create_webhook(request: WebhookCreate) -> Webhook:
@@ -318,10 +324,7 @@ async def get_webhook_deliveries(
             detail=f"Webhook not found: {webhook_id}",
         )
 
-    deliveries = [
-        d for d in _webhook_deliveries
-        if d["webhook_id"] == webhook_id
-    ]
+    deliveries = [d for d in _webhook_deliveries if d["webhook_id"] == webhook_id]
     deliveries.sort(key=lambda d: d["delivered_at"], reverse=True)
 
     return [
@@ -341,10 +344,13 @@ async def get_webhook_deliveries(
 
 # Public API endpoints
 
+
 @router.get("/v1/analyses")
 async def api_list_analyses(
     repo: str | None = Query(default=None, description="Filter by repository (full_name)"),
-    analysis_status: str | None = Query(default=None, alias="status", description="Filter by status"),
+    analysis_status: str | None = Query(
+        default=None, alias="status", description="Filter by status"
+    ),
     limit: int = Query(default=20, le=100),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -354,7 +360,8 @@ async def api_list_analyses(
 
     Requires API key authentication.
     """
-    from sqlalchemy import select, func
+    from sqlalchemy import func, select
+
     from codeverify_api.db.models import Analysis, Repository
 
     query = select(Analysis).join(Repository)
@@ -511,8 +518,9 @@ async def api_list_findings(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """List findings via public API."""
-    from sqlalchemy import select, func
-    from codeverify_api.db.models import Finding, Analysis, Repository
+    from sqlalchemy import func, select
+
+    from codeverify_api.db.models import Analysis, Finding, Repository
 
     query = select(Finding).join(Analysis)
     count_query = select(func.count(Finding.id)).join(Analysis)
@@ -578,7 +586,9 @@ async def api_get_stats(
 ) -> dict[str, Any]:
     """Get statistics via public API."""
     from datetime import timedelta
-    from sqlalchemy import select, func, and_
+
+    from sqlalchemy import and_, func, select
+
     from codeverify_api.db.models import Analysis, Finding, Repository
 
     cutoff = datetime.utcnow() - timedelta(days=days)
@@ -604,7 +614,7 @@ async def api_get_stats(
     # Findings by severity
     severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
 
-    for sev in severity_counts.keys():
+    for sev in severity_counts:
         sev_query = (
             select(func.count(Finding.id))
             .join(Analysis)
@@ -640,18 +650,17 @@ WEBHOOK_EVENTS = {
 async def list_webhook_events() -> dict[str, Any]:
     """List available webhook events."""
     return {
-        "events": [
-            {"name": name, "description": desc}
-            for name, desc in WEBHOOK_EVENTS.items()
-        ]
+        "events": [{"name": name, "description": desc} for name, desc in WEBHOOK_EVENTS.items()]
     }
 
 
 # Helper functions
 
+
 def _hash_key(key: str) -> str:
     """Hash an API key for storage."""
     import hashlib
+
     return hashlib.sha256(key.encode()).hexdigest()
 
 
@@ -661,9 +670,10 @@ async def _deliver_webhook(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     """Deliver a webhook."""
-    import httpx
-    import hmac
     import hashlib
+    import hmac
+
+    import httpx
 
     delivery_id = str(uuid4())
     now = datetime.utcnow()
@@ -677,6 +687,7 @@ async def _deliver_webhook(
     # Add signature if secret is configured
     if webhook.get("secret"):
         import json
+
         payload_bytes = json.dumps(payload).encode()
         signature = hmac.new(
             webhook["secret"].encode(),

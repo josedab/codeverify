@@ -30,11 +30,11 @@ class BaseRepository(Generic[ModelT]):
     ) -> list[ModelT]:
         """Get all entities with optional filters."""
         query = select(self.model)
-        
+
         for key, value in filters.items():
             if hasattr(self.model, key) and value is not None:
                 query = query.where(getattr(self.model, key) == value)
-        
+
         query = query.offset(skip).limit(limit)
         result = await self.session.execute(query)
         return list(result.scalars().all())
@@ -52,11 +52,11 @@ class BaseRepository(Generic[ModelT]):
         entity = await self.get(id)
         if entity is None:
             return None
-        
+
         for key, value in data.items():
             if hasattr(entity, key):
                 setattr(entity, key, value)
-        
+
         await self.session.flush()
         await self.session.refresh(entity)
         return entity
@@ -66,19 +66,19 @@ class BaseRepository(Generic[ModelT]):
         entity = await self.get(id)
         if entity is None:
             return False
-        
+
         await self.session.delete(entity)
         return True
 
     async def count(self, **filters: Any) -> int:
         """Count entities with optional filters."""
         from sqlalchemy import func
-        
+
         query = select(func.count()).select_from(self.model)
-        
+
         for key, value in filters.items():
             if hasattr(self.model, key) and value is not None:
                 query = query.where(getattr(self.model, key) == value)
-        
+
         result = await self.session.execute(query)
         return result.scalar() or 0

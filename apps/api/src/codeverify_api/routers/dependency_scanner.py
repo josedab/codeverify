@@ -10,7 +10,7 @@ Provides REST API endpoints for dependency vulnerability scanning:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -22,6 +22,7 @@ try:
         PackageEcosystem,
         VulnerabilitySeverity,
     )
+
     DEPENDENCY_SCANNER_AVAILABLE = True
 except ImportError:
     DEPENDENCY_SCANNER_AVAILABLE = False
@@ -33,7 +34,7 @@ except ImportError:
 router = APIRouter(prefix="/api/v1/dependencies", tags=["dependency-scanner"])
 
 # Singleton scanner instance
-_scanner: Optional[DependencyVulnerabilityScanner] = None
+_scanner: DependencyVulnerabilityScanner | None = None
 
 
 def get_scanner() -> DependencyVulnerabilityScanner:
@@ -51,12 +52,14 @@ def get_scanner() -> DependencyVulnerabilityScanner:
 
 class ScanRequest(BaseModel):
     """Request to scan dependencies."""
+
     project_name: str = Field(..., description="Name of the project")
-    files: Dict[str, str] = Field(..., description="Map of file path to content")
+    files: dict[str, str] = Field(..., description="Map of file path to content")
 
 
 class ScanResponse(BaseModel):
     """Response with scan summary."""
+
     scan_id: str
     project_name: str
     ecosystem: str
@@ -75,7 +78,7 @@ class ScanResponse(BaseModel):
     "/scan",
     response_model=ScanResponse,
     summary="Scan Dependencies",
-    description="Scan project dependencies for vulnerabilities"
+    description="Scan project dependencies for vulnerabilities",
 )
 async def scan_dependencies(request: ScanRequest) -> ScanResponse:
     """
@@ -86,15 +89,13 @@ async def scan_dependencies(request: ScanRequest) -> ScanResponse:
     """
     if not DEPENDENCY_SCANNER_AVAILABLE:
         raise HTTPException(
-            status_code=503,
-            detail="Dependency Vulnerability Scanner is not available"
+            status_code=503, detail="Dependency Vulnerability Scanner is not available"
         )
 
     scanner = get_scanner()
     if not scanner:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Dependency Vulnerability Scanner"
+            status_code=503, detail="Failed to initialize Dependency Vulnerability Scanner"
         )
 
     result = await scanner.scan(
@@ -114,31 +115,24 @@ async def scan_dependencies(request: ScanRequest) -> ScanResponse:
 
 
 @router.get(
-    "/scan/{scan_id}",
-    summary="Get Scan Result",
-    description="Get full scan result details"
+    "/scan/{scan_id}", summary="Get Scan Result", description="Get full scan result details"
 )
-async def get_scan_result(scan_id: str) -> Dict[str, Any]:
+async def get_scan_result(scan_id: str) -> dict[str, Any]:
     """Get full scan result details."""
     if not DEPENDENCY_SCANNER_AVAILABLE:
         raise HTTPException(
-            status_code=503,
-            detail="Dependency Vulnerability Scanner is not available"
+            status_code=503, detail="Dependency Vulnerability Scanner is not available"
         )
 
     scanner = get_scanner()
     if not scanner:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Dependency Vulnerability Scanner"
+            status_code=503, detail="Failed to initialize Dependency Vulnerability Scanner"
         )
 
     result = scanner.get_result(scan_id)
     if not result:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Scan result not found: {scan_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Scan result not found: {scan_id}")
 
     return result.to_dict()
 
@@ -146,32 +140,27 @@ async def get_scan_result(scan_id: str) -> Dict[str, Any]:
 @router.get(
     "/scan/{scan_id}/vulnerabilities",
     summary="Get Vulnerabilities",
-    description="Get vulnerable packages from a scan"
+    description="Get vulnerable packages from a scan",
 )
 async def get_vulnerabilities(
     scan_id: str,
-    min_severity: Optional[str] = None,
-) -> Dict[str, Any]:
+    min_severity: str | None = None,
+) -> dict[str, Any]:
     """Get vulnerable packages from a scan result."""
     if not DEPENDENCY_SCANNER_AVAILABLE:
         raise HTTPException(
-            status_code=503,
-            detail="Dependency Vulnerability Scanner is not available"
+            status_code=503, detail="Dependency Vulnerability Scanner is not available"
         )
 
     scanner = get_scanner()
     if not scanner:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Dependency Vulnerability Scanner"
+            status_code=503, detail="Failed to initialize Dependency Vulnerability Scanner"
         )
 
     result = scanner.get_result(scan_id)
     if not result:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Scan result not found: {scan_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Scan result not found: {scan_id}")
 
     packages = scanner.get_vulnerable_packages(scan_id, min_severity)
 
@@ -185,29 +174,24 @@ async def get_vulnerabilities(
 @router.get(
     "/scan/{scan_id}/upgrades",
     summary="Get Upgrade Paths",
-    description="Get suggested upgrade paths"
+    description="Get suggested upgrade paths",
 )
-async def get_upgrade_paths(scan_id: str) -> Dict[str, Any]:
+async def get_upgrade_paths(scan_id: str) -> dict[str, Any]:
     """Get suggested upgrade paths from a scan result."""
     if not DEPENDENCY_SCANNER_AVAILABLE:
         raise HTTPException(
-            status_code=503,
-            detail="Dependency Vulnerability Scanner is not available"
+            status_code=503, detail="Dependency Vulnerability Scanner is not available"
         )
 
     scanner = get_scanner()
     if not scanner:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Dependency Vulnerability Scanner"
+            status_code=503, detail="Failed to initialize Dependency Vulnerability Scanner"
         )
 
     result = scanner.get_result(scan_id)
     if not result:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Scan result not found: {scan_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Scan result not found: {scan_id}")
 
     return {
         "upgrade_paths": [u.to_dict() for u in result.upgrade_paths],
@@ -219,29 +203,24 @@ async def get_upgrade_paths(scan_id: str) -> Dict[str, Any]:
 @router.get(
     "/scan/{scan_id}/graph",
     summary="Get Dependency Graph",
-    description="Get the dependency graph from a scan"
+    description="Get the dependency graph from a scan",
 )
-async def get_dependency_graph(scan_id: str) -> Dict[str, Any]:
+async def get_dependency_graph(scan_id: str) -> dict[str, Any]:
     """Get the dependency graph from a scan result."""
     if not DEPENDENCY_SCANNER_AVAILABLE:
         raise HTTPException(
-            status_code=503,
-            detail="Dependency Vulnerability Scanner is not available"
+            status_code=503, detail="Dependency Vulnerability Scanner is not available"
         )
 
     scanner = get_scanner()
     if not scanner:
         raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Dependency Vulnerability Scanner"
+            status_code=503, detail="Failed to initialize Dependency Vulnerability Scanner"
         )
 
     result = scanner.get_result(scan_id)
     if not result:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Scan result not found: {scan_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Scan result not found: {scan_id}")
 
     return {
         "graph": {k: v.to_dict() for k, v in result.dependency_graph.items()},
@@ -250,12 +229,8 @@ async def get_dependency_graph(scan_id: str) -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/ecosystems",
-    summary="Get Ecosystems",
-    description="Get supported package ecosystems"
-)
-async def get_ecosystems() -> Dict[str, Any]:
+@router.get("/ecosystems", summary="Get Ecosystems", description="Get supported package ecosystems")
+async def get_ecosystems() -> dict[str, Any]:
     """Get supported package ecosystems."""
     if not DEPENDENCY_SCANNER_AVAILABLE:
         return {
@@ -317,9 +292,9 @@ async def get_ecosystems() -> Dict[str, Any]:
 @router.get(
     "/severity-levels",
     summary="Get Severity Levels",
-    description="Get vulnerability severity levels"
+    description="Get vulnerability severity levels",
 )
-async def get_severity_levels() -> Dict[str, Any]:
+async def get_severity_levels() -> dict[str, Any]:
     """Get vulnerability severity levels."""
     if not DEPENDENCY_SCANNER_AVAILABLE:
         return {
@@ -341,12 +316,8 @@ async def get_severity_levels() -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/stats",
-    summary="Get Statistics",
-    description="Get scanner statistics"
-)
-async def get_stats() -> Dict[str, Any]:
+@router.get("/stats", summary="Get Statistics", description="Get scanner statistics")
+async def get_stats() -> dict[str, Any]:
     """Get scanner statistics."""
     if not DEPENDENCY_SCANNER_AVAILABLE:
         return {

@@ -9,7 +9,7 @@ Provides REST API endpoints for context-aware code analysis:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -17,11 +17,12 @@ from pydantic import BaseModel, Field
 # Import Context-Aware Analysis
 try:
     from codeverify_agents.context_aware_analysis import (
-        ContextAwareAnalyzer,
         ArchitectureType,
+        ContextAwareAnalyzer,
         ProjectType,
         Severity,
     )
+
     CONTEXT_ANALYSIS_AVAILABLE = True
 except ImportError:
     CONTEXT_ANALYSIS_AVAILABLE = False
@@ -34,7 +35,7 @@ except ImportError:
 router = APIRouter(prefix="/api/v1/context", tags=["context-analysis"])
 
 # Singleton analyzer instance
-_analyzer: Optional[ContextAwareAnalyzer] = None
+_analyzer: ContextAwareAnalyzer | None = None
 
 
 def get_analyzer() -> ContextAwareAnalyzer:
@@ -52,14 +53,16 @@ def get_analyzer() -> ContextAwareAnalyzer:
 
 class AnalyzeProjectRequest(BaseModel):
     """Request to analyze a project."""
+
     project_name: str = Field(..., description="Name of the project")
-    file_paths: List[str] = Field(..., description="List of file paths")
-    file_contents: Dict[str, str] = Field(..., description="Map of path to content")
-    dependencies: Optional[List[str]] = Field(None, description="List of dependencies")
+    file_paths: list[str] = Field(..., description="List of file paths")
+    file_contents: dict[str, str] = Field(..., description="Map of path to content")
+    dependencies: list[str] | None = Field(None, description="List of dependencies")
 
 
 class AnalyzeProjectResponse(BaseModel):
     """Response with project context."""
+
     context_id: str
     project_name: str
     project_type: str
@@ -67,22 +70,24 @@ class AnalyzeProjectResponse(BaseModel):
     architecture_confidence: float
     patterns_count: int
     conventions_count: int
-    frameworks: List[str]
+    frameworks: list[str]
 
 
 class AdjustSeverityRequest(BaseModel):
     """Request to adjust finding severity."""
+
     finding_id: str = Field(..., description="ID of the finding")
     finding_type: str = Field(..., description="Type of the finding")
     original_severity: str = Field(..., description="Original severity level")
     context_id: str = Field(..., description="Project context ID")
-    code_snippet: Optional[str] = Field(None, description="Related code snippet")
+    code_snippet: str | None = Field(None, description="Related code snippet")
 
 
 class BatchAdjustRequest(BaseModel):
     """Request to adjust multiple findings."""
+
     context_id: str = Field(..., description="Project context ID")
-    findings: List[Dict[str, str]] = Field(..., description="List of findings to adjust")
+    findings: list[dict[str, str]] = Field(..., description="List of findings to adjust")
 
 
 # =============================================================================
@@ -94,7 +99,7 @@ class BatchAdjustRequest(BaseModel):
     "/analyze",
     response_model=AnalyzeProjectResponse,
     summary="Analyze Project",
-    description="Analyze a project to build context"
+    description="Analyze a project to build context",
 )
 async def analyze_project(request: AnalyzeProjectRequest) -> AnalyzeProjectResponse:
     """
@@ -104,17 +109,11 @@ async def analyze_project(request: AnalyzeProjectRequest) -> AnalyzeProjectRespo
     that can be used to adjust finding severity.
     """
     if not CONTEXT_ANALYSIS_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Context-Aware Analysis is not available"
-        )
+        raise HTTPException(status_code=503, detail="Context-Aware Analysis is not available")
 
     analyzer = get_analyzer()
     if not analyzer:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Context-Aware Analysis"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Context-Aware Analysis")
 
     context = analyzer.analyze_project(
         project_name=request.project_name,
@@ -136,54 +135,33 @@ async def analyze_project(request: AnalyzeProjectRequest) -> AnalyzeProjectRespo
 
 
 @router.get(
-    "/context/{context_id}",
-    summary="Get Context",
-    description="Get full project context details"
+    "/context/{context_id}", summary="Get Context", description="Get full project context details"
 )
-async def get_context(context_id: str) -> Dict[str, Any]:
+async def get_context(context_id: str) -> dict[str, Any]:
     """Get full project context details."""
     if not CONTEXT_ANALYSIS_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Context-Aware Analysis is not available"
-        )
+        raise HTTPException(status_code=503, detail="Context-Aware Analysis is not available")
 
     analyzer = get_analyzer()
     if not analyzer:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Context-Aware Analysis"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Context-Aware Analysis")
 
     context = analyzer.get_context(context_id)
     if not context:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Context not found: {context_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Context not found: {context_id}")
 
     return context.to_dict()
 
 
-@router.get(
-    "/contexts",
-    summary="List Contexts",
-    description="List all project contexts"
-)
-async def list_contexts() -> Dict[str, Any]:
+@router.get("/contexts", summary="List Contexts", description="List all project contexts")
+async def list_contexts() -> dict[str, Any]:
     """List all project contexts."""
     if not CONTEXT_ANALYSIS_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Context-Aware Analysis is not available"
-        )
+        raise HTTPException(status_code=503, detail="Context-Aware Analysis is not available")
 
     analyzer = get_analyzer()
     if not analyzer:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Context-Aware Analysis"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Context-Aware Analysis")
 
     contexts = analyzer.list_contexts()
 
@@ -205,29 +183,20 @@ async def list_contexts() -> Dict[str, Any]:
 @router.get(
     "/context/{context_id}/architecture",
     summary="Get Architecture",
-    description="Get detected architecture details"
+    description="Get detected architecture details",
 )
-async def get_architecture(context_id: str) -> Dict[str, Any]:
+async def get_architecture(context_id: str) -> dict[str, Any]:
     """Get detected architecture details."""
     if not CONTEXT_ANALYSIS_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Context-Aware Analysis is not available"
-        )
+        raise HTTPException(status_code=503, detail="Context-Aware Analysis is not available")
 
     analyzer = get_analyzer()
     if not analyzer:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Context-Aware Analysis"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Context-Aware Analysis")
 
     context = analyzer.get_context(context_id)
     if not context:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Context not found: {context_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Context not found: {context_id}")
 
     return context.architecture.to_dict()
 
@@ -235,29 +204,20 @@ async def get_architecture(context_id: str) -> Dict[str, Any]:
 @router.get(
     "/context/{context_id}/patterns",
     summary="Get Patterns",
-    description="Get detected coding patterns"
+    description="Get detected coding patterns",
 )
-async def get_patterns(context_id: str) -> Dict[str, Any]:
+async def get_patterns(context_id: str) -> dict[str, Any]:
     """Get detected coding patterns."""
     if not CONTEXT_ANALYSIS_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Context-Aware Analysis is not available"
-        )
+        raise HTTPException(status_code=503, detail="Context-Aware Analysis is not available")
 
     analyzer = get_analyzer()
     if not analyzer:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Context-Aware Analysis"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Context-Aware Analysis")
 
     context = analyzer.get_context(context_id)
     if not context:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Context not found: {context_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Context not found: {context_id}")
 
     return {
         "patterns": [p.to_dict() for p in context.patterns],
@@ -268,29 +228,20 @@ async def get_patterns(context_id: str) -> Dict[str, Any]:
 @router.get(
     "/context/{context_id}/conventions",
     summary="Get Conventions",
-    description="Get detected coding conventions"
+    description="Get detected coding conventions",
 )
-async def get_conventions(context_id: str) -> Dict[str, Any]:
+async def get_conventions(context_id: str) -> dict[str, Any]:
     """Get detected coding conventions."""
     if not CONTEXT_ANALYSIS_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Context-Aware Analysis is not available"
-        )
+        raise HTTPException(status_code=503, detail="Context-Aware Analysis is not available")
 
     analyzer = get_analyzer()
     if not analyzer:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Context-Aware Analysis"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Context-Aware Analysis")
 
     context = analyzer.get_context(context_id)
     if not context:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Context not found: {context_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Context not found: {context_id}")
 
     return {
         "conventions": [c.to_dict() for c in context.conventions],
@@ -299,28 +250,20 @@ async def get_conventions(context_id: str) -> Dict[str, Any]:
 
 
 @router.post(
-    "/adjust",
-    summary="Adjust Severity",
-    description="Adjust finding severity based on context"
+    "/adjust", summary="Adjust Severity", description="Adjust finding severity based on context"
 )
-async def adjust_severity(request: AdjustSeverityRequest) -> Dict[str, Any]:
+async def adjust_severity(request: AdjustSeverityRequest) -> dict[str, Any]:
     """
     Adjust finding severity based on project context.
 
     Returns the original and adjusted severity with explanation.
     """
     if not CONTEXT_ANALYSIS_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Context-Aware Analysis is not available"
-        )
+        raise HTTPException(status_code=503, detail="Context-Aware Analysis is not available")
 
     analyzer = get_analyzer()
     if not analyzer:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Context-Aware Analysis"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Context-Aware Analysis")
 
     result = analyzer.adjust_finding_severity(
         finding_id=request.finding_id,
@@ -336,26 +279,20 @@ async def adjust_severity(request: AdjustSeverityRequest) -> Dict[str, Any]:
 @router.post(
     "/adjust/batch",
     summary="Batch Adjust Severity",
-    description="Adjust severity for multiple findings"
+    description="Adjust severity for multiple findings",
 )
-async def batch_adjust_severity(request: BatchAdjustRequest) -> Dict[str, Any]:
+async def batch_adjust_severity(request: BatchAdjustRequest) -> dict[str, Any]:
     """
     Adjust severity for multiple findings.
 
     Efficiently processes multiple findings against the same context.
     """
     if not CONTEXT_ANALYSIS_AVAILABLE:
-        raise HTTPException(
-            status_code=503,
-            detail="Context-Aware Analysis is not available"
-        )
+        raise HTTPException(status_code=503, detail="Context-Aware Analysis is not available")
 
     analyzer = get_analyzer()
     if not analyzer:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to initialize Context-Aware Analysis"
-        )
+        raise HTTPException(status_code=503, detail="Failed to initialize Context-Aware Analysis")
 
     results = []
     for finding in request.findings:
@@ -378,9 +315,9 @@ async def batch_adjust_severity(request: BatchAdjustRequest) -> Dict[str, Any]:
 @router.get(
     "/architecture-types",
     summary="Get Architecture Types",
-    description="Get available architecture types"
+    description="Get available architecture types",
 )
-async def get_architecture_types() -> Dict[str, Any]:
+async def get_architecture_types() -> dict[str, Any]:
     """Get available architecture types."""
     if not CONTEXT_ANALYSIS_AVAILABLE:
         return {
@@ -391,9 +328,17 @@ async def get_architecture_types() -> Dict[str, Any]:
     types = [
         {"value": "monolith", "name": "Monolith", "description": "Single deployable unit"},
         {"value": "microservices", "name": "Microservices", "description": "Distributed services"},
-        {"value": "modular_monolith", "name": "Modular Monolith", "description": "Well-structured monolith"},
+        {
+            "value": "modular_monolith",
+            "name": "Modular Monolith",
+            "description": "Well-structured monolith",
+        },
         {"value": "serverless", "name": "Serverless", "description": "Function-as-a-Service"},
-        {"value": "event_driven", "name": "Event Driven", "description": "Event-based architecture"},
+        {
+            "value": "event_driven",
+            "name": "Event Driven",
+            "description": "Event-based architecture",
+        },
         {"value": "layered", "name": "Layered", "description": "Traditional layered architecture"},
         {"value": "hexagonal", "name": "Hexagonal", "description": "Ports and adapters"},
     ]
@@ -405,11 +350,9 @@ async def get_architecture_types() -> Dict[str, Any]:
 
 
 @router.get(
-    "/project-types",
-    summary="Get Project Types",
-    description="Get available project types"
+    "/project-types", summary="Get Project Types", description="Get available project types"
 )
-async def get_project_types() -> Dict[str, Any]:
+async def get_project_types() -> dict[str, Any]:
     """Get available project types."""
     if not CONTEXT_ANALYSIS_AVAILABLE:
         return {
@@ -434,12 +377,8 @@ async def get_project_types() -> Dict[str, Any]:
     }
 
 
-@router.get(
-    "/stats",
-    summary="Get Statistics",
-    description="Get context analysis statistics"
-)
-async def get_stats() -> Dict[str, Any]:
+@router.get("/stats", summary="Get Statistics", description="Get context analysis statistics")
+async def get_stats() -> dict[str, Any]:
     """Get context analysis statistics."""
     if not CONTEXT_ANALYSIS_AVAILABLE:
         return {

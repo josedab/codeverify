@@ -76,7 +76,9 @@ async def create_tenant(request: CreateTenantRequest) -> TenantResponse:
     if request.tier in ("pro", "enterprise"):
         features.extend(["trust_score", "custom_rules", "team_dashboard", "api_access"])
     if request.tier == "enterprise":
-        features.extend(["sso", "audit_logs", "formal_verification", "compliance", "priority_support"])
+        features.extend(
+            ["sso", "audit_logs", "formal_verification", "compliance", "priority_support"]
+        )
 
     tenant = {
         "id": tenant_id,
@@ -138,7 +140,9 @@ async def update_tenant_tier(tenant_id: str, request: UpdateTierRequest) -> Tena
     if request.tier in ("pro", "enterprise"):
         features.extend(["trust_score", "custom_rules", "team_dashboard", "api_access"])
     if request.tier == "enterprise":
-        features.extend(["sso", "audit_logs", "formal_verification", "compliance", "priority_support"])
+        features.extend(
+            ["sso", "audit_logs", "formal_verification", "compliance", "priority_support"]
+        )
     tenant["features"] = features
 
     return TenantResponse(**tenant)
@@ -199,7 +203,12 @@ async def record_usage(
         )
 
     usage[resource] += count
-    return {"recorded": True, "resource": resource, "current": usage[resource], "limit": limit_map[resource]}
+    return {
+        "recorded": True,
+        "resource": resource,
+        "current": usage[resource],
+        "limit": limit_map[resource],
+    }
 
 
 @router.delete("/{tenant_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -2,8 +2,8 @@
 
 import time
 from collections import defaultdict
-from datetime import datetime
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import HTTPException, Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -37,7 +37,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Get API key from header
-        api_key = request.headers.get("X-API-Key") or request.headers.get("Authorization", "").replace("Bearer ", "")
+        api_key = request.headers.get("X-API-Key") or request.headers.get(
+            "Authorization", ""
+        ).replace("Bearer ", "")
 
         if not api_key:
             # Anonymous requests get very limited rate
@@ -98,7 +100,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Add rate limit headers to response
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(limits["requests_per_minute"])
-        response.headers["X-RateLimit-Remaining"] = str(limits["requests_per_minute"] - len(counts["minute"]))
+        response.headers["X-RateLimit-Remaining"] = str(
+            limits["requests_per_minute"] - len(counts["minute"])
+        )
         response.headers["X-RateLimit-Reset"] = str(int(minute_ago + 60))
 
         return response
@@ -181,7 +185,9 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
 
         # Check scopes for write operations
         if request.method in ("POST", "PUT", "PATCH", "DELETE"):
-            if "write" not in key_data.get("scopes", []) and "admin" not in key_data.get("scopes", []):
+            if "write" not in key_data.get("scopes", []) and "admin" not in key_data.get(
+                "scopes", []
+            ):
                 return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
                     content={

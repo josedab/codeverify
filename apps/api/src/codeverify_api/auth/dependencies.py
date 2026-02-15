@@ -1,7 +1,6 @@
 """Authentication dependencies for FastAPI."""
 
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer

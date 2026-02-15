@@ -63,7 +63,13 @@ SUPPORTED_LANGUAGES = {
         null_type="nil",
         supports_generics=True,
         supports_null_safety=False,
-        verification_checks=["null_safety", "array_bounds", "integer_overflow", "division_by_zero", "error_handling"],
+        verification_checks=[
+            "null_safety",
+            "array_bounds",
+            "integer_overflow",
+            "division_by_zero",
+            "error_handling",
+        ],
         status="beta",
     ),
     "java": LanguageInfo(
@@ -72,7 +78,13 @@ SUPPORTED_LANGUAGES = {
         null_type="null",
         supports_generics=True,
         supports_null_safety=False,
-        verification_checks=["null_safety", "array_bounds", "integer_overflow", "division_by_zero", "exception_handling"],
+        verification_checks=[
+            "null_safety",
+            "array_bounds",
+            "integer_overflow",
+            "division_by_zero",
+            "exception_handling",
+        ],
         status="beta",
     ),
     "rust": LanguageInfo(
@@ -123,14 +135,23 @@ async def get_verification_rules(language: str) -> dict[str, Any]:
             "null_safety": {
                 "null_type": "nil",
                 "patterns": ["if err != nil", "if x == nil"],
-                "common_issues": ["unchecked error returns", "nil pointer dereference", "nil map access"],
+                "common_issues": [
+                    "unchecked error returns",
+                    "nil pointer dereference",
+                    "nil map access",
+                ],
             },
             "integer_overflow": {
                 "types": [
                     {"name": "int8", "bits": 8, "min": -128, "max": 127},
                     {"name": "int16", "bits": 16, "min": -32768, "max": 32767},
                     {"name": "int32", "bits": 32, "min": -2147483648, "max": 2147483647},
-                    {"name": "int64", "bits": 64, "min": -9223372036854775808, "max": 9223372036854775807},
+                    {
+                        "name": "int64",
+                        "bits": 64,
+                        "min": -9223372036854775808,
+                        "max": 9223372036854775807,
+                    },
                     {"name": "uint8", "bits": 8, "min": 0, "max": 255},
                     {"name": "uint16", "bits": 16, "min": 0, "max": 65535},
                     {"name": "uint32", "bits": 32, "min": 0, "max": 4294967295},
@@ -146,20 +167,33 @@ async def get_verification_rules(language: str) -> dict[str, Any]:
             "null_safety": {
                 "null_type": "null",
                 "patterns": ["if (x != null)", "Objects.requireNonNull(", "@NonNull", "@Nullable"],
-                "common_issues": ["NullPointerException", "unboxing null Integer/Long", "null collection iteration"],
+                "common_issues": [
+                    "NullPointerException",
+                    "unboxing null Integer/Long",
+                    "null collection iteration",
+                ],
             },
             "integer_overflow": {
                 "types": [
                     {"name": "byte", "bits": 8, "min": -128, "max": 127},
                     {"name": "short", "bits": 16, "min": -32768, "max": 32767},
                     {"name": "int", "bits": 32, "min": -2147483648, "max": 2147483647},
-                    {"name": "long", "bits": 64, "min": -9223372036854775808, "max": 9223372036854775807},
+                    {
+                        "name": "long",
+                        "bits": 64,
+                        "min": -9223372036854775808,
+                        "max": 9223372036854775807,
+                    },
                 ],
                 "safe_methods": ["Math.addExact()", "Math.multiplyExact()", "Math.subtractExact()"],
             },
             "exception_handling": {
                 "patterns": ["try {", "catch (", "finally {", "throws"],
-                "anti_patterns": ["catch (Exception e) {}", "empty catch block", "catching Throwable"],
+                "anti_patterns": [
+                    "catch (Exception e) {}",
+                    "empty catch block",
+                    "catching Throwable",
+                ],
             },
         }
     elif language == "python":
@@ -200,12 +234,16 @@ async def extract_functions(request: FunctionExtractionRequest) -> FunctionExtra
 
     if request.language == "python":
         for i, line in enumerate(lines):
-            match = re.match(r"^(\s*)(async\s+)?def\s+(\w+)\s*\((.*?)\)(?:\s*->\s*(.+?))?:\s*$", line)
+            match = re.match(
+                r"^(\s*)(async\s+)?def\s+(\w+)\s*\((.*?)\)(?:\s*->\s*(.+?))?:\s*$", line
+            )
             if match:
                 indent = len(match.group(1))
                 is_async = match.group(2) is not None
                 name = match.group(3)
-                params = [p.strip().split(":")[0].strip() for p in match.group(4).split(",") if p.strip()]
+                params = [
+                    p.strip().split(":")[0].strip() for p in match.group(4).split(",") if p.strip()
+                ]
                 return_type = match.group(5).strip() if match.group(5) else None
                 end = i + 1
                 for j in range(i + 1, len(lines)):
@@ -215,16 +253,36 @@ async def extract_functions(request: FunctionExtractionRequest) -> FunctionExtra
                         if line_indent <= indent and stripped:
                             break
                         end = j + 1
-                functions.append(FunctionInfo(name=name, params=params, return_type=return_type, start_line=i + 1, end_line=end, is_async=is_async))
+                functions.append(
+                    FunctionInfo(
+                        name=name,
+                        params=params,
+                        return_type=return_type,
+                        start_line=i + 1,
+                        end_line=end,
+                        is_async=is_async,
+                    )
+                )
 
     elif request.language == "go":
         for i, line in enumerate(lines):
-            match = re.match(r"^func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\((.*?)\)(?:\s+(.+?))?\s*\{", line)
+            match = re.match(
+                r"^func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\((.*?)\)(?:\s+(.+?))?\s*\{", line
+            )
             if match:
                 name = match.group(1)
                 params = [p.strip().split(" ")[0] for p in match.group(2).split(",") if p.strip()]
                 return_type = match.group(3)
-                functions.append(FunctionInfo(name=name, params=params, return_type=return_type, start_line=i + 1, end_line=i + 1, is_async=False))
+                functions.append(
+                    FunctionInfo(
+                        name=name,
+                        params=params,
+                        return_type=return_type,
+                        start_line=i + 1,
+                        end_line=i + 1,
+                        is_async=False,
+                    )
+                )
 
     elif request.language == "java":
         for i, line in enumerate(lines):
@@ -236,16 +294,39 @@ async def extract_functions(request: FunctionExtractionRequest) -> FunctionExtra
                 return_type = match.group(1)
                 name = match.group(2)
                 params = [p.strip().split(" ")[-1] for p in match.group(3).split(",") if p.strip()]
-                functions.append(FunctionInfo(name=name, params=params, return_type=return_type, start_line=i + 1, end_line=i + 1, is_async=False))
+                functions.append(
+                    FunctionInfo(
+                        name=name,
+                        params=params,
+                        return_type=return_type,
+                        start_line=i + 1,
+                        end_line=i + 1,
+                        is_async=False,
+                    )
+                )
 
     elif request.language in ("typescript", "javascript"):
         for i, line in enumerate(lines):
-            match = re.match(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\((.*?)\)(?:\s*:\s*(.+?))?\s*\{", line)
+            match = re.match(
+                r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\((.*?)\)(?:\s*:\s*(.+?))?\s*\{",
+                line,
+            )
             if match:
                 name = match.group(1)
-                params = [p.strip().split(":")[0].strip() for p in match.group(2).split(",") if p.strip()]
+                params = [
+                    p.strip().split(":")[0].strip() for p in match.group(2).split(",") if p.strip()
+                ]
                 return_type = match.group(3)
-                functions.append(FunctionInfo(name=name, params=params, return_type=return_type, start_line=i + 1, end_line=i + 1, is_async="async" in line))
+                functions.append(
+                    FunctionInfo(
+                        name=name,
+                        params=params,
+                        return_type=return_type,
+                        start_line=i + 1,
+                        end_line=i + 1,
+                        is_async="async" in line,
+                    )
+                )
 
     return FunctionExtractionResponse(
         functions=functions,

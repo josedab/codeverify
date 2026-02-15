@@ -1,4 +1,5 @@
 """Usage and billing router."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,16 +7,16 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.auth.dependencies import get_current_user
 from codeverify_api.db.database import get_db
 from codeverify_api.db.models import User
 from codeverify_api.services.usage_service import (
-    usage_service,
-    PlanTier,
     PlanLimits,
+    PlanTier,
+    usage_service,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 
@@ -29,11 +30,11 @@ async def get_usage_summary(
     """Get usage summary for the current billing period."""
     # Use first org if not specified
     org_id = organization_id or UUID("00000000-0000-0000-0000-000000000000")
-    
+
     summary = usage_service.get_usage_summary(org_id)
     billing = usage_service.get_billing_info(org_id)
     limits = PlanLimits.for_tier(billing.tier)
-    
+
     return {
         "organization_id": str(org_id),
         "period": {
@@ -74,10 +75,10 @@ async def get_usage_history(
 ) -> dict[str, Any]:
     """Get usage history for past months."""
     org_id = organization_id or UUID("00000000-0000-0000-0000-000000000000")
-    
+
     history = []
     now = datetime.utcnow()
-    
+
     for i in range(months):
         # Calculate period for each month
         month = now.month - i
@@ -85,22 +86,24 @@ async def get_usage_history(
         while month <= 0:
             month += 12
             year -= 1
-        
+
         period_start = datetime(year, month, 1)
         if month == 12:
             period_end = datetime(year + 1, 1, 1)
         else:
             period_end = datetime(year, month + 1, 1)
-        
+
         summary = usage_service.get_usage_summary(org_id, period_start, period_end)
-        
-        history.append({
-            "period": f"{year}-{month:02d}",
-            "analyses": summary.analyses_count,
-            "findings": summary.findings_count,
-            "api_calls": summary.api_calls_count,
-        })
-    
+
+        history.append(
+            {
+                "period": f"{year}-{month:02d}",
+                "analyses": summary.analyses_count,
+                "findings": summary.findings_count,
+                "api_calls": summary.api_calls_count,
+            }
+        )
+
     return {
         "organization_id": str(org_id),
         "history": list(reversed(history)),
@@ -115,9 +118,9 @@ async def get_billing_info(
 ) -> dict[str, Any]:
     """Get billing information."""
     org_id = organization_id or UUID("00000000-0000-0000-0000-000000000000")
-    
+
     billing = usage_service.get_billing_info(org_id)
-    
+
     return {
         "organization_id": str(org_id),
         "tier": billing.tier.value,
@@ -182,13 +185,13 @@ async def request_upgrade(
         tier = PlanTier(target_tier)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid tier")
-    
+
     if tier == PlanTier.ENTERPRISE:
         return {
             "status": "contact_sales",
             "message": "Please contact sales@codeverify.io for Enterprise plans",
         }
-    
+
     # In production, this would create a Stripe checkout session
     return {
         "status": "redirect",

@@ -9,8 +9,8 @@ from codeverify_api.db.models import (
     CustomRule,
     Finding,
     Installation,
-    OrgMembership,
     Organization,
+    OrgMembership,
     Repository,
     User,
 )

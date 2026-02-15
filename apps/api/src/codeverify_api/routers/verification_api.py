@@ -7,22 +7,18 @@ This module provides:
 - SDKs documentation generation
 """
 
-import hashlib
-import hmac
-import secrets
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 from uuid import uuid4
 
 import structlog
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
-from codeverify_api.auth.dependencies import get_current_user, get_current_user_optional
-from codeverify_api.config import settings
+from codeverify_api.auth.dependencies import get_current_user
 
 logger = structlog.get_logger()
 
@@ -31,6 +27,7 @@ router = APIRouter(prefix="/api/v1/verification")
 
 class SubscriptionTier(str, Enum):
     """API subscription tiers."""
+
     FREE = "free"
     DEVELOPER = "developer"
     TEAM = "team"
@@ -39,6 +36,7 @@ class SubscriptionTier(str, Enum):
 
 class BillingPeriod(str, Enum):
     """Billing periods."""
+
     MONTHLY = "monthly"
     YEARLY = "yearly"
 
@@ -46,6 +44,7 @@ class BillingPeriod(str, Enum):
 @dataclass
 class TierLimits:
     """Rate limits and quotas for a subscription tier."""
+
     requests_per_minute: int = 10
     requests_per_day: int = 100
     requests_per_month: int = 1000
@@ -114,8 +113,10 @@ TIER_PRICING: dict[SubscriptionTier, dict[str, float]] = {
 
 # Request/Response models
 
+
 class VerifyCodeRequest(BaseModel):
     """Request to verify code."""
+
     code: str = Field(..., description="Source code to verify")
     language: str = Field(..., description="Programming language (python, typescript, java, etc.)")
     context: str | None = Field(default=None, description="Additional context about the code")
@@ -129,6 +130,7 @@ class VerifyCodeRequest(BaseModel):
 
 class VerifyFileRequest(BaseModel):
     """Request to verify multiple files."""
+
     files: list[dict[str, str]] = Field(
         ...,
         description="List of {path, content} objects",
@@ -139,6 +141,7 @@ class VerifyFileRequest(BaseModel):
 
 class VerificationFinding(BaseModel):
     """A verification finding."""
+
     id: str
     category: str
     severity: str
@@ -155,6 +158,7 @@ class VerificationFinding(BaseModel):
 
 class VerificationResponse(BaseModel):
     """Response from verification."""
+
     request_id: str
     status: str  # success, error, rate_limited
     verified: bool
@@ -168,6 +172,7 @@ class VerificationResponse(BaseModel):
 
 class UsageSummary(BaseModel):
     """Usage summary for billing."""
+
     period_start: datetime
     period_end: datetime
     tier: str
@@ -180,6 +185,7 @@ class UsageSummary(BaseModel):
 
 class APIKeyInfo(BaseModel):
     """API key information."""
+
     id: str
     name: str
     key_prefix: str
@@ -192,6 +198,7 @@ class APIKeyInfo(BaseModel):
 
 class CreateSubscriptionRequest(BaseModel):
     """Request to create/upgrade subscription."""
+
     tier: SubscriptionTier
     billing_period: BillingPeriod = BillingPeriod.MONTHLY
     payment_method_id: str | None = None
@@ -199,6 +206,7 @@ class CreateSubscriptionRequest(BaseModel):
 
 class SubscriptionResponse(BaseModel):
     """Subscription details."""
+
     id: str
     tier: str
     billing_period: str
@@ -216,6 +224,7 @@ _rate_limit_windows: dict[str, list[datetime]] = defaultdict(list)
 
 # Helper functions
 
+
 def _get_subscription(api_key_id: str) -> dict[str, Any]:
     """Get subscription for an API key."""
     if api_key_id not in _api_subscriptions:
@@ -227,7 +236,8 @@ def _get_subscription(api_key_id: str) -> dict[str, Any]:
             "tier": SubscriptionTier.FREE.value,
             "billing_period": BillingPeriod.MONTHLY.value,
             "current_period_start": now.replace(day=1, hour=0, minute=0, second=0, microsecond=0),
-            "current_period_end": (now.replace(day=1) + timedelta(days=32)).replace(day=1) - timedelta(seconds=1),
+            "current_period_end": (now.replace(day=1) + timedelta(days=32)).replace(day=1)
+            - timedelta(seconds=1),
             "status": "active",
             "created_at": now,
         }
@@ -238,31 +248,31 @@ def _check_rate_limit(api_key_id: str, tier: SubscriptionTier) -> tuple[bool, st
     """Check if request is within rate limits. Returns (allowed, reason)."""
     limits = TIER_LIMITS[tier]
     now = datetime.utcnow()
-    
+
     # Clean old entries
     window = _rate_limit_windows[api_key_id]
     minute_ago = now - timedelta(minutes=1)
     day_ago = now - timedelta(days=1)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    
+
     _rate_limit_windows[api_key_id] = [t for t in window if t > month_start]
     window = _rate_limit_windows[api_key_id]
-    
+
     # Check per-minute limit
     minute_count = sum(1 for t in window if t > minute_ago)
     if minute_count >= limits.requests_per_minute:
         return False, f"Rate limit exceeded: {limits.requests_per_minute} requests per minute"
-    
+
     # Check per-day limit
     day_count = sum(1 for t in window if t > day_ago)
     if day_count >= limits.requests_per_day:
         return False, f"Daily limit exceeded: {limits.requests_per_day} requests per day"
-    
+
     # Check per-month limit
     month_count = len(window)
     if month_count >= limits.requests_per_month:
         return False, f"Monthly limit exceeded: {limits.requests_per_month} requests per month"
-    
+
     return True, ""
 
 
@@ -270,11 +280,11 @@ def _record_usage(api_key_id: str, tokens: int = 0) -> None:
     """Record API usage."""
     now = datetime.utcnow()
     _rate_limit_windows[api_key_id].append(now)
-    
+
     # Update usage counters
     date_key = now.strftime("%Y-%m-%d")
     month_key = now.strftime("%Y-%m")
-    
+
     _api_usage[api_key_id][f"day:{date_key}"] += 1
     _api_usage[api_key_id][f"month:{month_key}"] += 1
     _api_usage[api_key_id][f"tokens:{month_key}"] += tokens
@@ -285,15 +295,15 @@ def _get_remaining_quota(api_key_id: str, tier: SubscriptionTier) -> dict[str, i
     limits = TIER_LIMITS[tier]
     now = datetime.utcnow()
     window = _rate_limit_windows.get(api_key_id, [])
-    
+
     minute_ago = now - timedelta(minutes=1)
     day_ago = now - timedelta(days=1)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    
+
     minute_used = sum(1 for t in window if t > minute_ago)
     day_used = sum(1 for t in window if t > day_ago)
     month_used = sum(1 for t in window if t > month_start)
-    
+
     return {
         "requests_per_minute": max(0, limits.requests_per_minute - minute_used),
         "requests_per_day": max(0, limits.requests_per_day - day_used),
@@ -311,60 +321,72 @@ async def _verify_code_impl(
 ) -> tuple[list[VerificationFinding], str | None, float, int]:
     """Internal verification implementation."""
     import time
+
     start = time.time()
     findings = []
     proof_summary = None
     tokens_used = len(code.split()) * 2  # Rough estimate
-    
+
     # Simple pattern-based verification (in production, this calls the verifier)
     if language in ("python", "py"):
         if "/ " in code and "if" not in code.split("/")[0]:
-            findings.append(VerificationFinding(
-                id=f"finding-{uuid4().hex[:8]}",
-                category="division",
-                severity="medium",
-                title="Potential division by zero",
-                description="Division operation without guard against zero divisor",
-                confidence=0.75,
-                proof="∀d. (d ≠ 0) → safe_div(n, d)" if include_proof else None,
-                fix_suggestion="if divisor != 0:\n    result = x / divisor" if include_fixes else None,
-            ))
-        
+            findings.append(
+                VerificationFinding(
+                    id=f"finding-{uuid4().hex[:8]}",
+                    category="division",
+                    severity="medium",
+                    title="Potential division by zero",
+                    description="Division operation without guard against zero divisor",
+                    confidence=0.75,
+                    proof="∀d. (d ≠ 0) → safe_div(n, d)" if include_proof else None,
+                    fix_suggestion="if divisor != 0:\n    result = x / divisor"
+                    if include_fixes
+                    else None,
+                )
+            )
+
         if "[]" in code or "[i]" in code:
             if "len(" not in code and "range(" not in code:
-                findings.append(VerificationFinding(
-                    id=f"finding-{uuid4().hex[:8]}",
-                    category="bounds",
-                    severity="medium",
-                    title="Potential array out of bounds",
-                    description="Array access without bounds check",
-                    confidence=0.70,
-                    proof="∀i,n. (0 ≤ i < n) → safe_access(arr, i)" if include_proof else None,
-                ))
-        
+                findings.append(
+                    VerificationFinding(
+                        id=f"finding-{uuid4().hex[:8]}",
+                        category="bounds",
+                        severity="medium",
+                        title="Potential array out of bounds",
+                        description="Array access without bounds check",
+                        confidence=0.70,
+                        proof="∀i,n. (0 ≤ i < n) → safe_access(arr, i)" if include_proof else None,
+                    )
+                )
+
         if ".value" in code or ".attribute" in code:
             if "is not None" not in code and "is None" not in code:
-                findings.append(VerificationFinding(
-                    id=f"finding-{uuid4().hex[:8]}",
-                    category="null_safety",
-                    severity="high",
-                    title="Potential null dereference",
-                    description="Object access without null check",
-                    confidence=0.80,
-                    proof="∀x. (x ≠ null → safe_access(x))" if include_proof else None,
-                ))
-    
+                findings.append(
+                    VerificationFinding(
+                        id=f"finding-{uuid4().hex[:8]}",
+                        category="null_safety",
+                        severity="high",
+                        title="Potential null dereference",
+                        description="Object access without null check",
+                        confidence=0.80,
+                        proof="∀x. (x ≠ null → safe_access(x))" if include_proof else None,
+                    )
+                )
+
     # Calculate trust score
     trust_score = 1.0 - (len(findings) * 0.15)
     trust_score = max(0.0, min(1.0, trust_score))
-    
+
     if include_proof and findings:
-        proof_summary = f"Z3 analyzed {len(code.splitlines())} lines. Found {len(findings)} potential issues."
-    
+        proof_summary = (
+            f"Z3 analyzed {len(code.splitlines())} lines. Found {len(findings)} potential issues."
+        )
+
     return findings, proof_summary, trust_score, tokens_used
 
 
 # API Endpoints
+
 
 @router.post("/verify", response_model=VerificationResponse)
 async def verify_code(
@@ -373,18 +395,19 @@ async def verify_code(
 ) -> VerificationResponse:
     """
     Verify code for potential bugs using AI + Z3 formal verification.
-    
+
     This is the primary verification endpoint for external tools and integrations.
     """
     import time
+
     start = time.time()
     request_id = str(uuid4())
-    
+
     # Get subscription and check limits
     subscription = _get_subscription(x_api_key)
     tier = SubscriptionTier(subscription["tier"])
     limits = TIER_LIMITS[tier]
-    
+
     # Check rate limits
     allowed, reason = _check_rate_limit(x_api_key, tier)
     if not allowed:
@@ -392,7 +415,7 @@ async def verify_code(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={"error": "rate_limited", "message": reason},
         )
-    
+
     # Check file size
     code_size_kb = len(request.code.encode()) / 1024
     if code_size_kb > limits.max_file_size_kb:
@@ -400,11 +423,11 @@ async def verify_code(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Code size ({code_size_kb:.1f} KB) exceeds limit ({limits.max_file_size_kb} KB)",
         )
-    
+
     # Check feature access
     include_proof = request.include_proof and limits.include_proof
     include_fixes = request.include_fixes and limits.include_fix_suggestions
-    
+
     # Perform verification
     findings, proof_summary, trust_score, tokens_used = await _verify_code_impl(
         code=request.code,
@@ -414,12 +437,12 @@ async def verify_code(
         include_fixes=include_fixes,
         categories=request.categories,
     )
-    
+
     # Record usage
     _record_usage(x_api_key, tokens_used)
-    
+
     processing_time = (time.time() - start) * 1000
-    
+
     logger.info(
         "API verification completed",
         request_id=request_id,
@@ -428,7 +451,7 @@ async def verify_code(
         findings_count=len(findings),
         processing_time_ms=processing_time,
     )
-    
+
     return VerificationResponse(
         request_id=request_id,
         status="success",
@@ -449,13 +472,13 @@ async def verify_files(
 ) -> dict[str, Any]:
     """
     Verify multiple files in a single request.
-    
+
     Useful for project-wide verification.
     """
     subscription = _get_subscription(x_api_key)
     tier = SubscriptionTier(subscription["tier"])
     limits = TIER_LIMITS[tier]
-    
+
     # Check rate limits
     allowed, reason = _check_rate_limit(x_api_key, tier)
     if not allowed:
@@ -463,23 +486,23 @@ async def verify_files(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={"error": "rate_limited", "message": reason},
         )
-    
+
     # Check file count
     if len(request.files) > limits.max_files_per_request:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Too many files ({len(request.files)}). Limit: {limits.max_files_per_request}",
         )
-    
+
     # Verify each file
     results = []
     total_findings = 0
     total_tokens = 0
-    
+
     for file_info in request.files:
         path = file_info.get("path", "unknown")
         content = file_info.get("content", "")
-        
+
         findings, proof_summary, trust_score, tokens = await _verify_code_impl(
             code=content,
             language=request.language,
@@ -488,22 +511,24 @@ async def verify_files(
             include_fixes=limits.include_fix_suggestions,
             categories=None,
         )
-        
+
         for f in findings:
             f.file_path = path
-        
-        results.append({
-            "path": path,
-            "trust_score": trust_score,
-            "findings": [f.model_dump() for f in findings],
-        })
-        
+
+        results.append(
+            {
+                "path": path,
+                "trust_score": trust_score,
+                "findings": [f.model_dump() for f in findings],
+            }
+        )
+
         total_findings += len(findings)
         total_tokens += tokens
-    
+
     # Record usage
     _record_usage(x_api_key, total_tokens)
-    
+
     return {
         "request_id": str(uuid4()),
         "status": "success",
@@ -523,15 +548,15 @@ async def get_usage(
     tier = SubscriptionTier(subscription["tier"])
     limits = TIER_LIMITS[tier]
     pricing = TIER_PRICING[tier]
-    
+
     now = datetime.utcnow()
     month_key = now.strftime("%Y-%m")
     usage = _api_usage.get(x_api_key, {})
-    
+
     requests_used = usage.get(f"month:{month_key}", 0)
     overage = max(0, requests_used - limits.requests_per_month)
     overage_cost = (overage / 1000) * pricing["overage_per_1k"]
-    
+
     return UsageSummary(
         period_start=subscription["current_period_start"],
         period_end=subscription["current_period_end"],
@@ -552,7 +577,7 @@ async def get_subscription(
     subscription = _get_subscription(x_api_key)
     tier = SubscriptionTier(subscription["tier"])
     limits = TIER_LIMITS[tier]
-    
+
     return SubscriptionResponse(
         id=subscription["id"],
         tier=tier.value,
@@ -581,26 +606,26 @@ async def create_or_update_subscription(
     """Create or upgrade subscription."""
     subscription = _get_subscription(x_api_key)
     now = datetime.utcnow()
-    
+
     # Update subscription
     subscription["tier"] = request.tier.value
     subscription["billing_period"] = request.billing_period.value
     subscription["current_period_start"] = now
-    
+
     if request.billing_period == BillingPeriod.MONTHLY:
         subscription["current_period_end"] = now + timedelta(days=30)
     else:
         subscription["current_period_end"] = now + timedelta(days=365)
-    
+
     subscription["status"] = "active"
     _api_subscriptions[x_api_key] = subscription
-    
+
     logger.info(
         "Subscription updated",
         api_key_prefix=x_api_key[:8],
         tier=request.tier.value,
     )
-    
+
     return await get_subscription(x_api_key)
 
 
@@ -611,29 +636,31 @@ async def list_tiers() -> dict[str, Any]:
     for tier in SubscriptionTier:
         limits = TIER_LIMITS[tier]
         pricing = TIER_PRICING[tier]
-        
-        tiers.append({
-            "tier": tier.value,
-            "pricing": {
-                "monthly": pricing["monthly"],
-                "yearly": pricing["yearly"],
-                "overage_per_1k_requests": pricing["overage_per_1k"],
-            },
-            "limits": {
-                "requests_per_minute": limits.requests_per_minute,
-                "requests_per_day": limits.requests_per_day,
-                "requests_per_month": limits.requests_per_month,
-                "max_file_size_kb": limits.max_file_size_kb,
-                "max_files_per_request": limits.max_files_per_request,
-                "max_concurrent_requests": limits.max_concurrent_requests,
-            },
-            "features": {
-                "include_proof": limits.include_proof,
-                "include_fix_suggestions": limits.include_fix_suggestions,
-                "priority_queue": limits.priority_queue,
-            },
-        })
-    
+
+        tiers.append(
+            {
+                "tier": tier.value,
+                "pricing": {
+                    "monthly": pricing["monthly"],
+                    "yearly": pricing["yearly"],
+                    "overage_per_1k_requests": pricing["overage_per_1k"],
+                },
+                "limits": {
+                    "requests_per_minute": limits.requests_per_minute,
+                    "requests_per_day": limits.requests_per_day,
+                    "requests_per_month": limits.requests_per_month,
+                    "max_file_size_kb": limits.max_file_size_kb,
+                    "max_files_per_request": limits.max_files_per_request,
+                    "max_concurrent_requests": limits.max_concurrent_requests,
+                },
+                "features": {
+                    "include_proof": limits.include_proof,
+                    "include_fix_suggestions": limits.include_fix_suggestions,
+                    "priority_queue": limits.priority_queue,
+                },
+            }
+        )
+
     return {"tiers": tiers}
 
 
@@ -642,7 +669,11 @@ async def list_languages() -> dict[str, Any]:
     """List supported programming languages."""
     return {
         "languages": [
-            {"code": "python", "name": "Python", "versions": ["3.8", "3.9", "3.10", "3.11", "3.12"]},
+            {
+                "code": "python",
+                "name": "Python",
+                "versions": ["3.8", "3.9", "3.10", "3.11", "3.12"],
+            },
             {"code": "typescript", "name": "TypeScript", "versions": ["4.x", "5.x"]},
             {"code": "javascript", "name": "JavaScript", "versions": ["ES2020+"]},
             {"code": "java", "name": "Java", "versions": ["11", "17", "21"]},
@@ -699,6 +730,7 @@ async def list_categories() -> dict[str, Any]:
 
 # SDK code generation endpoints
 
+
 @router.get("/sdk/python")
 async def get_python_sdk() -> dict[str, Any]:
     """Get Python SDK installation and usage."""
@@ -706,7 +738,7 @@ async def get_python_sdk() -> dict[str, Any]:
         "language": "python",
         "package": "codeverify-sdk",
         "installation": "pip install codeverify-sdk",
-        "quickstart": '''
+        "quickstart": """
 from codeverify import CodeVerifyClient
 
 client = CodeVerifyClient(api_key="your-api-key")
@@ -720,7 +752,7 @@ result = client.verify(
 print(f"Trust Score: {result.trust_score}")
 for finding in result.findings:
     print(f"- {finding.severity}: {finding.title}")
-''',
+""",
         "docs_url": "https://docs.codeverify.dev/sdk/python",
     }
 
@@ -732,7 +764,7 @@ async def get_typescript_sdk() -> dict[str, Any]:
         "language": "typescript",
         "package": "@codeverify/sdk",
         "installation": "npm install @codeverify/sdk",
-        "quickstart": '''
+        "quickstart": """
 import { CodeVerifyClient } from '@codeverify/sdk';
 
 const client = new CodeVerifyClient({ apiKey: 'your-api-key' });
@@ -747,7 +779,7 @@ console.log(`Trust Score: ${result.trustScore}`);
 result.findings.forEach(f => {
   console.log(`- ${f.severity}: ${f.title}`);
 });
-''',
+""",
         "docs_url": "https://docs.codeverify.dev/sdk/typescript",
     }
 
@@ -757,7 +789,7 @@ async def get_curl_example() -> dict[str, Any]:
     """Get cURL example for direct API usage."""
     return {
         "language": "curl",
-        "example": '''
+        "example": """
 curl -X POST https://api.codeverify.dev/api/v1/verification/verify \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: your-api-key" \\
@@ -766,6 +798,6 @@ curl -X POST https://api.codeverify.dev/api/v1/verification/verify \\
     "language": "python",
     "include_proof": true
   }'
-''',
+""",
         "docs_url": "https://docs.codeverify.dev/api",
     }

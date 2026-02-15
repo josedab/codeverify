@@ -1,11 +1,9 @@
 """GitHub Copilot Extension / Chat Participant API router."""
 
-import hashlib
-import hmac
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Header, Request, status
+from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -62,8 +60,8 @@ def _detect_command(message: str) -> tuple[str | None, str]:
     # Strip @codeverify prefix
     for prefix in ("@codeverify", "/codeverify", "codeverify"):
         if lower.startswith(prefix):
-            lower = lower[len(prefix):].strip()
-            message = message[message.lower().index(prefix) + len(prefix):].strip()
+            lower = lower[len(prefix) :].strip()
+            message = message[message.lower().index(prefix) + len(prefix) :].strip()
             break
 
     # Check command patterns
@@ -86,11 +84,11 @@ def _format_verify_response(code: str, language: str) -> str:
     for i, line in enumerate(lines):
         if language == "python":
             if re.search(r"\bexcept\s*:", line):
-                issues.append(f"- **Line {i+1}**: Bare `except` clause catches all exceptions")
+                issues.append(f"- **Line {i + 1}**: Bare `except` clause catches all exceptions")
             if re.search(r"==\s*None", line):
-                issues.append(f"- **Line {i+1}**: Use `is None` instead of `== None`")
+                issues.append(f"- **Line {i + 1}**: Use `is None` instead of `== None`")
             if re.search(r"\beval\s*\(", line):
-                issues.append(f"- **Line {i+1}**: `eval()` is a security risk")
+                issues.append(f"- **Line {i + 1}**: `eval()` is a security risk")
 
     if issues:
         issues_text = "\n".join(issues)
@@ -121,7 +119,9 @@ def _format_trust_score_response(code: str) -> str:
     total_lines = len(lines)
     has_comments = sum(1 for l in lines if l.strip().startswith(("#", "//", "/*")))
     has_error_handling = any("try" in l or "except" in l or "catch" in l for l in lines)
-    has_types = any(":" in l and "def" not in l for l in lines) or any("type" in l.lower() for l in lines)
+    has_types = any(":" in l and "def" not in l for l in lines) or any(
+        "type" in l.lower() for l in lines
+    )
 
     score = 65
     if has_comments:
@@ -169,7 +169,7 @@ Score: [{emoji_bar}] {score}/100
 
 def _format_spec_response(code: str) -> str:
     """Generate a formal specification response."""
-    return f"""## Generated Formal Specification
+    return """## Generated Formal Specification
 
 ```
 // Pre-conditions
@@ -213,7 +213,7 @@ async def handle_chat(request: CopilotChatRequest) -> CopilotChatResponse:
         follow_ups = ["Fix the issues", "Generate formal spec", "Get trust score"]
 
     elif command == "explain":
-        content = f"""## Explanation
+        content = """## Explanation
 
 The selected code performs the following:
 
@@ -311,7 +311,10 @@ async def get_capabilities() -> dict[str, Any]:
         "description": "AI-powered code verification with formal proofs",
         "version": "0.3.0",
         "commands": [
-            {"name": "verify", "description": "Verify code for bugs, security issues, and logical errors"},
+            {
+                "name": "verify",
+                "description": "Verify code for bugs, security issues, and logical errors",
+            },
             {"name": "explain", "description": "Explain what code does and how it works"},
             {"name": "spec", "description": "Generate formal specifications from code"},
             {"name": "trust-score", "description": "Calculate trust score for AI-generated code"},

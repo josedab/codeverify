@@ -5,11 +5,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.db.database import get_db
-from codeverify_api.db.models import Analysis, Finding, AnalysisStage
+from codeverify_api.db.models import Analysis, AnalysisStage, Finding
 from codeverify_api.db.repositories import AnalysisRepository
 
 router = APIRouter()
@@ -17,11 +17,13 @@ router = APIRouter()
 
 class DismissRequest(BaseModel):
     """Request body for dismissing a finding."""
+
     reason: str | None = None
 
 
 class AnalysisResponse(BaseModel):
     """Response model for analysis."""
+
     id: str
     repo_id: str
     pr_number: int

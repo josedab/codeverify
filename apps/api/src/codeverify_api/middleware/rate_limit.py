@@ -1,18 +1,19 @@
 """Rate limiting middleware for CodeVerify API."""
+
 from __future__ import annotations
 
+from fastapi import FastAPI, Request
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from fastapi import FastAPI, Request
+from slowapi.util import get_remote_address
 
 from codeverify_api.config import settings
 
 
 def get_user_identifier(request: Request) -> str:
     """Get rate limit identifier from request.
-    
+
     Uses authenticated user ID if available, otherwise falls back to IP.
     """
     # Try to get user from auth header
@@ -21,7 +22,7 @@ def get_user_identifier(request: Request) -> str:
         # Use token hash as identifier for authenticated users
         token = auth_header[7:]
         return f"user:{hash(token) % 1000000}"
-    
+
     # Fall back to IP address
     return get_remote_address(request)
 
@@ -30,7 +31,7 @@ def get_user_identifier(request: Request) -> str:
 limiter = Limiter(
     key_func=get_user_identifier,
     default_limits=["100/minute"],
-    storage_uri=getattr(settings, 'REDIS_URL', None),
+    storage_uri=getattr(settings, "REDIS_URL", None),
 )
 
 
