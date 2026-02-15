@@ -7,7 +7,7 @@ Run:
     python examples/custom_rules.py
 """
 
-from codeverify_core import CustomRule, RuleEvaluator, get_builtin_rules
+from codeverify_core import RuleEvaluator, get_builtin_rules
 
 # --- 1. Explore built-in rules ---
 
@@ -27,7 +27,7 @@ eval(user_input)              # dangerous eval
 print("debug:", password)     # print instead of logging
 """
 
-print(f"\n{'='*50}")
+print(f"\n{'=' * 50}")
 print("🔍 Scanning sample code with built-in rules...\n")
 
 evaluator = RuleEvaluator(rules=list(builtin.values()))

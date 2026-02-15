@@ -12,15 +12,12 @@ Key features:
 """
 
 import asyncio
-import json
 import logging
 import os
-import sys
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import unquote, urlparse
 
 # LSP library imports
@@ -29,9 +26,7 @@ try:
     from pygls.server import LanguageServer
     from pygls.workspace import TextDocument
 except ImportError:
-    raise ImportError(
-        "LSP dependencies not installed. Install with: pip install pygls lsprotocol"
-    )
+    raise ImportError("LSP dependencies not installed. Install with: pip install pygls lsprotocol")
 
 import structlog
 
@@ -268,54 +263,67 @@ class CodeVerifyLanguageServer(LanguageServer):
             # Null safety checks
             if language == "python":
                 if ".method" in line and "is not None" not in line and "if " not in line:
-                    findings.append(self._create_finding(
-                        id=str(uuid.uuid4()),
-                        title="Potential None dereference",
-                        description="This code may raise AttributeError if the object is None",
-                        severity="medium",
-                        category="null_safety",
-                        line_start=i + 1,
-                        line_end=i + 1,
-                    ))
+                    findings.append(
+                        self._create_finding(
+                            id=str(uuid.uuid4()),
+                            title="Potential None dereference",
+                            description="This code may raise AttributeError if the object is None",
+                            severity="medium",
+                            category="null_safety",
+                            line_start=i + 1,
+                            line_end=i + 1,
+                        )
+                    )
 
             elif language in ("typescript", "javascript"):
                 if "." in line and "?." not in line and "&&" not in line:
                     # Skip common safe patterns
                     if not any(s in line for s in ["console.", "Math.", "JSON.", "Object."]):
-                        findings.append(self._create_finding(
-                            id=str(uuid.uuid4()),
-                            title="Potential null/undefined dereference",
-                            description="Consider using optional chaining (?.) to prevent runtime errors",
-                            severity="low",
-                            category="null_safety",
-                            line_start=i + 1,
-                            line_end=i + 1,
-                        ))
+                        findings.append(
+                            self._create_finding(
+                                id=str(uuid.uuid4()),
+                                title="Potential null/undefined dereference",
+                                description="Consider using optional chaining (?.) to prevent runtime errors",
+                                severity="low",
+                                category="null_safety",
+                                line_start=i + 1,
+                                line_end=i + 1,
+                            )
+                        )
 
             # Array bounds checks
-            if "[" in line and "]" in line and "len" not in line.lower() and "length" not in line.lower():
-                findings.append(self._create_finding(
-                    id=str(uuid.uuid4()),
-                    title="Array access without bounds check",
-                    description="Consider adding bounds checking to prevent IndexError",
-                    severity="low",
-                    category="array_bounds",
-                    line_start=i + 1,
-                    line_end=i + 1,
-                ))
+            if (
+                "[" in line
+                and "]" in line
+                and "len" not in line.lower()
+                and "length" not in line.lower()
+            ):
+                findings.append(
+                    self._create_finding(
+                        id=str(uuid.uuid4()),
+                        title="Array access without bounds check",
+                        description="Consider adding bounds checking to prevent IndexError",
+                        severity="low",
+                        category="array_bounds",
+                        line_start=i + 1,
+                        line_end=i + 1,
+                    )
+                )
 
             # SQL injection
             if "execute" in line.lower() and ("+" in line or "%" in line or "format" in line):
                 if "SELECT" in line.upper() or "INSERT" in line.upper() or "UPDATE" in line.upper():
-                    findings.append(self._create_finding(
-                        id=str(uuid.uuid4()),
-                        title="Potential SQL injection",
-                        description="Use parameterized queries instead of string concatenation",
-                        severity="critical",
-                        category="security",
-                        line_start=i + 1,
-                        line_end=i + 1,
-                    ))
+                    findings.append(
+                        self._create_finding(
+                            id=str(uuid.uuid4()),
+                            title="Potential SQL injection",
+                            description="Use parameterized queries instead of string concatenation",
+                            severity="critical",
+                            category="security",
+                            line_start=i + 1,
+                            line_end=i + 1,
+                        )
+                    )
 
         return findings
 
@@ -479,7 +487,7 @@ class CodeVerifyLanguageServer(LanguageServer):
             # SQL injection fix
             if "execute" in line.lower():
                 # Simplified - would need proper parsing
-                new_text = line.replace('+ ', '? ').replace('" + ', '", (').replace("' + ", "', (")
+                new_text = line.replace("+ ", "? ").replace('" + ', '", (').replace("' + ", "', (")
             else:
                 return None
 
@@ -512,7 +520,8 @@ class CodeVerifyLanguageServer(LanguageServer):
 
         # Find findings at this line
         relevant_findings = [
-            f for f in findings
+            f
+            for f in findings
             if f.get("line_start", 0) <= line <= f.get("line_end", f.get("line_start", 0))
         ]
 
@@ -650,7 +659,8 @@ class CodeVerifyLanguageServer(LanguageServer):
         findings = self._findings_by_uri.get(uri, [])
 
         relevant = [
-            f for f in findings
+            f
+            for f in findings
             if f.get("line_start", 0) <= line <= f.get("line_end", f.get("line_start", 0))
         ]
 

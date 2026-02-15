@@ -18,13 +18,12 @@ import sys
 import tempfile
 import time
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
-from typing import Optional
 
 
 @dataclass
 class BenchmarkResult:
     """Single benchmark result."""
+
     name: str
     mean_time_ms: float
     min_time_ms: float
@@ -37,6 +36,7 @@ class BenchmarkResult:
 @dataclass
 class BenchmarkReport:
     """Complete benchmark report."""
+
     timestamp: str
     python_version: str
     codeverify_version: str
@@ -48,10 +48,7 @@ def get_codeverify_version() -> str:
     """Get installed CodeVerify version."""
     try:
         result = subprocess.run(
-            ["codeverify", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["codeverify", "--version"], capture_output=True, text=True, timeout=10
         )
         return result.stdout.strip() or "unknown"
     except Exception:
@@ -61,6 +58,7 @@ def get_codeverify_version() -> str:
 def get_system_info() -> dict:
     """Collect system information."""
     import platform
+
     return {
         "os": platform.system(),
         "os_version": platform.version(),
@@ -72,7 +70,7 @@ def get_system_info() -> dict:
 
 def create_test_file(lines: int, complexity: str = "simple") -> str:
     """Create a test Python file with specified characteristics."""
-    
+
     if complexity == "simple":
         # Simple functions with basic operations
         code = '''"""Test module for benchmarking."""
@@ -160,58 +158,47 @@ def analyze_{i}(items: List[int], threshold: int) -> Dict[str, int]:
             equal += 1
     return {{"above": above, "below": below, "equal": equal}}
 '''
-    
+
     # Calculate how many functions to add
-    current_lines = len(code.split('\n'))
-    lines_per_func = len(repeat_block.split('\n'))
+    current_lines = len(code.split("\n"))
+    lines_per_func = len(repeat_block.split("\n"))
     funcs_needed = max(0, (lines - current_lines) // lines_per_func)
-    
+
     for i in range(funcs_needed):
         code += repeat_block.format(i=i)
-    
+
     return code
 
 
 def run_benchmark(
-    name: str,
-    code: str,
-    iterations: int = 3,
-    checks: Optional[list[str]] = None
+    name: str, code: str, iterations: int = 3, checks: list[str] | None = None
 ) -> BenchmarkResult:
     """Run a single benchmark."""
-    
+
     times = []
-    
-    with tempfile.NamedTemporaryFile(
-        mode='w', 
-        suffix='.py', 
-        delete=False
-    ) as f:
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(code)
         temp_path = f.name
-    
+
     try:
         for _ in range(iterations):
             cmd = ["codeverify", "analyze", temp_path, "--format", "json"]
             if checks:
                 cmd.extend(["--checks", ",".join(checks)])
-            
+
             start = time.perf_counter()
             try:
-                subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    timeout=120
-                )
+                subprocess.run(cmd, capture_output=True, timeout=120)
             except subprocess.TimeoutExpired:
                 times.append(120000)  # 120s timeout
                 continue
             end = time.perf_counter()
-            
+
             times.append((end - start) * 1000)  # Convert to ms
     finally:
         os.unlink(temp_path)
-    
+
     return BenchmarkResult(
         name=name,
         mean_time_ms=statistics.mean(times),
@@ -219,126 +206,109 @@ def run_benchmark(
         max_time_ms=max(times),
         std_dev_ms=statistics.stdev(times) if len(times) > 1 else 0,
         iterations=iterations,
-        metadata={"checks": checks or ["all"]}
+        metadata={"checks": checks or ["all"]},
     )
 
 
 def run_all_benchmarks(iterations: int = 3) -> list[BenchmarkResult]:
     """Run the complete benchmark suite."""
-    
+
     results = []
-    
+
     print("Running CodeVerify Benchmark Suite")
     print("=" * 50)
-    
+
     # Check if codeverify is installed
     version = get_codeverify_version()
     if version == "not installed":
         print("ERROR: codeverify is not installed")
         print("Install with: pip install codeverify")
         sys.exit(1)
-    
+
     print(f"CodeVerify version: {version}")
     print(f"Iterations per benchmark: {iterations}")
     print()
-    
+
     # Benchmark 1: Single file analysis (varying sizes)
     for lines in [50, 200, 500, 1000]:
         print(f"  Benchmarking {lines} LOC file...", end=" ", flush=True)
         code = create_test_file(lines, "simple")
-        result = run_benchmark(
-            name=f"single_file_{lines}_loc",
-            code=code,
-            iterations=iterations
-        )
+        result = run_benchmark(name=f"single_file_{lines}_loc", code=code, iterations=iterations)
         results.append(result)
         print(f"{result.mean_time_ms:.0f}ms")
-    
+
     # Benchmark 2: Individual check types
     print("\n  Benchmarking individual checks...")
     code = create_test_file(200, "moderate")
     for check in ["null_safety", "division_by_zero", "array_bounds", "integer_overflow"]:
         print(f"    {check}...", end=" ", flush=True)
         result = run_benchmark(
-            name=f"check_{check}",
-            code=code,
-            iterations=iterations,
-            checks=[check]
+            name=f"check_{check}", code=code, iterations=iterations, checks=[check]
         )
         results.append(result)
         print(f"{result.mean_time_ms:.0f}ms")
-    
+
     # Benchmark 3: Complexity levels
     print("\n  Benchmarking complexity levels...")
     for complexity in ["simple", "moderate", "complex"]:
         print(f"    {complexity}...", end=" ", flush=True)
         code = create_test_file(200, complexity)
-        result = run_benchmark(
-            name=f"complexity_{complexity}",
-            code=code,
-            iterations=iterations
-        )
+        result = run_benchmark(name=f"complexity_{complexity}", code=code, iterations=iterations)
         results.append(result)
         print(f"{result.mean_time_ms:.0f}ms")
-    
+
     print("\n" + "=" * 50)
     print("Benchmark complete!")
-    
+
     return results
 
 
 def main():
     parser = argparse.ArgumentParser(description="CodeVerify Benchmark Suite")
     parser.add_argument(
-        "--output", "-o",
-        help="Output file for JSON results",
-        default="benchmark-results.json"
+        "--output", "-o", help="Output file for JSON results", default="benchmark-results.json"
     )
     parser.add_argument(
-        "--iterations", "-n",
-        type=int,
-        default=3,
-        help="Number of iterations per benchmark"
+        "--iterations", "-n", type=int, default=3, help="Number of iterations per benchmark"
     )
     parser.add_argument(
-        "--format",
-        choices=["json", "markdown"],
-        default="json",
-        help="Output format"
+        "--format", choices=["json", "markdown"], default="json", help="Output format"
     )
-    
+
     args = parser.parse_args()
-    
+
     results = run_all_benchmarks(iterations=args.iterations)
-    
+
     report = BenchmarkReport(
         timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         python_version=sys.version,
         codeverify_version=get_codeverify_version(),
         results=results,
-        system_info=get_system_info()
+        system_info=get_system_info(),
     )
-    
+
     if args.format == "json":
         output = {
             "timestamp": report.timestamp,
             "python_version": report.python_version,
             "codeverify_version": report.codeverify_version,
             "system_info": report.system_info,
-            "results": [asdict(r) for r in report.results]
+            "results": [asdict(r) for r in report.results],
         }
-        
+
         with open(args.output, "w") as f:
             json.dump(output, f, indent=2)
-        
+
         print(f"\nResults written to {args.output}")
-    
+
     elif args.format == "markdown":
         print("\n## Benchmark Results\n")
         print("| Benchmark | Mean (ms) | Min (ms) | Max (ms) | Std Dev |")
         print("|-----------|-----------|----------|----------|---------|")
         for r in results:
-            print(f"| {r.name} | {r.mean_time_ms:.1f} | {r.min_time_ms:.1f} | {r.max_time_ms:.1f} | {r.std_dev_ms:.1f} |")
+            print(
+                f"| {r.name} | {r.mean_time_ms:.1f} | {r.min_time_ms:.1f} | {r.max_time_ms:.1f} | {r.std_dev_ms:.1f} |"
+            )
 
 
 if __name__ == "__main__":

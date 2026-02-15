@@ -15,7 +15,7 @@ import json
 import os
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -76,39 +76,42 @@ class VerificationIssue:
         result = {
             "ruleId": self.rule_id or f"codeverify/{self.category.value}/{self.id}",
             "level": self._severity_to_sarif_level(),
-            "message": {
-                "text": f"{self.title}\n\n{self.description}"
-            },
-            "locations": [{
-                "physicalLocation": {
-                    "artifactLocation": {
-                        "uri": self.file_path,
-                        "uriBaseId": "%SRCROOT%"
-                    },
-                    "region": {
-                        "startLine": self.line_start,
-                        "endLine": self.line_end,
-                        "startColumn": self.column_start,
-                        "endColumn": self.column_end
+            "message": {"text": f"{self.title}\n\n{self.description}"},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": self.file_path, "uriBaseId": "%SRCROOT%"},
+                        "region": {
+                            "startLine": self.line_start,
+                            "endLine": self.line_end,
+                            "startColumn": self.column_start,
+                            "endColumn": self.column_end,
+                        },
                     }
                 }
-            }]
+            ],
         }
 
         if self.fix_suggestion:
-            result["fixes"] = [{
-                "description": {"text": "Suggested fix"},
-                "artifactChanges": [{
-                    "artifactLocation": {"uri": self.file_path},
-                    "replacements": [{
-                        "deletedRegion": {
-                            "startLine": self.line_start,
-                            "endLine": self.line_end
-                        },
-                        "insertedContent": {"text": self.fix_suggestion}
-                    }]
-                }]
-            }]
+            result["fixes"] = [
+                {
+                    "description": {"text": "Suggested fix"},
+                    "artifactChanges": [
+                        {
+                            "artifactLocation": {"uri": self.file_path},
+                            "replacements": [
+                                {
+                                    "deletedRegion": {
+                                        "startLine": self.line_start,
+                                        "endLine": self.line_end,
+                                    },
+                                    "insertedContent": {"text": self.fix_suggestion},
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
 
         return result
 
@@ -119,7 +122,7 @@ class VerificationIssue:
             Severity.HIGH: "error",
             Severity.MEDIUM: "warning",
             Severity.LOW: "note",
-            Severity.INFO: "none"
+            Severity.INFO: "none",
         }
         return mapping[self.severity]
 
@@ -138,7 +141,7 @@ class VerificationIssue:
             "column_end": self.column_end,
             "rule_id": self.rule_id,
             "fix_suggestion": self.fix_suggestion,
-            "proof_available": self.proof_available
+            "proof_available": self.proof_available,
         }
 
 
@@ -194,8 +197,16 @@ class FreeTierVerifier(TierVerifier):
         ".py": [
             (r"eval\s*\(", "EVAL_USAGE", "Use of eval() is dangerous"),
             (r"exec\s*\(", "EXEC_USAGE", "Use of exec() is dangerous"),
-            (r"subprocess\..*shell\s*=\s*True", "SHELL_INJECTION", "Shell=True enables command injection"),
-            (r"pickle\.loads?\s*\(", "PICKLE_DESERIALIZE", "Pickle deserialization can execute arbitrary code"),
+            (
+                r"subprocess\..*shell\s*=\s*True",
+                "SHELL_INJECTION",
+                "Shell=True enables command injection",
+            ),
+            (
+                r"pickle\.loads?\s*\(",
+                "PICKLE_DESERIALIZE",
+                "Pickle deserialization can execute arbitrary code",
+            ),
             (r"__import__\s*\(", "DYNAMIC_IMPORT", "Dynamic imports can load malicious modules"),
             (r"os\.system\s*\(", "OS_SYSTEM", "os.system() is vulnerable to command injection"),
         ],
@@ -203,14 +214,32 @@ class FreeTierVerifier(TierVerifier):
             (r"eval\s*\(", "EVAL_USAGE", "Use of eval() is dangerous"),
             (r"innerHTML\s*=", "XSS_INNERHTML", "innerHTML assignment can cause XSS"),
             (r"document\.write\s*\(", "XSS_DOCUMENT_WRITE", "document.write can cause XSS"),
-            (r"new\s+Function\s*\(", "FUNCTION_CONSTRUCTOR", "Function constructor can execute arbitrary code"),
+            (
+                r"new\s+Function\s*\(",
+                "FUNCTION_CONSTRUCTOR",
+                "Function constructor can execute arbitrary code",
+            ),
         ],
         ".ts": [
             (r"eval\s*\(", "EVAL_USAGE", "Use of eval() is dangerous"),
             (r"innerHTML\s*=", "XSS_INNERHTML", "innerHTML assignment can cause XSS"),
             (r"as\s+any", "ANY_CAST", "Casting to 'any' bypasses type safety"),
             (r"@ts-ignore", "TS_IGNORE", "ts-ignore suppresses type checking"),
-        ]
+        ],
+        ".rs": [
+            (r"unsafe\s*\{", "UNSAFE_BLOCK", "Unsafe block requires careful review"),
+            (r"\.unwrap\s*\(", "UNWRAP_USAGE", "unwrap() may panic; prefer ? operator"),
+            (r"panic!\s*\(", "PANIC_USAGE", "panic!() in library code should be avoided"),
+            (r"std::mem::transmute", "TRANSMUTE_USAGE", "transmute is extremely unsafe"),
+        ],
+        ".go": [
+            (r"\bpanic\s*\(", "PANIC_USAGE", "panic() in library code should be avoided"),
+            (r"\b\w+,\s*_\s*:?=\s*\w+\(", "ERROR_IGNORED", "Error return value is ignored"),
+        ],
+        ".java": [
+            (r"\bcatch\s*\([^)]+\)\s*\{\s*\}", "EMPTY_CATCH", "Empty catch block swallows exceptions"),
+            (r'==\s*"[^"]*"|"[^"]*"\s*==', "STRING_EQUALS", "Use .equals() for String comparison"),
+        ],
     }
 
     def __init__(self):
@@ -236,17 +265,21 @@ class FreeTierVerifier(TierVerifier):
         for line_num, line in enumerate(lines, start=1):
             for pattern, rule_id, description in patterns:
                 if re.search(pattern, line):
-                    issues.append(VerificationIssue(
-                        id=f"pattern-{rule_id.lower()}-{line_num}",
-                        title=f"Dangerous pattern: {rule_id}",
-                        description=description,
-                        severity=Severity.HIGH if "injection" in description.lower() or "xss" in description.lower() else Severity.MEDIUM,
-                        category=IssueCategory.SECURITY,
-                        file_path=str(file_path),
-                        line_start=line_num,
-                        line_end=line_num,
-                        rule_id=f"codeverify/pattern/{rule_id}"
-                    ))
+                    issues.append(
+                        VerificationIssue(
+                            id=f"pattern-{rule_id.lower()}-{line_num}",
+                            title=f"Dangerous pattern: {rule_id}",
+                            description=description,
+                            severity=Severity.HIGH
+                            if "injection" in description.lower() or "xss" in description.lower()
+                            else Severity.MEDIUM,
+                            category=IssueCategory.SECURITY,
+                            file_path=str(file_path),
+                            line_start=line_num,
+                            line_end=line_num,
+                            rule_id=f"codeverify/pattern/{rule_id}",
+                        )
+                    )
 
         return issues
 
@@ -290,7 +323,7 @@ class ProTierVerifier(TierVerifier):
                     file_path=str(file_path),
                     line_start=issue.get("line_start", 1),
                     line_end=issue.get("line_end", 1),
-                    fix_suggestion=issue.get("fix_suggestion")
+                    fix_suggestion=issue.get("fix_suggestion"),
                 )
                 for issue in result.get("issues", [])
             ]
@@ -341,7 +374,7 @@ class EnterpriseTierVerifier(TierVerifier):
                     file_path=str(file_path),
                     line_start=violation.get("line_start", 1),
                     line_end=violation.get("line_end", 1),
-                    proof_available=True
+                    proof_available=True,
                 )
                 issues.append(issue)
 
@@ -365,16 +398,18 @@ class EnterpriseTierVerifier(TierVerifier):
 
             issues = []
             for threat in result.threats:
-                issues.append(VerificationIssue(
-                    id=f"supply-chain-{threat.id}",
-                    title=f"Supply Chain: {threat.threat_type}",
-                    description=threat.description,
-                    severity=Severity(threat.severity),
-                    category=IssueCategory.SUPPLY_CHAIN,
-                    file_path=threat.file_path or "requirements.txt",
-                    line_start=threat.line_number or 1,
-                    line_end=threat.line_number or 1
-                ))
+                issues.append(
+                    VerificationIssue(
+                        id=f"supply-chain-{threat.id}",
+                        title=f"Supply Chain: {threat.threat_type}",
+                        description=threat.description,
+                        severity=Severity(threat.severity),
+                        category=IssueCategory.SUPPLY_CHAIN,
+                        file_path=threat.file_path or "requirements.txt",
+                        line_start=threat.line_number or 1,
+                        line_end=threat.line_number or 1,
+                    )
+                )
 
             return issues
 
@@ -399,7 +434,7 @@ class GitHubActionRunner:
         enable_supply_chain: bool,
         enable_sarif: bool,
         changed_files: str | None,
-        output_dir: str
+        output_dir: str,
     ):
         self.tier = VerificationTier(tier)
         self.paths = [p.strip() for p in paths.split(",") if p.strip()]
@@ -422,7 +457,6 @@ class GitHubActionRunner:
 
     def run(self) -> VerificationResult:
         """Run the verification."""
-        import fnmatch
         import time
 
         start_time = time.time()
@@ -432,11 +466,7 @@ class GitHubActionRunner:
         # Find files to verify
         files_to_verify = self._find_files()
 
-        log.info(
-            "Starting verification",
-            tier=self.tier.value,
-            files=len(files_to_verify)
-        )
+        log.info("Starting verification", tier=self.tier.value, files=len(files_to_verify))
 
         # Verify each file
         for file_path in files_to_verify:
@@ -466,7 +496,7 @@ class GitHubActionRunner:
             files_analyzed=files_analyzed,
             duration_seconds=duration,
             proofs_generated=getattr(self.verifier, "proofs_generated", 0),
-            supply_chain_issues=supply_chain_issues
+            supply_chain_issues=supply_chain_issues,
         )
 
         # Generate outputs
@@ -515,6 +545,26 @@ class GitHubActionRunner:
         if not issues:
             return "passed"
 
+        # Try using the quality gate evaluator for richer gate logic
+        try:
+            from codeverify_core.cicd_actions import QualityGateEvaluator, QualityGateConfig
+            severity_map = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+            for issue in issues:
+                sev = issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity)
+                if sev in severity_map:
+                    severity_map[sev] += 1
+            gate_config = QualityGateConfig(
+                max_critical=0,
+                max_high=0 if self.fail_on in (None, Severity.HIGH) else 999,
+                max_medium=999,
+                max_low=999,
+            )
+            evaluator = QualityGateEvaluator(gate_config)
+            gate_result = evaluator.evaluate(severity_map)
+            return "failed" if not gate_result.passed else "warning"
+        except ImportError:
+            pass
+
         if self.fail_on is None:
             return "warning"
 
@@ -522,7 +572,7 @@ class GitHubActionRunner:
         threshold_index = severity_order.index(self.fail_on)
 
         for issue in issues:
-            if issue.severity in severity_order[:threshold_index + 1]:
+            if issue.severity in severity_order[: threshold_index + 1]:
                 return "failed"
 
         return "warning"
@@ -543,9 +593,9 @@ class GitHubActionRunner:
                 "critical": result.critical_count,
                 "high": result.high_count,
                 "medium": result.medium_count,
-                "low": result.low_count
+                "low": result.low_count,
             },
-            "issues": [i.to_dict() for i in result.issues]
+            "issues": [i.to_dict() for i in result.issues],
         }
 
         report_path = self.output_dir / "report.json"
@@ -579,13 +629,11 @@ class GitHubActionRunner:
                     "name": issue.title,
                     "shortDescription": {"text": issue.title},
                     "fullDescription": {"text": issue.description},
-                    "defaultConfiguration": {
-                        "level": issue._severity_to_sarif_level()
-                    },
+                    "defaultConfiguration": {"level": issue._severity_to_sarif_level()},
                     "properties": {
                         "category": issue.category.value,
-                        "security-severity": self._severity_to_score(issue.severity)
-                    }
+                        "security-severity": self._severity_to_score(issue.severity),
+                    },
                 }
 
             results.append(issue.to_sarif_result())
@@ -593,21 +641,22 @@ class GitHubActionRunner:
         return {
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
             "version": "2.1.0",
-            "runs": [{
-                "tool": {
-                    "driver": {
-                        "name": "CodeVerify",
-                        "version": "1.0.0",
-                        "informationUri": "https://codeverify.dev",
-                        "rules": list(rules.values())
-                    }
-                },
-                "results": results,
-                "invocations": [{
-                    "executionSuccessful": True,
-                    "endTimeUtc": datetime.now(timezone.utc).isoformat()
-                }]
-            }]
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "CodeVerify",
+                            "version": "1.0.0",
+                            "informationUri": "https://codeverify.dev",
+                            "rules": list(rules.values()),
+                        }
+                    },
+                    "results": results,
+                    "invocations": [
+                        {"executionSuccessful": True, "endTimeUtc": datetime.now(UTC).isoformat()}
+                    ],
+                }
+            ],
         }
 
     def _severity_to_score(self, severity: Severity) -> str:
@@ -617,17 +666,13 @@ class GitHubActionRunner:
             Severity.HIGH: "7.0",
             Severity.MEDIUM: "4.0",
             Severity.LOW: "2.0",
-            Severity.INFO: "0.0"
+            Severity.INFO: "0.0",
         }
         return mapping[severity]
 
     def _generate_pr_comment(self, result: VerificationResult) -> str:
         """Generate PR comment markdown."""
-        status_emoji = {
-            "passed": ":white_check_mark:",
-            "failed": ":x:",
-            "warning": ":warning:"
-        }
+        status_emoji = {"passed": ":white_check_mark:", "failed": ":x:", "warning": ":warning:"}
 
         lines = [
             f"## CodeVerify Results {status_emoji.get(result.status, '')}",
@@ -636,7 +681,7 @@ class GitHubActionRunner:
             f"**Tier:** {result.tier.value.title()}",
             f"**Files Analyzed:** {result.files_analyzed}",
             f"**Duration:** {result.duration_seconds:.2f}s",
-            ""
+            "",
         ]
 
         if result.proofs_generated > 0:
@@ -644,31 +689,30 @@ class GitHubActionRunner:
             lines.append("")
 
         # Summary table
-        lines.extend([
-            "### Summary",
-            "",
-            "| Severity | Count |",
-            "|----------|-------|",
-            f"| :red_circle: Critical | {result.critical_count} |",
-            f"| :orange_circle: High | {result.high_count} |",
-            f"| :yellow_circle: Medium | {result.medium_count} |",
-            f"| :white_circle: Low | {result.low_count} |",
-            ""
-        ])
+        lines.extend(
+            [
+                "### Summary",
+                "",
+                "| Severity | Count |",
+                "|----------|-------|",
+                f"| :red_circle: Critical | {result.critical_count} |",
+                f"| :orange_circle: High | {result.high_count} |",
+                f"| :yellow_circle: Medium | {result.medium_count} |",
+                f"| :white_circle: Low | {result.low_count} |",
+                "",
+            ]
+        )
 
         # Issues by file
         if result.issues:
-            lines.extend([
-                "### Issues Found",
-                ""
-            ])
+            lines.extend(["### Issues Found", ""])
 
             issues_by_file: dict[str, list[VerificationIssue]] = {}
             for issue in result.issues:
                 issues_by_file.setdefault(issue.file_path, []).append(issue)
 
             for file_path, file_issues in sorted(issues_by_file.items()):
-                lines.append(f"<details>")
+                lines.append("<details>")
                 lines.append(f"<summary><b>{file_path}</b> ({len(file_issues)} issues)</summary>")
                 lines.append("")
 
@@ -678,23 +722,25 @@ class GitHubActionRunner:
                         Severity.HIGH: ":orange_circle:",
                         Severity.MEDIUM: ":yellow_circle:",
                         Severity.LOW: ":white_circle:",
-                        Severity.INFO: ":blue_circle:"
+                        Severity.INFO: ":blue_circle:",
                     }.get(issue.severity, "")
 
                     lines.append(f"- {severity_badge} **{issue.title}** (L{issue.line_start})")
                     lines.append(f"  - {issue.description}")
                     if issue.proof_available:
-                        lines.append(f"  - :shield: Formally verified with Z3")
+                        lines.append("  - :shield: Formally verified with Z3")
                     lines.append("")
 
                 lines.append("</details>")
                 lines.append("")
 
         # Footer
-        lines.extend([
-            "---",
-            f"*Powered by [CodeVerify](https://codeverify.dev) - {result.tier.value.title()} Tier*"
-        ])
+        lines.extend(
+            [
+                "---",
+                f"*Powered by [CodeVerify](https://codeverify.dev) - {result.tier.value.title()} Tier*",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -709,7 +755,7 @@ class GitHubActionRunner:
             "issues_found": str(len(result.issues)),
             "critical_count": str(result.critical_count),
             "high_count": str(result.high_count),
-            "sarif_file": str(self.output_dir / "results.sarif")
+            "sarif_file": str(self.output_dir / "results.sarif"),
         }
 
         with open(github_output, "a") as f:
@@ -747,7 +793,7 @@ def main() -> None:
         enable_supply_chain=args.supply_chain.lower() == "true",
         enable_sarif=args.sarif.lower() == "true",
         changed_files=args.changed_files if args.changed_files else None,
-        output_dir=args.output_dir
+        output_dir=args.output_dir,
     )
 
     result = runner.run()
@@ -756,7 +802,7 @@ def main() -> None:
         "Verification complete",
         status=result.status,
         issues=len(result.issues),
-        files=result.files_analyzed
+        files=result.files_analyzed,
     )
 
     # Exit with appropriate code

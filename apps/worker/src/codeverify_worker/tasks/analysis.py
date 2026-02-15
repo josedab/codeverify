@@ -199,7 +199,7 @@ class AnalysisPipeline:
         """Parse changed files into AST representations."""
         logger.info("Parsing code")
 
-        from codeverify_verifier.parsers import PythonParser, TypeScriptParser, GoParser, JavaParser
+        from codeverify_verifier.parsers import GoParser, JavaParser, PythonParser, TypeScriptParser
 
         # Initialize all available parsers
         parsers = [
@@ -209,21 +209,44 @@ class AnalysisPipeline:
             JavaParser(),
         ]
 
+        # Initialize language adapter registry for languages without tree-sitter parsers
+        adapter_registry = None
+        try:
+            from codeverify_core.language_adapter import get_adapter_registry
+            adapter_registry = get_adapter_registry()
+        except ImportError:
+            pass
+
         functions_found = 0
         classes_found = 0
         languages_parsed: dict[str, int] = {}
 
         for path, content in self.file_contents.items():
+            parsed_by_treesitter = False
             for parser in parsers:
                 if parser.can_parse(path):
                     parsed = parser.parse(content, path)
                     functions_found += len(parsed.functions)
                     classes_found += len(parsed.classes)
-                    
+
                     # Track languages
                     lang = parser.language
                     languages_parsed[lang] = languages_parsed.get(lang, 0) + 1
+                    parsed_by_treesitter = True
                     break
+
+            # Fallback: use language adapter for unsupported tree-sitter languages (e.g. Rust)
+            if not parsed_by_treesitter and adapter_registry is not None:
+                try:
+                    from codeverify_core.language_support import detect_language
+                    detected = detect_language(path)
+                    if detected is not None:
+                        result = adapter_registry.analyze_file(content, detected)
+                        if result is not None:
+                            functions_found += len(result.functions)
+                            languages_parsed[detected.value] = languages_parsed.get(detected.value, 0) + 1
+                except Exception:
+                    pass
 
         return {
             "files_parsed": len(self.file_contents),
@@ -247,12 +270,28 @@ class AnalysisPipeline:
                 if len(content) > 50000:  # Skip very large files
                     continue
 
+                language = self._detect_language(path)
+
+                # Use language adapter for prompt enrichment if available
+                adapter_context = ""
+                try:
+                    from codeverify_core.language_adapter import get_adapter_registry
+                    from codeverify_core.language_support import detect_language as detect_lang
+                    detected = detect_lang(path)
+                    if detected is not None:
+                        adapter = get_adapter_registry().get(detected)
+                        if adapter is not None:
+                            adapter_context = adapter.agent_prompt_template(content, path)
+                except ImportError:
+                    pass
+
                 result = await agent.analyze(
                     code=content,
                     context={
                         "file_path": path,
-                        "language": self._detect_language(path),
+                        "language": language,
                         "diff": self.pr_diff,
+                        "adapter_context": adapter_context,
                     },
                 )
 
@@ -437,7 +476,7 @@ class AnalysisPipeline:
             return {"vulnerabilities_found": 0, "skipped": True}
 
     async def _synthesize_results(self) -> dict[str, Any]:
-        """Synthesize all results and generate fix suggestions."""
+        """Synthesize all results, generate verified fixes, and produce SARIF output."""
         logger.info("Synthesizing results")
 
         # Deduplicate findings
@@ -456,7 +495,29 @@ class AnalysisPipeline:
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
         self.findings.sort(key=lambda f: severity_order.get(f.severity, 5))
 
-        return {"total_findings": len(self.findings)}
+        # Attempt auto-fix for high/critical findings
+        auto_fixed = 0
+        try:
+            from codeverify_core.autofix_loop import AutoFixPipeline, Finding as AFLFinding
+
+            pipeline = AutoFixPipeline(max_iterations=3)
+            for finding in self.findings:
+                if finding.severity in ("critical", "high") and finding.file_path in self.file_contents:
+                    afl_finding = AFLFinding(
+                        rule_id=finding.category,
+                        message=finding.description,
+                        severity=finding.severity,
+                        file_path=finding.file_path,
+                        line=finding.line_start or 1,
+                    )
+                    fix_result = pipeline.fix_finding(afl_finding, self.file_contents[finding.file_path])
+                    if fix_result.is_verified and not finding.fix_suggestion:
+                        finding.fix_suggestion = f"[Verified Fix] {fix_result.explanation}"
+                        auto_fixed += 1
+        except ImportError:
+            pass
+
+        return {"total_findings": len(self.findings), "auto_fixed": auto_fixed}
 
     def _calculate_summary(self) -> dict[str, Any]:
         """Calculate analysis summary."""
@@ -480,6 +541,14 @@ class AnalysisPipeline:
 
     def _detect_language(self, path: str) -> str:
         """Detect programming language from file path."""
+        try:
+            from codeverify_core.language_support import detect_language
+            lang = detect_language(path)
+            if lang is not None:
+                return lang.value
+        except ImportError:
+            pass
+
         if path.endswith(".py"):
             return "python"
         elif path.endswith((".ts", ".tsx")):
@@ -490,6 +559,8 @@ class AnalysisPipeline:
             return "go"
         elif path.endswith(".java"):
             return "java"
+        elif path.endswith(".rs"):
+            return "rust"
         else:
             return "unknown"
 
@@ -549,52 +620,58 @@ def format_github_comment(result: AnalysisResult) -> str:
             file_path = finding.get("file_path", "")
             line = finding.get("line_start", "")
 
-            lines.extend([
-                f"<details>",
-                f"<summary>{emoji} <b>{title}</b> ({file_path}:{line})</summary>",
-                "",
-                finding.get("description", ""),
-                "",
-            ])
+            lines.extend(
+                [
+                    "<details>",
+                    f"<summary>{emoji} <b>{title}</b> ({file_path}:{line})</summary>",
+                    "",
+                    finding.get("description", ""),
+                    "",
+                ]
+            )
 
             if fix := finding.get("fix_suggestion"):
-                lines.extend([
-                    "**Suggested fix:**",
-                    f"```",
-                    fix,
-                    "```",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "**Suggested fix:**",
+                        "```",
+                        fix,
+                        "```",
+                        "",
+                    ]
+                )
 
             lines.extend(["</details>", ""])
 
         if len(findings) > 10:
             lines.append(f"*...and {len(findings) - 10} more findings*")
 
-    lines.extend([
-        "",
-        "---",
-        "*Powered by [CodeVerify](https://codeverify.dev)*",
-    ])
+    lines.extend(
+        [
+            "",
+            "---",
+            "*Powered by [CodeVerify](https://codeverify.dev)*",
+        ]
+    )
 
     return "\n".join(lines)
 
 
 def format_check_annotations(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Format findings as GitHub Check Run annotations for inline display.
-    
+
     These appear directly in the PR diff view as inline warnings/errors.
     """
     annotations = []
-    
+
     level_map = {
         "critical": "failure",
-        "high": "failure", 
+        "high": "failure",
         "medium": "warning",
         "low": "notice",
         "info": "notice",
     }
-    
+
     for finding in findings[:50]:  # GitHub limit is 50 annotations per update
         annotation = {
             "path": finding.get("file_path", ""),
@@ -604,20 +681,20 @@ def format_check_annotations(findings: list[dict[str, Any]]) -> list[dict[str, A
             "title": finding.get("title", "Issue found"),
             "message": finding.get("description", ""),
         }
-        
+
         # Add raw details for GitHub's UI
         verification_type = finding.get("verification_type", "ai")
         confidence = finding.get("confidence", 0)
-        
+
         raw_details = f"Confidence: {int(confidence * 100)}%\n"
         raw_details += f"Verification: {verification_type}\n"
-        
+
         if fix := finding.get("fix_suggestion"):
             raw_details += f"\nSuggested fix:\n{fix}"
-        
+
         annotation["raw_details"] = raw_details
         annotations.append(annotation)
-    
+
     return annotations
 
 
@@ -629,24 +706,24 @@ async def post_results_to_github(
     installation_id: int,
 ) -> dict[str, Any]:
     """Post analysis results to GitHub with full integration.
-    
+
     Creates:
     1. Check run with inline annotations
     2. PR comment with summary
     3. Review with suggested changes (one-click fixes)
     """
     owner, repo = repo_full_name.split("/")
-    
+
     # Create GitHub client using shared VCS module
     github = _create_github_client(installation_id)
-    
+
     results_posted = {
         "check_run_id": None,
         "comment_id": None,
         "review_id": None,
         "annotations_count": 0,
     }
-    
+
     try:
         # 1. Create check run with in_progress status
         check_run_data = CheckRun(
@@ -659,11 +736,11 @@ async def post_results_to_github(
             check_run=check_run_data,
         )
         results_posted["check_run_id"] = created_check_run.id
-        
+
         # Format annotations for inline display
         raw_annotations = format_check_annotations(result.findings)
         results_posted["annotations_count"] = len(raw_annotations)
-        
+
         # Convert to CheckRunAnnotation objects
         annotations = [
             CheckRunAnnotation(
@@ -676,24 +753,24 @@ async def post_results_to_github(
             )
             for a in raw_annotations[:50]  # GitHub limits to 50 annotations
         ]
-        
+
         # Determine conclusion
         passed = result.summary.get("pass", True)
         conclusion = CheckConclusion.SUCCESS if passed else CheckConclusion.FAILURE
-        
+
         # Update check run with results
         summary_md = f"""## Analysis Complete
 
 | Metric | Value |
 |--------|-------|
-| Total Issues | {result.summary.get('total_issues', 0)} |
-| Critical | {result.summary.get('critical', 0)} |
-| High | {result.summary.get('high', 0)} |
-| Medium | {result.summary.get('medium', 0)} |
-| Low | {result.summary.get('low', 0)} |
-| Status | {'✅ Passed' if passed else '❌ Failed'} |
+| Total Issues | {result.summary.get("total_issues", 0)} |
+| Critical | {result.summary.get("critical", 0)} |
+| High | {result.summary.get("high", 0)} |
+| Medium | {result.summary.get("medium", 0)} |
+| Low | {result.summary.get("low", 0)} |
+| Status | {"✅ Passed" if passed else "❌ Failed"} |
 """
-        
+
         update_check_run = CheckRun(
             name="CodeVerify",
             status=CheckStatus.COMPLETED,
@@ -703,13 +780,13 @@ async def post_results_to_github(
             annotations=annotations,
             completed_at=datetime.utcnow(),
         )
-        
+
         await github.update_check_run(
             repo_full_name=repo_full_name,
             check_run_id=created_check_run.id,
             check_run=update_check_run,
         )
-        
+
         # 2. Post PR comment with detailed findings
         comment_body = format_github_comment(result)
         comment = await github.create_pull_request_comment(
@@ -718,39 +795,41 @@ async def post_results_to_github(
             body=comment_body,
         )
         results_posted["comment_id"] = comment.id
-        
+
         # 3. Create review with suggested changes (one-click fixes)
         findings_with_fixes = [f for f in result.findings if f.get("fix_suggestion")]
-        
+
         if findings_with_fixes:
             # Build review comments with suggestions
             review_comments = []
             for finding in findings_with_fixes[:10]:  # Limit suggestions
-                review_comments.append({
-                    "path": finding.get("file_path", ""),
-                    "line": finding.get("line_end") or finding.get("line_start", 1),
-                    "body": _format_suggestion_comment(finding),
-                })
-            
+                review_comments.append(
+                    {
+                        "path": finding.get("file_path", ""),
+                        "line": finding.get("line_end") or finding.get("line_start", 1),
+                        "body": _format_suggestion_comment(finding),
+                    }
+                )
+
             review_body = f"## 🔧 CodeVerify Suggested Fixes\n\nFound {len(findings_with_fixes)} issues with suggested fixes. Click 'Apply suggestion' to fix with one click."
-            
+
             # Note: In production, would use create_pr_review from GitHub client
             # For now, this shows the structure
             logger.info(
                 "Would create review with suggestions",
                 suggestions_count=len(review_comments),
             )
-        
+
         logger.info(
             "Posted results to GitHub",
             check_run_id=results_posted["check_run_id"],
             annotations=results_posted["annotations_count"],
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to post results to GitHub: {e}")
         raise
-    
+
     return results_posted
 
 
@@ -758,7 +837,7 @@ def _format_suggestion_comment(finding: dict[str, Any]) -> str:
     """Format a finding as a GitHub suggestion comment."""
     severity_emoji = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}
     emoji = severity_emoji.get(finding.get("severity", "low"), "⚪")
-    
+
     parts = [
         f"{emoji} **{finding.get('title', 'Issue')}**",
         "",
@@ -772,7 +851,7 @@ def _format_suggestion_comment(finding: dict[str, Any]) -> str:
         finding.get("fix_suggestion", ""),
         "```",
     ]
-    
+
     return "\n".join(parts)
 
 
@@ -885,15 +964,15 @@ async def store_analysis_results(
     base_sha: str | None,
 ) -> dict[str, Any]:
     """Store analysis results in the database via API call.
-    
+
     This calls the internal API to persist results, allowing the worker
     to remain stateless and not require direct database access.
     """
     import os
-    
+
     api_url = os.environ.get("API_URL", "http://localhost:8000")
     internal_api_key = os.environ.get("INTERNAL_API_KEY", "")
-    
+
     # Prepare analysis data
     analysis_data = {
         "repo_id": repo_id,
@@ -910,7 +989,7 @@ async def store_analysis_results(
         "stages": result.stages,
         "summary": result.summary,
     }
-    
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f"{api_url}/internal/analyses",
@@ -920,7 +999,7 @@ async def store_analysis_results(
                 "Content-Type": "application/json",
             },
         )
-        
+
         if response.status_code == 201:
             data = response.json()
             return {

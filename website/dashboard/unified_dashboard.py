@@ -11,18 +11,14 @@ Features:
 - Cross-feature data correlation
 """
 
-import json
-import hashlib
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from enum import Enum
-from pathlib import Path
-from typing import Any, Optional
 import html
+from dataclasses import dataclass, field
+from enum import Enum
 
 
 class DashboardTheme(Enum):
     """Dashboard color themes."""
+
     DARK = "dark"
     LIGHT = "light"
     SYSTEM = "system"
@@ -30,6 +26,7 @@ class DashboardTheme(Enum):
 
 class WidgetType(Enum):
     """Types of dashboard widgets."""
+
     ROI_SUMMARY = "roi_summary"
     COST_BREAKDOWN = "cost_breakdown"
     BUG_TIMELINE = "bug_timeline"
@@ -44,6 +41,7 @@ class WidgetType(Enum):
 @dataclass
 class WidgetConfig:
     """Configuration for a dashboard widget."""
+
     widget_type: WidgetType
     title: str
     position: tuple[int, int]  # (row, col)
@@ -55,6 +53,7 @@ class WidgetConfig:
 @dataclass
 class DashboardConfig:
     """Configuration for the unified dashboard."""
+
     name: str
     theme: DashboardTheme = DashboardTheme.DARK
     widgets: list[WidgetConfig] = field(default_factory=list)
@@ -80,11 +79,7 @@ class DashboardDataProvider:
             "roi_percentage": 380284.3,
             "cost_per_bug": 5.31,
             "trend": "up",
-            "breakdown": {
-                "llm_costs": 89.25,
-                "z3_compute": 28.15,
-                "storage": 10.10
-            }
+            "breakdown": {"llm_costs": 89.25, "z3_compute": 28.15, "storage": 10.10},
         }
 
     def get_cost_breakdown(self, days: int = 30) -> dict:
@@ -93,34 +88,39 @@ class DashboardDataProvider:
             "by_category": [
                 {"name": "AI Analysis", "value": 89.25, "color": "#3b82f6"},
                 {"name": "Z3 Verification", "value": 28.15, "color": "#10b981"},
-                {"name": "Storage", "value": 10.10, "color": "#f59e0b"}
+                {"name": "Storage", "value": 10.10, "color": "#f59e0b"},
             ],
             "by_repository": [
                 {"name": "frontend", "value": 45.20},
                 {"name": "backend", "value": 62.30},
-                {"name": "shared-lib", "value": 20.00}
+                {"name": "shared-lib", "value": 20.00},
             ],
             "daily_trend": [
                 {"date": "2024-01-01", "value": 4.2},
                 {"date": "2024-01-02", "value": 5.1},
                 {"date": "2024-01-03", "value": 3.8},
-            ]
+            ],
         }
 
     def get_bug_timeline(self, days: int = 30) -> dict:
         """Get bug detection timeline."""
         return {
             "bugs": [
-                {"date": "2024-01-15", "severity": "critical", "type": "sql_injection", "repo": "backend"},
+                {
+                    "date": "2024-01-15",
+                    "severity": "critical",
+                    "type": "sql_injection",
+                    "repo": "backend",
+                },
                 {"date": "2024-01-14", "severity": "high", "type": "xss", "repo": "frontend"},
-                {"date": "2024-01-12", "severity": "medium", "type": "null_pointer", "repo": "shared-lib"},
+                {
+                    "date": "2024-01-12",
+                    "severity": "medium",
+                    "type": "null_pointer",
+                    "repo": "shared-lib",
+                },
             ],
-            "by_severity": {
-                "critical": 3,
-                "high": 8,
-                "medium": 10,
-                "low": 3
-            }
+            "by_severity": {"critical": 3, "high": 8, "medium": 10, "low": 3},
         }
 
     def get_coverage_data(self, repository: str = None) -> dict:
@@ -135,13 +135,13 @@ class DashboardDataProvider:
                 "null_safety": 85.2,
                 "bounds_checking": 78.4,
                 "overflow_protection": 65.1,
-                "input_validation": 61.3
+                "input_validation": 61.3,
             },
             "hotspots": [
                 {"file": "auth/login.py", "coverage": 95.0, "critical": True},
                 {"file": "api/users.py", "coverage": 88.5, "critical": True},
-                {"file": "utils/helpers.py", "coverage": 45.2, "critical": False}
-            ]
+                {"file": "utils/helpers.py", "coverage": 45.2, "critical": False},
+            ],
         }
 
     def get_coverage_trend(self, days: int = 30) -> dict:
@@ -154,7 +154,7 @@ class DashboardDataProvider:
                 {"date": "2024-01-22", "coverage": 72.5},
             ],
             "change": +7.3,
-            "change_percentage": 11.2
+            "change_percentage": 11.2,
         }
 
     def get_recent_findings(self, limit: int = 10) -> list:
@@ -167,7 +167,7 @@ class DashboardDataProvider:
                 "file": "api/users.py",
                 "line": 42,
                 "status": "fixed",
-                "detected_at": "2024-01-15T10:30:00Z"
+                "detected_at": "2024-01-15T10:30:00Z",
             },
             {
                 "id": "F-002",
@@ -176,8 +176,8 @@ class DashboardDataProvider:
                 "file": "templates/profile.html",
                 "line": 87,
                 "status": "open",
-                "detected_at": "2024-01-14T14:22:00Z"
-            }
+                "detected_at": "2024-01-14T14:22:00Z",
+            },
         ]
 
     def get_verification_stats(self) -> dict:
@@ -192,8 +192,8 @@ class DashboardDataProvider:
                 "null_check": 450,
                 "bounds_check": 380,
                 "overflow_check": 220,
-                "custom_spec": 197
-            }
+                "custom_spec": 197,
+            },
         }
 
 
@@ -427,13 +427,13 @@ class UnifiedDashboardGenerator:
         <div class="widget">
             <div class="widget-header">
                 <span class="widget-title">💰 ROI Summary</span>
-                <span class="metric-change up">↑ {data['roi_percentage']:.0f}%</span>
+                <span class="metric-change up">↑ {data["roi_percentage"]:.0f}%</span>
             </div>
-            <div class="metric-value">${data['estimated_savings']:,.0f}</div>
-            <div class="metric-label">Estimated savings ({data['period_days']} days)</div>
+            <div class="metric-value">${data["estimated_savings"]:,.0f}</div>
+            <div class="metric-label">Estimated savings ({data["period_days"]} days)</div>
             <div class="stats-grid" style="margin-top: 16px;">
-                <div class="stat-item"><div class="stat-value">{data['bugs_caught']}</div><div class="stat-label">Bugs Caught</div></div>
-                <div class="stat-item"><div class="stat-value">${data['total_cost']:.2f}</div><div class="stat-label">Total Cost</div></div>
+                <div class="stat-item"><div class="stat-value">{data["bugs_caught"]}</div><div class="stat-label">Bugs Caught</div></div>
+                <div class="stat-item"><div class="stat-value">${data["total_cost"]:.2f}</div><div class="stat-label">Total Cost</div></div>
             </div>
         </div>"""
 
@@ -442,11 +442,11 @@ class UnifiedDashboardGenerator:
         return f"""
         <div class="widget">
             <div class="widget-header"><span class="widget-title">✅ Verification Stats</span></div>
-            <div class="metric-value">{data['success_rate']}%</div>
+            <div class="metric-value">{data["success_rate"]}%</div>
             <div class="metric-label">Success Rate</div>
             <div class="stats-grid" style="margin-top: 16px;">
-                <div class="stat-item"><div class="stat-value">{data['total_verifications']:,}</div><div class="stat-label">Total</div></div>
-                <div class="stat-item"><div class="stat-value">{data['avg_duration_ms']}ms</div><div class="stat-label">Avg Duration</div></div>
+                <div class="stat-item"><div class="stat-value">{data["total_verifications"]:,}</div><div class="stat-label">Total</div></div>
+                <div class="stat-item"><div class="stat-value">{data["avg_duration_ms"]}ms</div><div class="stat-label">Avg Duration</div></div>
             </div>
         </div>"""
 
@@ -457,25 +457,28 @@ class UnifiedDashboardGenerator:
         <div class="widget">
             <div class="widget-header">
                 <span class="widget-title">📊 Proof Coverage</span>
-                <span class="metric-change up">↑ {trend['change_percentage']:.1f}%</span>
+                <span class="metric-change up">↑ {trend["change_percentage"]:.1f}%</span>
             </div>
-            <div class="metric-value">{data['overall_coverage']}%</div>
+            <div class="metric-value">{data["overall_coverage"]}%</div>
             <div class="metric-label">Overall Coverage</div>
-            <div class="coverage-bar"><div class="coverage-fill" style="width: {data['overall_coverage']}%"></div></div>
+            <div class="coverage-bar"><div class="coverage-fill" style="width: {data["overall_coverage"]}%"></div></div>
             <div class="stats-grid" style="margin-top: 16px;">
-                <div class="stat-item"><div class="stat-value">{data['files_covered']}/{data['files_total']}</div><div class="stat-label">Files</div></div>
-                <div class="stat-item"><div class="stat-value">{data['functions_covered']}/{data['functions_total']}</div><div class="stat-label">Functions</div></div>
+                <div class="stat-item"><div class="stat-value">{data["files_covered"]}/{data["files_total"]}</div><div class="stat-label">Files</div></div>
+                <div class="stat-item"><div class="stat-value">{data["functions_covered"]}/{data["functions_total"]}</div><div class="stat-label">Functions</div></div>
             </div>
         </div>"""
 
     def _generate_recent_findings_widget(self) -> str:
         findings = self.data_provider.get_recent_findings()
-        rows = "".join(f"""<tr><td><span class="severity-badge severity-{f['severity']}">{f['severity'].upper()}</span></td><td>{f['type']}</td><td><code>{f['file']}:{f['line']}</code></td><td><span class="status-badge status-{f['status']}">{f['status']}</span></td></tr>""" for f in findings)
+        rows = "".join(
+            f"""<tr><td><span class="severity-badge severity-{f["severity"]}">{f["severity"].upper()}</span></td><td>{f["type"]}</td><td><code>{f["file"]}:{f["line"]}</code></td><td><span class="status-badge status-{f["status"]}">{f["status"]}</span></td></tr>"""
+            for f in findings
+        )
         return f"""<div class="widget"><div class="widget-header"><span class="widget-title">🐛 Recent Findings</span></div><table class="findings-table"><thead><tr><th>Severity</th><th>Type</th><th>Location</th><th>Status</th></tr></thead><tbody>{rows}</tbody></table></div>"""
 
     def _generate_roi_detailed_widget(self) -> str:
         data = self.data_provider.get_roi_summary()
-        return f"""<div class="widget widget-full"><div class="widget-header"><span class="widget-title">💰 ROI Details</span></div><div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);"><div class="stat-item"><div class="stat-value" style="color: var(--accent-green);">${data['estimated_savings']:,.0f}</div><div class="stat-label">Savings</div></div><div class="stat-item"><div class="stat-value">${data['total_cost']:.2f}</div><div class="stat-label">Cost</div></div><div class="stat-item"><div class="stat-value">{data['bugs_caught']}</div><div class="stat-label">Bugs</div></div><div class="stat-item"><div class="stat-value">${data['cost_per_bug']:.2f}</div><div class="stat-label">Per Bug</div></div></div></div>"""
+        return f"""<div class="widget widget-full"><div class="widget-header"><span class="widget-title">💰 ROI Details</span></div><div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);"><div class="stat-item"><div class="stat-value" style="color: var(--accent-green);">${data["estimated_savings"]:,.0f}</div><div class="stat-label">Savings</div></div><div class="stat-item"><div class="stat-value">${data["total_cost"]:.2f}</div><div class="stat-label">Cost</div></div><div class="stat-item"><div class="stat-value">{data["bugs_caught"]}</div><div class="stat-label">Bugs</div></div><div class="stat-item"><div class="stat-value">${data["cost_per_bug"]:.2f}</div><div class="stat-label">Per Bug</div></div></div></div>"""
 
     def _generate_cost_breakdown_widget(self) -> str:
         return """<div class="widget"><div class="widget-header"><span class="widget-title">📊 Cost Breakdown</span></div><div class="chart-container"><canvas id="costChart"></canvas></div></div>"""
@@ -485,7 +488,10 @@ class UnifiedDashboardGenerator:
 
     def _generate_coverage_heatmap_widget(self) -> str:
         data = self.data_provider.get_coverage_data()
-        hotspots = "".join(f"""<div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-tertiary);border-radius:6px;margin-bottom:8px;"><div><code>{h['file']}</code>{'<span class="severity-badge severity-critical">CRITICAL</span>' if h['critical'] else ''}</div><div style="font-weight:600;">{h['coverage']}%</div></div>""" for h in data['hotspots'])
+        hotspots = "".join(
+            f"""<div style="display:flex;justify-content:space-between;padding:12px;background:var(--bg-tertiary);border-radius:6px;margin-bottom:8px;"><div><code>{h["file"]}</code>{'<span class="severity-badge severity-critical">CRITICAL</span>' if h["critical"] else ""}</div><div style="font-weight:600;">{h["coverage"]}%</div></div>"""
+            for h in data["hotspots"]
+        )
         return f"""<div class="widget"><div class="widget-header"><span class="widget-title">🔥 Coverage Hotspots</span></div>{hotspots}</div>"""
 
     def _generate_coverage_trend_widget(self) -> str:
@@ -493,7 +499,10 @@ class UnifiedDashboardGenerator:
 
     def _generate_coverage_by_category_widget(self) -> str:
         data = self.data_provider.get_coverage_data()
-        categories = "".join(f"""<div style="margin-bottom:16px;"><div style="display:flex;justify-content:space-between;"><span>{cat.replace('_', ' ').title()}</span><span>{value}%</span></div><div class="coverage-bar"><div class="coverage-fill" style="width:{value}%"></div></div></div>""" for cat, value in data['by_category'].items())
+        categories = "".join(
+            f"""<div style="margin-bottom:16px;"><div style="display:flex;justify-content:space-between;"><span>{cat.replace("_", " ").title()}</span><span>{value}%</span></div><div class="coverage-bar"><div class="coverage-fill" style="width:{value}%"></div></div></div>"""
+            for cat, value in data["by_category"].items()
+        )
         return f"""<div class="widget"><div class="widget-header"><span class="widget-title">📋 By Category</span></div>{categories}</div>"""
 
     def _generate_playground_widget(self) -> str:
@@ -501,7 +510,10 @@ class UnifiedDashboardGenerator:
 
     def _generate_findings_table_widget(self) -> str:
         findings = self.data_provider.get_recent_findings()
-        rows = "".join(f"""<tr><td>{f['id']}</td><td><span class="severity-badge severity-{f['severity']}">{f['severity'].upper()}</span></td><td>{f['type']}</td><td><code>{f['file']}:{f['line']}</code></td><td><span class="status-badge status-{f['status']}">{f['status']}</span></td><td>{f['detected_at']}</td><td><button class="btn" style="padding:4px 8px;font-size:12px;">View</button></td></tr>""" for f in findings)
+        rows = "".join(
+            f"""<tr><td>{f["id"]}</td><td><span class="severity-badge severity-{f["severity"]}">{f["severity"].upper()}</span></td><td>{f["type"]}</td><td><code>{f["file"]}:{f["line"]}</code></td><td><span class="status-badge status-{f["status"]}">{f["status"]}</span></td><td>{f["detected_at"]}</td><td><button class="btn" style="padding:4px 8px;font-size:12px;">View</button></td></tr>"""
+            for f in findings
+        )
         return f"""<div class="widget widget-full"><div class="widget-header"><span class="widget-title">🐛 All Findings</span></div><table class="findings-table"><thead><tr><th>ID</th><th>Severity</th><th>Type</th><th>Location</th><th>Status</th><th>Detected</th><th>Actions</th></tr></thead><tbody>{rows}</tbody></table></div>"""
 
     def _generate_javascript(self) -> str:
@@ -530,7 +542,12 @@ class UnifiedDashboardGenerator:
 
 
 def create_default_dashboard() -> DashboardConfig:
-    return DashboardConfig(name="CodeVerify Overview", theme=DashboardTheme.DARK, auto_refresh=True, refresh_interval=30)
+    return DashboardConfig(
+        name="CodeVerify Overview",
+        theme=DashboardTheme.DARK,
+        auto_refresh=True,
+        refresh_interval=30,
+    )
 
 
 def generate_dashboard_html(config: DashboardConfig = None) -> str:

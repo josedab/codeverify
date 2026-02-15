@@ -7,7 +7,7 @@ Defines verification capabilities and limits for each tier.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -96,7 +96,7 @@ class TierConfiguration:
                 "max_lines_per_file": self.limits.max_lines_per_file,
                 "monthly_runs": self.limits.monthly_runs,
                 "concurrent_runs": self.limits.concurrent_runs,
-                "retention_days": self.limits.retention_days
+                "retention_days": self.limits.retention_days,
             },
             "capabilities": {
                 "pattern_analysis": self.capabilities.pattern_analysis,
@@ -115,14 +115,14 @@ class TierConfiguration:
                 "auto_fix_suggestions": self.capabilities.auto_fix_suggestions,
                 "formal_proofs": self.capabilities.formal_proofs,
                 "custom_rules": self.capabilities.custom_rules,
-                "priority_support": self.capabilities.priority_support
+                "priority_support": self.capabilities.priority_support,
             },
             "pricing": {
                 "monthly_price_usd": self.pricing.monthly_price_usd,
                 "annual_price_usd": self.pricing.annual_price_usd,
                 "per_seat_pricing": self.pricing.per_seat_pricing,
-                "enterprise_contact": self.pricing.enterprise_contact
-            }
+                "enterprise_contact": self.pricing.enterprise_contact,
+            },
         }
 
 
@@ -137,7 +137,7 @@ FREE_TIER = TierConfiguration(
         max_lines_per_file=5000,
         monthly_runs=100,
         concurrent_runs=1,
-        retention_days=7
+        retention_days=7,
     ),
     capabilities=TierCapabilities(
         pattern_analysis=True,
@@ -147,13 +147,10 @@ FREE_TIER = TierConfiguration(
         sarif_output=True,
         pr_comments=True,
         detailed_reports=False,
-        github_security_tab=True
+        github_security_tab=True,
     ),
-    pricing=TierPricing(
-        monthly_price_usd=0,
-        annual_price_usd=0
-    ),
-    badge_color="green"
+    pricing=TierPricing(monthly_price_usd=0, annual_price_usd=0),
+    badge_color="green",
 )
 
 PRO_TIER = TierConfiguration(
@@ -166,7 +163,7 @@ PRO_TIER = TierConfiguration(
         max_lines_per_file=20000,
         monthly_runs=1000,
         concurrent_runs=5,
-        retention_days=30
+        retention_days=30,
     ),
     capabilities=TierCapabilities(
         pattern_analysis=True,
@@ -178,14 +175,10 @@ PRO_TIER = TierConfiguration(
         detailed_reports=True,
         github_security_tab=True,
         slack_notifications=True,
-        auto_fix_suggestions=True
+        auto_fix_suggestions=True,
     ),
-    pricing=TierPricing(
-        monthly_price_usd=29,
-        annual_price_usd=290,
-        per_seat_pricing=False
-    ),
-    badge_color="blue"
+    pricing=TierPricing(monthly_price_usd=29, annual_price_usd=290, per_seat_pricing=False),
+    badge_color="blue",
 )
 
 ENTERPRISE_TIER = TierConfiguration(
@@ -198,7 +191,7 @@ ENTERPRISE_TIER = TierConfiguration(
         max_lines_per_file=100000,
         monthly_runs=None,  # Unlimited
         concurrent_runs=20,
-        retention_days=365
+        retention_days=365,
     ),
     capabilities=TierCapabilities(
         pattern_analysis=True,
@@ -217,22 +210,19 @@ ENTERPRISE_TIER = TierConfiguration(
         auto_fix_suggestions=True,
         formal_proofs=True,
         custom_rules=True,
-        priority_support=True
+        priority_support=True,
     ),
     pricing=TierPricing(
-        monthly_price_usd=199,
-        annual_price_usd=1990,
-        per_seat_pricing=True,
-        enterprise_contact=True
+        monthly_price_usd=199, annual_price_usd=1990, per_seat_pricing=True, enterprise_contact=True
     ),
-    badge_color="purple"
+    badge_color="purple",
 )
 
 # Tier registry
 TIER_CONFIGS: dict[VerificationTier, TierConfiguration] = {
     VerificationTier.FREE: FREE_TIER,
     VerificationTier.PRO: PRO_TIER,
-    VerificationTier.ENTERPRISE: ENTERPRISE_TIER
+    VerificationTier.ENTERPRISE: ENTERPRISE_TIER,
 }
 
 

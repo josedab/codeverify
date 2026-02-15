@@ -72,6 +72,20 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Next-Gen v0.8.0',
+      items: [
+        'next-gen/language-expansion',
+        'next-gen/cloud-saas',
+        'next-gen/auto-fix-pipeline',
+        'next-gen/cost-optimizer',
+        'next-gen/proof-explorer',
+        'next-gen/cicd-actions',
+        'next-gen/org-dashboard',
+        'next-gen/plugin-marketplace',
+      ],
+    },
+    {
+      type: 'category',
       label: 'API Reference',
       items: [
         'api/overview',

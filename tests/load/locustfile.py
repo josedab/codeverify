@@ -1,65 +1,56 @@
 """Locust load testing configuration for CodeVerify API."""
-from locust import HttpUser, task, between, events
-import json
+
 import random
 import string
+
+from locust import HttpUser, between, events, task
 
 
 class CodeVerifyUser(HttpUser):
     """Simulated CodeVerify user for load testing."""
-    
+
     wait_time = between(1, 5)
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.token = None
         self.org_id = None
         self.repo_ids = []
         self.analysis_ids = []
-    
+
     def on_start(self):
         """Set up user session."""
         # In real tests, would authenticate
         self.token = "test-token-" + "".join(random.choices(string.ascii_lowercase, k=8))
         self.org_id = "test-org-id"
-    
+
     @property
     def headers(self):
         """Get auth headers."""
         return {"Authorization": f"Bearer {self.token}"}
-    
+
     @task(10)
     def health_check(self):
         """Check API health."""
         self.client.get("/health")
-    
+
     @task(5)
     def list_repositories(self):
         """List repositories."""
-        self.client.get(
-            "/api/v1/repositories",
-            headers=self.headers,
-            name="/api/v1/repositories"
-        )
-    
+        self.client.get("/api/v1/repositories", headers=self.headers, name="/api/v1/repositories")
+
     @task(5)
     def list_analyses(self):
         """List analyses."""
-        self.client.get(
-            "/api/v1/analyses",
-            headers=self.headers,
-            name="/api/v1/analyses"
-        )
-    
+        self.client.get("/api/v1/analyses", headers=self.headers, name="/api/v1/analyses")
+
     @task(3)
     def get_dashboard_stats(self):
         """Get dashboard statistics."""
         self.client.get(
-            "/api/v1/stats/dashboard",
-            headers=self.headers,
-            name="/api/v1/stats/dashboard"
+            "/api/v1/stats/dashboard", headers=self.headers, name="/api/v1/stats/dashboard"
         )
-    
+
     @task(2)
     def create_analysis(self):
         """Create a new analysis (simulated)."""
@@ -73,27 +64,23 @@ class CodeVerifyUser(HttpUser):
             json=payload,
             headers=self.headers,
             name="/api/v1/analyses [POST]",
-            catch_response=True
+            catch_response=True,
         ) as response:
             # Accept 401/403 as "expected" for unauthenticated tests
             if response.status_code in [401, 403]:
                 response.success()
-    
+
     @task(1)
     def get_usage(self):
         """Get usage information."""
-        self.client.get(
-            "/api/v1/usage/summary",
-            headers=self.headers,
-            name="/api/v1/usage/summary"
-        )
+        self.client.get("/api/v1/usage/summary", headers=self.headers, name="/api/v1/usage/summary")
 
 
 class WebhookSimulator(HttpUser):
     """Simulated GitHub webhook events."""
-    
+
     wait_time = between(0.5, 2)
-    
+
     @task
     def send_pr_webhook(self):
         """Send a pull request webhook event."""
@@ -111,7 +98,7 @@ class WebhookSimulator(HttpUser):
             },
             "installation": {"id": 1},
         }
-        
+
         with self.client.post(
             "/webhooks/github",
             json=payload,
@@ -120,7 +107,7 @@ class WebhookSimulator(HttpUser):
                 "X-Hub-Signature-256": "sha256=test",
             },
             name="/webhooks/github [PR]",
-            catch_response=True
+            catch_response=True,
         ) as response:
             # Accept 400/401/403 as expected for invalid signatures
             if response.status_code in [400, 401, 403]:
@@ -129,14 +116,14 @@ class WebhookSimulator(HttpUser):
 
 class HighVolumeUser(HttpUser):
     """High volume user for stress testing."""
-    
+
     wait_time = between(0.1, 0.5)
-    
+
     @task(10)
     def rapid_health_check(self):
         """Rapid health checks."""
         self.client.get("/health")
-    
+
     @task(5)
     def rapid_stats(self):
         """Rapid stats requests."""

@@ -3,10 +3,11 @@
 
 Run this script to check if all dependencies and services are properly configured.
 """
+
 import os
 import subprocess
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 
 def check(name: str, fn: Callable[[], bool], required: bool = True) -> bool:
@@ -31,6 +32,7 @@ def check_z3() -> bool:
     """Check if Z3 is installed."""
     try:
         import z3
+
         return True
     except ImportError:
         return False
@@ -45,10 +47,11 @@ def check_postgres() -> bool:
     import asyncio
 
     async def _check():
-        conn = await asyncpg.connect(os.getenv(
-            "DATABASE_URL",
-            "postgresql://codeverify:codeverify@localhost:5432/codeverify"
-        ))
+        conn = await asyncpg.connect(
+            os.getenv(
+                "DATABASE_URL", "postgresql://codeverify:codeverify@localhost:5432/codeverify"
+            )
+        )
         await conn.close()
         return True
 
@@ -72,11 +75,7 @@ def check_env_var(name: str) -> bool:
 
 def check_node() -> bool:
     """Check Node.js version."""
-    result = subprocess.run(
-        ["node", "--version"],
-        capture_output=True,
-        text=True
-    )
+    result = subprocess.run(["node", "--version"], capture_output=True, text=True)
     if result.returncode != 0:
         return False
     version = result.stdout.strip().lstrip("v")
@@ -86,11 +85,7 @@ def check_node() -> bool:
 
 def check_docker() -> bool:
     """Check Docker is running."""
-    result = subprocess.run(
-        ["docker", "info"],
-        capture_output=True,
-        text=True
-    )
+    result = subprocess.run(["docker", "info"], capture_output=True, text=True)
     return result.returncode == 0
 
 
@@ -100,36 +95,36 @@ def main():
     print("CodeVerify Environment Validation")
     print("=" * 50)
     print()
-    
+
     print("📦 Core Dependencies")
     print("-" * 30)
-    
+
     checks = [
         ("Python 3.11+", check_python_version, True),
         ("Z3 SMT Solver", check_z3, True),
         ("Node.js 18+", check_node, True),
         ("Docker", check_docker, False),
     ]
-    
+
     for name, fn, required in checks:
         check(name, fn, required)
-    
+
     print()
     print("🔌 Services")
     print("-" * 30)
-    
+
     service_checks = [
         ("PostgreSQL", check_postgres, True),
         ("Redis", check_redis, True),
     ]
-    
+
     for name, fn, required in service_checks:
         check(name, fn, required)
-    
+
     print()
     print("🔑 Environment Variables")
     print("-" * 30)
-    
+
     env_vars = [
         ("DATABASE_URL", False),
         ("REDIS_URL", False),
@@ -140,24 +135,31 @@ def main():
         ("OPENAI_API_KEY", False),
         ("ANTHROPIC_API_KEY", False),
     ]
-    
+
     for name, required in env_vars:
         check(f"${name}", lambda n=name: check_env_var(n), required)
-    
+
     print()
     print("=" * 50)
     print()
-    
+
     # Summary
     all_set = all(check_env_var(name) for name, _ in env_vars)
-    github_set = all(check_env_var(v) for v in ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_WEBHOOK_SECRET"])
+    github_set = all(
+        check_env_var(v)
+        for v in ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_WEBHOOK_SECRET"]
+    )
     llm_set = check_env_var("OPENAI_API_KEY") or check_env_var("ANTHROPIC_API_KEY")
 
     print("📊 Summary")
     print("-" * 30)
     print(f"  {'✅' if True else '❌'} Core verification:     Ready (no API keys needed)")
-    print(f"  {'✅' if llm_set else '⚠️'} AI analysis:           {'Ready' if llm_set else 'Set OPENAI_API_KEY or ANTHROPIC_API_KEY'}")
-    print(f"  {'✅' if github_set else '⚠️'} GitHub PR integration: {'Ready' if github_set else 'Set GITHUB_APP_* vars (optional)'}")
+    print(
+        f"  {'✅' if llm_set else '⚠️'} AI analysis:           {'Ready' if llm_set else 'Set OPENAI_API_KEY or ANTHROPIC_API_KEY'}"
+    )
+    print(
+        f"  {'✅' if github_set else '⚠️'} GitHub PR integration: {'Ready' if github_set else 'Set GITHUB_APP_* vars (optional)'}"
+    )
     print()
 
     if not llm_set:

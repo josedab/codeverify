@@ -48,7 +48,7 @@ import structlog
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from z3 import Solver, sat, unknown, unsat
+from z3 import Solver, sat, unsat
 
 logger = structlog.get_logger()
 
@@ -79,11 +79,14 @@ app.add_middleware(
 
 # Request/Response Models
 
+
 class CheckSatRequest(BaseModel):
     """Request to check satisfiability of a formula."""
 
     formula: str = Field(..., description="SMT-LIB formatted formula")
-    timeout_ms: int = Field(default=60000, ge=1000, le=300000, description="Timeout in milliseconds")
+    timeout_ms: int = Field(
+        default=60000, ge=1000, le=300000, description="Timeout in milliseconds"
+    )
 
 
 class CheckSatResponse(BaseModel):
@@ -215,10 +218,13 @@ MARKETPLACE_RULES: dict[str, MarketplaceRule] = {
             {
                 "name": "Int32 addition",
                 "params": {
-                    "min_a": 0, "max_a": 2147483647,
-                    "min_b": 0, "max_b": 2147483647,
+                    "min_a": 0,
+                    "max_a": 2147483647,
+                    "min_b": 0,
+                    "max_b": 2147483647,
                     "op": "+",
-                    "max_val": 2147483647, "min_val": -2147483648,
+                    "max_val": 2147483647,
+                    "min_val": -2147483648,
                 },
             }
         ],
@@ -570,6 +576,7 @@ async def mcp_manifest() -> dict[str, Any]:
 
 # Marketplace endpoints
 
+
 @app.get("/marketplace/rules")
 async def list_marketplace_rules(
     category: str | None = None,
@@ -584,7 +591,8 @@ async def list_marketplace_rules(
     if search:
         search_lower = search.lower()
         rules = [
-            r for r in rules
+            r
+            for r in rules
             if search_lower in r.name.lower() or search_lower in r.description.lower()
         ]
 
@@ -666,6 +674,7 @@ async def list_categories() -> dict[str, Any]:
 def main() -> None:
     """Run the Z3 MCP server."""
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8001)
 
 

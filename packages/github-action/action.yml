@@ -173,6 +173,46 @@ runs:
             --body-file "${{ runner.temp }}/codeverify/pr-comment.md"
         fi
 
+    - name: Create GitHub Check Run
+      if: always()
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        STATUS="${{ steps.verify.outputs.status }}"
+        ISSUES="${{ steps.verify.outputs.issues_found }}"
+        CRITICAL="${{ steps.verify.outputs.critical_count }}"
+        HIGH="${{ steps.verify.outputs.high_count }}"
+        ENFORCEMENT="${{ inputs.enforcement-mode }}"
+
+        if [ "$STATUS" = "passed" ]; then
+          CONCLUSION="success"
+        elif [ "$ENFORCEMENT" = "advisory" ]; then
+          CONCLUSION="neutral"
+        elif [ "$ENFORCEMENT" = "warning" ]; then
+          CONCLUSION="neutral"
+        else
+          CONCLUSION="failure"
+        fi
+
+        SUMMARY="## CodeVerify Results\n\n"
+        SUMMARY+="| Metric | Value |\n|--------|-------|\n"
+        SUMMARY+="| Status | ${STATUS} |\n"
+        SUMMARY+="| Issues Found | ${ISSUES:-0} |\n"
+        SUMMARY+="| Critical | ${CRITICAL:-0} |\n"
+        SUMMARY+="| High | ${HIGH:-0} |\n"
+        SUMMARY+="| Enforcement | ${ENFORCEMENT} |\n"
+        SUMMARY+="| Cache Hit Rate | ${{ steps.verify.outputs.cache_hit_rate }} |\n"
+
+        gh api repos/${{ github.repository }}/check-runs \
+          -f name="CodeVerify" \
+          -f head_sha="${{ github.event.pull_request.head.sha || github.sha }}" \
+          -f status="completed" \
+          -f conclusion="${CONCLUSION}" \
+          -f "output[title]=CodeVerify: ${ISSUES:-0} issues found" \
+          -f "output[summary]=$(echo -e "$SUMMARY")" \
+          2>/dev/null || true
+
     - name: Upload verification report
       if: always()
       uses: actions/upload-artifact@v4

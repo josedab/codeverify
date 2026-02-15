@@ -10,17 +10,16 @@ Tests that verify multiple features work together correctly:
 - Counterexample Playground + Verification Flow
 """
 
-import json
-import pytest
+import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-import sys
+
+import pytest
 
 # Add package paths for direct imports
-sys.path.insert(0, str(Path(__file__).parent.parent / 'packages' / 'core' / 'src'))
-sys.path.insert(0, str(Path(__file__).parent.parent / 'packages' / 'verifier' / 'src'))
-sys.path.insert(0, str(Path(__file__).parent.parent / 'packages' / 'ai-agents' / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "packages" / "core" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "packages" / "verifier" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "packages" / "ai-agents" / "src"))
 
 
 class TestAIFingerprintingWithReachability:
@@ -28,7 +27,7 @@ class TestAIFingerprintingWithReachability:
 
     @pytest.fixture
     def sample_code(self):
-        return '''
+        return """
 def process_user_input(user_data):
     # AI-generated pattern: overly verbose validation
     if user_data is not None:
@@ -47,46 +46,45 @@ def main():
     if data:
         result = vulnerable_function(data)
     return result
-'''
+"""
 
     def test_fingerprint_and_analyze_reachability(self, sample_code):
         """Test that AI-generated code is fingerprinted and vulnerabilities are analyzed."""
         # Import modules
         from codeverify_agents.ai_fingerprinting import AICodeFingerprinter, CodeOrigin
         from codeverify_verifier.reachability import (
-            ReachabilityAnalyzer, CallGraphBuilder, VulnerabilityScanner,
-            VulnerabilityType, create_cve_vulnerability
+            CallGraphBuilder,
+            ReachabilityAnalyzer,
+            VulnerabilityType,
+            create_cve_vulnerability,
         )
 
         # Step 1: Fingerprint the code
         fingerprinter = AICodeFingerprinter()
         fingerprint_result = fingerprinter.analyze(sample_code, "test.py")
-        
+
         assert fingerprint_result is not None
         assert fingerprint_result.confidence_score >= 0.0
         assert fingerprint_result.confidence_score <= 1.0
-        
+
         # Step 2: Build call graph
         builder = CallGraphBuilder()
         call_graph = builder.build_from_source(sample_code, "python")
-        
+
         assert len(call_graph.nodes) > 0
-        
+
         # Step 3: Create vulnerability
         vuln = create_cve_vulnerability(
-            "CVE-2024-1234",
-            "vulnerable_function",
-            VulnerabilityType.SQL_INJECTION,
-            cvss_score=9.8
+            "CVE-2024-1234", "vulnerable_function", VulnerabilityType.SQL_INJECTION, cvss_score=9.8
         )
-        
+
         # Step 4: Analyze reachability
         analyzer = ReachabilityAnalyzer(call_graph)
         result = analyzer.analyze_vulnerability(vuln, entry_points=["main"])
-        
+
         # Verify integration
         assert result is not None
-        
+
         # Combined report
         report = {
             "file": "test.py",
@@ -95,7 +93,7 @@ def main():
             "vulnerability": vuln.cve_id,
             "reachability_status": result.status.value,
         }
-        
+
         assert "file" in report
         assert "ai_generated" in report
         assert "reachability_status" in report
@@ -115,50 +113,51 @@ class TestSBOMWithVerificationAttestations:
     def test_generate_sbom_with_verification(self, sample_dependencies):
         """Test SBOM generation with embedded verification attestations."""
         from codeverify_core.sbom import (
-            SBOMGenerator, SLSAAttestationGenerator, VerifiedSBOMExporter,
-            SBOMFormat, SLSALevel, Component, ComponentType
+            Component,
+            ComponentType,
+            SBOMFormat,
+            SBOMGenerator,
+            SLSAAttestationGenerator,
+            SLSALevel,
+            VerifiedSBOMExporter,
         )
 
         # Step 1: Create SBOM generator
-        generator = SBOMGenerator(
-            name="test-project",
-            version="1.0.0"
-        )
-        
+        generator = SBOMGenerator(name="test-project", version="1.0.0")
+
         # Step 2: Add components
         for dep in sample_dependencies:
             component = Component(
                 name=dep["name"],
                 version=dep["version"],
                 component_type=ComponentType.LIBRARY,
-                purl=f"pkg:pypi/{dep['name']}@{dep['version']}"
+                purl=f"pkg:pypi/{dep['name']}@{dep['version']}",
             )
             generator.add_component(component)
-        
+
         # Step 3: Generate SBOM
         sbom = generator.generate()
-        
+
         assert sbom is not None
         assert len(sbom.components) == 3
-        
+
         # Step 4: Generate SLSA attestation
         slsa_gen = SLSAAttestationGenerator(
-            builder_id="codeverify-ci",
-            slsa_level=SLSALevel.LEVEL_3
+            builder_id="codeverify-ci", slsa_level=SLSALevel.LEVEL_3
         )
         attestation = slsa_gen.generate(
             subject_name="test-project",
             subject_digest={"sha256": "abc123"},
-            materials=[{"uri": "git+https://github.com/test/repo", "digest": {"sha1": "def456"}}]
+            materials=[{"uri": "git+https://github.com/test/repo", "digest": {"sha1": "def456"}}],
         )
-        
+
         assert attestation is not None
         assert attestation.slsa_level == SLSALevel.LEVEL_3
-        
+
         # Step 5: Export verified SBOM
         exporter = VerifiedSBOMExporter()
         verified_sbom = exporter.export(sbom, attestation, format=SBOMFormat.CYCLONEDX_JSON)
-        
+
         assert verified_sbom is not None
         assert "components" in verified_sbom or len(verified_sbom) > 0
 
@@ -168,65 +167,54 @@ class TestAgenticAutoFixWithRuntimeProbes:
 
     @pytest.fixture
     def buggy_code(self):
-        return '''
+        return """
 def divide(a, b):
     return a / b  # Bug: no zero division check
 
 def get_element(arr, idx):
     return arr[idx]  # Bug: no bounds check
-'''
+"""
 
     @pytest.fixture
     def fix_spec(self):
-        return {
-            "function": "divide",
-            "issue": "division_by_zero",
-            "constraint": "b != 0"
-        }
+        return {"function": "divide", "issue": "division_by_zero", "constraint": "b != 0"}
 
     def test_autofix_and_generate_probes(self, buggy_code, fix_spec):
         """Test auto-fix generates verified fixes and runtime probes."""
-        from codeverify_agents.agentic_autofix import (
-            AgenticAutoFix, FixCategory, FixCandidate
-        )
+        from codeverify_agents.agentic_autofix import AgenticAutoFix
         from codeverify_verifier.runtime_probes import (
-            RuntimeMonitor, ProbeGenerator, RuntimeSpec, MonitorMode
+            ProbeGenerator,
+            RuntimeMonitor,
+            RuntimeSpec,
         )
 
         # Step 1: Create auto-fix agent
         autofix = AgenticAutoFix()
-        
+
         # Step 2: Analyze and generate fix
         result = autofix.analyze_and_fix(
-            code=buggy_code,
-            finding={
-                "type": "division_by_zero",
-                "function": "divide",
-                "line": 2
-            }
+            code=buggy_code, finding={"type": "division_by_zero", "function": "divide", "line": 2}
         )
-        
+
         assert result is not None
         assert result.success or result.data is not None
-        
+
         # Step 3: Create runtime spec from fix
         spec = RuntimeSpec(
-            name="divide_precondition",
-            condition="b != 0",
-            message="Division by zero prevented"
+            name="divide_precondition", condition="b != 0", message="Division by zero prevented"
         )
-        
+
         # Step 4: Generate runtime probe
         probe_gen = ProbeGenerator()
         probe_code = probe_gen.generate_python_probe(spec)
-        
+
         assert probe_code is not None
         assert "b != 0" in probe_code or "precondition" in probe_code.lower()
-        
+
         # Step 5: Register with monitor
         monitor = RuntimeMonitor.get_instance()
         monitor.register_spec(spec)
-        
+
         # Verify spec is registered
         assert spec.name in [s.name for s in monitor.get_all_specs()]
 
@@ -245,15 +233,19 @@ class TestCodebaseIntelligenceWithROI:
     def test_intelligence_feeds_roi(self, sample_findings):
         """Test codebase intelligence data feeds into ROI calculations."""
         from codeverify_agents.codebase_intelligence import (
-            CodebaseIntelligenceEngine, PatternDetector, BugTracker
+            BugTracker,
+            CodebaseIntelligenceEngine,
         )
         from codeverify_core.roi_dashboard import (
-            ROIDashboard, CostTracker, BugValueCalculator, BugSeverity
+            BugSeverity,
+            BugValueCalculator,
+            CostTracker,
+            ROIDashboard,
         )
 
         # Step 1: Initialize intelligence engine
         intel_engine = CodebaseIntelligenceEngine()
-        
+
         # Step 2: Track patterns and bugs
         bug_tracker = BugTracker()
         for finding in sample_findings:
@@ -261,40 +253,39 @@ class TestCodebaseIntelligenceWithROI:
                 bug_id=f"BUG-{hash(finding['file'])}",
                 file_path=finding["file"],
                 pattern_type=finding["type"],
-                severity=finding["severity"]
+                severity=finding["severity"],
             )
-        
+
         # Step 3: Initialize ROI dashboard
         dashboard = ROIDashboard()
         cost_tracker = CostTracker()
         bug_calculator = BugValueCalculator()
-        
+
         # Step 4: Record verification costs
         cost_tracker.record_llm_cost(tokens=5000, model="gpt-4")
         cost_tracker.record_z3_cost(compute_seconds=10.5)
-        
+
         # Step 5: Calculate bug values
         severity_map = {
             "critical": BugSeverity.CRITICAL,
             "high": BugSeverity.HIGH,
             "medium": BugSeverity.MEDIUM,
         }
-        
+
         total_value = 0
         for finding in sample_findings:
             value = bug_calculator.calculate_value(
-                severity=severity_map[finding["severity"]],
-                category=finding["type"]
+                severity=severity_map[finding["severity"]], category=finding["type"]
             )
             total_value += value
-        
+
         # Step 6: Generate ROI metrics
         metrics = dashboard.calculate_metrics(
             total_cost=cost_tracker.get_total_cost(),
             bugs_caught=[f for f in sample_findings],
-            time_period_days=30
+            time_period_days=30,
         )
-        
+
         assert metrics is not None
         assert metrics.total_bugs_caught == 3
         assert metrics.estimated_savings > 0
@@ -312,13 +303,13 @@ class TestIntentTraceabilityWithUniversalGit:
             "acceptance_criteria": [
                 "Rate limit should be 100 req/min",
                 "Return 429 status when exceeded",
-                "Include Retry-After header"
-            ]
+                "Include Retry-After header",
+            ],
         }
 
     @pytest.fixture
     def mock_diff(self):
-        return '''
+        return """
 diff --git a/api/routes.py b/api/routes.py
 +from ratelimit import RateLimiter
 +
@@ -329,26 +320,30 @@ diff --git a/api/routes.py b/api/routes.py
 def get_users():
 +    # Return 429 if rate exceeded
     return users_list()
-'''
+"""
 
     def test_traceability_with_webhook_processing(self, mock_ticket, mock_diff):
         """Test intent extraction from tickets with Git webhook processing."""
         from codeverify_agents.intent_traceability import (
-            IntentTraceabilityEngine, IntentExtractor, CodeChangeAnalyzer,
-            AlignmentChecker
+            AlignmentChecker,
+            CodeChangeAnalyzer,
+            IntentExtractor,
         )
         from codeverify_core.universal_git import (
-            UniversalGitSupport, GitProvider, WebhookReceiver, GitHubAdapter,
-            GitCredentials
+            GitCredentials,
+            GitHubAdapter,
+            GitProvider,
+            UniversalGitSupport,
         )
 
         # Step 1: Process webhook
         git_support = UniversalGitSupport()
-        
+
         webhook_payload = {
             "action": "opened",
             "pull_request": {
-                "id": 1, "number": 42,
+                "id": 1,
+                "number": 42,
                 "title": "PROJ-123: Add rate limiting",
                 "body": f"Implements {mock_ticket['id']}\n\n{mock_diff}",
                 "head": {"ref": "feature/rate-limiting"},
@@ -364,41 +359,41 @@ def get_users():
                 "name": "repo",
                 "owner": {"login": "org"},
                 "clone_url": "https://github.com/org/repo.git",
-                "default_branch": "main"
+                "default_branch": "main",
             },
-            "sender": {"login": "developer"}
+            "sender": {"login": "developer"},
         }
-        
+
         headers = {"X-GitHub-Event": "pull_request"}
         adapter = GitHubAdapter(GitCredentials(provider=GitProvider.GITHUB))
         payload = adapter.parse_webhook(headers, webhook_payload)
-        
+
         assert payload.pull_request.number == 42
-        
+
         # Step 2: Extract intent from ticket
         extractor = IntentExtractor()
         intent = extractor.extract(
             title=mock_ticket["title"],
             description=mock_ticket["description"],
-            acceptance_criteria=mock_ticket["acceptance_criteria"]
+            acceptance_criteria=mock_ticket["acceptance_criteria"],
         )
-        
+
         assert intent is not None
         assert len(intent.expected_changes) > 0 or len(intent.keywords) > 0
-        
+
         # Step 3: Analyze code changes
         change_analyzer = CodeChangeAnalyzer()
         changes = change_analyzer.analyze_diff(mock_diff)
-        
+
         assert changes is not None
-        
+
         # Step 4: Check alignment
         alignment_checker = AlignmentChecker()
         alignment = alignment_checker.check(intent, changes)
-        
+
         assert alignment is not None
         assert alignment.score >= 0.0
-        
+
         # Integration result
         result = {
             "pr_number": payload.pull_request.number,
@@ -406,7 +401,7 @@ def get_users():
             "alignment_score": alignment.score,
             "aligned": alignment.is_aligned,
         }
-        
+
         assert "pr_number" in result
         assert "alignment_score" in result
 
@@ -416,17 +411,17 @@ class TestCounterexamplePlaygroundWithVerification:
 
     @pytest.fixture
     def z3_counterexample(self):
-        return '''sat
+        return """sat
 (model
   (define-fun x () Int -5)
   (define-fun y () Int 0)
   (define-fun arr_len () Int 3)
   (define-fun idx () Int 10)
-)'''
+)"""
 
     @pytest.fixture
     def source_with_bug(self):
-        return '''
+        return """
 def access_array(arr, idx):
     # Bug: No bounds check
     if idx >= 0:
@@ -436,56 +431,54 @@ def access_array(arr, idx):
 def calculate(x, y):
     assert x > 0, "x must be positive"
     return x / y  # Bug: y can be 0
-'''
+"""
 
     def test_playground_from_verification_failure(self, z3_counterexample, source_with_bug):
         """Test creating playground session from Z3 verification failure."""
         from codeverify_verifier.counterexample_playground import (
-            PlaygroundEngine, Z3ModelParser, TraceGenerator,
-            CounterexampleVisualizer, VariableType
+            PlaygroundEngine,
+            Z3ModelParser,
         )
 
         # Step 1: Parse Z3 output
         parser = Z3ModelParser()
         counterexample = parser.parse(z3_counterexample, source_with_bug)
-        
+
         assert counterexample is not None
         assert "x" in counterexample.variables
         assert counterexample.variables["x"].value == -5
         assert counterexample.variables["y"].value == 0
-        
+
         # Step 2: Create playground engine
         engine = PlaygroundEngine()
-        
+
         # Step 3: Create session
         session = engine.create_session(
-            z3_output=z3_counterexample,
-            source_code=source_with_bug,
-            function_name="calculate"
+            z3_output=z3_counterexample, source_code=source_with_bug, function_name="calculate"
         )
-        
+
         assert session is not None
         assert session.session_id is not None
-        
+
         # Step 4: Navigate through trace
         engine.step_forward(session.session_id)
         engine.step_forward(session.session_id)
-        
+
         # Step 5: Modify value to explore
         engine.modify_value(session.session_id, "x", 10)
         assert session.modified_values["x"] == 10
-        
+
         # Step 6: Export visualization
         html = engine.export_html(session.session_id)
         assert html is not None
         assert "<!DOCTYPE html>" in html
         assert session.session_id in html
-        
+
         # Step 7: Export Mermaid diagram
         mermaid = engine.export_mermaid(session.session_id)
         assert mermaid is not None
         assert "flowchart TD" in mermaid
-        
+
         # Step 8: Get share link
         share_link = engine.generate_share_link(session.session_id)
         assert share_link is not None
@@ -518,104 +511,109 @@ class TestFullPipelineIntegration:
                 "name": "secure-app",
                 "owner": {"login": "org"},
                 "clone_url": "https://github.com/org/secure-app.git",
-                "default_branch": "main"
+                "default_branch": "main",
             },
-            "sender": {"login": "security-dev"}
+            "sender": {"login": "security-dev"},
         }
 
     @pytest.fixture
     def vulnerable_code(self):
-        return '''
+        return """
 def get_user(user_id):
     # Vulnerable to SQL injection
     query = f"SELECT * FROM users WHERE id = {user_id}"
     return db.execute(query)
-'''
+"""
 
     @pytest.fixture
     def fixed_code(self):
-        return '''
+        return """
 def get_user(user_id):
     # Fixed: using parameterized query
     query = "SELECT * FROM users WHERE id = ?"
     return db.execute(query, [user_id])
-'''
+"""
 
     def test_full_verification_pipeline(self, pr_payload, vulnerable_code, fixed_code):
         """Test complete verification pipeline from PR to report."""
-        from codeverify_core.universal_git import (
-            UniversalGitSupport, GitProvider, GitHubAdapter, GitCredentials
-        )
         from codeverify_agents.ai_fingerprinting import AICodeFingerprinter
-        from codeverify_verifier.reachability import (
-            ReachabilityAnalyzer, CallGraphBuilder, VulnerabilityScanner,
-            create_cve_vulnerability, VulnerabilityType
-        )
         from codeverify_core.roi_dashboard import (
-            ROIDashboard, CostTracker, BugValueCalculator, BugSeverity
+            BugSeverity,
+            BugValueCalculator,
+            CostTracker,
+            ROIDashboard,
         )
-        from codeverify_core.sbom import SBOMGenerator, Component, ComponentType
+        from codeverify_core.sbom import Component, ComponentType, SBOMGenerator
+        from codeverify_core.universal_git import (
+            GitCredentials,
+            GitHubAdapter,
+            GitProvider,
+        )
+        from codeverify_verifier.reachability import (
+            CallGraphBuilder,
+            ReachabilityAnalyzer,
+            VulnerabilityType,
+            create_cve_vulnerability,
+        )
 
         # === Phase 1: Receive PR via Universal Git ===
         adapter = GitHubAdapter(GitCredentials(provider=GitProvider.GITHUB))
         headers = {"X-GitHub-Event": "pull_request"}
         webhook = adapter.parse_webhook(headers, pr_payload)
-        
+
         assert webhook.pull_request.number == 100
         pr_info = {
             "number": webhook.pull_request.number,
             "title": webhook.pull_request.title,
             "author": webhook.pull_request.author,
         }
-        
+
         # === Phase 2: Fingerprint Code ===
         fingerprinter = AICodeFingerprinter()
         fp_original = fingerprinter.analyze(vulnerable_code, "user_service.py")
         fp_fixed = fingerprinter.analyze(fixed_code, "user_service.py")
-        
+
         fingerprint_report = {
             "original_ai_score": fp_original.confidence_score,
             "fixed_ai_score": fp_fixed.confidence_score,
         }
-        
+
         # === Phase 3: Reachability Analysis ===
         builder = CallGraphBuilder()
         graph = builder.build_from_source(vulnerable_code, "python")
-        
+
         vuln = create_cve_vulnerability(
-            "CVE-2024-SQL-001",
-            "get_user",
-            VulnerabilityType.SQL_INJECTION,
-            cvss_score=9.8
+            "CVE-2024-SQL-001", "get_user", VulnerabilityType.SQL_INJECTION, cvss_score=9.8
         )
-        
+
         analyzer = ReachabilityAnalyzer(graph)
         reachability = analyzer.analyze_vulnerability(vuln, entry_points=["get_user"])
-        
+
         # === Phase 4: Track Costs ===
         cost_tracker = CostTracker()
         cost_tracker.record_llm_cost(tokens=3000, model="gpt-4")
         cost_tracker.record_z3_cost(compute_seconds=5.2)
-        
+
         # === Phase 5: Calculate ROI ===
         dashboard = ROIDashboard()
         bug_calc = BugValueCalculator()
-        
+
         bug_value = bug_calc.calculate_value(
-            severity=BugSeverity.CRITICAL,
-            category="sql_injection"
+            severity=BugSeverity.CRITICAL, category="sql_injection"
         )
-        
+
         # === Phase 6: Generate SBOM ===
         sbom_gen = SBOMGenerator(name="secure-app", version="2.0.0")
-        sbom_gen.add_component(Component(
-            name="sqlalchemy",
-            version="2.0.0",
-            component_type=ComponentType.LIBRARY,
-            purl="pkg:pypi/sqlalchemy@2.0.0"
-        ))
+        sbom_gen.add_component(
+            Component(
+                name="sqlalchemy",
+                version="2.0.0",
+                component_type=ComponentType.LIBRARY,
+                purl="pkg:pypi/sqlalchemy@2.0.0",
+            )
+        )
         sbom = sbom_gen.generate()
-        
+
         # === Final Report ===
         final_report = {
             "pr": pr_info,
@@ -635,9 +633,9 @@ def get_user(user_id):
             "sbom": {
                 "component_count": len(sbom.components),
             },
-            "verdict": "APPROVED" if reachability.status.value != "reachable" else "NEEDS_REVIEW"
+            "verdict": "APPROVED" if reachability.status.value != "reachable" else "NEEDS_REVIEW",
         }
-        
+
         # Verify complete report
         assert final_report["pr"]["number"] == 100
         assert "vulnerability" in final_report
@@ -653,7 +651,7 @@ class TestCrossFeatureDataFlow:
     def test_bug_flows_from_intelligence_to_roi(self):
         """Test that bug data from intelligence engine correctly feeds ROI."""
         from codeverify_agents.codebase_intelligence import BugTracker
-        from codeverify_core.roi_dashboard import ROIDashboard, BugSeverity, BugCaught
+        from codeverify_core.roi_dashboard import BugCaught, BugSeverity, ROIDashboard
 
         # Track bug in intelligence
         tracker = BugTracker()
@@ -661,12 +659,12 @@ class TestCrossFeatureDataFlow:
             bug_id="BUG-001",
             file_path="auth.py",
             pattern_type="authentication_bypass",
-            severity="critical"
+            severity="critical",
         )
-        
+
         # Get bug data
         bugs = tracker.get_bugs_by_severity("critical")
-        
+
         # Create ROI bug record
         dashboard = ROIDashboard()
         for bug in bugs:
@@ -674,51 +672,50 @@ class TestCrossFeatureDataFlow:
                 bug_id=bug.bug_id,
                 severity=BugSeverity.CRITICAL,
                 category=bug.pattern_type,
-                detected_at=datetime.now()
+                detected_at=datetime.now(),
             )
             dashboard.record_bug(caught)
-        
+
         # Verify data flowed correctly
         assert dashboard.total_bugs_caught >= 1
 
     def test_verification_creates_runtime_spec(self):
         """Test that verification results can create runtime specs."""
-        from codeverify_verifier.runtime_probes import RuntimeSpec, ProbeGenerator
+        from codeverify_verifier.runtime_probes import ProbeGenerator, RuntimeSpec
 
         # Simulate verification finding a constraint
         constraint = "len(password) >= 8"
         function_name = "validate_password"
-        
+
         # Create runtime spec from constraint
         spec = RuntimeSpec(
             name=f"{function_name}_constraint",
             condition=constraint,
-            message=f"Constraint violated: {constraint}"
+            message=f"Constraint violated: {constraint}",
         )
-        
+
         # Generate probe
         generator = ProbeGenerator()
         probe_code = generator.generate_python_probe(spec)
-        
+
         assert spec.name == "validate_password_constraint"
         assert constraint in spec.condition
 
     def test_counterexample_from_autofix_verification(self):
         """Test that auto-fix verification failures create playground sessions."""
-        from codeverify_agents.agentic_autofix import FixVerifier
         from codeverify_verifier.counterexample_playground import PlaygroundEngine
 
         # Simulate a fix verification that produces counterexample
-        z3_output = '''sat
+        z3_output = """sat
 (model
   (define-fun input_length () Int 0)
   (define-fun max_length () Int 100)
-)'''
-        
+)"""
+
         # Create playground from counterexample
         engine = PlaygroundEngine()
         session = engine.create_session(z3_output)
-        
+
         # Verify session contains verification data
         assert "input_length" in session.counterexample.variables
         assert session.counterexample.variables["input_length"].value == 0

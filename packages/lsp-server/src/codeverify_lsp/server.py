@@ -12,7 +12,7 @@ import asyncio
 import re
 import time
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -177,7 +177,10 @@ class ProgressiveVerificationPipeline:
         self._active_tasks: dict[str, bool] = {}
 
     async def verify_document(
-        self, uri: str, content: str, language: str,
+        self,
+        uri: str,
+        content: str,
+        language: str,
     ) -> AsyncGenerator[list[StreamingDiagnostic], None]:
         """Run the full pipeline, yielding a diagnostic list per stage."""
         self._active_tasks[uri] = True
@@ -218,7 +221,10 @@ class ProgressiveVerificationPipeline:
     # -- internal stages ---------------------------------------------------
 
     def _run_pattern_stage(
-        self, uri: str, content: str, language: str,
+        self,
+        uri: str,
+        content: str,
+        language: str,
     ) -> list[StreamingDiagnostic]:
         """Stage 1: regex-based pattern matching (synchronous, <100ms)."""
         start = time.monotonic()
@@ -229,26 +235,35 @@ class ProgressiveVerificationPipeline:
         for pattern, code, message, severity in rules:
             for line_idx, line_text in enumerate(lines):
                 for match in re.finditer(pattern, line_text):
-                    diagnostics.append(StreamingDiagnostic(
-                        file_uri=uri,
-                        line=line_idx,
-                        character=match.start(),
-                        end_line=line_idx,
-                        end_character=match.end(),
-                        severity=severity,
-                        message=message,
-                        code=code,
-                        stage=VerificationStage.pattern_match,
-                        is_final=False,
-                    ))
+                    diagnostics.append(
+                        StreamingDiagnostic(
+                            file_uri=uri,
+                            line=line_idx,
+                            character=match.start(),
+                            end_line=line_idx,
+                            end_character=match.end(),
+                            severity=severity,
+                            message=message,
+                            code=code,
+                            stage=VerificationStage.pattern_match,
+                            is_final=False,
+                        )
+                    )
 
         elapsed_ms = (time.monotonic() - start) * 1000
-        logger.debug("stage.pattern_match.done", uri=uri, count=len(diagnostics),
-                      elapsed_ms=round(elapsed_ms, 2))
+        logger.debug(
+            "stage.pattern_match.done",
+            uri=uri,
+            count=len(diagnostics),
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         return diagnostics
 
     async def _run_ai_stage(
-        self, uri: str, content: str, language: str,
+        self,
+        uri: str,
+        content: str,
+        language: str,
     ) -> list[StreamingDiagnostic]:
         """Stage 2: LLM-based semantic analysis (async, <2s).
 
@@ -267,49 +282,60 @@ class ProgressiveVerificationPipeline:
             func_match = re.match(r"^(\s*)(?:async\s+)?def\s+(\w+)", line)
             if func_match:
                 if func_start is not None and (idx - func_start) > 50:
-                    diagnostics.append(StreamingDiagnostic(
-                        file_uri=uri,
-                        line=func_start,
-                        character=0,
-                        end_line=idx - 1,
-                        end_character=len(lines[idx - 1]) if idx > 0 else 0,
-                        severity=DiagnosticSeverity.information,
-                        message=(
-                            f"Function '{func_name}' is {idx - func_start} lines long; "
-                            "consider refactoring into smaller units"
-                        ),
-                        code="CV-AI-001",
-                        stage=VerificationStage.ai_analysis,
-                        is_final=False,
-                    ))
+                    diagnostics.append(
+                        StreamingDiagnostic(
+                            file_uri=uri,
+                            line=func_start,
+                            character=0,
+                            end_line=idx - 1,
+                            end_character=len(lines[idx - 1]) if idx > 0 else 0,
+                            severity=DiagnosticSeverity.information,
+                            message=(
+                                f"Function '{func_name}' is {idx - func_start} lines long; "
+                                "consider refactoring into smaller units"
+                            ),
+                            code="CV-AI-001",
+                            stage=VerificationStage.ai_analysis,
+                            is_final=False,
+                        )
+                    )
                 func_start = idx
                 func_name = func_match.group(2)
 
         # Check final function
         if func_start is not None and (len(lines) - func_start) > 50:
-            diagnostics.append(StreamingDiagnostic(
-                file_uri=uri,
-                line=func_start,
-                character=0,
-                end_line=len(lines) - 1,
-                end_character=len(lines[-1]) if lines else 0,
-                severity=DiagnosticSeverity.information,
-                message=(
-                    f"Function '{func_name}' is {len(lines) - func_start} lines long; "
-                    "consider refactoring into smaller units"
-                ),
-                code="CV-AI-001",
-                stage=VerificationStage.ai_analysis,
-                is_final=False,
-            ))
+            diagnostics.append(
+                StreamingDiagnostic(
+                    file_uri=uri,
+                    line=func_start,
+                    character=0,
+                    end_line=len(lines) - 1,
+                    end_character=len(lines[-1]) if lines else 0,
+                    severity=DiagnosticSeverity.information,
+                    message=(
+                        f"Function '{func_name}' is {len(lines) - func_start} lines long; "
+                        "consider refactoring into smaller units"
+                    ),
+                    code="CV-AI-001",
+                    stage=VerificationStage.ai_analysis,
+                    is_final=False,
+                )
+            )
 
         elapsed_ms = (time.monotonic() - start) * 1000
-        logger.debug("stage.ai_analysis.done", uri=uri, count=len(diagnostics),
-                      elapsed_ms=round(elapsed_ms, 2))
+        logger.debug(
+            "stage.ai_analysis.done",
+            uri=uri,
+            count=len(diagnostics),
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         return diagnostics
 
     async def _run_formal_stage(
-        self, uri: str, content: str, language: str,
+        self,
+        uri: str,
+        content: str,
+        language: str,
     ) -> list[StreamingDiagnostic]:
         """Stage 3: Z3 SMT solver proof (async, <5s).
 
@@ -331,37 +357,49 @@ class ProgressiveVerificationPipeline:
                         has_break = True
                         break
                 if not has_break:
-                    diagnostics.append(StreamingDiagnostic(
-                        file_uri=uri,
-                        line=idx, character=0,
-                        end_line=idx, end_character=len(line),
-                        severity=DiagnosticSeverity.error,
-                        message=(
-                            "Potential non-termination: 'while True' loop without "
-                            "reachable break statement in the next 20 lines"
-                        ),
-                        code="CV-FV-001",
-                        stage=VerificationStage.formal_verification,
-                        is_final=True,
-                    ))
+                    diagnostics.append(
+                        StreamingDiagnostic(
+                            file_uri=uri,
+                            line=idx,
+                            character=0,
+                            end_line=idx,
+                            end_character=len(line),
+                            severity=DiagnosticSeverity.error,
+                            message=(
+                                "Potential non-termination: 'while True' loop without "
+                                "reachable break statement in the next 20 lines"
+                            ),
+                            code="CV-FV-001",
+                            stage=VerificationStage.formal_verification,
+                            is_final=True,
+                        )
+                    )
 
             # Detect division by zero risk
             div_match = re.search(r"/\s*(\w+)", line)
             if div_match and div_match.group(1) == "0":
-                diagnostics.append(StreamingDiagnostic(
-                    file_uri=uri,
-                    line=idx, character=div_match.start(),
-                    end_line=idx, end_character=div_match.end(),
-                    severity=DiagnosticSeverity.error,
-                    message="Division by zero",
-                    code="CV-FV-002",
-                    stage=VerificationStage.formal_verification,
-                    is_final=True,
-                ))
+                diagnostics.append(
+                    StreamingDiagnostic(
+                        file_uri=uri,
+                        line=idx,
+                        character=div_match.start(),
+                        end_line=idx,
+                        end_character=div_match.end(),
+                        severity=DiagnosticSeverity.error,
+                        message="Division by zero",
+                        code="CV-FV-002",
+                        stage=VerificationStage.formal_verification,
+                        is_final=True,
+                    )
+                )
 
         elapsed_ms = (time.monotonic() - start) * 1000
-        logger.debug("stage.formal_verification.done", uri=uri,
-                      count=len(diagnostics), elapsed_ms=round(elapsed_ms, 2))
+        logger.debug(
+            "stage.formal_verification.done",
+            uri=uri,
+            count=len(diagnostics),
+            elapsed_ms=round(elapsed_ms, 2),
+        )
         return diagnostics
 
 
@@ -468,14 +506,20 @@ class CodeVerifyLanguageServer:
     # -- diagnostics -------------------------------------------------------
 
     def _publish_diagnostics(
-        self, uri: str, diagnostics: list[StreamingDiagnostic],
+        self,
+        uri: str,
+        diagnostics: list[StreamingDiagnostic],
     ) -> None:
         """Store diagnostics for *uri* (simulates publishDiagnostics)."""
         if uri not in self._diagnostics:
             self._diagnostics[uri] = []
         self._diagnostics[uri].extend(diagnostics)
-        logger.debug("diagnostics.published", uri=uri, count=len(diagnostics),
-                      total=len(self._diagnostics[uri]))
+        logger.debug(
+            "diagnostics.published",
+            uri=uri,
+            count=len(diagnostics),
+            total=len(self._diagnostics[uri]),
+        )
 
     def get_diagnostics(self, uri: str) -> list[StreamingDiagnostic]:
         """Return all diagnostics currently stored for *uri*."""

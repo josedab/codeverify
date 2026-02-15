@@ -56,7 +56,7 @@ def analyze_file(file_path: str) -> int:
         print("  ✅ No rule violations")
 
     # --- Summary ---
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     status = "⚠️" if total_issues > 0 else "✅"
     print(f"{status} Total issues: {total_issues}")
     return 1 if total_issues > 0 else 0
