@@ -1,7 +1,5 @@
 """Tests for the Z3 Verifier."""
 
-import pytest
-
 from codeverify_verifier import Z3Verifier
 
 

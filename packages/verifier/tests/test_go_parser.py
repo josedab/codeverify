@@ -1,6 +1,7 @@
 """Tests for Go parser."""
 
 import pytest
+
 from codeverify_verifier.parsers import GoParser
 
 
@@ -33,10 +34,10 @@ func add(a int, b int) int {
 }
 """
         result = parser.parse(code, "main.go")
-        
+
         assert result.language == "go"
         assert len(result.functions) == 1
-        
+
         func = result.functions[0]
         assert func.name == "add"
         assert len(func.parameters) == 2
@@ -51,7 +52,7 @@ func multiply(x, y, z int) int {
 }
 """
         result = parser.parse(code, "math.go")
-        
+
         assert len(result.functions) == 1
         func = result.functions[0]
         assert func.name == "multiply"
@@ -73,11 +74,11 @@ func (c Calculator) GetValue() int {
 }
 """
         result = parser.parse(code, "calculator.go")
-        
+
         # Should find the struct
         assert len(result.classes) == 1
         assert result.classes[0].name == "Calculator"
-        
+
         # Should find methods
         methods = [f for f in result.functions if f.decorators]
         assert len(methods) >= 1
@@ -99,13 +100,13 @@ func main() {
 }
 """
         result = parser.parse(code, "main.go")
-        
+
         assert len(result.imports) >= 2
-        
+
         # Check for fmt import
         fmt_import = next((i for i in result.imports if i.module == "fmt"), None)
         assert fmt_import is not None
-        
+
         # Check for aliased import
         log_import = next((i for i in result.imports if i.alias == "mylog"), None)
         assert log_import is not None
@@ -121,7 +122,7 @@ type User struct {
 }
 """
         result = parser.parse(code, "models.go")
-        
+
         assert len(result.classes) == 1
         struct = result.classes[0]
         assert struct.name == "User"
@@ -138,7 +139,7 @@ func divide(a, b float64) (float64, error) {
 }
 """
         result = parser.parse(code, "math.go")
-        
+
         assert len(result.functions) == 1
         func = result.functions[0]
         assert func.name == "divide"
@@ -171,7 +172,7 @@ func complex(x int) int {
 }
 """
         result = parser.parse(code, "complex.go")
-        
+
         assert len(result.functions) == 1
         func = result.functions[0]
         # Should have high complexity due to multiple branches
@@ -187,10 +188,10 @@ func process() {
 }
 """
         result = parser.parse(code, "process.go")
-        
+
         assert len(result.functions) == 1
         func = result.functions[0]
-        
+
         # Should extract function calls
         assert "fmt.Println" in func.calls or "Println" in str(func.calls)
 
@@ -209,7 +210,7 @@ const MaxSize = 100
 func main() {}
 """
         result = parser.parse(code, "main.go")
-        
+
         # Should find global variables
         assert len(result.global_variables) >= 1
 
@@ -219,7 +220,7 @@ func empty() {
 }
 """
         result = parser.parse(code, "empty.go")
-        
+
         assert len(result.functions) == 1
         assert result.functions[0].name == "empty"
 
@@ -230,7 +231,7 @@ type Reader interface {
 }
 """
         result = parser.parse(code, "interfaces.go")
-        
+
         # Interface should be parsed as a class-like structure
         # (simplified parser may not fully support interfaces)
         assert len(result.errors) == 0

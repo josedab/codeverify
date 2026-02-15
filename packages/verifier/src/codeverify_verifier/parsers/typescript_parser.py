@@ -1,7 +1,6 @@
 """TypeScript/JavaScript code parser using regex-based parsing."""
 
 import re
-from typing import Any
 
 from codeverify_verifier.parsers.base import (
     CodeParser,
@@ -142,7 +141,9 @@ class TypeScriptParser(CodeParser):
         classes = []
         lines = code.split("\n")
 
-        class_pattern = r"(?:export\s+)?class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([^{]+))?\s*{"
+        class_pattern = (
+            r"(?:export\s+)?class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([^{]+))?\s*{"
+        )
 
         for match in re.finditer(class_pattern, code):
             name = match.group(1)

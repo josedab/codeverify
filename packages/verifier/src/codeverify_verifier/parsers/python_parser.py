@@ -1,7 +1,6 @@
 """Python code parser using AST."""
 
 import ast
-from typing import Any
 
 from codeverify_verifier.parsers.base import (
     CodeParser,
@@ -229,10 +228,10 @@ class PythonParser(CodeParser):
         """Extract conditional expressions."""
         conditions = []
         for child in ast.walk(node):
-            if isinstance(child, ast.If):
-                conditions.append(ast.unparse(child.test))
-            elif isinstance(child, ast.While):
-                conditions.append(ast.unparse(child.test))
-            elif isinstance(child, ast.Assert):
+            if (
+                isinstance(child, ast.If)
+                or isinstance(child, ast.While)
+                or isinstance(child, ast.Assert)
+            ):
                 conditions.append(ast.unparse(child.test))
         return conditions

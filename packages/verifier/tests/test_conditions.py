@@ -2,9 +2,9 @@
 
 from codeverify_verifier.conditions import (
     generate_bounds_check,
+    generate_division_check,
     generate_null_check,
     generate_overflow_check,
-    generate_division_check,
 )
 
 

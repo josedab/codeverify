@@ -1,6 +1,7 @@
 """Tests for Java parser."""
 
 import pytest
+
 from codeverify_verifier.parsers import JavaParser
 
 
@@ -35,14 +36,14 @@ public class Calculator {
 }
 """
         result = parser.parse(code, "Calculator.java")
-        
+
         assert result.language == "java"
         assert len(result.classes) == 1
-        
+
         cls = result.classes[0]
         assert cls.name == "Calculator"
         assert len(cls.methods) == 1
-        
+
         method = cls.methods[0]
         assert method.name == "add"
         assert len(method.parameters) == 2
@@ -59,7 +60,7 @@ public class Service {
 }
 """
         result = parser.parse(code, "Service.java")
-        
+
         assert len(result.classes) == 1
         method = result.classes[0].methods[0]
         assert method.name == "process"
@@ -78,11 +79,13 @@ public class Main {
 }
 """
         result = parser.parse(code, "Main.java")
-        
+
         assert len(result.imports) >= 2
-        
+
         # Check for List import
-        list_import = next((i for i in result.imports if "List" in i.names or "java.util" in i.module), None)
+        list_import = next(
+            (i for i in result.imports if "List" in i.names or "java.util" in i.module), None
+        )
         assert list_import is not None
 
     def test_parse_class_with_inheritance(self, parser: JavaParser) -> None:
@@ -94,7 +97,7 @@ public class Dog extends Animal implements Pet, Trainable {
 }
 """
         result = parser.parse(code, "Dog.java")
-        
+
         assert len(result.classes) == 1
         cls = result.classes[0]
         assert cls.name == "Dog"
@@ -110,7 +113,7 @@ public class Utils {
 }
 """
         result = parser.parse(code, "Utils.java")
-        
+
         assert len(result.classes) == 1
         # Should handle generic methods
         assert len(result.classes[0].methods) >= 0  # May or may not parse generics fully
@@ -131,7 +134,7 @@ public class Example {
 }
 """
         result = parser.parse(code, "Example.java")
-        
+
         assert len(result.classes) == 1
         method = result.classes[0].methods[0]
         assert method.docstring is not None
@@ -146,7 +149,7 @@ public class FileHandler {
 }
 """
         result = parser.parse(code, "FileHandler.java")
-        
+
         assert len(result.classes) == 1
         method = result.classes[0].methods[0]
         # Throws should be captured in decorators
@@ -182,7 +185,7 @@ public class Complex {
 }
 """
         result = parser.parse(code, "Complex.java")
-        
+
         assert len(result.classes) == 1
         method = result.classes[0].methods[0]
         # Should have high complexity
@@ -197,7 +200,7 @@ public interface Repository<T> {
 }
 """
         result = parser.parse(code, "Repository.java")
-        
+
         # Interface should be parsed as a class
         assert len(result.classes) == 1
         assert result.classes[0].name == "Repository"
@@ -211,7 +214,7 @@ public enum Status {
 }
 """
         result = parser.parse(code, "Status.java")
-        
+
         # Enum should be parsed
         assert len(result.errors) == 0
 
@@ -228,7 +231,7 @@ public abstract class Shape {
 }
 """
         result = parser.parse(code, "Shape.java")
-        
+
         assert len(result.classes) == 1
         cls = result.classes[0]
         assert cls.name == "Shape"
@@ -252,14 +255,14 @@ public class Processor {
 }
 """
         result = parser.parse(code, "Processor.java")
-        
+
         # Find the run method
         run_method = None
         for method in result.functions:
             if method.name == "run":
                 run_method = method
                 break
-        
+
         if run_method:
             # Should have method calls extracted
             assert len(run_method.calls) > 0
@@ -275,13 +278,15 @@ public class VarArgsExample {
 }
 """
         result = parser.parse(code, "VarArgsExample.java")
-        
+
         assert len(result.classes) == 1
         method = result.classes[0].methods[0]
         assert method.name == "printAll"
         # Varargs should be converted to array type
         if method.parameters:
-            assert "[]" in method.parameters[0].type_hint or "String" in method.parameters[0].type_hint
+            assert (
+                "[]" in method.parameters[0].type_hint or "String" in method.parameters[0].type_hint
+            )
 
     def test_parse_nested_class(self, parser: JavaParser) -> None:
         code = """
@@ -294,7 +299,7 @@ public class Outer {
 }
 """
         result = parser.parse(code, "Outer.java")
-        
+
         # Should handle nested classes (may parse both or just outer)
         assert len(result.classes) >= 1
         assert result.classes[0].name == "Outer"

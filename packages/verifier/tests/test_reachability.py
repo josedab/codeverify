@@ -1,10 +1,7 @@
 """Tests for Vulnerability Reachability Analysis."""
 
-import pytest
-
 from codeverify_verifier.reachability import (
     CallGraphBuilder,
-    CodeNode,
     ReachabilityAnalyzer,
     ReachabilityReport,
     ReachabilityStatus,
@@ -13,7 +10,6 @@ from codeverify_verifier.reachability import (
     VulnerabilityType,
     create_cve_vulnerability,
 )
-
 
 # Sample code with vulnerabilities
 VULNERABLE_CODE = '''
@@ -98,24 +94,20 @@ def safe_execute(cmd):
 
 class TestCallGraphBuilder:
     """Test call graph construction."""
-    
+
     def test_build_from_simple_code(self):
         """Test building call graph from simple code."""
         builder = CallGraphBuilder()
-        nodes, edges = builder.build_from_code(
-            VULNERABLE_CODE,
-            "test.py",
-            "python"
-        )
-        
+        nodes, edges = builder.build_from_code(VULNERABLE_CODE, "test.py", "python")
+
         assert len(nodes) > 0
         assert "test.py::main" in nodes
         assert "test.py::process_input" in nodes
         assert "test.py::execute_command" in nodes
-    
+
     def test_detect_entry_points(self):
         """Test entry point detection."""
-        code = '''
+        code = """
 @app.route("/api/data")
 def get_data():
     return fetch_data()
@@ -125,34 +117,29 @@ def fetch_data():
 
 if __name__ == "__main__":
     main()
-'''
+"""
         builder = CallGraphBuilder()
         nodes, _ = builder.build_from_code(code, "app.py", "python")
-        
+
         # Should detect decorated function as entry point
         entry_points = [n for n in nodes.values() if n.is_entry_point]
         assert len(entry_points) >= 1
-    
+
     def test_build_edges(self):
         """Test that call edges are created."""
         builder = CallGraphBuilder()
-        nodes, edges = builder.build_from_code(
-            VULNERABLE_CODE,
-            "test.py",
-            "python"
-        )
-        
+        nodes, edges = builder.build_from_code(VULNERABLE_CODE, "test.py", "python")
+
         # main calls process_input
         main_to_process = any(
-            e for e in edges
-            if e.source == "test.py::main" and "process_input" in e.target
+            e for e in edges if e.source == "test.py::main" and "process_input" in e.target
         )
         assert main_to_process
 
 
 class TestReachabilityAnalyzer:
     """Test reachability analysis with Z3."""
-    
+
     def test_reachable_vulnerability(self):
         """Test detection of reachable vulnerability."""
         vuln = Vulnerability(
@@ -164,20 +151,17 @@ class TestReachabilityAnalyzer:
             affected_functions=["execute_command"],
             cwe_id="CWE-78",
         )
-        
+
         analyzer = ReachabilityAnalyzer()
         report = analyzer.analyze(
-            {"test.py": VULNERABLE_CODE},
-            [vuln],
-            entry_points=["main"],
-            language="python"
+            {"test.py": VULNERABLE_CODE}, [vuln], entry_points=["main"], language="python"
         )
-        
+
         assert report.total_vulnerabilities == 1
         # The vulnerability should be reachable through main -> process_input -> execute_command
         result = report.results[0]
         assert result.status in [ReachabilityStatus.REACHABLE, ReachabilityStatus.CONDITIONAL]
-    
+
     def test_unreachable_vulnerability(self):
         """Test that unreachable vulnerabilities are detected."""
         vuln = Vulnerability(
@@ -189,20 +173,17 @@ class TestReachabilityAnalyzer:
             affected_functions=["dangerous_load"],
             cwe_id="CWE-502",
         )
-        
+
         analyzer = ReachabilityAnalyzer()
         report = analyzer.analyze(
-            {"test.py": UNREACHABLE_VULN_CODE},
-            [vuln],
-            entry_points=["main"],
-            language="python"
+            {"test.py": UNREACHABLE_VULN_CODE}, [vuln], entry_points=["main"], language="python"
         )
-        
+
         assert report.total_vulnerabilities == 1
         result = report.results[0]
         # Should be unreachable since dangerous_load is never called
         assert result.status == ReachabilityStatus.UNREACHABLE
-    
+
     def test_multiple_vulnerabilities(self):
         """Test analysis of multiple vulnerabilities."""
         vulns = [
@@ -223,32 +204,26 @@ class TestReachabilityAnalyzer:
                 affected_functions=["load_data"],
             ),
         ]
-        
+
         analyzer = ReachabilityAnalyzer()
         report = analyzer.analyze(
-            {"test.py": VULNERABLE_CODE},
-            vulns,
-            entry_points=["main"],
-            language="python"
+            {"test.py": VULNERABLE_CODE}, vulns, entry_points=["main"], language="python"
         )
-        
+
         assert report.total_vulnerabilities == 2
 
 
 class TestVulnerabilityScanner:
     """Test vulnerability scanning and reachability."""
-    
+
     def test_scan_for_vulnerabilities(self):
         """Test automatic vulnerability detection."""
         scanner = VulnerabilityScanner()
-        report = scanner.scan_and_analyze(
-            {"vulnerable.py": VULNERABLE_CODE},
-            language="python"
-        )
-        
+        report = scanner.scan_and_analyze({"vulnerable.py": VULNERABLE_CODE}, language="python")
+
         # Should find at least the command injection and pickle vulnerabilities
         assert report.total_vulnerabilities >= 2
-    
+
     def test_scan_safe_code(self):
         """Test scanning code without vulnerabilities."""
         safe_code = '''
@@ -261,18 +236,15 @@ def main():
     print(greet(name))
 '''
         scanner = VulnerabilityScanner()
-        report = scanner.scan_and_analyze(
-            {"safe.py": safe_code},
-            language="python"
-        )
-        
+        report = scanner.scan_and_analyze({"safe.py": safe_code}, language="python")
+
         # Should find no vulnerabilities (or very few)
         assert report.total_vulnerabilities == 0 or report.unreachable_count >= 0
 
 
 class TestReachabilityReport:
     """Test report generation."""
-    
+
     def test_report_to_dict(self):
         """Test report serialization."""
         vuln = Vulnerability(
@@ -283,7 +255,7 @@ class TestReachabilityReport:
             severity="high",
             cve_id="CVE-2024-0001",
         )
-        
+
         report = ReachabilityReport(
             total_vulnerabilities=1,
             reachable_count=0,
@@ -292,14 +264,14 @@ class TestReachabilityReport:
             unknown_count=0,
             results=[],
         )
-        
+
         data = report.to_dict()
-        
+
         assert data["total_vulnerabilities"] == 1
         assert data["unreachable_count"] == 1
         assert "false_positive_rate" in data
         assert data["false_positive_rate"] == 100.0
-    
+
     def test_false_positive_rate_calculation(self):
         """Test false positive rate is calculated correctly."""
         report = ReachabilityReport(
@@ -309,16 +281,16 @@ class TestReachabilityReport:
             conditional_count=0,
             unknown_count=0,
         )
-        
+
         data = report.to_dict()
-        
+
         # 8 out of 10 are unreachable = 80% false positive rate
         assert data["false_positive_rate"] == 80.0
 
 
 class TestCVEVulnerability:
     """Test CVE vulnerability creation."""
-    
+
     def test_create_cve_vulnerability(self):
         """Test creating a CVE vulnerability."""
         vuln = create_cve_vulnerability(
@@ -330,7 +302,7 @@ class TestCVEVulnerability:
             cvss_score=9.8,
             fix_available=True,
         )
-        
+
         assert vuln.cve_id == "CVE-2024-1234"
         assert vuln.type == VulnerabilityType.CVE
         assert vuln.cvss_score == 9.8

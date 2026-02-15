@@ -5,19 +5,10 @@ from typing import Any
 
 import structlog
 from z3 import (
-    And,
-    ArithRef,
-    BitVec,
-    BitVecVal,
-    Bool,
-    BoolRef,
     Int,
-    Not,
     Or,
     Solver,
-    parse_smt2_string,
     sat,
-    unknown,
     unsat,
 )
 

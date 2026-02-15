@@ -1,6 +1,5 @@
 """Verification Debugger - Interactive Z3 proof visualization and playback."""
 
-import json
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -9,16 +8,8 @@ from typing import Any
 
 import structlog
 from z3 import (
-    And,
-    ArithRef,
-    BoolRef,
     Int,
-    Not,
-    Or,
     Solver,
-    is_and,
-    is_not,
-    is_or,
     sat,
     unsat,
 )
@@ -366,9 +357,7 @@ class VerificationDebugger:
             )
 
             if trace.counterexample:
-                explanation["evidence"].append(
-                    "Counterexample values that trigger the issue:"
-                )
+                explanation["evidence"].append("Counterexample values that trigger the issue:")
                 for var, value in trace.counterexample.items():
                     explanation["evidence"].append(f"  • {var} = {value}")
 
@@ -384,12 +373,8 @@ class VerificationDebugger:
                 "The solver mathematically proved that no inputs can violate "
                 "the property being checked. The code is correct with respect to this property."
             )
-            explanation["evidence"].append(
-                f"Verified in {trace.total_duration_ms:.2f}ms"
-            )
-            explanation["evidence"].append(
-                f"Checked {len(trace.constraints)} constraints"
-            )
+            explanation["evidence"].append(f"Verified in {trace.total_duration_ms:.2f}ms")
+            explanation["evidence"].append(f"Checked {len(trace.constraints)} constraints")
             explanation["recommendations"] = [
                 "No action required for this property",
                 "Consider adding more verification checks",
@@ -426,41 +411,55 @@ class VerificationDebugger:
             elif step.status == StepStatus.FAILED:
                 node_type = "error"
 
-            nodes.append({
-                "id": f"step_{step.id}",
-                "label": step.description,
-                "type": node_type,
-                "data": {
-                    "step_type": step.step_type.value,
-                    "formula": step.formula,
-                    "result": step.result,
-                    "duration_ms": step.duration_ms,
-                },
-            })
+            nodes.append(
+                {
+                    "id": f"step_{step.id}",
+                    "label": step.description,
+                    "type": node_type,
+                    "data": {
+                        "step_type": step.step_type.value,
+                        "formula": step.formula,
+                        "result": step.result,
+                        "duration_ms": step.duration_ms,
+                    },
+                }
+            )
 
         # Create edges between sequential steps
         for i in range(len(trace.steps) - 1):
-            edges.append({
-                "source": f"step_{trace.steps[i].id}",
-                "target": f"step_{trace.steps[i + 1].id}",
-            })
+            edges.append(
+                {
+                    "source": f"step_{trace.steps[i].id}",
+                    "target": f"step_{trace.steps[i + 1].id}",
+                }
+            )
 
         # Add result node
-        result_type = "success" if trace.result == "unsat" else "error" if trace.result == "sat" else "warning"
-        nodes.append({
-            "id": "result",
-            "label": f"Result: {trace.result}",
-            "type": result_type,
-            "data": {
-                "counterexample": trace.counterexample,
-            },
-        })
+        result_type = (
+            "success"
+            if trace.result == "unsat"
+            else "error"
+            if trace.result == "sat"
+            else "warning"
+        )
+        nodes.append(
+            {
+                "id": "result",
+                "label": f"Result: {trace.result}",
+                "type": result_type,
+                "data": {
+                    "counterexample": trace.counterexample,
+                },
+            }
+        )
 
         if trace.steps:
-            edges.append({
-                "source": f"step_{trace.steps[-1].id}",
-                "target": "result",
-            })
+            edges.append(
+                {
+                    "source": f"step_{trace.steps[-1].id}",
+                    "target": "result",
+                }
+            )
 
         return {
             "nodes": nodes,
@@ -502,11 +501,13 @@ class InteractiveVerificationSession:
             raise ValueError(f"Unsupported variable type: {var_type}")
 
         self.variables[name] = var
-        self.history.append({
-            "action": "add_variable",
-            "name": name,
-            "type": var_type,
-        })
+        self.history.append(
+            {
+                "action": "add_variable",
+                "name": name,
+                "type": var_type,
+            }
+        )
         return var
 
     def add_constraint(self, constraint: str, description: str = "") -> bool:
@@ -529,22 +530,26 @@ class InteractiveVerificationSession:
             self.solver.from_string(f"(assert {constraint})")
             self.constraints.append(constraint)
 
-            self.history.append({
-                "action": "add_constraint",
-                "constraint": constraint,
-                "description": description,
-                "success": True,
-            })
+            self.history.append(
+                {
+                    "action": "add_constraint",
+                    "constraint": constraint,
+                    "description": description,
+                    "success": True,
+                }
+            )
             return True
 
         except Exception as e:
-            self.history.append({
-                "action": "add_constraint",
-                "constraint": constraint,
-                "description": description,
-                "success": False,
-                "error": str(e),
-            })
+            self.history.append(
+                {
+                    "action": "add_constraint",
+                    "constraint": constraint,
+                    "description": description,
+                    "success": False,
+                    "error": str(e),
+                }
+            )
             return False
 
     def check(self) -> dict[str, Any]:
@@ -566,15 +571,15 @@ class InteractiveVerificationSession:
 
         if result == sat:
             model = self.solver.model()
-            response["model"] = {
-                str(d): str(model[d]) for d in model.decls()
-            }
+            response["model"] = {str(d): str(model[d]) for d in model.decls()}
 
-        self.history.append({
-            "action": "check",
-            "result": str(result),
-            "duration_ms": duration_ms,
-        })
+        self.history.append(
+            {
+                "action": "check",
+                "result": str(result),
+                "duration_ms": duration_ms,
+            }
+        )
 
         return response
 
