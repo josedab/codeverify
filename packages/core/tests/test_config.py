@@ -1,17 +1,17 @@
 """Tests for configuration module."""
-import pytest
+
 from codeverify_core.config import (
     CodeVerifyConfig,
     parse_config,
+    passes_thresholds,
     should_analyze_file,
     should_ignore_finding,
-    passes_thresholds,
 )
 
 
 class TestParseConfig:
     """Tests for parse_config function."""
-    
+
     def test_parse_empty_config(self):
         """Empty config returns defaults."""
         config = parse_config("")
@@ -19,7 +19,7 @@ class TestParseConfig:
         assert "python" in config.languages
         assert config.verification.enabled is True
         assert config.ai.enabled is True
-    
+
     def test_parse_minimal_config(self):
         """Minimal YAML config parses correctly."""
         yaml_content = """
@@ -30,7 +30,7 @@ languages:
         config = parse_config(yaml_content)
         assert config.version == "2"
         assert config.languages == ["python"]
-    
+
     def test_parse_full_config(self):
         """Full config with all options."""
         yaml_content = """
@@ -68,7 +68,7 @@ auto_approve: true
 comment_on_pass: false
 """
         config = parse_config(yaml_content)
-        
+
         assert config.languages == ["python", "typescript"]
         assert config.include_patterns == ["src/**/*.py"]
         assert config.exclude_patterns == ["venv/**"]
@@ -87,22 +87,22 @@ comment_on_pass: false
 
 class TestShouldAnalyzeFile:
     """Tests for should_analyze_file function."""
-    
+
     def test_include_python_file(self):
         """Python file in default config is included."""
         config = CodeVerifyConfig()
         assert should_analyze_file(config, "src/main.py") is True
-    
+
     def test_exclude_node_modules(self):
         """Node modules are excluded."""
         config = CodeVerifyConfig()
         assert should_analyze_file(config, "node_modules/lodash/index.js") is False
-    
+
     def test_exclude_venv(self):
         """Virtual environment is excluded."""
         config = CodeVerifyConfig()
         assert should_analyze_file(config, "venv/lib/site-packages/foo.py") is False
-    
+
     def test_exclude_takes_precedence(self):
         """Exclude patterns override include patterns."""
         config = CodeVerifyConfig(
@@ -114,101 +114,104 @@ class TestShouldAnalyzeFile:
 
 class TestShouldIgnoreFinding:
     """Tests for should_ignore_finding function."""
-    
+
     def test_no_ignore_rules(self):
         """No ignore rules means nothing is ignored."""
         config = CodeVerifyConfig()
         ignored, reason = should_ignore_finding(config, "src/main.py", "security")
         assert ignored is False
-    
+
     def test_ignore_by_pattern(self):
         """Ignore rule by file pattern."""
         from codeverify_core.config import IgnoreRule
-        config = CodeVerifyConfig(ignore_rules=[
-            IgnoreRule(pattern="migrations/**", reason="Auto-generated")
-        ])
-        
-        ignored, reason = should_ignore_finding(
-            config, "migrations/001_initial.py", "security"
+
+        config = CodeVerifyConfig(
+            ignore_rules=[IgnoreRule(pattern="migrations/**", reason="Auto-generated")]
         )
+
+        ignored, reason = should_ignore_finding(config, "migrations/001_initial.py", "security")
         assert ignored is True
         assert reason == "Auto-generated"
-    
+
     def test_ignore_by_category(self):
         """Ignore rule by category."""
         from codeverify_core.config import IgnoreRule
-        config = CodeVerifyConfig(ignore_rules=[
-            IgnoreRule(
-                pattern="tests/**",
-                categories=["security"],
-                reason="Test code"
-            )
-        ])
-        
+
+        config = CodeVerifyConfig(
+            ignore_rules=[
+                IgnoreRule(pattern="tests/**", categories=["security"], reason="Test code")
+            ]
+        )
+
         # Security in tests is ignored
-        ignored, reason = should_ignore_finding(
-            config, "tests/test_auth.py", "security"
-        )
+        ignored, reason = should_ignore_finding(config, "tests/test_auth.py", "security")
         assert ignored is True
-        
+
         # Logic errors in tests are NOT ignored
-        ignored, reason = should_ignore_finding(
-            config, "tests/test_auth.py", "logic_error"
-        )
+        ignored, reason = should_ignore_finding(config, "tests/test_auth.py", "logic_error")
         assert ignored is False
 
 
 class TestPassesThresholds:
     """Tests for passes_thresholds function."""
-    
+
     def test_passes_with_no_findings(self):
         """No findings passes."""
         config = CodeVerifyConfig()
         passed, msg = passes_thresholds(config, {})
         assert passed is True
-    
+
     def test_passes_within_thresholds(self):
         """Findings within thresholds pass."""
         config = CodeVerifyConfig()
         config.thresholds.medium = 5
         config.thresholds.low = 10
-        
-        passed, msg = passes_thresholds(config, {
-            "critical": 0,
-            "high": 0,
-            "medium": 3,
-            "low": 5,
-        })
+
+        passed, msg = passes_thresholds(
+            config,
+            {
+                "critical": 0,
+                "high": 0,
+                "medium": 3,
+                "low": 5,
+            },
+        )
         assert passed is True
-    
+
     def test_fails_critical(self):
         """Any critical finding fails by default."""
         config = CodeVerifyConfig()
         passed, msg = passes_thresholds(config, {"critical": 1})
         assert passed is False
         assert "Critical" in msg
-    
+
     def test_fails_high(self):
         """High findings over threshold fails."""
         config = CodeVerifyConfig()
         passed, msg = passes_thresholds(config, {"high": 1})
         assert passed is False
         assert "High" in msg
-    
+
     def test_custom_thresholds(self):
         """Custom thresholds are respected."""
         from codeverify_core.config import SeverityThresholds
-        config = CodeVerifyConfig(thresholds=SeverityThresholds(
-            critical=1,  # Allow 1 critical
-            high=5,
-            medium=20,
-            low=100,
-        ))
-        
-        passed, msg = passes_thresholds(config, {
-            "critical": 1,
-            "high": 3,
-            "medium": 15,
-            "low": 50,
-        })
+
+        config = CodeVerifyConfig(
+            thresholds=SeverityThresholds(
+                critical=1,  # Allow 1 critical
+                high=5,
+                medium=20,
+                low=100,
+            )
+        )
+
+        passed, msg = passes_thresholds(
+            config,
+            {
+                "critical": 1,
+                "high": 3,
+                "medium": 15,
+                "low": 50,
+            },
+        )
         assert passed is True

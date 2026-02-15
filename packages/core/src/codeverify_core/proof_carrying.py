@@ -10,7 +10,7 @@ import hmac
 import json
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 from uuid import uuid4
@@ -22,6 +22,7 @@ logger = structlog.get_logger()
 
 class ProofStatus(str, Enum):
     """Status of a verification proof."""
+
     VALID = "valid"
     INVALID = "invalid"
     EXPIRED = "expired"
@@ -31,6 +32,7 @@ class ProofStatus(str, Enum):
 
 class VerificationType(str, Enum):
     """Type of verification that produced the proof."""
+
     FORMAL = "formal"
     SEMANTIC = "semantic"
     SECURITY = "security"
@@ -40,6 +42,7 @@ class VerificationType(str, Enum):
 @dataclass
 class ProofMetadata:
     """Metadata about a proof."""
+
     proof_id: str
     timestamp: datetime
     verification_type: VerificationType
@@ -52,6 +55,7 @@ class ProofMetadata:
 @dataclass
 class VerificationProof:
     """A verification proof that can be embedded in PRs."""
+
     proof_id: str
     commit_sha: str
     file_path: str
@@ -69,6 +73,7 @@ class VerificationProof:
 @dataclass
 class ProofAttestation:
     """A signed attestation of verification results."""
+
     attestation_id: str
     pr_number: int
     repo_full_name: str
@@ -85,6 +90,7 @@ class ProofAttestation:
 @dataclass
 class AttestationVerificationResult:
     """Result of verifying an attestation."""
+
     valid: bool
     status: ProofStatus
     message: str
@@ -127,14 +133,16 @@ class ProofSerializer:
         metadata_data = data.get("metadata", {})
         metadata = ProofMetadata(
             proof_id=metadata_data.get("proof_id", ""),
-            timestamp=datetime.fromisoformat(metadata_data.get("timestamp", datetime.utcnow().isoformat())),
+            timestamp=datetime.fromisoformat(
+                metadata_data.get("timestamp", datetime.utcnow().isoformat())
+            ),
             verification_type=VerificationType(metadata_data.get("verification_type", "formal")),
             verifier_version=metadata_data.get("verifier_version", "unknown"),
             solver_version=metadata_data.get("solver_version"),
             timeout_ms=metadata_data.get("timeout_ms"),
             config_hash=metadata_data.get("config_hash"),
         )
-        
+
         return VerificationProof(
             proof_id=data.get("proof_id", ""),
             commit_sha=data.get("commit_sha", ""),
@@ -171,7 +179,7 @@ class ProofSerializer:
     def deserialize_attestation(data: dict[str, Any]) -> ProofAttestation:
         """Deserialize an attestation from dictionary."""
         proofs = [ProofSerializer.deserialize_proof(p) for p in data.get("proofs", [])]
-        
+
         return ProofAttestation(
             attestation_id=data.get("attestation_id", ""),
             pr_number=data.get("pr_number", 0),
@@ -180,8 +188,12 @@ class ProofSerializer:
             base_sha=data.get("base_sha"),
             proofs=proofs,
             summary=data.get("summary", {}),
-            created_at=datetime.fromisoformat(data.get("created_at", datetime.utcnow().isoformat())),
-            expires_at=datetime.fromisoformat(data.get("expires_at", datetime.utcnow().isoformat())),
+            created_at=datetime.fromisoformat(
+                data.get("created_at", datetime.utcnow().isoformat())
+            ),
+            expires_at=datetime.fromisoformat(
+                data.get("expires_at", datetime.utcnow().isoformat())
+            ),
             signature=data.get("signature", ""),
             certificate_chain=data.get("certificate_chain", []),
         )
@@ -193,48 +205,40 @@ class ProofSigner:
     def __init__(self, signing_key: str | bytes) -> None:
         """Initialize with signing key."""
         if isinstance(signing_key, str):
-            signing_key = signing_key.encode('utf-8')
+            signing_key = signing_key.encode("utf-8")
         self._key = signing_key
 
     def sign_proof(self, proof: VerificationProof) -> str:
         """Sign a verification proof."""
         payload = self._create_proof_payload(proof)
-        signature = hmac.new(
-            self._key,
-            payload.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(self._key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
         return signature
 
     def verify_proof_signature(self, proof: VerificationProof) -> bool:
         """Verify a proof's signature."""
         if not proof.signature:
             return False
-        
+
         expected = self.sign_proof(proof)
         return hmac.compare_digest(expected, proof.signature)
 
     def sign_attestation(self, attestation: ProofAttestation) -> str:
         """Sign an attestation."""
         payload = self._create_attestation_payload(attestation)
-        signature = hmac.new(
-            self._key,
-            payload.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(self._key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
         return signature
 
     def verify_attestation_signature(self, attestation: ProofAttestation) -> bool:
         """Verify an attestation's signature."""
         if not attestation.signature:
             return False
-        
+
         # Temporarily remove signature for verification
         original_sig = attestation.signature
         attestation.signature = ""
         expected = self.sign_attestation(attestation)
         attestation.signature = original_sig
-        
+
         return hmac.compare_digest(expected, original_sig)
 
     def _create_proof_payload(self, proof: VerificationProof) -> str:
@@ -270,23 +274,25 @@ class ProofCompressor:
     def compress(data: dict[str, Any]) -> str:
         """Compress proof data to base64."""
         import gzip
-        json_str = json.dumps(data, separators=(',', ':'))
-        compressed = gzip.compress(json_str.encode('utf-8'))
-        return base64.b64encode(compressed).decode('ascii')
+
+        json_str = json.dumps(data, separators=(",", ":"))
+        compressed = gzip.compress(json_str.encode("utf-8"))
+        return base64.b64encode(compressed).decode("ascii")
 
     @staticmethod
     def decompress(compressed: str) -> dict[str, Any]:
         """Decompress base64 proof data."""
         import gzip
+
         raw = base64.b64decode(compressed)
         decompressed = gzip.decompress(raw)
-        return json.loads(decompressed.decode('utf-8'))
+        return json.loads(decompressed.decode("utf-8"))
 
 
 class ProofCarryingPRManager:
     """
     Manages proof-carrying PRs.
-    
+
     Creates, stores, and verifies cryptographic attestations
     of verification results for pull requests.
     """
@@ -313,10 +319,10 @@ class ProofCarryingPRManager:
         """Create a signed verification proof."""
         proof_id = str(uuid4())
         now = datetime.utcnow()
-        
+
         formula = verification_result.get("formula", "")
-        formula_hash = hashlib.sha256(formula.encode('utf-8')).hexdigest()
-        
+        formula_hash = hashlib.sha256(formula.encode("utf-8")).hexdigest()
+
         # Determine result type
         if verification_result.get("satisfiable") is False:
             result = "proven"
@@ -324,7 +330,7 @@ class ProofCarryingPRManager:
             result = "counterexample"
         else:
             result = "timeout"
-        
+
         metadata = ProofMetadata(
             proof_id=proof_id,
             timestamp=now,
@@ -334,7 +340,7 @@ class ProofCarryingPRManager:
             timeout_ms=verification_result.get("timeout_ms"),
             config_hash=config_hash,
         )
-        
+
         proof = VerificationProof(
             proof_id=proof_id,
             commit_sha=commit_sha,
@@ -348,17 +354,17 @@ class ProofCarryingPRManager:
             proof_time_ms=verification_result.get("proof_time_ms", 0),
             metadata=metadata,
         )
-        
+
         # Sign the proof
         proof.signature = self._signer.sign_proof(proof)
-        
+
         logger.info(
             "Created verification proof",
             proof_id=proof_id,
             result=result,
             file_path=file_path,
         )
-        
+
         return proof
 
     def create_attestation(
@@ -372,19 +378,11 @@ class ProofCarryingPRManager:
         """Create a signed attestation for a PR."""
         attestation_id = str(uuid4())
         now = datetime.utcnow()
-        expires = datetime.utcnow()
-        expires = datetime(
-            expires.year,
-            expires.month,
-            expires.day,
-            expires.hour + self._attestation_ttl_hours,
-            expires.minute,
-            expires.second,
-        )
-        
+        expires = now + timedelta(hours=self._attestation_ttl_hours)
+
         # Generate summary
         summary = self._generate_summary(proofs)
-        
+
         attestation = ProofAttestation(
             attestation_id=attestation_id,
             pr_number=pr_number,
@@ -397,17 +395,17 @@ class ProofCarryingPRManager:
             expires_at=expires,
             signature="",  # Will be set after signing
         )
-        
+
         # Sign the attestation
         attestation.signature = self._signer.sign_attestation(attestation)
-        
+
         logger.info(
             "Created PR attestation",
             attestation_id=attestation_id,
             pr_number=pr_number,
             proof_count=len(proofs),
         )
-        
+
         return attestation
 
     def _generate_summary(self, proofs: list[VerificationProof]) -> dict[str, Any]:
@@ -416,7 +414,7 @@ class ProofCarryingPRManager:
         counterexamples = sum(1 for p in proofs if p.result == "counterexample")
         timeouts = sum(1 for p in proofs if p.result == "timeout")
         total_time = sum(p.proof_time_ms for p in proofs)
-        
+
         return {
             "total_proofs": len(proofs),
             "proven": proven,
@@ -434,7 +432,7 @@ class ProofCarryingPRManager:
     ) -> AttestationVerificationResult:
         """Verify an attestation's validity."""
         start_time = time.time()
-        
+
         # Check signature
         if not self._signer.verify_attestation_signature(attestation):
             return AttestationVerificationResult(
@@ -443,7 +441,7 @@ class ProofCarryingPRManager:
                 message="Invalid attestation signature",
                 verification_time_ms=(time.time() - start_time) * 1000,
             )
-        
+
         # Check expiration
         if datetime.utcnow() > attestation.expires_at:
             return AttestationVerificationResult(
@@ -453,7 +451,7 @@ class ProofCarryingPRManager:
                 attestation=attestation,
                 verification_time_ms=(time.time() - start_time) * 1000,
             )
-        
+
         # Check commit if provided
         if expected_commit and attestation.head_sha != expected_commit:
             return AttestationVerificationResult(
@@ -463,7 +461,7 @@ class ProofCarryingPRManager:
                 attestation=attestation,
                 verification_time_ms=(time.time() - start_time) * 1000,
             )
-        
+
         # Verify individual proof signatures
         for proof in attestation.proofs:
             if not self._signer.verify_proof_signature(proof):
@@ -474,7 +472,7 @@ class ProofCarryingPRManager:
                     attestation=attestation,
                     verification_time_ms=(time.time() - start_time) * 1000,
                 )
-        
+
         return AttestationVerificationResult(
             valid=True,
             status=ProofStatus.VALID,
@@ -500,7 +498,7 @@ class ProofCarryingPRManager:
     ) -> str:
         """Generate a verification badge URL."""
         summary = attestation.summary
-        
+
         if summary.get("all_verified"):
             status = "verified"
             color = "brightgreen"
@@ -510,7 +508,7 @@ class ProofCarryingPRManager:
         else:
             status = "partial"
             color = "yellow"
-        
+
         return (
             f"{base_url}/badge/{attestation.repo_full_name}"
             f"/{attestation.head_sha[:7]}"
@@ -521,7 +519,7 @@ class ProofCarryingPRManager:
 class ProofArtifactStore:
     """
     Storage for proof artifacts.
-    
+
     Provides a searchable library of verification proofs
     that can be reused across projects.
     """
@@ -535,12 +533,12 @@ class ProofArtifactStore:
     def store(self, proof: VerificationProof) -> None:
         """Store a proof."""
         self._proofs[proof.proof_id] = proof
-        
+
         # Index by formula hash
         if proof.formula_hash not in self._by_formula:
             self._by_formula[proof.formula_hash] = []
         self._by_formula[proof.formula_hash].append(proof.proof_id)
-        
+
         # Index by file path
         if proof.file_path not in self._by_file:
             self._by_file[proof.file_path] = []
@@ -567,18 +565,18 @@ class ProofArtifactStore:
     ) -> VerificationProof | None:
         """
         Find a reusable proof for a formula.
-        
+
         Returns a valid proof if the formula has been verified before
         with the same result.
         """
-        formula_hash = hashlib.sha256(formula.encode('utf-8')).hexdigest()
+        formula_hash = hashlib.sha256(formula.encode("utf-8")).hexdigest()
         proofs = self.find_by_formula(formula_hash)
-        
+
         # Return most recent proven proof
         proven = [p for p in proofs if p.result == "proven"]
         if proven:
             return max(proven, key=lambda p: p.metadata.timestamp)
-        
+
         return None
 
     def get_statistics(self) -> dict[str, Any]:
@@ -586,7 +584,7 @@ class ProofArtifactStore:
         total = len(self._proofs)
         proven = sum(1 for p in self._proofs.values() if p.result == "proven")
         counterexamples = sum(1 for p in self._proofs.values() if p.result == "counterexample")
-        
+
         return {
             "total_proofs": total,
             "proven": proven,

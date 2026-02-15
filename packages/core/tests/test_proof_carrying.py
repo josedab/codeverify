@@ -1,16 +1,30 @@
 """Tests for Proof-Carrying PRs module."""
 
-import json
-import pytest
+import hashlib
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch
 
 from codeverify_core.proof_carrying import (
     ProofAttestation,
-    ProofCarryingManager,
+    ProofCarryingPRManager,
+    ProofCompressor,
+    ProofMetadata,
     ProofSerializer,
+    ProofStatus,
     VerificationProof,
+    VerificationType,
 )
+
+
+def _make_verification_result(**overrides):
+    """Helper to create a verification result dict for create_proof."""
+    result = {
+        "formula": "(assert (> x 0))",
+        "satisfiable": False,
+        "solver_version": "z3-4.12",
+        "proof_time_ms": 42.0,
+    }
+    result.update(overrides)
+    return result
 
 
 class TestVerificationProof:
@@ -18,29 +32,52 @@ class TestVerificationProof:
 
     def test_create_proof(self):
         """Can create a verification proof."""
+        now = datetime.utcnow()
+        metadata = ProofMetadata(
+            proof_id="proof-123",
+            timestamp=now,
+            verification_type=VerificationType.FORMAL,
+            verifier_version="1.0.0",
+        )
         proof = VerificationProof(
             proof_id="proof-123",
-            code_hash="abc123",
-            verification_type="formal",
-            result="passed",
-            verifier_version="1.0.0",
-            timestamp=datetime.utcnow(),
+            commit_sha="abc123",
+            file_path="src/main.py",
+            function_name="foo",
+            verification_type=VerificationType.FORMAL,
+            result="proven",
+            formula="(assert true)",
+            formula_hash=hashlib.sha256(b"(assert true)").hexdigest(),
+            counterexample=None,
+            proof_time_ms=10.0,
+            metadata=metadata,
         )
         assert proof.proof_id == "proof-123"
-        assert proof.result == "passed"
+        assert proof.result == "proven"
 
-    def test_proof_with_metadata(self):
-        """Proof can include metadata."""
+    def test_proof_with_counterexample(self):
+        """Proof can include counterexample data."""
+        now = datetime.utcnow()
+        metadata = ProofMetadata(
+            proof_id="proof-456",
+            timestamp=now,
+            verification_type=VerificationType.SECURITY,
+            verifier_version="1.0.0",
+        )
         proof = VerificationProof(
             proof_id="proof-456",
-            code_hash="def456",
-            verification_type="static",
-            result="passed",
-            verifier_version="1.0.0",
-            timestamp=datetime.utcnow(),
-            metadata={"checks": ["null_safety", "bounds"]},
+            commit_sha="def456",
+            file_path="src/lib.py",
+            function_name="bar",
+            verification_type=VerificationType.SECURITY,
+            result="counterexample",
+            formula="(assert (< x 0))",
+            formula_hash=hashlib.sha256(b"(assert (< x 0))").hexdigest(),
+            counterexample={"x": -1},
+            proof_time_ms=5.0,
+            metadata=metadata,
         )
-        assert proof.metadata["checks"] == ["null_safety", "bounds"]
+        assert proof.counterexample == {"x": -1}
 
 
 class TestProofAttestation:
@@ -48,19 +85,18 @@ class TestProofAttestation:
 
     def test_create_attestation(self):
         """Can create an attestation."""
-        proof = VerificationProof(
-            proof_id="proof-1",
-            code_hash="hash1",
-            verification_type="formal",
-            result="passed",
-            verifier_version="1.0.0",
-            timestamp=datetime.utcnow(),
-        )
+        now = datetime.utcnow()
         attestation = ProofAttestation(
             attestation_id="att-1",
-            proof=proof,
+            pr_number=42,
+            repo_full_name="org/repo",
+            head_sha="abc123",
+            base_sha=None,
+            proofs=[],
+            summary={"total_proofs": 0},
+            created_at=now,
+            expires_at=now + timedelta(hours=168),
             signature="sig123",
-            signed_at=datetime.utcnow(),
         )
         assert attestation.attestation_id == "att-1"
         assert attestation.signature == "sig123"
@@ -69,307 +105,304 @@ class TestProofAttestation:
 class TestProofSerializer:
     """Tests for ProofSerializer."""
 
-    def test_serialize_proof(self):
-        """Serializes proof to JSON."""
-        proof = VerificationProof(
-            proof_id="proof-1",
-            code_hash="hash1",
-            verification_type="formal",
-            result="passed",
+    def _make_proof(self, proof_id="proof-1", result="proven"):
+        now = datetime(2024, 1, 15, 12, 0, 0)
+        formula = "(assert true)"
+        metadata = ProofMetadata(
+            proof_id=proof_id,
+            timestamp=now,
+            verification_type=VerificationType.FORMAL,
             verifier_version="1.0.0",
-            timestamp=datetime(2024, 1, 15, 12, 0, 0),
         )
-        
-        serialized = ProofSerializer.serialize(proof)
-        assert isinstance(serialized, str)
-        
-        # Should be valid JSON
-        data = json.loads(serialized)
-        assert data["proof_id"] == "proof-1"
-        assert data["code_hash"] == "hash1"
+        return VerificationProof(
+            proof_id=proof_id,
+            commit_sha="hash1",
+            file_path="src/main.py",
+            function_name="foo",
+            verification_type=VerificationType.FORMAL,
+            result=result,
+            formula=formula,
+            formula_hash=hashlib.sha256(formula.encode()).hexdigest(),
+            counterexample=None,
+            proof_time_ms=10.0,
+            metadata=metadata,
+        )
+
+    def test_serialize_proof(self):
+        """Serializes proof to dict."""
+        proof = self._make_proof()
+        serialized = ProofSerializer.serialize_proof(proof)
+        assert isinstance(serialized, dict)
+        assert serialized["proof_id"] == "proof-1"
+        assert serialized["commit_sha"] == "hash1"
 
     def test_deserialize_proof(self):
-        """Deserializes JSON to proof."""
-        json_str = json.dumps({
-            "proof_id": "proof-2",
-            "code_hash": "hash2",
-            "verification_type": "static",
-            "result": "passed",
-            "verifier_version": "1.0.0",
-            "timestamp": "2024-01-15T12:00:00",
-        })
-        
-        proof = ProofSerializer.deserialize(json_str)
-        assert proof.proof_id == "proof-2"
-        assert proof.verification_type == "static"
+        """Deserializes dict to proof."""
+        proof = self._make_proof(proof_id="proof-2")
+        data = ProofSerializer.serialize_proof(proof)
+        restored = ProofSerializer.deserialize_proof(data)
+        assert restored.proof_id == "proof-2"
+        assert restored.verification_type == VerificationType.FORMAL
 
     def test_round_trip(self):
         """Serialize then deserialize preserves data."""
-        original = VerificationProof(
-            proof_id="proof-rt",
-            code_hash="hashrt",
-            verification_type="ai",
-            result="warning",
-            verifier_version="2.0.0",
-            timestamp=datetime(2024, 6, 1, 10, 30, 0),
-            metadata={"findings": 3},
-        )
-        
-        serialized = ProofSerializer.serialize(original)
-        restored = ProofSerializer.deserialize(serialized)
-        
+        original = self._make_proof(proof_id="proof-rt", result="proven")
+        serialized = ProofSerializer.serialize_proof(original)
+        restored = ProofSerializer.deserialize_proof(serialized)
         assert restored.proof_id == original.proof_id
-        assert restored.code_hash == original.code_hash
+        assert restored.commit_sha == original.commit_sha
         assert restored.result == original.result
 
-    def test_compress_proof(self):
-        """Compresses proof for transport."""
-        proof = VerificationProof(
-            proof_id="proof-compress",
-            code_hash="hash" * 100,  # Long hash
-            verification_type="formal",
-            result="passed",
-            verifier_version="1.0.0",
-            timestamp=datetime.utcnow(),
-            metadata={"large": "data" * 100},
-        )
-        
-        compressed = ProofSerializer.compress(proof)
-        assert isinstance(compressed, bytes)
-        
-        # Compressed should be smaller than original JSON
-        original_size = len(ProofSerializer.serialize(proof).encode())
-        assert len(compressed) < original_size
+    def test_compress_decompress(self):
+        """Compresses and decompresses proof data."""
+        proof = self._make_proof()
+        data = ProofSerializer.serialize_proof(proof)
+        compressed = ProofCompressor.compress(data)
+        assert isinstance(compressed, str)
 
-    def test_decompress_proof(self):
-        """Decompresses proof from bytes."""
-        original = VerificationProof(
-            proof_id="proof-decompress",
-            code_hash="hashdc",
-            verification_type="static",
-            result="passed",
-            verifier_version="1.0.0",
-            timestamp=datetime(2024, 1, 1, 0, 0, 0),
-        )
-        
-        compressed = ProofSerializer.compress(original)
-        restored = ProofSerializer.decompress(compressed)
-        
-        assert restored.proof_id == original.proof_id
+        restored_data = ProofCompressor.decompress(compressed)
+        assert restored_data["proof_id"] == "proof-1"
 
 
-class TestProofCarryingManager:
-    """Tests for ProofCarryingManager."""
+class TestProofCarryingPRManager:
+    """Tests for ProofCarryingPRManager."""
 
     def test_create_manager(self):
-        """Can create manager with secret key."""
-        manager = ProofCarryingManager(secret_key="test-secret-key-123")
+        """Can create manager with signing key."""
+        manager = ProofCarryingPRManager(signing_key="test-secret-key-123")
         assert manager is not None
 
     def test_create_proof(self):
         """Creates a new verification proof."""
-        manager = ProofCarryingManager(secret_key="secret")
-        
-        proof = manager.create_proof(
-            code_hash="abc123",
-            verification_type="formal",
-            result="passed",
-        )
-        
-        assert proof.code_hash == "abc123"
-        assert proof.verification_type == "formal"
-        assert proof.proof_id is not None
+        manager = ProofCarryingPRManager(signing_key="secret")
 
-    def test_sign_proof(self):
-        """Signs a proof and creates attestation."""
-        manager = ProofCarryingManager(secret_key="my-secret-key")
-        
         proof = manager.create_proof(
-            code_hash="xyz789",
-            verification_type="static",
-            result="passed",
+            commit_sha="abc123",
+            file_path="src/main.py",
+            verification_result=_make_verification_result(),
         )
-        
-        attestation = manager.sign_proof(proof)
-        
-        assert attestation.proof == proof
+
+        assert proof.commit_sha == "abc123"
+        assert proof.verification_type == VerificationType.FORMAL
+        assert proof.proof_id is not None
+        assert proof.signature is not None
+
+    def test_create_proof_proven(self):
+        """Proof result is 'proven' when satisfiable is False."""
+        manager = ProofCarryingPRManager(signing_key="secret")
+        proof = manager.create_proof(
+            commit_sha="abc",
+            file_path="f.py",
+            verification_result=_make_verification_result(satisfiable=False),
+        )
+        assert proof.result == "proven"
+
+    def test_create_proof_counterexample(self):
+        """Proof result is 'counterexample' when satisfiable is True."""
+        manager = ProofCarryingPRManager(signing_key="secret")
+        proof = manager.create_proof(
+            commit_sha="abc",
+            file_path="f.py",
+            verification_result=_make_verification_result(
+                satisfiable=True,
+                counterexample={"x": 5},
+            ),
+        )
+        assert proof.result == "counterexample"
+
+    def test_create_attestation(self):
+        """Creates a signed attestation for a PR."""
+        manager = ProofCarryingPRManager(signing_key="my-secret-key")
+
+        proof = manager.create_proof(
+            commit_sha="xyz789",
+            file_path="src/lib.py",
+            verification_result=_make_verification_result(),
+        )
+
+        attestation = manager.create_attestation(
+            pr_number=1,
+            repo_full_name="org/repo",
+            head_sha="xyz789",
+            proofs=[proof],
+        )
+
+        assert attestation.proofs == [proof]
         assert attestation.signature is not None
         assert len(attestation.signature) > 0
 
     def test_verify_attestation_valid(self):
         """Verifies a valid attestation."""
-        secret = "verification-secret"
-        manager = ProofCarryingManager(secret_key=secret)
-        
+        manager = ProofCarryingPRManager(signing_key="verification-secret")
+
         proof = manager.create_proof(
-            code_hash="validhash",
-            verification_type="formal",
-            result="passed",
+            commit_sha="validhash",
+            file_path="src/main.py",
+            verification_result=_make_verification_result(),
         )
-        attestation = manager.sign_proof(proof)
-        
-        # Same manager should verify its own attestations
-        assert manager.verify_attestation(attestation) is True
+        attestation = manager.create_attestation(
+            pr_number=1,
+            repo_full_name="org/repo",
+            head_sha="validhash",
+            proofs=[proof],
+        )
+
+        result = manager.verify_attestation(attestation)
+        assert result.valid is True
+        assert result.status == ProofStatus.VALID
 
     def test_verify_attestation_invalid_signature(self):
         """Rejects attestation with invalid signature."""
-        manager = ProofCarryingManager(secret_key="secret1")
-        
+        manager = ProofCarryingPRManager(signing_key="secret1")
+
         proof = manager.create_proof(
-            code_hash="hash",
-            verification_type="static",
-            result="passed",
+            commit_sha="hash",
+            file_path="src/main.py",
+            verification_result=_make_verification_result(),
         )
-        attestation = manager.sign_proof(proof)
-        
+        attestation = manager.create_attestation(
+            pr_number=1,
+            repo_full_name="org/repo",
+            head_sha="hash",
+            proofs=[proof],
+        )
+
         # Tamper with signature
         attestation.signature = "tampered-signature"
-        
-        assert manager.verify_attestation(attestation) is False
+
+        result = manager.verify_attestation(attestation)
+        assert result.valid is False
+        assert result.status == ProofStatus.INVALID
 
     def test_verify_attestation_wrong_key(self):
         """Rejects attestation signed with different key."""
-        manager1 = ProofCarryingManager(secret_key="key1")
-        manager2 = ProofCarryingManager(secret_key="key2")
-        
+        manager1 = ProofCarryingPRManager(signing_key="key1")
+        manager2 = ProofCarryingPRManager(signing_key="key2")
+
         proof = manager1.create_proof(
-            code_hash="hash",
-            verification_type="formal",
-            result="passed",
+            commit_sha="hash",
+            file_path="src/main.py",
+            verification_result=_make_verification_result(),
         )
-        attestation = manager1.sign_proof(proof)
-        
+        attestation = manager1.create_attestation(
+            pr_number=1,
+            repo_full_name="org/repo",
+            head_sha="hash",
+            proofs=[proof],
+        )
+
         # Different manager should not verify
-        assert manager2.verify_attestation(attestation) is False
+        result = manager2.verify_attestation(attestation)
+        assert result.valid is False
 
-    def test_attestation_expiry(self):
-        """Attestations can expire."""
-        manager = ProofCarryingManager(
-            secret_key="secret",
-            attestation_ttl_hours=1,
-        )
-        
+    def test_verify_attestation_commit_mismatch(self):
+        """Rejects attestation when expected commit doesn't match."""
+        manager = ProofCarryingPRManager(signing_key="secret")
+
         proof = manager.create_proof(
-            code_hash="hash",
-            verification_type="static",
-            result="passed",
+            commit_sha="commit1",
+            file_path="src/main.py",
+            verification_result=_make_verification_result(),
         )
-        attestation = manager.sign_proof(proof)
-        
-        # Manually set signed_at to past
-        attestation.signed_at = datetime.utcnow() - timedelta(hours=2)
-        
-        assert manager.verify_attestation(attestation, check_expiry=True) is False
+        attestation = manager.create_attestation(
+            pr_number=1,
+            repo_full_name="org/repo",
+            head_sha="commit1",
+            proofs=[proof],
+        )
 
-    def test_embed_in_commit_message(self):
-        """Embeds attestation in commit message."""
-        manager = ProofCarryingManager(secret_key="secret")
-        
+        result = manager.verify_attestation(attestation, expected_commit="commit2")
+        assert result.valid is False
+        assert result.status == ProofStatus.INVALID
+
+    def test_serialize_for_github_round_trip(self):
+        """Serialize and deserialize for GitHub preserves data."""
+        manager = ProofCarryingPRManager(signing_key="secret")
+
         proof = manager.create_proof(
-            code_hash="hash",
-            verification_type="formal",
-            result="passed",
+            commit_sha="hash",
+            file_path="src/main.py",
+            verification_result=_make_verification_result(),
         )
-        attestation = manager.sign_proof(proof)
-        
-        original_message = "feat: add new feature\n\nSome description"
-        embedded = manager.embed_in_commit_message(attestation, original_message)
-        
-        assert "feat: add new feature" in embedded
-        assert "CodeVerify-Attestation:" in embedded
+        attestation = manager.create_attestation(
+            pr_number=42,
+            repo_full_name="org/repo",
+            head_sha="hash",
+            proofs=[proof],
+        )
 
-    def test_extract_from_commit_message(self):
-        """Extracts attestation from commit message."""
-        manager = ProofCarryingManager(secret_key="secret")
-        
+        compressed = manager.serialize_for_github(attestation)
+        restored = manager.deserialize_from_github(compressed)
+
+        assert restored.attestation_id == attestation.attestation_id
+        assert restored.pr_number == 42
+        assert len(restored.proofs) == 1
+
+    def test_generate_badge_url_verified(self):
+        """Generates badge URL for fully verified PR."""
+        manager = ProofCarryingPRManager(signing_key="secret")
+
         proof = manager.create_proof(
-            code_hash="extracthash",
-            verification_type="formal",
-            result="passed",
+            commit_sha="hash",
+            file_path="src/main.py",
+            verification_result=_make_verification_result(),
         )
-        attestation = manager.sign_proof(proof)
-        
-        # Embed then extract
-        message = manager.embed_in_commit_message(attestation, "Original message")
-        extracted = manager.extract_from_commit_message(message)
-        
-        assert extracted is not None
-        assert extracted.proof.code_hash == "extracthash"
-
-    def test_extract_from_message_without_attestation(self):
-        """Returns None for message without attestation."""
-        manager = ProofCarryingManager(secret_key="secret")
-        
-        result = manager.extract_from_commit_message("Regular commit message")
-        assert result is None
-
-    def test_create_pr_comment(self):
-        """Creates PR comment with attestation."""
-        manager = ProofCarryingManager(secret_key="secret")
-        
-        proof = manager.create_proof(
-            code_hash="prhash",
-            verification_type="formal",
-            result="passed",
+        attestation = manager.create_attestation(
+            pr_number=1,
+            repo_full_name="org/repo",
+            head_sha="hash123",
+            proofs=[proof],
         )
-        attestation = manager.sign_proof(proof)
-        
-        comment = manager.create_pr_comment(attestation)
-        
-        assert "Verification Attestation" in comment
-        assert "passed" in comment.lower()
+
+        url = manager.generate_badge_url(attestation)
+        assert "verified" in url
+        assert "org/repo" in url
 
 
 class TestProofCarryingEdgeCases:
     """Edge case tests for proof-carrying functionality."""
 
-    def test_empty_secret_key(self):
-        """Handles empty secret key."""
-        with pytest.raises(ValueError):
-            ProofCarryingManager(secret_key="")
+    def test_special_characters_in_formula(self):
+        """Handles special characters in formula."""
+        manager = ProofCarryingPRManager(signing_key="secret")
 
-    def test_special_characters_in_metadata(self):
-        """Handles special characters in metadata."""
-        manager = ProofCarryingManager(secret_key="secret")
-        
         proof = manager.create_proof(
-            code_hash="hash",
-            verification_type="static",
-            result="passed",
-            metadata={"message": "Test with 'quotes' and \"double quotes\""},
+            commit_sha="hash",
+            file_path="src/main.py",
+            verification_result=_make_verification_result(
+                formula="(assert (= x \"hello 'world'\"))",
+            ),
         )
-        
-        attestation = manager.sign_proof(proof)
-        assert manager.verify_attestation(attestation) is True
 
-    def test_unicode_in_proof(self):
-        """Handles unicode characters."""
-        manager = ProofCarryingManager(secret_key="secret")
-        
-        proof = manager.create_proof(
-            code_hash="hash",
-            verification_type="static",
-            result="passed",
-            metadata={"desc": "Unicode: 你好世界 🔐"},
+        attestation = manager.create_attestation(
+            pr_number=1,
+            repo_full_name="org/repo",
+            head_sha="hash",
+            proofs=[proof],
         )
-        
-        serialized = ProofSerializer.serialize(proof)
-        restored = ProofSerializer.deserialize(serialized)
-        
-        assert "你好世界" in restored.metadata["desc"]
+        result = manager.verify_attestation(attestation)
+        assert result.valid is True
 
-    def test_large_metadata(self):
-        """Handles large metadata."""
-        manager = ProofCarryingManager(secret_key="secret")
-        
-        large_data = {"items": [f"item-{i}" for i in range(1000)]}
-        
-        proof = manager.create_proof(
-            code_hash="hash",
-            verification_type="static",
-            result="passed",
-            metadata=large_data,
+    def test_multiple_proofs_in_attestation(self):
+        """Handles multiple proofs in a single attestation."""
+        manager = ProofCarryingPRManager(signing_key="secret")
+
+        proofs = []
+        for i in range(5):
+            proof = manager.create_proof(
+                commit_sha="hash",
+                file_path=f"src/file{i}.py",
+                verification_result=_make_verification_result(),
+            )
+            proofs.append(proof)
+
+        attestation = manager.create_attestation(
+            pr_number=1,
+            repo_full_name="org/repo",
+            head_sha="hash",
+            proofs=proofs,
         )
-        
-        attestation = manager.sign_proof(proof)
-        assert manager.verify_attestation(attestation) is True
+
+        result = manager.verify_attestation(attestation)
+        assert result.valid is True
+        assert attestation.summary["total_proofs"] == 5

@@ -15,13 +15,11 @@ Key features:
 import hashlib
 import json
 import re
-import uuid
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Generator
+from typing import Any
 
 import structlog
 
@@ -245,25 +243,25 @@ class ProofIndex:
                 matched = [p for p in query.properties if p in function.properties]
                 score = len(matched) / max(len(query.properties), 1)
 
-                results.append(SearchResult(
-                    function=function,
-                    match_score=score,
-                    matched_properties=matched,
-                ))
+                results.append(
+                    SearchResult(
+                        function=function,
+                        match_score=score,
+                        matched_properties=matched,
+                    )
+                )
 
         # Sort by score
         results.sort(key=lambda r: r.match_score, reverse=True)
 
         # Apply limit
-        return results[:query.limit]
+        return results[: query.limit]
 
     def statistics(self) -> dict[str, Any]:
         """Get index statistics."""
         return {
             "total_functions": len(self._functions),
-            "by_property": {
-                p.value: len(ids) for p, ids in self._by_property.items()
-            },
+            "by_property": {p.value: len(ids) for p, ids in self._by_property.items()},
             "files_indexed": len(self._by_file),
         }
 
@@ -516,14 +514,16 @@ class CodebaseIndexer:
 
                     full_name = f"{current_class}.{func_name}" if current_class else func_name
 
-                    functions.append({
-                        "name": full_name,
-                        "signature": f"def {func_name}({params}){return_type}",
-                        "code": "\n".join(lines[i:end_line + 1]),
-                        "line_start": i + 1,
-                        "line_end": end_line + 1,
-                        "docstring": docstring,
-                    })
+                    functions.append(
+                        {
+                            "name": full_name,
+                            "signature": f"def {func_name}({params}){return_type}",
+                            "code": "\n".join(lines[i : end_line + 1]),
+                            "line_start": i + 1,
+                            "line_end": end_line + 1,
+                            "docstring": docstring,
+                        }
+                    )
 
                 i += 1
 
@@ -532,7 +532,9 @@ class CodebaseIndexer:
             patterns = [
                 re.compile(r"^\s*(export\s+)?(async\s+)?function\s+(\w+)\s*\(([^)]*)\)"),
                 re.compile(r"^\s*(const|let|var)\s+(\w+)\s*=\s*(async\s+)?\([^)]*\)\s*=>"),
-                re.compile(r"^\s*(public|private|protected)?\s*(static)?\s*(async)?\s*(\w+)\s*\(([^)]*)\)\s*[:{]"),
+                re.compile(
+                    r"^\s*(public|private|protected)?\s*(static)?\s*(async)?\s*(\w+)\s*\(([^)]*)\)\s*[:{]"
+                ),
             ]
 
             for i, line in enumerate(lines):
@@ -546,13 +548,15 @@ class CodebaseIndexer:
                         # Find function end (simplified)
                         end_line = self._find_brace_end(lines, i)
 
-                        functions.append({
-                            "name": func_name,
-                            "signature": line.strip(),
-                            "code": "\n".join(lines[i:end_line + 1]),
-                            "line_start": i + 1,
-                            "line_end": end_line + 1,
-                        })
+                        functions.append(
+                            {
+                                "name": func_name,
+                                "signature": line.strip(),
+                                "code": "\n".join(lines[i : end_line + 1]),
+                                "line_start": i + 1,
+                                "line_end": end_line + 1,
+                            }
+                        )
                         break
 
         return functions
@@ -653,7 +657,9 @@ class CodebaseIndexer:
             properties.add(PropertyType.CAN_OVERFLOW)
 
         # Side effects
-        if any(kw in code_lower for kw in ["print", "write", "send", "post", "put", "delete", "save"]):
+        if any(
+            kw in code_lower for kw in ["print", "write", "send", "post", "put", "delete", "save"]
+        ):
             properties.add(PropertyType.HAS_SIDE_EFFECTS)
         else:
             properties.add(PropertyType.IS_PURE_FUNCTION)
@@ -700,8 +706,20 @@ class CodebaseIndexer:
         """Calculate cyclomatic complexity approximation."""
         # Simple heuristic based on control flow keywords
         keywords = [
-            "if ", "elif ", "else:", "for ", "while ", "try:", "except ",
-            "case ", "switch", "?", "&&", "||", "and ", "or ",
+            "if ",
+            "elif ",
+            "else:",
+            "for ",
+            "while ",
+            "try:",
+            "except ",
+            "case ",
+            "switch",
+            "?",
+            "&&",
+            "||",
+            "and ",
+            "or ",
         ]
 
         count = 1  # Base complexity

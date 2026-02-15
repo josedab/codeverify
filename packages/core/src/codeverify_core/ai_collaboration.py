@@ -14,53 +14,45 @@ Features:
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import time
-from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from typing import (
     Any,
-    AsyncGenerator,
-    Callable,
-    Dict,
-    List,
-    Optional,
     Protocol,
-    Set,
-    TypeVar,
 )
-
 
 # =============================================================================
 # Collaboration Message Protocol
 # =============================================================================
 
+
 class MessageType(str, Enum):
     """Types of collaboration messages."""
-    
+
     # From CodeVerify to AI Assistant
-    CONSTRAINT = "constraint"           # Verification constraint to respect
-    WARNING = "warning"                  # Potential issue detected
-    SUGGESTION = "suggestion"            # Code modification suggestion
-    CONTEXT = "context"                  # Contextual information
-    PROOF_REQUEST = "proof_request"      # Request for provable code
-    
+    CONSTRAINT = "constraint"  # Verification constraint to respect
+    WARNING = "warning"  # Potential issue detected
+    SUGGESTION = "suggestion"  # Code modification suggestion
+    CONTEXT = "context"  # Contextual information
+    PROOF_REQUEST = "proof_request"  # Request for provable code
+
     # From AI Assistant to CodeVerify
-    CODE_PROPOSAL = "code_proposal"      # Proposed code for verification
-    QUERY = "query"                      # Question about constraints
-    ACKNOWLEDGMENT = "ack"               # Acknowledgment of constraint
-    
+    CODE_PROPOSAL = "code_proposal"  # Proposed code for verification
+    QUERY = "query"  # Question about constraints
+    ACKNOWLEDGMENT = "ack"  # Acknowledgment of constraint
+
     # Bidirectional
-    SYNC = "sync"                        # State synchronization
-    HEARTBEAT = "heartbeat"              # Keep-alive
+    SYNC = "sync"  # State synchronization
+    HEARTBEAT = "heartbeat"  # Keep-alive
 
 
 class Severity(str, Enum):
     """Severity levels for messages."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -72,39 +64,39 @@ class Severity(str, Enum):
 class CollaborationMessage:
     """
     Standard message format for AI-to-AI collaboration.
-    
+
     Designed to be:
     - Machine-parseable for AI consumption
     - Human-readable for debugging
     - Extensible for future message types
     """
-    
+
     message_id: str
     message_type: MessageType
     timestamp: float
-    
+
     # Content
-    content: Dict[str, Any]
-    
+    content: dict[str, Any]
+
     # Metadata
     source: str = "codeverify"
     target: str = "ai_assistant"
     severity: Severity = Severity.INFO
-    
+
     # Context references
-    file_path: Optional[str] = None
-    line_range: Optional[tuple[int, int]] = None
-    code_context: Optional[str] = None
-    
+    file_path: str | None = None
+    line_range: tuple[int, int] | None = None
+    code_context: str | None = None
+
     # Threading
-    reply_to: Optional[str] = None
-    conversation_id: Optional[str] = None
-    
+    reply_to: str | None = None
+    conversation_id: str | None = None
+
     @classmethod
     def create(
         cls,
         message_type: MessageType,
-        content: Dict[str, Any],
+        content: dict[str, Any],
         **kwargs: Any,
     ) -> CollaborationMessage:
         """Create a new collaboration message."""
@@ -117,8 +109,8 @@ class CollaborationMessage:
             content=content,
             **kwargs,
         )
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "message_id": self.message_id,
@@ -134,9 +126,9 @@ class CollaborationMessage:
             "reply_to": self.reply_to,
             "conversation_id": self.conversation_id,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> CollaborationMessage:
+    def from_dict(cls, data: dict[str, Any]) -> CollaborationMessage:
         """Create from dictionary."""
         return cls(
             message_id=data["message_id"],
@@ -152,11 +144,11 @@ class CollaborationMessage:
             reply_to=data.get("reply_to"),
             conversation_id=data.get("conversation_id"),
         )
-    
+
     def to_prompt_injection(self) -> str:
         """
         Convert to a format suitable for prompt injection.
-        
+
         This allows verification constraints to be injected into
         the AI assistant's context/system prompt.
         """
@@ -168,7 +160,7 @@ class CollaborationMessage:
             return self._format_context_prompt()
         else:
             return json.dumps(self.content)
-    
+
     def _format_constraint_prompt(self) -> str:
         """Format constraint as prompt text."""
         constraint = self.content
@@ -184,11 +176,11 @@ class CollaborationMessage:
         if constraint.get("example_correct"):
             lines.append(f"Correct example: {constraint['example_correct']}")
         return "\n".join(lines)
-    
+
     def _format_warning_prompt(self) -> str:
         """Format warning as prompt text."""
         return f"[WARNING - {self.severity.value.upper()}] {self.content.get('message', '')}"
-    
+
     def _format_context_prompt(self) -> str:
         """Format context as prompt text."""
         return f"[CONTEXT] {json.dumps(self.content)}"
@@ -198,29 +190,30 @@ class CollaborationMessage:
 # Constraint Types
 # =============================================================================
 
+
 @dataclass
 class VerificationConstraint:
     """A constraint that generated code must satisfy."""
-    
+
     constraint_id: str
     constraint_type: str
     rule: str
-    
+
     # Optional details
-    formal_spec: Optional[str] = None  # Z3/SMT-LIB specification
-    natural_language: Optional[str] = None
-    example_violation: Optional[str] = None
-    example_correct: Optional[str] = None
-    
+    formal_spec: str | None = None  # Z3/SMT-LIB specification
+    natural_language: str | None = None
+    example_violation: str | None = None
+    example_correct: str | None = None
+
     # Scope
-    applies_to: Optional[List[str]] = None  # function names, patterns
-    language: Optional[str] = None
-    
+    applies_to: list[str] | None = None  # function names, patterns
+    language: str | None = None
+
     # Enforcement
     severity: Severity = Severity.MEDIUM
     auto_fix_available: bool = False
-    
-    def to_message(self, file_path: Optional[str] = None) -> CollaborationMessage:
+
+    def to_message(self, file_path: str | None = None) -> CollaborationMessage:
         """Convert to a collaboration message."""
         return CollaborationMessage.create(
             message_type=MessageType.CONSTRAINT,
@@ -295,63 +288,62 @@ STANDARD_CONSTRAINTS = {
 # Collaboration Session
 # =============================================================================
 
+
 @dataclass
 class CollaborationSession:
     """
     Manages a collaboration session between CodeVerify and an AI assistant.
-    
+
     Tracks:
     - Active constraints
     - Message history
     - Verification state
     - Code proposals and feedback
     """
-    
+
     session_id: str
     ai_assistant: str  # e.g., "github_copilot", "claude"
     started_at: float = field(default_factory=time.time)
-    
+
     # State
-    active_constraints: Dict[str, VerificationConstraint] = field(default_factory=dict)
-    message_history: List[CollaborationMessage] = field(default_factory=list)
-    pending_proposals: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    
+    active_constraints: dict[str, VerificationConstraint] = field(default_factory=dict)
+    message_history: list[CollaborationMessage] = field(default_factory=list)
+    pending_proposals: dict[str, dict[str, Any]] = field(default_factory=dict)
+
     # Context
-    file_path: Optional[str] = None
-    language: Optional[str] = None
-    project_context: Dict[str, Any] = field(default_factory=dict)
-    
+    file_path: str | None = None
+    language: str | None = None
+    project_context: dict[str, Any] = field(default_factory=dict)
+
     # Statistics
     constraints_sent: int = 0
     proposals_received: int = 0
     proposals_accepted: int = 0
     proposals_rejected: int = 0
-    
+
     def add_constraint(self, constraint: VerificationConstraint) -> CollaborationMessage:
         """Add a constraint and create a message to send."""
         self.active_constraints[constraint.constraint_id] = constraint
         self.constraints_sent += 1
-        
+
         message = constraint.to_message(self.file_path)
         message.conversation_id = self.session_id
         self.message_history.append(message)
-        
+
         return message
-    
+
     def receive_proposal(
         self,
         code: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> tuple[str, CollaborationMessage]:
         """
         Receive a code proposal from the AI assistant.
-        
+
         Returns proposal_id and acknowledgment message.
         """
-        proposal_id = hashlib.sha256(
-            f"{time.time()}-{code[:100]}".encode()
-        ).hexdigest()[:16]
-        
+        proposal_id = hashlib.sha256(f"{time.time()}-{code[:100]}".encode()).hexdigest()[:16]
+
         self.pending_proposals[proposal_id] = {
             "code": code,
             "context": context or {},
@@ -359,7 +351,7 @@ class CollaborationSession:
             "status": "pending",
         }
         self.proposals_received += 1
-        
+
         ack = CollaborationMessage.create(
             message_type=MessageType.ACKNOWLEDGMENT,
             content={
@@ -371,30 +363,30 @@ class CollaborationSession:
         )
         ack.conversation_id = self.session_id
         self.message_history.append(ack)
-        
+
         return proposal_id, ack
-    
+
     def provide_feedback(
         self,
         proposal_id: str,
         verified: bool,
-        issues: List[Dict[str, Any]],
-        suggestions: List[str],
+        issues: list[dict[str, Any]],
+        suggestions: list[str],
     ) -> CollaborationMessage:
         """Provide verification feedback on a proposal."""
         if proposal_id not in self.pending_proposals:
             raise ValueError(f"Unknown proposal: {proposal_id}")
-        
+
         proposal = self.pending_proposals[proposal_id]
         proposal["status"] = "verified" if verified else "rejected"
         proposal["verified"] = verified
         proposal["issues"] = issues
-        
+
         if verified:
             self.proposals_accepted += 1
         else:
             self.proposals_rejected += 1
-        
+
         message = CollaborationMessage.create(
             message_type=MessageType.WARNING if issues else MessageType.SUGGESTION,
             content={
@@ -408,13 +400,13 @@ class CollaborationSession:
         )
         message.conversation_id = self.session_id
         self.message_history.append(message)
-        
+
         return message
-    
+
     def get_context_for_ai(self) -> str:
         """
         Generate context string to inject into AI assistant's prompt.
-        
+
         This provides the AI with all active constraints and recent
         verification feedback.
         """
@@ -426,26 +418,25 @@ class CollaborationSession:
             "",
             "Active Verification Constraints:",
         ]
-        
+
         for constraint in self.active_constraints.values():
             lines.append(f"  - [{constraint.severity.value}] {constraint.rule}")
-        
+
         # Add recent feedback
         recent_warnings = [
-            m for m in self.message_history[-10:]
-            if m.message_type == MessageType.WARNING
+            m for m in self.message_history[-10:] if m.message_type == MessageType.WARNING
         ]
-        
+
         if recent_warnings:
             lines.append("")
             lines.append("Recent Verification Warnings:")
             for warning in recent_warnings[-3:]:
                 lines.append(f"  - {warning.content.get('issues', [])}")
-        
+
         lines.append("")
         lines.append("Please ensure generated code satisfies all constraints.")
         lines.append("=== End CodeVerify Context ===")
-        
+
         return "\n".join(lines)
 
 
@@ -453,17 +444,18 @@ class CollaborationSession:
 # Real-Time Constraint Streaming
 # =============================================================================
 
+
 class ConstraintStreamHandler(Protocol):
     """Protocol for handling streamed constraints."""
-    
+
     async def on_constraint(self, constraint: VerificationConstraint) -> None:
         """Called when a new constraint is detected."""
         ...
-    
+
     async def on_warning(self, message: CollaborationMessage) -> None:
         """Called when a warning is generated."""
         ...
-    
+
     async def on_suggestion(self, message: CollaborationMessage) -> None:
         """Called when a suggestion is generated."""
         ...
@@ -472,51 +464,51 @@ class ConstraintStreamHandler(Protocol):
 class ConstraintStreamer:
     """
     Streams verification constraints in real-time as code is being generated.
-    
+
     Monitors code changes and emits constraints that the AI assistant
     should respect for the remaining code generation.
     """
-    
+
     def __init__(
         self,
         session: CollaborationSession,
-        handler: Optional[ConstraintStreamHandler] = None,
+        handler: ConstraintStreamHandler | None = None,
     ):
         self.session = session
         self.handler = handler
         self._running = False
-        self._buffer: List[str] = []
+        self._buffer: list[str] = []
         self._last_analysis_time = 0.0
         self._analysis_interval = 0.1  # 100ms
-    
+
     async def start(self) -> None:
         """Start the constraint streamer."""
         self._running = True
-    
+
     async def stop(self) -> None:
         """Stop the constraint streamer."""
         self._running = False
-    
+
     async def feed_code(self, code_chunk: str) -> AsyncGenerator[CollaborationMessage, None]:
         """
         Feed a chunk of code being generated.
-        
+
         Analyzes incrementally and yields relevant constraints/warnings.
         """
         self._buffer.append(code_chunk)
         current_code = "".join(self._buffer)
-        
+
         # Rate limit analysis
         now = time.time()
         if now - self._last_analysis_time < self._analysis_interval:
             return
-        
+
         self._last_analysis_time = now
-        
+
         # Analyze current code state
         async for message in self._analyze_code(current_code):
             yield message
-    
+
     async def _analyze_code(
         self,
         code: str,
@@ -530,7 +522,7 @@ class ConstraintStreamer:
             self._check_sql_injection,
             self._check_resource_cleanup,
         ]
-        
+
         for check in checks:
             issues = check(code)
             for issue in issues:
@@ -541,70 +533,76 @@ class ConstraintStreamer:
                     file_path=self.session.file_path,
                 )
                 message.conversation_id = self.session.session_id
-                
+
                 if self.handler:
                     await self.handler.on_warning(message)
-                
+
                 yield message
-    
-    def _check_null_safety(self, code: str) -> List[Dict[str, Any]]:
+
+    def _check_null_safety(self, code: str) -> list[dict[str, Any]]:
         """Check for null safety issues."""
         issues = []
-        
+
         # Simple pattern detection
         if "return None" in code and "Optional" not in code and "| None" not in code:
-            issues.append({
-                "type": "null_safety",
-                "message": "Function may return None without Optional type annotation",
-                "severity": "high",
-                "constraint_id": "null_safety",
-            })
-        
+            issues.append(
+                {
+                    "type": "null_safety",
+                    "message": "Function may return None without Optional type annotation",
+                    "severity": "high",
+                    "constraint_id": "null_safety",
+                }
+            )
+
         return issues
-    
-    def _check_bounds_safety(self, code: str) -> List[Dict[str, Any]]:
+
+    def _check_bounds_safety(self, code: str) -> list[dict[str, Any]]:
         """Check for bounds safety issues."""
         issues = []
         import re
-        
+
         # Check for array access without bounds check
         array_access = re.findall(r"(\w+)\[(\w+)\]", code)
         for array, index in array_access:
             if f"len({array})" not in code and f"range(len({array}))" not in code:
                 if index not in ("0", "1", "-1"):
-                    issues.append({
-                        "type": "bounds_check",
-                        "message": f"Array access {array}[{index}] may be out of bounds",
-                        "severity": "high",
-                        "constraint_id": "bounds_check",
-                    })
-        
+                    issues.append(
+                        {
+                            "type": "bounds_check",
+                            "message": f"Array access {array}[{index}] may be out of bounds",
+                            "severity": "high",
+                            "constraint_id": "bounds_check",
+                        }
+                    )
+
         return issues
-    
-    def _check_division_safety(self, code: str) -> List[Dict[str, Any]]:
+
+    def _check_division_safety(self, code: str) -> list[dict[str, Any]]:
         """Check for division safety issues."""
         issues = []
         import re
-        
+
         # Check for division without zero check
         divisions = re.findall(r"(\w+)\s*/\s*(\w+)", code)
         for _, divisor in divisions:
             if divisor not in ("2", "10", "100", "1000"):
                 if f"if {divisor}" not in code and f"{divisor} != 0" not in code:
-                    issues.append({
-                        "type": "division_safety",
-                        "message": f"Division by {divisor} without zero check",
-                        "severity": "critical",
-                        "constraint_id": "division_safety",
-                    })
-        
+                    issues.append(
+                        {
+                            "type": "division_safety",
+                            "message": f"Division by {divisor} without zero check",
+                            "severity": "critical",
+                            "constraint_id": "division_safety",
+                        }
+                    )
+
         return issues
-    
-    def _check_sql_injection(self, code: str) -> List[Dict[str, Any]]:
+
+    def _check_sql_injection(self, code: str) -> list[dict[str, Any]]:
         """Check for SQL injection vulnerabilities."""
         issues = []
         import re
-        
+
         # Check for string formatting in SQL
         sql_patterns = [
             r'f"[^"]*SELECT[^"]*\{',
@@ -614,32 +612,36 @@ class ConstraintStreamer:
             r'"[^"]*SELECT[^"]*"\s*%',
             r'"[^"]*INSERT[^"]*"\s*%',
         ]
-        
+
         for pattern in sql_patterns:
             if re.search(pattern, code, re.IGNORECASE):
-                issues.append({
-                    "type": "sql_injection",
-                    "message": "Potential SQL injection: use parameterized queries",
-                    "severity": "critical",
-                    "constraint_id": "sql_injection",
-                })
+                issues.append(
+                    {
+                        "type": "sql_injection",
+                        "message": "Potential SQL injection: use parameterized queries",
+                        "severity": "critical",
+                        "constraint_id": "sql_injection",
+                    }
+                )
                 break
-        
+
         return issues
-    
-    def _check_resource_cleanup(self, code: str) -> List[Dict[str, Any]]:
+
+    def _check_resource_cleanup(self, code: str) -> list[dict[str, Any]]:
         """Check for resource cleanup issues."""
         issues = []
-        
+
         # Check for file open without context manager
         if "open(" in code and "with " not in code:
-            issues.append({
-                "type": "resource_cleanup",
-                "message": "File opened without context manager (with statement)",
-                "severity": "medium",
-                "constraint_id": "resource_cleanup",
-            })
-        
+            issues.append(
+                {
+                    "type": "resource_cleanup",
+                    "message": "File opened without context manager (with statement)",
+                    "severity": "medium",
+                    "constraint_id": "resource_cleanup",
+                }
+            )
+
         return issues
 
 
@@ -647,15 +649,16 @@ class ConstraintStreamer:
 # Copilot Integration
 # =============================================================================
 
+
 @dataclass
 class CopilotIntegrationConfig:
     """Configuration for GitHub Copilot integration."""
-    
+
     enabled: bool = True
     inject_constraints: bool = True
     stream_warnings: bool = True
     block_on_critical: bool = False
-    
+
     # Constraint categories to enforce
     enforce_null_safety: bool = True
     enforce_bounds_check: bool = True
@@ -667,29 +670,27 @@ class CopilotIntegrationConfig:
 class CopilotCollaborator:
     """
     Integrates CodeVerify with GitHub Copilot.
-    
+
     Provides:
     - Constraint injection into Copilot context
     - Real-time verification of Copilot suggestions
     - Feedback loop for iterative improvement
     """
-    
-    def __init__(self, config: Optional[CopilotIntegrationConfig] = None):
+
+    def __init__(self, config: CopilotIntegrationConfig | None = None):
         self.config = config or CopilotIntegrationConfig()
-        self.active_sessions: Dict[str, CollaborationSession] = {}
-        self._streamers: Dict[str, ConstraintStreamer] = {}
-    
+        self.active_sessions: dict[str, CollaborationSession] = {}
+        self._streamers: dict[str, ConstraintStreamer] = {}
+
     def create_session(
         self,
         file_path: str,
         language: str,
-        project_context: Optional[Dict[str, Any]] = None,
+        project_context: dict[str, Any] | None = None,
     ) -> CollaborationSession:
         """Create a new collaboration session for a file."""
-        session_id = hashlib.sha256(
-            f"{file_path}-{time.time()}".encode()
-        ).hexdigest()[:16]
-        
+        session_id = hashlib.sha256(f"{file_path}-{time.time()}".encode()).hexdigest()[:16]
+
         session = CollaborationSession(
             session_id=session_id,
             ai_assistant="github_copilot",
@@ -697,7 +698,7 @@ class CopilotCollaborator:
             language=language,
             project_context=project_context or {},
         )
-        
+
         # Add relevant constraints based on config
         if self.config.enforce_null_safety:
             session.add_constraint(STANDARD_CONSTRAINTS["null_safety"])
@@ -709,53 +710,53 @@ class CopilotCollaborator:
             session.add_constraint(STANDARD_CONSTRAINTS["sql_injection"])
         if self.config.enforce_resource_cleanup:
             session.add_constraint(STANDARD_CONSTRAINTS["resource_cleanup"])
-        
+
         self.active_sessions[session_id] = session
         self._streamers[session_id] = ConstraintStreamer(session)
-        
+
         return session
-    
+
     def get_copilot_system_prompt_addition(
         self,
         session_id: str,
     ) -> str:
         """
         Get text to add to Copilot's system prompt.
-        
+
         This injects verification constraints into Copilot's context.
         """
         session = self.active_sessions.get(session_id)
         if not session:
             return ""
-        
+
         return session.get_context_for_ai()
-    
+
     async def verify_suggestion(
         self,
         session_id: str,
         suggestion: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Verify a Copilot suggestion against active constraints.
-        
+
         Returns verification result with issues and suggestions.
         """
         session = self.active_sessions.get(session_id)
         if not session:
             return {"error": "Session not found"}
-        
+
         # Receive the proposal
         proposal_id, _ = session.receive_proposal(suggestion)
-        
+
         # Analyze the suggestion
         issues = []
         streamer = self._streamers.get(session_id)
-        
+
         if streamer:
             async for message in streamer._analyze_code(suggestion):
                 if message.message_type == MessageType.WARNING:
                     issues.append(message.content)
-        
+
         # Generate suggestions for fixing issues
         suggestions = []
         for issue in issues:
@@ -763,25 +764,23 @@ class CopilotCollaborator:
             if constraint_id in STANDARD_CONSTRAINTS:
                 constraint = STANDARD_CONSTRAINTS[constraint_id]
                 if constraint.example_correct:
-                    suggestions.append(
-                        f"Consider: {constraint.example_correct}"
-                    )
-        
+                    suggestions.append(f"Consider: {constraint.example_correct}")
+
         # Provide feedback
         verified = len(issues) == 0
         session.provide_feedback(proposal_id, verified, issues, suggestions)
-        
+
         return {
             "verified": verified,
             "proposal_id": proposal_id,
             "issues": issues,
             "suggestions": suggestions,
             "should_block": (
-                self.config.block_on_critical and
-                any(i.get("severity") == "critical" for i in issues)
+                self.config.block_on_critical
+                and any(i.get("severity") == "critical" for i in issues)
             ),
         }
-    
+
     async def stream_verification(
         self,
         session_id: str,
@@ -789,30 +788,30 @@ class CopilotCollaborator:
     ) -> AsyncGenerator[CollaborationMessage, None]:
         """
         Stream verification as code is being generated.
-        
+
         Yields warnings and suggestions in real-time.
         """
         streamer = self._streamers.get(session_id)
         if not streamer:
             return
-        
+
         await streamer.start()
-        
+
         try:
             async for chunk in code_stream:
                 async for message in streamer.feed_code(chunk):
                     yield message
         finally:
             await streamer.stop()
-    
-    def end_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+
+    def end_session(self, session_id: str) -> dict[str, Any] | None:
         """End a collaboration session and return statistics."""
         session = self.active_sessions.pop(session_id, None)
         self._streamers.pop(session_id, None)
-        
+
         if not session:
             return None
-        
+
         return {
             "session_id": session_id,
             "duration_seconds": time.time() - session.started_at,
@@ -832,10 +831,11 @@ class CopilotCollaborator:
 # MCP Tool for AI Collaboration
 # =============================================================================
 
-def create_collaboration_tools() -> List[Dict[str, Any]]:
+
+def create_collaboration_tools() -> list[dict[str, Any]]:
     """
     Create MCP-compatible tool definitions for AI collaboration.
-    
+
     These tools can be used by AI assistants to interact with CodeVerify.
     """
     return [

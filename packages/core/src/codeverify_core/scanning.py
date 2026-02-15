@@ -219,10 +219,7 @@ async def get_scan_history(
     limit: int = 10,
 ) -> list[CodebaseScanResult]:
     """Get scan history for a repository."""
-    results = [
-        r for r in _scan_results.values()
-        if r.repo_full_name == repo_full_name
-    ]
+    results = [r for r in _scan_results.values() if r.repo_full_name == repo_full_name]
     results.sort(key=lambda r: r.started_at or datetime.min, reverse=True)
     return results[:limit]
 
@@ -235,7 +232,8 @@ async def get_trend_data(
     cutoff = datetime.utcnow() - timedelta(days=days)
 
     results = [
-        r for r in _scan_results.values()
+        r
+        for r in _scan_results.values()
         if r.repo_full_name == repo_full_name
         and r.started_at
         and r.started_at > cutoff
@@ -256,22 +254,28 @@ async def get_trend_data(
         date_str = r.started_at.strftime("%Y-%m-%d") if r.started_at else ""
 
         if r.security_score:
-            security_scores.append({
-                "date": date_str,
-                "score": r.security_score.score,
-            })
+            security_scores.append(
+                {
+                    "date": date_str,
+                    "score": r.security_score.score,
+                }
+            )
 
         if r.quality_metrics:
-            quality_scores.append({
-                "date": date_str,
-                "score": r.quality_metrics.overall_score,
-            })
+            quality_scores.append(
+                {
+                    "date": date_str,
+                    "score": r.quality_metrics.overall_score,
+                }
+            )
 
-        finding_counts.append({
-            "date": date_str,
-            "total": r.total_findings,
-            "by_severity": r.findings_by_severity,
-        })
+        finding_counts.append(
+            {
+                "date": date_str,
+                "total": r.total_findings,
+                "by_severity": r.findings_by_severity,
+            }
+        )
 
     return {
         "period_days": days,

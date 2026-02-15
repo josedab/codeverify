@@ -125,29 +125,41 @@ _NL_COMMAND_PATTERNS: list[tuple[re.Pattern[str], CopilotCommand]] = [
     (re.compile(r"^trust[- ]?score\b", re.IGNORECASE), CopilotCommand.TRUST_SCORE),
     (re.compile(r"^fix\b", re.IGNORECASE), CopilotCommand.FIX),
     (re.compile(r"^history\b", re.IGNORECASE), CopilotCommand.HISTORY),
-
     # Natural-language variants -- order matters; more specific first.
     (re.compile(r"is\s+this\s+(?:code\s+)?safe", re.IGNORECASE), CopilotCommand.VERIFY),
     (re.compile(r"check\s+(?:this|the)\s+code", re.IGNORECASE), CopilotCommand.VERIFY),
     (re.compile(r"verify\s+(?:this|the)", re.IGNORECASE), CopilotCommand.VERIFY),
-    (re.compile(r"are\s+there\s+(?:any\s+)?(?:bugs|issues|problems)", re.IGNORECASE), CopilotCommand.VERIFY),
-
+    (
+        re.compile(r"are\s+there\s+(?:any\s+)?(?:bugs|issues|problems)", re.IGNORECASE),
+        CopilotCommand.VERIFY,
+    ),
     (re.compile(r"what\s+does\s+this\s+proof\s+mean", re.IGNORECASE), CopilotCommand.EXPLAIN),
-    (re.compile(r"explain\s+(?:this|the)\s+(?:proof|result|verification)", re.IGNORECASE), CopilotCommand.EXPLAIN),
-    (re.compile(r"why\s+(?:did|does)\s+(?:this|the)\s+verification", re.IGNORECASE), CopilotCommand.EXPLAIN),
-
+    (
+        re.compile(r"explain\s+(?:this|the)\s+(?:proof|result|verification)", re.IGNORECASE),
+        CopilotCommand.EXPLAIN,
+    ),
+    (
+        re.compile(r"why\s+(?:did|does)\s+(?:this|the)\s+verification", re.IGNORECASE),
+        CopilotCommand.EXPLAIN,
+    ),
     (re.compile(r"generate\s+(?:a\s+)?(?:formal\s+)?spec", re.IGNORECASE), CopilotCommand.SPEC),
     (re.compile(r"(?:write|create)\s+(?:a\s+)?specification", re.IGNORECASE), CopilotCommand.SPEC),
-
     (re.compile(r"(?:how\s+)?trust(?:worthy)?", re.IGNORECASE), CopilotCommand.TRUST_SCORE),
-    (re.compile(r"(?:what|compute|calculate)\s+(?:is\s+)?(?:the\s+)?(?:trust|quality)\s*score", re.IGNORECASE), CopilotCommand.TRUST_SCORE),
+    (
+        re.compile(
+            r"(?:what|compute|calculate)\s+(?:is\s+)?(?:the\s+)?(?:trust|quality)\s*score",
+            re.IGNORECASE,
+        ),
+        CopilotCommand.TRUST_SCORE,
+    ),
     (re.compile(r"(?:how\s+)?reliable\s+is", re.IGNORECASE), CopilotCommand.TRUST_SCORE),
-
     (re.compile(r"(?:suggest|propose)\s+(?:a\s+)?fix", re.IGNORECASE), CopilotCommand.FIX),
     (re.compile(r"how\s+(?:do\s+I\s+|to\s+)?fix", re.IGNORECASE), CopilotCommand.FIX),
     (re.compile(r"auto[- ]?fix", re.IGNORECASE), CopilotCommand.FIX),
-
-    (re.compile(r"(?:show|list|get)\s+(?:the\s+)?(?:verification\s+)?history", re.IGNORECASE), CopilotCommand.HISTORY),
+    (
+        re.compile(r"(?:show|list|get)\s+(?:the\s+)?(?:verification\s+)?history", re.IGNORECASE),
+        CopilotCommand.HISTORY,
+    ),
     (re.compile(r"previous\s+(?:verification|check)s", re.IGNORECASE), CopilotCommand.HISTORY),
 ]
 
@@ -172,7 +184,7 @@ class CommandParser:
         for pattern, command in _NL_COMMAND_PATTERNS:
             match = pattern.search(text)
             if match:
-                remaining = text[match.end():].strip()
+                remaining = text[match.end() :].strip()
                 return command, remaining
 
         return None, text
@@ -570,8 +582,8 @@ class CopilotChatParticipant:
 
         lines: list[str] = [
             "## Trust Score Report\n",
-            f"| Metric | Value |",
-            f"|--------|-------|",
+            "| Metric | Value |",
+            "|--------|-------|",
             f"| **Score** | {value:.1f} / 100 |",
             f"| **Confidence** | {confidence:.0%} |",
             f"| **Risk Level** | {risk} |",
@@ -614,9 +626,9 @@ class CopilotChatParticipant:
             "| `@codeverify fix` | Suggest verified fixes |\n"
             "| `@codeverify history` | Show verification history for the file |\n\n"
             "You can also use natural language, for example:\n"
-            "- *\"Is this code safe?\"*\n"
-            "- *\"What does this proof mean?\"*\n"
-            "- *\"How trustworthy is this?\"*\n"
+            '- *"Is this code safe?"*\n'
+            '- *"What does this proof mean?"*\n'
+            '- *"How trustworthy is this?"*\n'
         )
 
         return CopilotResponse(content=content)
@@ -684,7 +696,7 @@ class CopilotWebhookHandler:
             ``True`` if the signature matches, ``False`` otherwise.
         """
         if signature.startswith("sha256="):
-            signature = signature[len("sha256="):]
+            signature = signature[len("sha256=") :]
 
         expected = hmac.new(
             secret.encode(),

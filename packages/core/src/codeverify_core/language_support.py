@@ -20,7 +20,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
 # =============================================================================
 # Enums
 # =============================================================================
@@ -33,6 +32,7 @@ class SupportedLanguage(str, Enum):
     TYPESCRIPT = "typescript"
     GO = "go"
     JAVA = "java"
+    RUST = "rust"
 
 
 # Backward-compatible alias used by existing imports
@@ -127,8 +127,16 @@ LANGUAGE_REGISTRY: dict[SupportedLanguage, LanguageConfig] = {
         standard_lib_models=["fmt", "errors", "sync", "context", "io"],
         null_type="nil",
         integer_types=[
-            "int", "int8", "int16", "int32", "int64",
-            "uint", "uint8", "uint16", "uint32", "uint64",
+            "int",
+            "int8",
+            "int16",
+            "int32",
+            "int64",
+            "uint",
+            "uint8",
+            "uint16",
+            "uint32",
+            "uint64",
         ],
         supports_generics=True,
         supports_null_safety=False,
@@ -143,6 +151,17 @@ LANGUAGE_REGISTRY: dict[SupportedLanguage, LanguageConfig] = {
         integer_types=["byte", "short", "int", "long", "Byte", "Short", "Integer", "Long"],
         supports_generics=True,
         supports_null_safety=False,
+    ),
+    SupportedLanguage.RUST: LanguageConfig(
+        language=SupportedLanguage.RUST,
+        file_extensions=[".rs"],
+        comment_styles={"line": "//", "block_start": "/*", "block_end": "*/"},
+        type_system="static",
+        standard_lib_models=["std::collections", "std::io", "std::fmt", "std::sync"],
+        null_type="None",
+        integer_types=["i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "isize", "usize"],
+        supports_generics=True,
+        supports_null_safety=True,
     ),
 }
 
@@ -183,21 +202,22 @@ class LanguageParser:
             r"(?:\s*throws\s+[\w,\s]+)?\s*\{",
             re.MULTILINE,
         ),
+        SupportedLanguage.RUST: re.compile(
+            r"^[ \t]*(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?fn\s+(?P<name>\w+)"
+            r"\s*(?:<[^>]*>)?\s*\((?P<params>[^)]*)\)"
+            r"(?:\s*->\s*(?P<ret>[^{]+))?\s*\{",
+            re.MULTILINE,
+        ),
     }
 
     _IMPORT_PATTERNS: dict[SupportedLanguage, re.Pattern[str]] = {
-        SupportedLanguage.PYTHON: re.compile(
-            r"^(?:from\s+(\S+)\s+)?import\s+(.+)$", re.MULTILINE
-        ),
+        SupportedLanguage.PYTHON: re.compile(r"^(?:from\s+(\S+)\s+)?import\s+(.+)$", re.MULTILINE),
         SupportedLanguage.TYPESCRIPT: re.compile(
             r"^import\s+.*?from\s+['\"]([^'\"]+)['\"]", re.MULTILINE
         ),
-        SupportedLanguage.GO: re.compile(
-            r'^\s*"([^"]+)"', re.MULTILINE
-        ),
-        SupportedLanguage.JAVA: re.compile(
-            r"^import\s+(?:static\s+)?([^;]+);", re.MULTILINE
-        ),
+        SupportedLanguage.GO: re.compile(r'^\s*"([^"]+)"', re.MULTILINE),
+        SupportedLanguage.JAVA: re.compile(r"^import\s+(?:static\s+)?([^;]+);", re.MULTILINE),
+        SupportedLanguage.RUST: re.compile(r"^use\s+([^;]+);", re.MULTILINE),
     }
 
     _EXT_MAP: dict[str, SupportedLanguage] = {}
@@ -205,9 +225,7 @@ class LanguageParser:
         for _ext in _cfg.file_extensions:
             _EXT_MAP[_ext] = _lang
 
-    def parse_functions(
-        self, code: str, language: SupportedLanguage
-    ) -> list[dict[str, Any]]:
+    def parse_functions(self, code: str, language: SupportedLanguage) -> list[dict[str, Any]]:
         """Extract function signatures from *code*.
 
         Returns a list of dicts with keys ``name``, ``params``, and
@@ -219,16 +237,16 @@ class LanguageParser:
 
         results: list[dict[str, Any]] = []
         for m in pattern.finditer(code):
-            results.append({
-                "name": m.group("name"),
-                "params": m.group("params").strip(),
-                "return_type": m.group("ret").strip() if m.group("ret") else None,
-            })
+            results.append(
+                {
+                    "name": m.group("name"),
+                    "params": m.group("params").strip(),
+                    "return_type": m.group("ret").strip() if m.group("ret") else None,
+                }
+            )
         return results
 
-    def parse_imports(
-        self, code: str, language: SupportedLanguage
-    ) -> list[str]:
+    def parse_imports(self, code: str, language: SupportedLanguage) -> list[str]:
         """Extract imported module / package names from *code*."""
         pattern = self._IMPORT_PATTERNS.get(language)
         if pattern is None:
@@ -277,11 +295,11 @@ def get_language_features(language: SupportedLanguage) -> LanguageConfig:
 class Z3ConstraintGenerator:
     """Generates SMT-LIB assertions for common verification checks."""
 
-    def generate_null_check(
-        self, var_name: str, language: SupportedLanguage
-    ) -> str:
+    def generate_null_check(self, var_name: str, language: SupportedLanguage) -> str:
         """Return an SMT-LIB assertion that *var_name* is not null/nil."""
-        null_val = LANGUAGE_REGISTRY[language].null_type if language in LANGUAGE_REGISTRY else "null"
+        null_val = (
+            LANGUAGE_REGISTRY[language].null_type if language in LANGUAGE_REGISTRY else "null"
+        )
         return (
             f"; null check for {var_name} ({language.value})\n"
             f"(declare-const {var_name} Int)\n"
@@ -320,9 +338,7 @@ class Z3ConstraintGenerator:
             f"(check-sat)"
         )
 
-    def generate_error_handling_check(
-        self, code: str, language: SupportedLanguage
-    ) -> str:
+    def generate_error_handling_check(self, code: str, language: SupportedLanguage) -> str:
         """Return an SMT-LIB comment block for error-handling verification.
 
         For Go: checks that returned errors are inspected.
@@ -347,6 +363,18 @@ class Z3ConstraintGenerator:
                 f"; Java exception handling check\n"
                 f"(declare-const exceptions_handled Bool)\n"
                 f"(assert (= exceptions_handled {'true' if has_catch else 'false'}))\n"
+                f"; status: {status}"
+            )
+
+        if language == SupportedLanguage.RUST:
+            has_result = bool(re.search(r"-> Result<", code))
+            has_question = bool(re.search(r"\?;", code))
+            has_match = bool(re.search(r"\bmatch\b.*\bErr\b", code))
+            status = "handled" if (has_question or has_match or not has_result) else "UNHANDLED"
+            return (
+                f"; Rust error handling check\n"
+                f"(declare-const errors_propagated Bool)\n"
+                f"(assert (= errors_propagated {'true' if has_question or has_match else 'false'}))\n"
                 f"; status: {status}"
             )
 
@@ -376,7 +404,7 @@ _GO_RULES: list[LanguageRule] = [
         message="Avoid panic() in library code; return an error instead.",
         severity="error",
         category="error_handling",
-        fix_template="return fmt.Errorf(\"unexpected: %w\", err)",
+        fix_template='return fmt.Errorf("unexpected: %w", err)',
     ),
     LanguageRule(
         id="go_unchecked_type_assert",
@@ -403,6 +431,32 @@ _GO_RULES: list[LanguageRule] = [
         severity="info",
         category="concurrency",
     ),
+    LanguageRule(
+        id="go_nil_map_write",
+        language=SupportedLanguage.GO,
+        pattern=r"\bvar\s+\w+\s+map\[",
+        message="Writing to a nil map causes a panic; initialise with make().",
+        severity="error",
+        category="null_safety",
+        fix_template="m := make(map[K]V)",
+    ),
+    LanguageRule(
+        id="go_context_missing",
+        language=SupportedLanguage.GO,
+        pattern=r"\bfunc\s+\w+\s*\([^)]*\)\s*(?:\([^)]*\))?\s*\{",
+        message="Public function should accept context.Context as first parameter.",
+        severity="info",
+        category="concurrency",
+        fix_template="func Foo(ctx context.Context, ...) error { ... }",
+    ),
+    LanguageRule(
+        id="go_mutex_copy",
+        language=SupportedLanguage.GO,
+        pattern=r"\bfunc\s+\(\s*\w+\s+\w+\s*\)",
+        message="Receiver by value may copy mutex; use pointer receiver for types with sync fields.",
+        severity="warning",
+        category="concurrency",
+    ),
 ]
 
 # Pre-defined rules for Java
@@ -414,7 +468,7 @@ _JAVA_RULES: list[LanguageRule] = [
         message="Empty catch block silently swallows exceptions.",
         severity="error",
         category="error_handling",
-        fix_template="catch (Exception e) { log.error(\"Unexpected\", e); }",
+        fix_template='catch (Exception e) { log.error("Unexpected", e); }',
     ),
     LanguageRule(
         id="java_raw_type",
@@ -451,13 +505,103 @@ _JAVA_RULES: list[LanguageRule] = [
         severity="warning",
         category="concurrency",
     ),
+    LanguageRule(
+        id="java_optional_get",
+        language=SupportedLanguage.JAVA,
+        pattern=r"\.get\s*\(\s*\)\s*(?!;)",
+        message="Optional.get() without isPresent() check; use orElse() or ifPresent().",
+        severity="warning",
+        category="null_safety",
+        fix_template=".orElse(defaultValue)",
+    ),
+    LanguageRule(
+        id="java_checked_exception_ignored",
+        language=SupportedLanguage.JAVA,
+        pattern=r"\bcatch\s*\(\s*(?:IOException|SQLException|Exception)\s+\w+\s*\)\s*\{[^}]*(?:log|throw)",
+        message="Checked exception caught; ensure it is either re-thrown, wrapped, or properly logged.",
+        severity="info",
+        category="error_handling",
+    ),
+    LanguageRule(
+        id="java_string_equals",
+        language=SupportedLanguage.JAVA,
+        pattern=r'==\s*"[^"]*"|"[^"]*"\s*==',
+        message="Use .equals() for String comparison, not ==.",
+        severity="error",
+        category="type_safety",
+        fix_template='"value".equals(variable)',
+    ),
+    LanguageRule(
+        id="java_concurrent_modification",
+        language=SupportedLanguage.JAVA,
+        pattern=r"\bfor\s*\(\s*\w+(?:<[^>]*>)?\s+\w+\s*:\s*(\w+)\s*\).*\1\.(?:add|remove|clear)\s*\(",
+        message="Modifying collection during iteration causes ConcurrentModificationException.",
+        severity="error",
+        category="concurrency",
+        fix_template="Use Iterator.remove() or collect into a separate list.",
+    ),
+]
+
+# Pre-defined rules for Rust
+_RUST_RULES: list[LanguageRule] = [
+    LanguageRule(
+        id="rust_unwrap_used",
+        language=SupportedLanguage.RUST,
+        pattern=r"\.unwrap\s*\(",
+        message="Calling .unwrap() may panic; use pattern matching, .expect(), or the ? operator.",
+        severity="warning",
+        category="error_handling",
+        fix_template=".map_err(|e| ...)? or .unwrap_or_default()",
+    ),
+    LanguageRule(
+        id="rust_unsafe_block",
+        language=SupportedLanguage.RUST,
+        pattern=r"\bunsafe\s*\{",
+        message="Unsafe block found; ensure memory safety invariants are documented and upheld.",
+        severity="error",
+        category="memory_safety",
+    ),
+    LanguageRule(
+        id="rust_clone_on_ref",
+        language=SupportedLanguage.RUST,
+        pattern=r"\.clone\s*\(\s*\)",
+        message="Unnecessary .clone() may indicate ownership issues; consider borrowing instead.",
+        severity="info",
+        category="memory_safety",
+    ),
+    LanguageRule(
+        id="rust_panic_in_lib",
+        language=SupportedLanguage.RUST,
+        pattern=r"\bpanic!\s*\(",
+        message="Avoid panic!() in library code; return Result<T, E> instead.",
+        severity="error",
+        category="error_handling",
+        fix_template="return Err(MyError::new(...))",
+    ),
+    LanguageRule(
+        id="rust_todo_macro",
+        language=SupportedLanguage.RUST,
+        pattern=r"\btodo!\s*\(",
+        message="todo!() macro will panic at runtime; implement before shipping.",
+        severity="warning",
+        category="error_handling",
+    ),
+    LanguageRule(
+        id="rust_mutex_poisoning",
+        language=SupportedLanguage.RUST,
+        pattern=r"\.lock\s*\(\s*\)\s*\.unwrap\s*\(",
+        message="Mutex::lock().unwrap() panics on poisoned mutex; handle PoisonError.",
+        severity="warning",
+        category="concurrency",
+        fix_template=".lock().unwrap_or_else(|e| e.into_inner())",
+    ),
 ]
 
 
 class LanguageRuleRegistry:
     """Registry of language configs and verification rules.
 
-    Pre-loads Go and Java rules at construction time.
+    Pre-loads Go, Java, and Rust rules at construction time.
     """
 
     def __init__(self) -> None:
@@ -473,6 +617,8 @@ class LanguageRuleRegistry:
         for rule in _GO_RULES:
             self._rules.setdefault(rule.language, []).append(rule)
         for rule in _JAVA_RULES:
+            self._rules.setdefault(rule.language, []).append(rule)
+        for rule in _RUST_RULES:
             self._rules.setdefault(rule.language, []).append(rule)
 
     def register_language(self, config: LanguageConfig) -> None:
@@ -517,3 +663,272 @@ def reset_language_registry() -> None:
     """Reset the global language rule registry (mainly for testing)."""
     global _language_registry
     _language_registry = None
+
+
+# =============================================================================
+# Advanced Language Analyzer
+# =============================================================================
+
+
+class AdvancedLanguageAnalyzer:
+    """Language-aware code analysis beyond regex matching.
+
+    Provides deeper static checks for Go, Java, and Rust including:
+    - Generic type parameter validation
+    - Interface satisfaction checks (Go)
+    - Checked exception enforcement (Java)
+    - Unsafe block and ownership analysis (Rust)
+    - Concurrency pattern detection
+    """
+
+    def __init__(self) -> None:
+        self._parser = LanguageParser()
+        self._constraint_gen = Z3ConstraintGenerator()
+
+    def analyze(self, code: str, language: SupportedLanguage) -> list[dict[str, Any]]:
+        """Run all language-specific analyses and return findings."""
+        findings: list[dict[str, Any]] = []
+
+        if language == SupportedLanguage.GO:
+            findings.extend(self._analyze_go(code))
+        elif language == SupportedLanguage.JAVA:
+            findings.extend(self._analyze_java(code))
+        elif language == SupportedLanguage.PYTHON:
+            findings.extend(self._analyze_python(code))
+        elif language == SupportedLanguage.TYPESCRIPT:
+            findings.extend(self._analyze_typescript(code))
+        elif language == SupportedLanguage.RUST:
+            findings.extend(self._analyze_rust(code))
+
+        # Run generic rule matching for all languages
+        registry = get_language_registry()
+        for rule in registry.get_rules(language):
+            for m in re.finditer(rule.pattern, code):
+                findings.append(
+                    {
+                        "rule_id": rule.id,
+                        "message": rule.message,
+                        "severity": rule.severity,
+                        "category": rule.category,
+                        "line": code[: m.start()].count("\n") + 1,
+                        "match": m.group(0)[:80],
+                        "fix_template": rule.fix_template,
+                    }
+                )
+
+        return findings
+
+    def _analyze_go(self, code: str) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
+
+        # Check for multi-return error patterns not checked
+        err_assignments = re.findall(r"(\w+),\s*(\w+)\s*:?=\s*(\w+)\(", code)
+        for val, err_var, func in err_assignments:
+            # Check if err is used after assignment
+            after_assign = code[code.index(f"{val}, {err_var}") :]
+            if err_var != "_" and f"if {err_var}" not in after_assign[:200]:
+                findings.append(
+                    {
+                        "rule_id": "go_unchecked_error_advanced",
+                        "message": f"Error '{err_var}' from {func}() may not be checked.",
+                        "severity": "warning",
+                        "category": "error_handling",
+                        "match": f"{val}, {err_var} := {func}(",
+                    }
+                )
+
+        # Detect goroutine without WaitGroup or done channel
+        goroutine_blocks = re.findall(r"\bgo\s+(?:func|[\w.]+)\b", code)
+        if goroutine_blocks:
+            has_sync = "sync.WaitGroup" in code or "chan " in code or "context." in code
+            if not has_sync:
+                findings.append(
+                    {
+                        "rule_id": "go_goroutine_no_sync",
+                        "message": "Goroutine launched without WaitGroup, channel, or context synchronization.",
+                        "severity": "warning",
+                        "category": "concurrency",
+                    }
+                )
+
+        return findings
+
+    def _analyze_java(self, code: str) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
+
+        # Check for generic type parameter usage in method calls
+        raw_collections = re.findall(
+            r"\bnew\s+(?:ArrayList|HashMap|HashSet|LinkedList)\s*\(\s*\)", code
+        )
+        for match in raw_collections:
+            if "<" not in match:
+                findings.append(
+                    {
+                        "rule_id": "java_raw_collection_init",
+                        "message": f"Raw type in '{match}'; use diamond operator or explicit type params.",
+                        "severity": "warning",
+                        "category": "type_safety",
+                        "match": match,
+                    }
+                )
+
+        # Check for null returns from methods that return Optional
+        optional_methods = re.findall(r"Optional<[^>]+>\s+(\w+)\s*\([^)]*\)\s*\{", code)
+        for method in optional_methods:
+            method_body_match = re.search(
+                rf"Optional<[^>]+>\s+{method}\s*\([^)]*\)\s*\{{(.*?)\}}", code, re.DOTALL
+            )
+            if method_body_match and "return null" in method_body_match.group(1):
+                findings.append(
+                    {
+                        "rule_id": "java_optional_returns_null",
+                        "message": f"Method '{method}' returns Optional but has 'return null'; use Optional.empty().",
+                        "severity": "error",
+                        "category": "null_safety",
+                        "match": method,
+                    }
+                )
+
+        return findings
+
+    def _analyze_python(self, code: str) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
+
+        # Check for mutable default arguments
+        mutable_defaults = re.findall(r"def\s+\w+\s*\([^)]*=\s*(\[\]|\{\}|\bset\(\))", code)
+        for match in mutable_defaults:
+            findings.append(
+                {
+                    "rule_id": "python_mutable_default",
+                    "message": f"Mutable default argument '{match}'; use None and create inside function.",
+                    "severity": "warning",
+                    "category": "error_handling",
+                    "match": match,
+                }
+            )
+
+        return findings
+
+    def _analyze_typescript(self, code: str) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
+
+        # Check for any type usage
+        any_usages = re.findall(r":\s*any\b", code)
+        if any_usages:
+            findings.append(
+                {
+                    "rule_id": "ts_any_type",
+                    "message": f"Found {len(any_usages)} uses of 'any' type; prefer explicit types or 'unknown'.",
+                    "severity": "info",
+                    "category": "type_safety",
+                }
+            )
+
+        return findings
+
+    def _analyze_rust(self, code: str) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
+
+        # Check for unwrap() chains that could be replaced with ? operator
+        unwrap_count = len(re.findall(r"\.unwrap\s*\(\s*\)", code))
+        if unwrap_count > 3:
+            findings.append(
+                {
+                    "rule_id": "rust_excessive_unwrap",
+                    "message": f"Found {unwrap_count} uses of .unwrap(); consider using the ? operator for error propagation.",
+                    "severity": "warning",
+                    "category": "error_handling",
+                }
+            )
+
+        # Detect unsafe blocks and count them
+        unsafe_blocks = re.findall(r"\bunsafe\s*\{", code)
+        if unsafe_blocks:
+            # Check if unsafe is documented with SAFETY comments
+            safety_comments = re.findall(r"//\s*SAFETY:", code)
+            if len(safety_comments) < len(unsafe_blocks):
+                findings.append(
+                    {
+                        "rule_id": "rust_undocumented_unsafe",
+                        "message": f"Found {len(unsafe_blocks)} unsafe blocks but only {len(safety_comments)} SAFETY comments.",
+                        "severity": "error",
+                        "category": "memory_safety",
+                    }
+                )
+
+        # Detect potential deadlocks from nested lock acquisitions
+        lock_calls = re.findall(r"(\w+)\.lock\s*\(\s*\)", code)
+        if len(lock_calls) > 1 and len(set(lock_calls)) > 1:
+            findings.append(
+                {
+                    "rule_id": "rust_nested_locks",
+                    "message": f"Multiple different locks acquired ({', '.join(set(lock_calls))}); risk of deadlock.",
+                    "severity": "warning",
+                    "category": "concurrency",
+                }
+            )
+
+        return findings
+
+    def generate_constraints(self, code: str, language: SupportedLanguage) -> list[dict[str, str]]:
+        """Generate Z3 constraints for verifiable patterns found in code."""
+        constraints: list[dict[str, str]] = []
+        funcs = self._parser.parse_functions(code, language)
+
+        for func in funcs:
+            name = func["name"]
+            params = func["params"]
+
+            # Null checks for reference parameters
+            if language in (SupportedLanguage.GO, SupportedLanguage.JAVA, SupportedLanguage.RUST):
+                param_names = [p.strip().split()[-1] for p in params.split(",") if p.strip()]
+                for pname in param_names:
+                    if pname and pname != "ctx":
+                        constraints.append(
+                            {
+                                "function": name,
+                                "type": "null_safety",
+                                "constraint": self._constraint_gen.generate_null_check(
+                                    pname, language
+                                ),
+                            }
+                        )
+
+            # Overflow checks for integer operations
+            config = LANGUAGE_REGISTRY.get(language)
+            if config and config.integer_types:
+                for itype in config.integer_types:
+                    if itype in params:
+                        bw = _bit_width_for_type(itype, language)
+                        constraints.append(
+                            {
+                                "function": name,
+                                "type": "overflow",
+                                "constraint": self._constraint_gen.generate_overflow_check(
+                                    f"{name}_result", bw, language
+                                ),
+                            }
+                        )
+                        break
+
+        return constraints
+
+
+def _bit_width_for_type(type_name: str, language: SupportedLanguage) -> int:
+    """Return the bit width for a given integer type."""
+    widths = {
+        "int8": 8,
+        "uint8": 8,
+        "byte": 8,
+        "int16": 16,
+        "uint16": 16,
+        "short": 16,
+        "int32": 32,
+        "uint32": 32,
+        "int": 32,
+        "int64": 64,
+        "uint64": 64,
+        "long": 64,
+        "uint": 64,
+    }
+    return widths.get(type_name, 32)

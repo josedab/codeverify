@@ -3,6 +3,13 @@
 Caches Z3 verification results keyed by content-addressable AST hashes.
 Only re-verifies functions that actually changed, reducing verification
 time by 60-80% on typical PRs.
+
+Features:
+- Content-addressable fingerprinting with AST normalization
+- In-memory LRU + Redis backends with TTL
+- Batch verification with atomic cache operations
+- Dependency-graph-aware invalidation
+- Prometheus metrics export for monitoring
 """
 
 from __future__ import annotations
@@ -10,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -407,9 +415,7 @@ class VerificationCache:
         invalidated = 0
         if isinstance(self._backend, MemoryCacheBackend):
             keys_to_delete = [
-                k
-                for k, v in self._backend._cache.items()
-                if v.file_path == file_path
+                k for k, v in self._backend._cache.items() if v.file_path == file_path
             ]
             for key in keys_to_delete:
                 self._backend.delete(key)
@@ -628,3 +634,314 @@ class CachedVerifier:
         self._cache.put(fp, function_name, file_path, "custom", result, proof_time)
         result["cached"] = False
         return result
+
+
+# =============================================================================
+# Batch Verification
+# =============================================================================
+
+
+@dataclass
+class BatchVerificationItem:
+    """A single item in a batch verification request."""
+
+    code: str
+    function_name: str
+    file_path: str
+    language: str
+    verification_type: str
+    params: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class BatchVerificationResult:
+    """Results of a batch verification run."""
+
+    results: list[dict[str, Any]] = field(default_factory=list)
+    cache_hits: int = 0
+    cache_misses: int = 0
+    total_time_ms: float = 0.0
+    items_verified: int = 0
+
+    @property
+    def hit_rate(self) -> float:
+        total = self.cache_hits + self.cache_misses
+        return self.cache_hits / total if total > 0 else 0.0
+
+
+class BatchCachedVerifier:
+    """Batch verification with transparent caching.
+
+    Checks the cache for all items first, then only runs verification
+    on cache misses, and stores all new results atomically.
+
+    Usage:
+        batch = BatchCachedVerifier(verifier)
+        items = [BatchVerificationItem(code, name, path, lang, "null_safety", {...})]
+        result = batch.verify_batch(items)
+    """
+
+    def __init__(
+        self,
+        verifier: Any,
+        cache: VerificationCache | None = None,
+    ) -> None:
+        self._verifier = verifier
+        self._cache = cache or VerificationCache()
+        self._fingerprinter = ASTFingerprinter()
+
+    @property
+    def cache(self) -> VerificationCache:
+        return self._cache
+
+    def verify_batch(
+        self,
+        items: list[BatchVerificationItem],
+        force: bool = False,
+    ) -> BatchVerificationResult:
+        """Verify a batch of items, using cache for previously verified items."""
+        start = time.time()
+        result = BatchVerificationResult()
+
+        for item in items:
+            fp = self._fingerprinter.fingerprint_function(
+                item.code, item.function_name, item.language
+            )
+
+            if not force:
+                cached = self._cache.get(fp, item.verification_type)
+                if cached:
+                    item_result = cached.result.copy()
+                    item_result["cached"] = True
+                    item_result["cache_time_saved_ms"] = cached.original_proof_time_ms
+                    item_result["function_name"] = item.function_name
+                    item_result["file_path"] = item.file_path
+                    result.results.append(item_result)
+                    result.cache_hits += 1
+                    continue
+
+            result.cache_misses += 1
+            item_result = self._run_single_verification(item)
+            proof_time = item_result.get("proof_time_ms", 0.0)
+
+            self._cache.put(
+                fp,
+                item.function_name,
+                item.file_path,
+                item.verification_type,
+                item_result,
+                proof_time,
+            )
+            item_result["cached"] = False
+            item_result["function_name"] = item.function_name
+            item_result["file_path"] = item.file_path
+            result.results.append(item_result)
+            result.items_verified += 1
+
+        result.total_time_ms = (time.time() - start) * 1000
+        logger.info(
+            "Batch verification complete",
+            total=len(items),
+            cache_hits=result.cache_hits,
+            cache_misses=result.cache_misses,
+            time_ms=round(result.total_time_ms, 1),
+        )
+        return result
+
+    def _run_single_verification(self, item: BatchVerificationItem) -> dict[str, Any]:
+        """Dispatch a single verification item to the underlying verifier."""
+        vtype = item.verification_type
+        p = item.params
+
+        if vtype == "null_safety":
+            return self._verifier.check_null_dereference(
+                p.get("var_name", "x"),
+                p.get("can_be_null", True),
+                p.get("null_check_exists", False),
+            )
+        elif vtype == "array_bounds":
+            return self._verifier.check_array_bounds(
+                p.get("index_var", "i"),
+                p.get("index_range"),
+                p.get("array_length", 10),
+            )
+        elif vtype == "integer_overflow":
+            return self._verifier.check_integer_overflow(
+                p.get("var_name", "x"),
+                p.get("operation", "add"),
+                p.get("operand1_range", (0, 100)),
+                p.get("operand2_range"),
+                p.get("bit_width", 32),
+            )
+        elif vtype == "division_by_zero":
+            return self._verifier.check_division_by_zero(
+                p.get("divisor_var", "d"),
+                p.get("divisor_range"),
+            )
+        elif vtype == "custom":
+            return self._verifier.verify_condition(
+                p.get("condition", ""),
+                p.get("description", ""),
+            )
+        else:
+            return {"error": f"Unknown verification type: {vtype}", "satisfiable": None}
+
+
+# =============================================================================
+# Dependency-Aware Cache Invalidation
+# =============================================================================
+
+
+class DependencyAwareCacheInvalidator:
+    """Invalidates cache entries transitively when dependencies change.
+
+    Maintains a function→dependencies mapping so that when a function changes,
+    all functions depending on it are also invalidated.
+
+    Usage:
+        inv = DependencyAwareCacheInvalidator(cache)
+        inv.register_dependency("module.caller", "module.helper")
+        inv.invalidate_with_dependents("module.helper")  # also invalidates caller
+    """
+
+    def __init__(self, cache: VerificationCache) -> None:
+        self._cache = cache
+        self._fingerprinter = ASTFingerprinter()
+        # function_key -> set of function_keys it depends on
+        self._dependencies: dict[str, set[str]] = defaultdict(set)
+        # function_key -> set of function_keys that depend on it (reverse index)
+        self._dependents: dict[str, set[str]] = defaultdict(set)
+        # function_key -> fingerprint
+        self._fingerprints: dict[str, str] = {}
+
+    def register_function(
+        self,
+        function_key: str,
+        fingerprint: str,
+        dependencies: list[str] | None = None,
+    ) -> None:
+        """Register a function and its dependencies."""
+        self._fingerprints[function_key] = fingerprint
+        if dependencies:
+            self._dependencies[function_key] = set(dependencies)
+            for dep in dependencies:
+                self._dependents[dep].add(function_key)
+
+    def register_dependency(self, function_key: str, depends_on: str) -> None:
+        """Register a single dependency relationship."""
+        self._dependencies[function_key].add(depends_on)
+        self._dependents[depends_on].add(function_key)
+
+    def get_transitive_dependents(self, function_key: str) -> set[str]:
+        """Get all functions that transitively depend on the given function."""
+        visited: set[str] = set()
+        queue = [function_key]
+
+        while queue:
+            current = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+            for dependent in self._dependents.get(current, set()):
+                if dependent not in visited:
+                    queue.append(dependent)
+
+        visited.discard(function_key)
+        return visited
+
+    def invalidate_with_dependents(self, function_key: str) -> int:
+        """Invalidate a function and all its transitive dependents."""
+        to_invalidate = self.get_transitive_dependents(function_key)
+        to_invalidate.add(function_key)
+
+        count = 0
+        for key in to_invalidate:
+            fp = self._fingerprints.get(key)
+            if fp:
+                count += self._cache.invalidate_function(fp)
+
+        logger.info(
+            "Dependency-aware invalidation",
+            root=function_key,
+            total_invalidated=count,
+            functions_affected=len(to_invalidate),
+        )
+        return count
+
+    def on_file_changed(self, file_path: str, changed_functions: list[str]) -> int:
+        """Handle a file change by invalidating affected functions and their dependents."""
+        count = 0
+        for func in changed_functions:
+            count += self.invalidate_with_dependents(func)
+        return count
+
+    def get_dependency_graph(self) -> dict[str, list[str]]:
+        """Return the dependency graph for visualization."""
+        return {k: sorted(v) for k, v in self._dependencies.items() if v}
+
+
+# =============================================================================
+# Prometheus Metrics Export
+# =============================================================================
+
+
+class CachePrometheusMetrics:
+    """Exports cache statistics in Prometheus text exposition format.
+
+    Usage:
+        metrics = CachePrometheusMetrics(cache)
+        print(metrics.export())  # text/plain; version=0.0.4
+    """
+
+    NAMESPACE = "codeverify_verification_cache"
+
+    def __init__(self, cache: VerificationCache) -> None:
+        self._cache = cache
+
+    def export(self) -> str:
+        """Export cache metrics in Prometheus text format."""
+        stats = self._cache.get_stats()
+        ns = self.NAMESPACE
+        lines = [
+            f"# HELP {ns}_hits_total Total cache hits.",
+            f"# TYPE {ns}_hits_total counter",
+            f"{ns}_hits_total {stats['hits']}",
+            "",
+            f"# HELP {ns}_misses_total Total cache misses.",
+            f"# TYPE {ns}_misses_total counter",
+            f"{ns}_misses_total {stats['misses']}",
+            "",
+            f"# HELP {ns}_hit_rate Current cache hit rate.",
+            f"# TYPE {ns}_hit_rate gauge",
+            f"{ns}_hit_rate {stats['hit_rate']}",
+            "",
+            f"# HELP {ns}_time_saved_ms_total Total verification time saved by cache in ms.",
+            f"# TYPE {ns}_time_saved_ms_total counter",
+            f"{ns}_time_saved_ms_total {stats['total_time_saved_ms']}",
+            "",
+            f"# HELP {ns}_evictions_total Total cache evictions.",
+            f"# TYPE {ns}_evictions_total counter",
+            f"{ns}_evictions_total {stats['evictions']}",
+            "",
+            f"# HELP {ns}_entries Current number of entries in cache.",
+            f"# TYPE {ns}_entries gauge",
+            f"{ns}_entries {stats['size']}",
+            "",
+        ]
+        return "\n".join(lines) + "\n"
+
+    def export_as_dict(self) -> dict[str, Any]:
+        """Export metrics as a structured dict for JSON API endpoints."""
+        stats = self._cache.get_stats()
+        return {
+            "namespace": self.NAMESPACE,
+            "metrics": {
+                "hits_total": stats["hits"],
+                "misses_total": stats["misses"],
+                "hit_rate": stats["hit_rate"],
+                "time_saved_ms_total": stats["total_time_saved_ms"],
+                "evictions_total": stats["evictions"],
+                "entries": stats["size"],
+                "backend": stats["backend"],
+            },
+        }

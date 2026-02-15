@@ -20,8 +20,10 @@ logger = structlog.get_logger()
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class PolicyAction(str, Enum):
     """Action to take when a policy rule matches."""
+
     ALLOW = "allow"
     DENY = "deny"
     WARN = "warn"
@@ -29,6 +31,7 @@ class PolicyAction(str, Enum):
 
 class PolicyScope(str, Enum):
     """Scope at which a policy rule is evaluated."""
+
     FILE = "file"
     FUNCTION = "function"
     MODULE = "module"
@@ -47,6 +50,7 @@ VALID_OPERATORS = frozenset(
 @dataclass
 class PolicyCondition:
     """A single condition within a policy rule."""
+
     field: str
     operator: str
     value: Any
@@ -62,6 +66,7 @@ class PolicyCondition:
 @dataclass
 class PolicyRule:
     """A single policy rule composed of conditions and an action."""
+
     id: str
     name: str
     description: str
@@ -76,6 +81,7 @@ class PolicyRule:
 @dataclass
 class PolicySet:
     """A named, versioned collection of policy rules."""
+
     name: str
     version: str
     rules: list[PolicyRule]
@@ -86,6 +92,7 @@ class PolicySet:
 @dataclass
 class PolicyEvaluationResult:
     """The outcome of evaluating a single policy rule."""
+
     rule_id: str
     rule_name: str
     action: PolicyAction
@@ -98,6 +105,7 @@ class PolicyEvaluationResult:
 # Engine
 # ---------------------------------------------------------------------------
 
+
 class PolicyEngine:
     """Evaluates policy rules against runtime context dictionaries."""
 
@@ -107,8 +115,7 @@ class PolicyEngine:
             import yaml
         except ImportError as exc:
             raise ImportError(
-                "PyYAML is required to load policies from YAML. "
-                "Install it with: pip install pyyaml"
+                "PyYAML is required to load policies from YAML. Install it with: pip install pyyaml"
             ) from exc
         data = yaml.safe_load(yaml_content)
         if not isinstance(data, dict):
@@ -132,21 +139,28 @@ class PolicyEngine:
                 scope = PolicyScope(rd.get("scope", "file"))
             except ValueError:
                 scope = PolicyScope.FILE
-            rules.append(PolicyRule(
-                id=rd.get("id", ""), name=rd.get("name", ""),
-                description=rd.get("description", ""), conditions=conditions,
-                action=action, scope=scope,
-                verification_depth=rd.get("verification_depth"),
-                priority=int(rd.get("priority", 0)),
-                enabled=bool(rd.get("enabled", True)),
-            ))
+            rules.append(
+                PolicyRule(
+                    id=rd.get("id", ""),
+                    name=rd.get("name", ""),
+                    description=rd.get("description", ""),
+                    conditions=conditions,
+                    action=action,
+                    scope=scope,
+                    verification_depth=rd.get("verification_depth"),
+                    priority=int(rd.get("priority", 0)),
+                    enabled=bool(rd.get("enabled", True)),
+                )
+            )
         try:
             default_action = PolicyAction(data.get("default_action", "warn"))
         except ValueError:
             default_action = PolicyAction.WARN
         return PolicySet(
-            name=data.get("name", "unnamed"), version=data.get("version", "0.0.0"),
-            rules=rules, description=data.get("description", ""),
+            name=data.get("name", "unnamed"),
+            version=data.get("version", "0.0.0"),
+            rules=rules,
+            description=data.get("description", ""),
             default_action=default_action,
         )
 
@@ -170,21 +184,35 @@ class PolicyEngine:
                     all_matched = False
             if all_matched and rule.conditions:
                 reason = f"Rule '{rule.name}' matched: {', '.join(matched_conds)}"
-                results.append(PolicyEvaluationResult(
-                    rule_id=rule.id, rule_name=rule.name, action=rule.action,
-                    matched=True, reason=reason, matched_conditions=matched_conds,
-                ))
+                results.append(
+                    PolicyEvaluationResult(
+                        rule_id=rule.id,
+                        rule_name=rule.name,
+                        action=rule.action,
+                        matched=True,
+                        reason=reason,
+                        matched_conditions=matched_conds,
+                    )
+                )
                 logger.debug("Policy rule matched", rule_id=rule.id, action=rule.action.value)
             else:
-                results.append(PolicyEvaluationResult(
-                    rule_id=rule.id, rule_name=rule.name, action=rule.action,
-                    matched=False, reason=f"Rule '{rule.name}' did not match",
-                ))
+                results.append(
+                    PolicyEvaluationResult(
+                        rule_id=rule.id,
+                        rule_name=rule.name,
+                        action=rule.action,
+                        matched=False,
+                        reason=f"Rule '{rule.name}' did not match",
+                    )
+                )
         return results
 
     def evaluate_file(
-        self, policy_set: PolicySet, file_path: str,
-        findings: list[dict[str, Any]], language: str | None = None,
+        self,
+        policy_set: PolicySet,
+        file_path: str,
+        findings: list[dict[str, Any]],
+        language: str | None = None,
     ) -> PolicyEvaluationResult:
         """Evaluate policies for a single file and return the top match."""
         severity_counts: dict[str, int] = {}
@@ -213,13 +241,18 @@ class PolicyEngine:
         if matched:
             return matched[0]
         return PolicyEvaluationResult(
-            rule_id="default", rule_name="default",
-            action=policy_set.default_action, matched=False,
+            rule_id="default",
+            rule_name="default",
+            action=policy_set.default_action,
+            matched=False,
             reason="No policy rules matched; using default action",
         )
 
     def get_verification_depth(
-        self, policy_set: PolicySet, file_path: str, context: dict,
+        self,
+        policy_set: PolicySet,
+        file_path: str,
+        context: dict,
     ) -> str:
         """Return the verification depth for *file_path* or ``"static"``."""
         enriched = dict(context)
@@ -230,8 +263,11 @@ class PolicyEngine:
                 continue
             for rule in policy_set.rules:
                 if rule.id == result.rule_id and rule.verification_depth:
-                    logger.debug("Verification depth resolved",
-                                 file_path=file_path, depth=rule.verification_depth)
+                    logger.debug(
+                        "Verification depth resolved",
+                        file_path=file_path,
+                        depth=rule.verification_depth,
+                    )
                     return rule.verification_depth
         return "static"
 
@@ -275,66 +311,173 @@ class PolicyEngine:
 # Built-in policies
 # ---------------------------------------------------------------------------
 
-def _rule(id: str, name: str, desc: str, field: str, op: str, value: Any,
-          action: PolicyAction, depth: str | None, priority: int) -> PolicyRule:
+
+def _rule(
+    id: str,
+    name: str,
+    desc: str,
+    field: str,
+    op: str,
+    value: Any,
+    action: PolicyAction,
+    depth: str | None,
+    priority: int,
+) -> PolicyRule:
     """Shorthand factory for built-in policy rules."""
     return PolicyRule(
-        id=id, name=name, description=desc,
+        id=id,
+        name=name,
+        description=desc,
         conditions=[PolicyCondition(field=field, operator=op, value=value)],
-        action=action, scope=PolicyScope.FILE,
-        verification_depth=depth, priority=priority,
+        action=action,
+        scope=PolicyScope.FILE,
+        verification_depth=depth,
+        priority=priority,
     )
 
 
 BUILT_IN_POLICIES: list[PolicyRule] = [
-    _rule("auth-files-require-formal", "Auth files require formal verification",
-          "Auth/security files must undergo formal verification.",
-          "is_security_file", "equals", True, PolicyAction.DENY, "formal", 100),
-    _rule("test-files-allow-warnings", "Test files only warn",
-          "Test files produce warnings, never block.",
-          "is_test_file", "equals", True, PolicyAction.WARN, "pattern", 90),
-    _rule("critical-findings-block", "Critical findings block PR",
-          "Any file with critical-severity findings blocks the PR.",
-          "severity", "equals", "critical", PolicyAction.DENY, "full", 95),
-    _rule("generated-code-strict", "AI-generated code gets strict verification",
-          "AI-generated code requires stricter verification.",
-          "is_generated", "equals", True, PolicyAction.DENY, "ai", 85),
-    _rule("config-files-skip", "Skip verification for config files",
-          "Configuration files are allowed without deep verification.",
-          "is_config_file", "equals", True, PolicyAction.ALLOW, "pattern", 80),
-    _rule("api-endpoints-security", "API files require security scan",
-          "API endpoint files must pass a security-focused verification.",
-          "file_path", "matches",
-          r"(routes|endpoints|controllers|views|api)[/\\]",
-          PolicyAction.DENY, "ai", 75),
-    _rule("migration-files-skip", "Skip migration files",
-          "Database migration files are allowed without verification.",
-          "is_migration_file", "equals", True, PolicyAction.ALLOW, "pattern", 70),
-    _rule("high-complexity-formal", "High complexity files get formal verification",
-          "Files exceeding the finding-count threshold require formal methods.",
-          "finding_count", "greater_than", 10, PolicyAction.DENY, "formal", 65),
-    _rule("dependency-changes-strict", "Dependency lock file changes need scrutiny",
-          "Lock file changes require strict verification for supply-chain safety.",
-          "file_path", "matches",
-          r"(package-lock\.json|yarn\.lock|Pipfile\.lock|poetry\.lock|"
-          r"Gemfile\.lock|go\.sum|Cargo\.lock|pnpm-lock\.yaml)",
-          PolicyAction.DENY, "static", 60),
-    _rule("documentation-skip", "Skip documentation files",
-          "Documentation files do not require verification.",
-          "is_documentation_file", "equals", True, PolicyAction.ALLOW, None, 55),
-    _rule("high-severity-warn", "High severity findings warn",
-          "High-severity findings produce a warning for reviewer triage.",
-          "severity", "equals", "high", PolicyAction.WARN, "ai", 50),
-    _rule("low-severity-allow", "Low severity findings allowed",
-          "Low/info severity findings are allowed to proceed.",
-          "severity", "in", ["low", "info"], PolicyAction.ALLOW, "pattern", 10),
+    _rule(
+        "auth-files-require-formal",
+        "Auth files require formal verification",
+        "Auth/security files must undergo formal verification.",
+        "is_security_file",
+        "equals",
+        True,
+        PolicyAction.DENY,
+        "formal",
+        100,
+    ),
+    _rule(
+        "test-files-allow-warnings",
+        "Test files only warn",
+        "Test files produce warnings, never block.",
+        "is_test_file",
+        "equals",
+        True,
+        PolicyAction.WARN,
+        "pattern",
+        90,
+    ),
+    _rule(
+        "critical-findings-block",
+        "Critical findings block PR",
+        "Any file with critical-severity findings blocks the PR.",
+        "severity",
+        "equals",
+        "critical",
+        PolicyAction.DENY,
+        "full",
+        95,
+    ),
+    _rule(
+        "generated-code-strict",
+        "AI-generated code gets strict verification",
+        "AI-generated code requires stricter verification.",
+        "is_generated",
+        "equals",
+        True,
+        PolicyAction.DENY,
+        "ai",
+        85,
+    ),
+    _rule(
+        "config-files-skip",
+        "Skip verification for config files",
+        "Configuration files are allowed without deep verification.",
+        "is_config_file",
+        "equals",
+        True,
+        PolicyAction.ALLOW,
+        "pattern",
+        80,
+    ),
+    _rule(
+        "api-endpoints-security",
+        "API files require security scan",
+        "API endpoint files must pass a security-focused verification.",
+        "file_path",
+        "matches",
+        r"(routes|endpoints|controllers|views|api)[/\\]",
+        PolicyAction.DENY,
+        "ai",
+        75,
+    ),
+    _rule(
+        "migration-files-skip",
+        "Skip migration files",
+        "Database migration files are allowed without verification.",
+        "is_migration_file",
+        "equals",
+        True,
+        PolicyAction.ALLOW,
+        "pattern",
+        70,
+    ),
+    _rule(
+        "high-complexity-formal",
+        "High complexity files get formal verification",
+        "Files exceeding the finding-count threshold require formal methods.",
+        "finding_count",
+        "greater_than",
+        10,
+        PolicyAction.DENY,
+        "formal",
+        65,
+    ),
+    _rule(
+        "dependency-changes-strict",
+        "Dependency lock file changes need scrutiny",
+        "Lock file changes require strict verification for supply-chain safety.",
+        "file_path",
+        "matches",
+        r"(package-lock\.json|yarn\.lock|Pipfile\.lock|poetry\.lock|"
+        r"Gemfile\.lock|go\.sum|Cargo\.lock|pnpm-lock\.yaml)",
+        PolicyAction.DENY,
+        "static",
+        60,
+    ),
+    _rule(
+        "documentation-skip",
+        "Skip documentation files",
+        "Documentation files do not require verification.",
+        "is_documentation_file",
+        "equals",
+        True,
+        PolicyAction.ALLOW,
+        None,
+        55,
+    ),
+    _rule(
+        "high-severity-warn",
+        "High severity findings warn",
+        "High-severity findings produce a warning for reviewer triage.",
+        "severity",
+        "equals",
+        "high",
+        PolicyAction.WARN,
+        "ai",
+        50,
+    ),
+    _rule(
+        "low-severity-allow",
+        "Low severity findings allowed",
+        "Low/info severity findings are allowed to proceed.",
+        "severity",
+        "in",
+        ["low", "info"],
+        PolicyAction.ALLOW,
+        "pattern",
+        10,
+    ),
 ]
 
 
 def get_default_policy_set() -> PolicySet:
     """Return a *PolicySet* populated with all built-in rules."""
     return PolicySet(
-        name="codeverify-defaults", version="1.0.0",
+        name="codeverify-defaults",
+        version="1.0.0",
         rules=list(BUILT_IN_POLICIES),
         description="Default CodeVerify verification policies",
         default_action=PolicyAction.WARN,
@@ -345,6 +488,7 @@ def get_default_policy_set() -> PolicySet:
 # YAML parsing convenience
 # ---------------------------------------------------------------------------
 
+
 def parse_policy_yaml(yaml_content: str) -> PolicySet:
     """Module-level convenience wrapper around *PolicyEngine.load_from_yaml*."""
     return PolicyEngine().load_from_yaml(yaml_content)
@@ -353,6 +497,7 @@ def parse_policy_yaml(yaml_content: str) -> PolicySet:
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
 
 def _coerce_compare(left: Any, right: Any) -> int:
     """Compare two values with best-effort type coercion (-1 / 0 / 1)."""
@@ -370,9 +515,20 @@ def _coerce_compare(left: Any, right: Any) -> int:
 
 def _is_security_related(file_path: str) -> bool:
     """Heuristic check for security / auth files."""
-    patterns = (r"auth", r"login", r"password", r"credential", r"security",
-                r"permission", r"access.?control", r"oauth", r"token",
-                r"crypto", r"encrypt", r"jwt")
+    patterns = (
+        r"auth",
+        r"login",
+        r"password",
+        r"credential",
+        r"security",
+        r"permission",
+        r"access.?control",
+        r"oauth",
+        r"token",
+        r"crypto",
+        r"encrypt",
+        r"jwt",
+    )
     lower = file_path.lower()
     return any(re.search(p, lower) for p in patterns)
 
@@ -428,12 +584,24 @@ def _is_documentation_file(file_path: str) -> bool:
 
 
 _EXT_LANGUAGE_MAP: dict[str, str] = {
-    ".py": "python", ".js": "javascript", ".ts": "typescript",
-    ".tsx": "typescript", ".jsx": "javascript", ".java": "java",
-    ".go": "go", ".rs": "rust", ".rb": "ruby", ".c": "c",
-    ".cpp": "cpp", ".cs": "csharp", ".swift": "swift",
-    ".kt": "kotlin", ".scala": "scala", ".php": "php",
-    ".sh": "shell", ".sql": "sql",
+    ".py": "python",
+    ".js": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".jsx": "javascript",
+    ".java": "java",
+    ".go": "go",
+    ".rs": "rust",
+    ".rb": "ruby",
+    ".c": "c",
+    ".cpp": "cpp",
+    ".cs": "csharp",
+    ".swift": "swift",
+    ".kt": "kotlin",
+    ".scala": "scala",
+    ".php": "php",
+    ".sh": "shell",
+    ".sql": "sql",
 }
 
 

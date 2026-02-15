@@ -9,9 +9,7 @@ from typing import Any
 import structlog
 
 from codeverify_core.vcs.base import (
-    CheckConclusion,
     CheckRun,
-    CheckRunAnnotation,
     CheckStatus,
     PullRequest,
     PullRequestComment,
@@ -99,7 +97,7 @@ class GitHubAppAuthenticator:
 
 class GitHubClient(VCSClient):
     """GitHub VCS client using REST API.
-    
+
     Supports both token-based and GitHub App authentication.
     """
 
@@ -109,7 +107,7 @@ class GitHubClient(VCSClient):
         authenticator: GitHubAppAuthenticator | None = None,
     ) -> None:
         """Initialize GitHub client.
-        
+
         Args:
             config: VCS configuration with token or app credentials
             authenticator: Optional pre-configured GitHub App authenticator
@@ -135,13 +133,13 @@ class GitHubClient(VCSClient):
         base_url: str | None = None,
     ) -> "GitHubClient":
         """Create a client authenticated as a GitHub App installation.
-        
+
         Args:
             installation_id: GitHub App installation ID
             app_id: GitHub App ID
             private_key: GitHub App private key (PEM format)
             base_url: Optional custom API base URL
-            
+
         Returns:
             Configured GitHubClient instance
         """
@@ -201,11 +199,11 @@ class GitHubClient(VCSClient):
         """Make an authenticated request."""
         client = self._get_client()
         headers = await self._get_headers()
-        
+
         # Merge with any headers passed in kwargs
         if "headers" in kwargs:
             headers.update(kwargs.pop("headers"))
-        
+
         response = await client.request(method, url, headers=headers, **kwargs)
         response.raise_for_status()
         return response
@@ -455,7 +453,9 @@ class GitHubClient(VCSClient):
             payload["started_at"] = check_run.started_at.isoformat()
 
         if check_run.status == CheckStatus.COMPLETED:
-            payload["conclusion"] = check_run.conclusion.value if check_run.conclusion else "neutral"
+            payload["conclusion"] = (
+                check_run.conclusion.value if check_run.conclusion else "neutral"
+            )
             if check_run.completed_at:
                 payload["completed_at"] = check_run.completed_at.isoformat()
 
@@ -503,7 +503,9 @@ class GitHubClient(VCSClient):
         }
 
         if check_run.status == CheckStatus.COMPLETED:
-            payload["conclusion"] = check_run.conclusion.value if check_run.conclusion else "neutral"
+            payload["conclusion"] = (
+                check_run.conclusion.value if check_run.conclusion else "neutral"
+            )
             if check_run.completed_at:
                 payload["completed_at"] = check_run.completed_at.isoformat()
 
@@ -573,11 +575,14 @@ class GitHubClient(VCSClient):
             logger.warning("No webhook secret configured")
             return False
 
-        expected = "sha256=" + hmac.new(
-            self.config.webhook_secret.encode(),
-            payload,
-            hashlib.sha256,
-        ).hexdigest()
+        expected = (
+            "sha256="
+            + hmac.new(
+                self.config.webhook_secret.encode(),
+                payload,
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         return hmac.compare_digest(expected, signature)
 

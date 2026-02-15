@@ -3,19 +3,17 @@
 import asyncio
 import json
 
-import pytest
-
 from codeverify_core.supply_chain_verification import (
     LockfileVerifier,
     NpmDependencyParser,
     PackageEcosystem,
     PackageInfo,
     PypiDependencyParser,
+    RiskLevel,
     SupplyChainThreat,
     SupplyChainVerifier,
     ThreatDetector,
     ThreatType,
-    RiskLevel,
 )
 
 
@@ -116,16 +114,18 @@ class TestNpmDependencyParser:
     def test_parse_package_json(self):
         """Parses dependencies from package.json content."""
         parser = NpmDependencyParser()
-        content = json.dumps({
-            "name": "my-app",
-            "dependencies": {
-                "express": "^4.18.0",
-                "lodash": "~4.17.21",
-            },
-            "devDependencies": {
-                "jest": "^29.0.0",
-            },
-        })
+        content = json.dumps(
+            {
+                "name": "my-app",
+                "dependencies": {
+                    "express": "^4.18.0",
+                    "lodash": "~4.17.21",
+                },
+                "devDependencies": {
+                    "jest": "^29.0.0",
+                },
+            }
+        )
         packages = parser.parse(content)
         assert len(packages) == 3
 
@@ -142,12 +142,7 @@ class TestPypiDependencyParser:
     def test_parse_requirements_txt(self):
         """Parses requirements.txt content."""
         parser = PypiDependencyParser()
-        content = (
-            "requests==2.31.0\n"
-            "flask>=2.0.0\n"
-            "# comment\n"
-            "numpy\n"
-        )
+        content = "requests==2.31.0\nflask>=2.0.0\n# comment\nnumpy\n"
         packages = parser.parse(content)
         assert len(packages) == 3
         names = [p.name for p in packages]
@@ -163,21 +158,23 @@ class TestLockfileVerifier:
     def test_basic_verification(self):
         """Verifies lockfile against manifest."""
         verifier = LockfileVerifier()
-        manifest = json.dumps({
-            "dependencies": {"express": "^4.18.0"},
-        })
-        lockfile = json.dumps({
-            "packages": {
-                "": {},
-                "node_modules/express": {
-                    "version": "4.18.2",
-                    "integrity": "sha512-abcdefghijk",
-                },
-            },
-        })
-        valid, issues = verifier.verify_integrity(
-            lockfile, manifest, PackageEcosystem.NPM
+        manifest = json.dumps(
+            {
+                "dependencies": {"express": "^4.18.0"},
+            }
         )
+        lockfile = json.dumps(
+            {
+                "packages": {
+                    "": {},
+                    "node_modules/express": {
+                        "version": "4.18.2",
+                        "integrity": "sha512-abcdefghijk",
+                    },
+                },
+            }
+        )
+        valid, issues = verifier.verify_integrity(lockfile, manifest, PackageEcosystem.NPM)
         assert isinstance(valid, bool)
         assert isinstance(issues, list)
 
@@ -192,9 +189,7 @@ class TestSupplyChainVerifier:
             PackageInfo(name="lodash", version="4.17.21", ecosystem=PackageEcosystem.NPM),
             PackageInfo(name="requests", version="2.31.0", ecosystem=PackageEcosystem.PYPI),
         ]
-        result = asyncio.get_event_loop().run_until_complete(
-            verifier.verify_packages(packages)
-        )
+        result = asyncio.get_event_loop().run_until_complete(verifier.verify_packages(packages))
         assert result.success is True
         assert result.packages_scanned == 2
         assert "risk_summary" in result.to_dict()
@@ -212,8 +207,6 @@ class TestSupplyChainEdgeCases:
     def test_unknown_ecosystem_lockfile(self):
         """LockfileVerifier handles unsupported ecosystem."""
         verifier = LockfileVerifier()
-        valid, issues = verifier.verify_integrity(
-            "{}", "{}", PackageEcosystem.MAVEN
-        )
+        valid, issues = verifier.verify_integrity("{}", "{}", PackageEcosystem.MAVEN)
         assert valid is True
         assert len(issues) == 1

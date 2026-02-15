@@ -1,6 +1,5 @@
 """Notifications - Slack and Microsoft Teams integrations."""
 
-import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -135,7 +134,7 @@ class SlackFormatter(NotificationFormatter):
                 "text": {
                     "type": "plain_text",
                     "text": f"{emoji} CodeVerify Analysis Complete",
-                }
+                },
             },
             {
                 "type": "section",
@@ -156,14 +155,14 @@ class SlackFormatter(NotificationFormatter):
                         "type": "mrkdwn",
                         "text": f"*Status:*\n{notification.status.upper()}",
                     },
-                ]
+                ],
             },
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
                     "text": f"*{notification.pr_title}*",
-                }
+                },
             },
         ]
 
@@ -174,33 +173,41 @@ class SlackFormatter(NotificationFormatter):
                 findings_text.append(f"🔴 Critical: {notification.critical_findings}")
             if notification.high_findings > 0:
                 findings_text.append(f"🟠 High: {notification.high_findings}")
-            other = notification.total_findings - notification.critical_findings - notification.high_findings
+            other = (
+                notification.total_findings
+                - notification.critical_findings
+                - notification.high_findings
+            )
             if other > 0:
                 findings_text.append(f"🟡 Other: {other}")
 
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "*Findings:* " + " | ".join(findings_text),
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*Findings:* " + " | ".join(findings_text),
+                    },
                 }
-            })
+            )
 
         # Add action button
-        blocks.append({
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "View Details",
-                    },
-                    "url": notification.findings_url,
-                    "style": "primary",
-                }
-            ]
-        })
+        blocks.append(
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "View Details",
+                        },
+                        "url": notification.findings_url,
+                        "style": "primary",
+                    }
+                ],
+            }
+        )
 
         return {
             "attachments": [
@@ -226,7 +233,7 @@ class SlackFormatter(NotificationFormatter):
                 "text": {
                     "type": "plain_text",
                     "text": f"{emoji} Codebase Scan Complete",
-                }
+                },
             },
             {
                 "type": "section",
@@ -239,47 +246,69 @@ class SlackFormatter(NotificationFormatter):
                         "type": "mrkdwn",
                         "text": f"*Scan Type:*\n{notification.scan_type}",
                     },
-                ]
+                ],
             },
         ]
 
         # Add scores
         if notification.security_score is not None:
-            score_emoji = "🟢" if notification.security_score >= 80 else "🟡" if notification.security_score >= 60 else "🔴"
-            blocks.append({
-                "type": "section",
-                "fields": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Security Score:*\n{score_emoji} {notification.security_score:.1f}/100",
-                    },
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*Quality Score:*\n{notification.quality_score:.1f}/100" if notification.quality_score else "*Quality Score:*\nN/A",
-                    },
-                ]
-            })
-
-        blocks.append({
-            "type": "actions",
-            "elements": [
+            score_emoji = (
+                "🟢"
+                if notification.security_score >= 80
+                else "🟡"
+                if notification.security_score >= 60
+                else "🔴"
+            )
+            blocks.append(
                 {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "View Report"},
-                    "url": notification.scan_url,
-                    "style": "primary",
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Security Score:*\n{score_emoji} {notification.security_score:.1f}/100",
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Quality Score:*\n{notification.quality_score:.1f}/100"
+                            if notification.quality_score
+                            else "*Quality Score:*\nN/A",
+                        },
+                    ],
                 }
-            ]
-        })
+            )
+
+        blocks.append(
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "View Report"},
+                        "url": notification.scan_url,
+                        "style": "primary",
+                    }
+                ],
+            }
+        )
 
         return {"attachments": [{"color": color, "blocks": blocks}]}
 
     def format_digest(self, notification: DigestNotification) -> dict[str, Any]:
         """Format digest notification for Slack."""
         period_label = "Daily" if notification.period == "daily" else "Weekly"
-        trend_emoji = "📈" if notification.trend == "improving" else "📉" if notification.trend == "declining" else "➡️"
+        trend_emoji = (
+            "📈"
+            if notification.trend == "improving"
+            else "📉"
+            if notification.trend == "declining"
+            else "➡️"
+        )
 
-        pass_rate = (notification.prs_passed / notification.total_prs_analyzed * 100) if notification.total_prs_analyzed > 0 else 0
+        pass_rate = (
+            (notification.prs_passed / notification.total_prs_analyzed * 100)
+            if notification.total_prs_analyzed > 0
+            else 0
+        )
 
         blocks = [
             {
@@ -287,14 +316,14 @@ class SlackFormatter(NotificationFormatter):
                 "text": {
                     "type": "plain_text",
                     "text": f"📊 {period_label} CodeVerify Report",
-                }
+                },
             },
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
                     "text": f"*{notification.organization}* | {notification.start_date.strftime('%b %d')} - {notification.end_date.strftime('%b %d, %Y')}",
-                }
+                },
             },
             {
                 "type": "section",
@@ -315,22 +344,23 @@ class SlackFormatter(NotificationFormatter):
                         "type": "mrkdwn",
                         "text": f"*Trend:*\n{trend_emoji} {notification.trend.capitalize()}",
                     },
-                ]
+                ],
             },
         ]
 
         if notification.top_issues:
             issues_text = "\n".join(
-                f"• {issue['title']} ({issue['count']})"
-                for issue in notification.top_issues[:5]
+                f"• {issue['title']} ({issue['count']})" for issue in notification.top_issues[:5]
             )
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Top Issues:*\n{issues_text}",
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*Top Issues:*\n{issues_text}",
+                    },
                 }
-            })
+            )
 
         return {"blocks": blocks}
 
@@ -391,9 +421,13 @@ class TeamsFormatter(NotificationFormatter):
         ]
 
         if notification.security_score is not None:
-            facts.append({"name": "Security Score", "value": f"{notification.security_score:.1f}/100"})
+            facts.append(
+                {"name": "Security Score", "value": f"{notification.security_score:.1f}/100"}
+            )
         if notification.quality_score is not None:
-            facts.append({"name": "Quality Score", "value": f"{notification.quality_score:.1f}/100"})
+            facts.append(
+                {"name": "Quality Score", "value": f"{notification.quality_score:.1f}/100"}
+            )
 
         return {
             "@type": "MessageCard",
@@ -419,11 +453,18 @@ class TeamsFormatter(NotificationFormatter):
     def format_digest(self, notification: DigestNotification) -> dict[str, Any]:
         """Format digest notification for Teams."""
         period_label = "Daily" if notification.period == "daily" else "Weekly"
-        pass_rate = (notification.prs_passed / notification.total_prs_analyzed * 100) if notification.total_prs_analyzed > 0 else 0
+        pass_rate = (
+            (notification.prs_passed / notification.total_prs_analyzed * 100)
+            if notification.total_prs_analyzed > 0
+            else 0
+        )
 
         facts = [
             {"name": "Organization", "value": notification.organization},
-            {"name": "Period", "value": f"{notification.start_date.strftime('%b %d')} - {notification.end_date.strftime('%b %d')}"},
+            {
+                "name": "Period",
+                "value": f"{notification.start_date.strftime('%b %d')} - {notification.end_date.strftime('%b %d')}",
+            },
             {"name": "PRs Analyzed", "value": str(notification.total_prs_analyzed)},
             {"name": "Pass Rate", "value": f"{pass_rate:.1f}%"},
             {"name": "Critical Issues", "value": str(notification.critical_findings)},
@@ -475,10 +516,12 @@ class NotificationSender:
 
             payload = formatter.format_analysis(notification)
             result = await self._send_webhook(config.webhook_url, payload)
-            results.append({
-                "channel": config.channel.value,
-                "success": result.get("success", False),
-            })
+            results.append(
+                {
+                    "channel": config.channel.value,
+                    "success": result.get("success", False),
+                }
+            )
 
         return results
 
@@ -502,10 +545,12 @@ class NotificationSender:
 
             payload = formatter.format_scan(notification)
             result = await self._send_webhook(config.webhook_url, payload)
-            results.append({
-                "channel": config.channel.value,
-                "success": result.get("success", False),
-            })
+            results.append(
+                {
+                    "channel": config.channel.value,
+                    "success": result.get("success", False),
+                }
+            )
 
         return results
 
@@ -535,10 +580,12 @@ class NotificationSender:
 
             payload = formatter.format_digest(notification)
             result = await self._send_webhook(config.webhook_url, payload)
-            results.append({
-                "channel": config.channel.value,
-                "success": result.get("success", False),
-            })
+            results.append(
+                {
+                    "channel": config.channel.value,
+                    "success": result.get("success", False),
+                }
+            )
 
         return results
 

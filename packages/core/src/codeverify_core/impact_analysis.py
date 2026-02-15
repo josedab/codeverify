@@ -24,6 +24,7 @@ logger = structlog.get_logger()
 
 class DependencyType(str, Enum):
     """Classification of how one package depends on another."""
+
     DIRECT = "direct"
     DEV = "dev"
     PEER = "peer"
@@ -32,6 +33,7 @@ class DependencyType(str, Enum):
 
 class ImpactSeverity(str, Enum):
     """Severity of impact a change has on downstream consumers."""
+
     NONE = "none"
     LOW = "low"
     MEDIUM = "medium"
@@ -45,6 +47,7 @@ class ImpactSeverity(str, Enum):
 @dataclass
 class PackageReference:
     """A package declared in a manifest file."""
+
     name: str
     version: str
     source_file: str  # e.g. "package.json", "pyproject.toml", "go.mod"
@@ -54,6 +57,7 @@ class PackageReference:
 @dataclass
 class RepositoryNode:
     """A node in the cross-repository dependency graph."""
+
     repo_id: str
     name: str
     org: str
@@ -66,6 +70,7 @@ class RepositoryNode:
 @dataclass
 class ImpactedFunction:
     """A function identified as impacted by an upstream change."""
+
     file_path: str
     function_name: str
     dependency_chain: list[str] = field(default_factory=list)
@@ -75,6 +80,7 @@ class ImpactedFunction:
 @dataclass
 class ImpactReport:
     """Complete report of cross-repository impact for a set of changes."""
+
     source_repo: str
     changed_files: list[str] = field(default_factory=list)
     impacted_repos: list[str] = field(default_factory=list)
@@ -127,10 +133,14 @@ class DependencyGraphBuilder:
         }
         for section, dep_type in section_map.items():
             for name, version in data.get(section, {}).items():
-                refs.append(PackageReference(
-                    name=name, version=self._strip_semver_prefix(version),
-                    source_file="package.json", dep_type=dep_type,
-                ))
+                refs.append(
+                    PackageReference(
+                        name=name,
+                        version=self._strip_semver_prefix(version),
+                        source_file="package.json",
+                        dep_type=dep_type,
+                    )
+                )
         logger.debug("parsed_package_json", total=len(refs))
         return refs
 
@@ -139,37 +149,62 @@ class DependencyGraphBuilder:
         refs: list[PackageReference] = []
         # PEP 621: dependencies = ["requests>=2.28", ...]
         pep621 = re.search(
-            r"(?:^|\n)\[project\].*?dependencies\s*=\s*\[(.*?)\]", content, re.DOTALL)
+            r"(?:^|\n)\[project\].*?dependencies\s*=\s*\[(.*?)\]", content, re.DOTALL
+        )
         if pep621:
             for item in re.finditer(r'"([^"]+)"', pep621.group(1)):
                 name, ver = self._split_python_spec(item.group(1))
-                refs.append(PackageReference(name=name, version=ver,
-                    source_file="pyproject.toml", dep_type=DependencyType.DIRECT))
+                refs.append(
+                    PackageReference(
+                        name=name,
+                        version=ver,
+                        source_file="pyproject.toml",
+                        dep_type=DependencyType.DIRECT,
+                    )
+                )
         # Optional dependencies (treated as dev)
         opt = re.search(r"\[project\.optional-dependencies\]", content)
         if opt:
-            section = content[opt.end():]
+            section = content[opt.end() :]
             nxt = re.search(r"\n\[", section)
-            section = section[:nxt.start()] if nxt else section
+            section = section[: nxt.start()] if nxt else section
             for item in re.finditer(r'"([^"]+)"', section):
                 name, ver = self._split_python_spec(item.group(1))
-                refs.append(PackageReference(name=name, version=ver,
-                    source_file="pyproject.toml", dep_type=DependencyType.DEV))
+                refs.append(
+                    PackageReference(
+                        name=name,
+                        version=ver,
+                        source_file="pyproject.toml",
+                        dep_type=DependencyType.DEV,
+                    )
+                )
         # Poetry: [tool.poetry.dependencies]
-        poetry = re.search(
-            r"\[tool\.poetry\.dependencies\](.*?)(?:\n\[|\Z)", content, re.DOTALL)
+        poetry = re.search(r"\[tool\.poetry\.dependencies\](.*?)(?:\n\[|\Z)", content, re.DOTALL)
         if poetry:
             for m in re.finditer(r'^(\S+)\s*=\s*"([^"]*)"', poetry.group(1), re.MULTILINE):
                 if m.group(1).lower() != "python":
-                    refs.append(PackageReference(name=m.group(1), version=m.group(2),
-                        source_file="pyproject.toml", dep_type=DependencyType.DIRECT))
+                    refs.append(
+                        PackageReference(
+                            name=m.group(1),
+                            version=m.group(2),
+                            source_file="pyproject.toml",
+                            dep_type=DependencyType.DIRECT,
+                        )
+                    )
         # Poetry dev dependencies
         pdev = re.search(
-            r"\[tool\.poetry\.group\.dev\.dependencies\](.*?)(?:\n\[|\Z)", content, re.DOTALL)
+            r"\[tool\.poetry\.group\.dev\.dependencies\](.*?)(?:\n\[|\Z)", content, re.DOTALL
+        )
         if pdev:
             for m in re.finditer(r'^(\S+)\s*=\s*"([^"]*)"', pdev.group(1), re.MULTILINE):
-                refs.append(PackageReference(name=m.group(1), version=m.group(2),
-                    source_file="pyproject.toml", dep_type=DependencyType.DEV))
+                refs.append(
+                    PackageReference(
+                        name=m.group(1),
+                        version=m.group(2),
+                        source_file="pyproject.toml",
+                        dep_type=DependencyType.DEV,
+                    )
+                )
         logger.debug("parsed_pyproject_toml", total=len(refs))
         return refs
 
@@ -178,8 +213,14 @@ class DependencyGraphBuilder:
         refs: list[PackageReference] = []
         # Single-line: require github.com/foo/bar v1.2.3
         for m in re.finditer(r"^require\s+(\S+)\s+(\S+)", content, re.MULTILINE):
-            refs.append(PackageReference(name=m.group(1), version=m.group(2),
-                source_file="go.mod", dep_type=DependencyType.DIRECT))
+            refs.append(
+                PackageReference(
+                    name=m.group(1),
+                    version=m.group(2),
+                    source_file="go.mod",
+                    dep_type=DependencyType.DIRECT,
+                )
+            )
         # Block: require ( ... )
         block = re.search(r"require\s*\((.*?)\)", content, re.DOTALL)
         if block:
@@ -189,9 +230,16 @@ class DependencyGraphBuilder:
                     continue
                 parts = line.split()
                 if len(parts) >= 2:
-                    dt = DependencyType.TRANSITIVE if "// indirect" in line else DependencyType.DIRECT
-                    refs.append(PackageReference(name=parts[0], version=parts[1],
-                        source_file="go.mod", dep_type=dt))
+                    dt = (
+                        DependencyType.TRANSITIVE
+                        if "// indirect" in line
+                        else DependencyType.DIRECT
+                    )
+                    refs.append(
+                        PackageReference(
+                            name=parts[0], version=parts[1], source_file="go.mod", dep_type=dt
+                        )
+                    )
         logger.debug("parsed_go_mod", total=len(refs))
         return refs
 
@@ -202,16 +250,24 @@ class DependencyGraphBuilder:
             r"<dependency>\s*<groupId>([^<]+)</groupId>\s*"
             r"<artifactId>([^<]+)</artifactId>\s*"
             r"(?:<version>([^<]+)</version>\s*)?(?:<scope>([^<]+)</scope>\s*)?",
-            re.DOTALL)
+            re.DOTALL,
+        )
         for m in pat.finditer(content):
             gid, aid = m.group(1).strip(), m.group(2).strip()
             ver = (m.group(3) or "").strip() or "managed"
             scope = (m.group(4) or "").strip().lower()
-            dt = (DependencyType.DEV if scope == "test"
-                  else DependencyType.PEER if scope == "provided"
-                  else DependencyType.DIRECT)
-            refs.append(PackageReference(name=f"{gid}:{aid}", version=ver,
-                source_file="pom.xml", dep_type=dt))
+            dt = (
+                DependencyType.DEV
+                if scope == "test"
+                else DependencyType.PEER
+                if scope == "provided"
+                else DependencyType.DIRECT
+            )
+            refs.append(
+                PackageReference(
+                    name=f"{gid}:{aid}", version=ver, source_file="pom.xml", dep_type=dt
+                )
+            )
         logger.debug("parsed_pom_xml", total=len(refs))
         return refs
 
@@ -223,12 +279,18 @@ class DependencyGraphBuilder:
             if not line or line.startswith("#") or line.startswith("-"):
                 continue
             if " #" in line:
-                line = line[:line.index(" #")].strip()
+                line = line[: line.index(" #")].strip()
             m = re.match(r"([A-Za-z0-9_][A-Za-z0-9._-]*(?:\[[^\]]*\])?)\s*([><=!~]+.+)?", line)
             if m:
                 name = re.sub(r"\[.*?\]", "", m.group(1)).strip()
-                refs.append(PackageReference(name=name, version=(m.group(2) or "*").strip(),
-                    source_file="requirements.txt", dep_type=DependencyType.DIRECT))
+                refs.append(
+                    PackageReference(
+                        name=name,
+                        version=(m.group(2) or "*").strip(),
+                        source_file="requirements.txt",
+                        dep_type=DependencyType.DIRECT,
+                    )
+                )
         logger.debug("parsed_requirements_txt", total=len(refs))
         return refs
 
@@ -243,7 +305,7 @@ class DependencyGraphBuilder:
         """Split ``'requests>=2.28'`` into ``('requests', '>=2.28')``."""
         parts = re.split(r"([><=!~]+)", spec, maxsplit=1)
         name = parts[0].strip()
-        return name, (spec[len(name):].strip() if len(parts) > 1 else "*")
+        return name, (spec[len(name) :].strip() if len(parts) > 1 else "*")
 
 
 # ── Cross-Repository Impact Analyzer ─────────────────────────────────────────
@@ -328,7 +390,9 @@ class CrossRepoImpactAnalyzer:
 
         logger.info(
             "impact_analysis_complete",
-            source=repo_id, blast_radius=blast_radius, severity=severity.value,
+            source=repo_id,
+            blast_radius=blast_radius,
+            severity=severity.value,
         )
         return report
 
@@ -401,15 +465,17 @@ class CrossRepoImpactAnalyzer:
                 continue
             for downstream_id in downstream_ids:
                 chain = self.get_dependency_path(source_repo_id, downstream_id)
-                impacted.append(ImpactedFunction(
-                    file_path=changed_file,
-                    function_name=symbol,
-                    dependency_chain=chain or [source_repo_id, downstream_id],
-                    impact_reason=(
-                        f"Change to '{symbol}' in {source_repo_id} "
-                        f"may affect {downstream_id} via dependency chain"
-                    ),
-                ))
+                impacted.append(
+                    ImpactedFunction(
+                        file_path=changed_file,
+                        function_name=symbol,
+                        dependency_chain=chain or [source_repo_id, downstream_id],
+                        impact_reason=(
+                            f"Change to '{symbol}' in {source_repo_id} "
+                            f"may affect {downstream_id} via dependency chain"
+                        ),
+                    )
+                )
         return impacted
 
     @staticmethod
@@ -418,7 +484,7 @@ class CrossRepoImpactAnalyzer:
         cleaned = file_path
         for prefix in ("src/", "lib/", "pkg/", "internal/", "cmd/"):
             if cleaned.startswith(prefix):
-                cleaned = cleaned[len(prefix):]
+                cleaned = cleaned[len(prefix) :]
                 break
         cleaned = re.sub(r"\.[^.]+$", "", cleaned)
         parts = [p for p in cleaned.split("/") if p and p != "index"]
@@ -430,7 +496,17 @@ class CrossRepoImpactAnalyzer:
         if blast_radius == 0:
             return ImpactSeverity.NONE
 
-        high_impact = ("api", "schema", "proto", "graphql", "openapi", "swagger", "grpc", "interface", "types")
+        high_impact = (
+            "api",
+            "schema",
+            "proto",
+            "graphql",
+            "openapi",
+            "swagger",
+            "grpc",
+            "interface",
+            "types",
+        )
         hi_count = sum(1 for f in changed_files if any(p in f.lower() for p in high_impact))
 
         score = blast_radius + hi_count * 3

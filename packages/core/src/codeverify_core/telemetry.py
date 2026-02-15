@@ -21,6 +21,7 @@ logger = structlog.get_logger()
 
 class FindingLifecycle(str, Enum):
     """Lifecycle stages of a verification finding."""
+
     DETECTED = "detected"
     ACKNOWLEDGED = "acknowledged"
     FIX_IN_PROGRESS = "fix_in_progress"
@@ -32,6 +33,7 @@ class FindingLifecycle(str, Enum):
 
 class MetricType(str, Enum):
     """Types of metrics available for trend analysis."""
+
     BUGS_PREVENTED = "bugs_prevented"
     TIME_SAVED_HOURS = "time_saved_hours"
     COST_PER_FINDING = "cost_per_finding"
@@ -44,6 +46,7 @@ class MetricType(str, Enum):
 @dataclass
 class TelemetryEvent:
     """A single telemetry event emitted during verification."""
+
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = field(default_factory=time.time)
     event_type: str = ""  # e.g. "finding_detected", "finding_fixed", "analysis_completed"
@@ -56,6 +59,7 @@ class TelemetryEvent:
 @dataclass
 class FindingMetrics:
     """Metrics tracked for a single finding across its lifecycle."""
+
     finding_id: str = ""
     detected_at: float = 0.0
     severity: str = "medium"
@@ -68,6 +72,7 @@ class FindingMetrics:
 @dataclass
 class ROIReport:
     """Aggregated ROI report for a time period."""
+
     period_start: float = 0.0
     period_end: float = 0.0
     total_findings: int = 0
@@ -294,7 +299,9 @@ class ROIDashboard:
         now = time.time()
         period_start = now - (period_days * _SECONDS_PER_DAY)
 
-        period_findings = [f for f in self.collector.findings.values() if f.detected_at >= period_start]
+        period_findings = [
+            f for f in self.collector.findings.values() if f.detected_at >= period_start
+        ]
         period_events = [e for e in self.collector.events if e.timestamp >= period_start]
 
         by_severity: dict[str, int] = {}
@@ -431,13 +438,18 @@ class ROIDashboard:
         for week_idx in range(weeks, 0, -1):
             week_end = now - ((week_idx - 1) * _SECONDS_PER_WEEK)
             week_start = week_end - _SECONDS_PER_WEEK
-            findings = [f for f in self.collector.findings.values()
-                        if week_start <= f.detected_at < week_end]
-            events = [e for e in self.collector.events
-                      if week_start <= e.timestamp < week_end]
-            results.append(round(
-                self._compute_metric_for_window(metric, findings, events, week_start, week_end), 4,
-            ))
+            findings = [
+                f
+                for f in self.collector.findings.values()
+                if week_start <= f.detected_at < week_end
+            ]
+            events = [e for e in self.collector.events if week_start <= e.timestamp < week_end]
+            results.append(
+                round(
+                    self._compute_metric_for_window(metric, findings, events, week_start, week_end),
+                    4,
+                )
+            )
         return results
 
     # -- private helpers -----------------------------------------------------
@@ -486,7 +498,11 @@ class ROIDashboard:
         """Build weekly trend data for key metrics over the report period."""
         total_seconds = period_end - period_start
         num_weeks = max(int(total_seconds / _SECONDS_PER_WEEK), 1)
-        key_metrics = [MetricType.BUGS_PREVENTED, MetricType.FIX_RATE, MetricType.MEAN_TIME_TO_FIX_HOURS]
+        key_metrics = [
+            MetricType.BUGS_PREVENTED,
+            MetricType.FIX_RATE,
+            MetricType.MEAN_TIME_TO_FIX_HOURS,
+        ]
 
         trends: dict[str, list[float]] = {}
         for metric in key_metrics:
@@ -494,13 +510,16 @@ class ROIDashboard:
             for week_idx in range(num_weeks):
                 w_start = period_start + (week_idx * _SECONDS_PER_WEEK)
                 w_end = min(w_start + _SECONDS_PER_WEEK, period_end)
-                findings = [f for f in self.collector.findings.values()
-                            if w_start <= f.detected_at < w_end]
-                events = [e for e in self.collector.events
-                          if w_start <= e.timestamp < w_end]
-                weekly.append(round(
-                    self._compute_metric_for_window(metric, findings, events, w_start, w_end), 4,
-                ))
+                findings = [
+                    f for f in self.collector.findings.values() if w_start <= f.detected_at < w_end
+                ]
+                events = [e for e in self.collector.events if w_start <= e.timestamp < w_end]
+                weekly.append(
+                    round(
+                        self._compute_metric_for_window(metric, findings, events, w_start, w_end),
+                        4,
+                    )
+                )
             trends[metric.value] = weekly
         return trends
 

@@ -1,7 +1,7 @@
 """Tests for Live Verification Streaming API."""
 
-import asyncio
 import pytest
+
 from codeverify_core.streaming_verification import (
     IncrementalDiff,
     SessionStatus,

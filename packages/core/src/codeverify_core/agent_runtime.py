@@ -12,12 +12,10 @@ import importlib.util
 import multiprocessing
 import os
 import resource
-import signal
 import sys
 import tempfile
 import time
 import traceback
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -84,30 +82,26 @@ def _set_resource_limits(config: SandboxConfig) -> None:
     memory_bytes = config.max_memory_mb * 1024 * 1024
     try:
         resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
-    except (ValueError, resource.error):
+    except (OSError, ValueError):
         pass  # May not be supported
 
     # CPU time limit
     try:
-        resource.setrlimit(
-            resource.RLIMIT_CPU, (config.max_cpu_seconds, config.max_cpu_seconds)
-        )
-    except (ValueError, resource.error):
+        resource.setrlimit(resource.RLIMIT_CPU, (config.max_cpu_seconds, config.max_cpu_seconds))
+    except (OSError, ValueError):
         pass
 
     # File size limit
     file_bytes = config.max_file_size_mb * 1024 * 1024
     try:
         resource.setrlimit(resource.RLIMIT_FSIZE, (file_bytes, file_bytes))
-    except (ValueError, resource.error):
+    except (OSError, ValueError):
         pass
 
     # Open file limit
     try:
-        resource.setrlimit(
-            resource.RLIMIT_NOFILE, (config.max_open_files, config.max_open_files)
-        )
-    except (ValueError, resource.error):
+        resource.setrlimit(resource.RLIMIT_NOFILE, (config.max_open_files, config.max_open_files))
+    except (OSError, ValueError):
         pass
 
 
@@ -285,11 +279,11 @@ class AgentSandbox:
     ) -> BaseAgent:
         """
         Load an agent from source files.
-        
+
         Args:
             manifest: Agent manifest
             source_files: Dictionary of filename -> content bytes
-            
+
         Returns:
             Loaded agent instance
         """
@@ -309,9 +303,7 @@ class AgentSandbox:
                 raise AgentLoadError(f"Entry point not found: {manifest.entry_point}")
 
             # Load module
-            spec = importlib.util.spec_from_file_location(
-                f"cvagent_{manifest.name}", entry_path
-            )
+            spec = importlib.util.spec_from_file_location(f"cvagent_{manifest.name}", entry_path)
             if spec is None or spec.loader is None:
                 raise AgentLoadError(f"Failed to load module: {manifest.entry_point}")
 
@@ -397,12 +389,12 @@ class IsolatedAgentRunner:
     ) -> AnalysisResult:
         """
         Run an agent in an isolated process.
-        
+
         Args:
             manifest: Agent manifest
             source_files: Agent source files
             context: Analysis context
-            
+
         Returns:
             Analysis result
         """
@@ -514,7 +506,7 @@ async def run_agent(
 ) -> AnalysisResult:
     """
     Convenience function to run an agent.
-    
+
     Args:
         package_path: Path to .cvagent package
         package_bytes: Package bytes (alternative to path)
@@ -523,7 +515,7 @@ async def run_agent(
         context: Analysis context
         sandbox_config: Sandbox configuration
         isolated: Run in isolated process (default True)
-        
+
     Returns:
         Analysis result
     """

@@ -11,14 +11,12 @@ Key features:
 4. Feedback Integration: Routes runtime failures back to verification dashboard
 """
 
-import ast
-import hashlib
 import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
@@ -238,19 +236,18 @@ class ProofToAssertCompiler:
         result = expr
 
         # Replace Z3 functions
-        result = re.sub(r'\bAnd\s*\(([^)]+)\)', r'(\1)', result)
-        result = result.replace(' And ', ' and ')
+        result = re.sub(r"\bAnd\s*\(([^)]+)\)", r"(\1)", result)
+        result = result.replace(" And ", " and ")
 
-        result = re.sub(r'\bOr\s*\(([^)]+)\)', r'(\1)', result)
-        result = result.replace(' Or ', ' or ')
+        result = re.sub(r"\bOr\s*\(([^)]+)\)", r"(\1)", result)
+        result = result.replace(" Or ", " or ")
 
-        result = re.sub(r'\bNot\s*\(([^)]+)\)', r'not (\1)', result)
+        result = re.sub(r"\bNot\s*\(([^)]+)\)", r"not (\1)", result)
 
-        result = re.sub(r'\bImplies\s*\(([^,]+),\s*([^)]+)\)',
-                        r'(not (\1) or (\2))', result)
+        result = re.sub(r"\bImplies\s*\(([^,]+),\s*([^)]+)\)", r"(not (\1) or (\2))", result)
 
         # Handle integer types
-        result = re.sub(r'\bInt\s*\(([^)]+)\)', r'\1', result)
+        result = re.sub(r"\bInt\s*\(([^)]+)\)", r"\1", result)
 
         return result
 
@@ -259,12 +256,12 @@ class ProofToAssertCompiler:
         result = self._z3_to_python(expr)
 
         # Python to TS adjustments
-        result = result.replace(' and ', ' && ')
-        result = result.replace(' or ', ' || ')
-        result = result.replace('not ', '!')
-        result = result.replace('None', 'null')
-        result = result.replace('True', 'true')
-        result = result.replace('False', 'false')
+        result = result.replace(" and ", " && ")
+        result = result.replace(" or ", " || ")
+        result = result.replace("not ", "!")
+        result = result.replace("None", "null")
+        result = result.replace("True", "true")
+        result = result.replace("False", "false")
 
         return result
 
@@ -402,7 +399,7 @@ if ({idx} < 0 || {idx} >= {arr}.length) {{
         expr: str,
     ) -> str:
         """Generate generic TypeScript check probe."""
-        vars_obj = ", ".join(f'{v}: {v}' for v in constraint.variables)
+        vars_obj = ", ".join(f"{v}: {v}" for v in constraint.variables)
         return f'''// CodeVerify Runtime Probe: {constraint.id}
 if (!({expr})) {{
     _codeverifyProbeViolation({{
@@ -481,8 +478,7 @@ class InstrumentationEngine:
                     # Indent probe code
                     probe_lines = probe.code.split("\n")
                     indented_probe = "\n".join(
-                        indent_str + line if line.strip() else line
-                        for line in probe_lines
+                        indent_str + line if line.strip() else line for line in probe_lines
                     )
 
                     # Insert before target line
@@ -540,8 +536,7 @@ class InstrumentationEngine:
 
                     probe_lines = probe.code.split("\n")
                     indented_probe = "\n".join(
-                        indent_str + line if line.strip() else line
-                        for line in probe_lines
+                        indent_str + line if line.strip() else line for line in probe_lines
                     )
 
                     lines.insert(line_num, indented_probe)
@@ -575,12 +570,12 @@ class InstrumentationEngine:
             return "def _codeverify_probe_violation(**kwargs): pass\n"
 
         if self.mode == ProbeMode.ASSERT:
-            return '''
+            return f'''
 import traceback
 import random
 from datetime import datetime
 
-_CODEVERIFY_PROBE_SAMPLE_RATE = {sample_rate}
+_CODEVERIFY_PROBE_SAMPLE_RATE = {self.sample_rate}
 _CODEVERIFY_VIOLATIONS = []
 
 def _codeverify_probe_violation(probe_id: str, message: str, variables: dict, severity: str):
@@ -601,16 +596,16 @@ def _codeverify_probe_violation(probe_id: str, message: str, variables: dict, se
     # In ASSERT mode, raise
     raise AssertionError(f"CodeVerify probe violation: {{message}}")
 
-'''.format(sample_rate=self.sample_rate)
+'''
 
         # LOG mode
-        return '''
+        return f'''
 import traceback
 import random
 import logging
 from datetime import datetime
 
-_CODEVERIFY_PROBE_SAMPLE_RATE = {sample_rate}
+_CODEVERIFY_PROBE_SAMPLE_RATE = {self.sample_rate}
 _CODEVERIFY_VIOLATIONS = []
 _codeverify_logger = logging.getLogger("codeverify.probes")
 
@@ -632,7 +627,7 @@ def _codeverify_probe_violation(probe_id: str, message: str, variables: dict, se
     # Log violation
     _codeverify_logger.warning(f"Probe violation [{{severity}}]: {{message}}", extra=violation)
 
-'''.format(sample_rate=self.sample_rate)
+'''
 
     def _get_typescript_runtime(self) -> str:
         """Get TypeScript runtime probe support code."""
@@ -640,7 +635,7 @@ def _codeverify_probe_violation(probe_id: str, message: str, variables: dict, se
             return "function _codeverifyProbeViolation(opts: any) {}\n"
 
         if self.mode == ProbeMode.ASSERT:
-            return f'''
+            return f"""
 const _CODEVERIFY_PROBE_SAMPLE_RATE = {self.sample_rate};
 const _CODEVERIFY_VIOLATIONS: any[] = [];
 
@@ -666,10 +661,10 @@ function _codeverifyProbeViolation(opts: ProbeViolationOpts): void {{
     throw new Error(`CodeVerify probe violation: ${{opts.message}}`);
 }}
 
-'''
+"""
 
         # LOG mode
-        return f'''
+        return f"""
 const _CODEVERIFY_PROBE_SAMPLE_RATE = {self.sample_rate};
 const _CODEVERIFY_VIOLATIONS: any[] = [];
 
@@ -695,7 +690,7 @@ function _codeverifyProbeViolation(opts: ProbeViolationOpts): void {{
     console.warn(`[CodeVerify] Probe violation [${{opts.severity}}]: ${{opts.message}}`, violation);
 }}
 
-'''
+"""
 
 
 class RuntimeCollector:
@@ -805,33 +800,35 @@ class RuntimeVerificationProbes:
             elif "proofs" in result:
                 for proof in result["proofs"]:
                     if proof.get("status") == "verified":
-                        constraints.append(Z3Constraint(
-                            id=proof.get("id", str(uuid.uuid4())),
-                            expression=proof.get("assertion", ""),
-                            variables=proof.get("variables", []),
-                            constraint_type=self._infer_constraint_type(proof),
-                            location=tuple(proof.get("location", [0, 0])),
-                            description=proof.get("description", ""),
-                        ))
+                        constraints.append(
+                            Z3Constraint(
+                                id=proof.get("id", str(uuid.uuid4())),
+                                expression=proof.get("assertion", ""),
+                                variables=proof.get("variables", []),
+                                constraint_type=self._infer_constraint_type(proof),
+                                location=tuple(proof.get("location", [0, 0])),
+                                description=proof.get("description", ""),
+                            )
+                        )
 
             elif "findings" in result:
                 for finding in result["findings"]:
                     constraint_type = self._finding_to_constraint_type(finding)
                     if constraint_type:
-                        constraints.append(Z3Constraint(
-                            id=finding.get("id", str(uuid.uuid4())),
-                            expression=finding.get("constraint", "True"),
-                            variables=finding.get("variables", []),
-                            constraint_type=constraint_type,
-                            location=(
-                                finding.get("line_start", 0),
-                                finding.get("line_end", 0),
-                            ),
-                            description=finding.get("message", ""),
-                            severity=ProbeSeverity(
-                                finding.get("severity", "medium").lower()
-                            ),
-                        ))
+                        constraints.append(
+                            Z3Constraint(
+                                id=finding.get("id", str(uuid.uuid4())),
+                                expression=finding.get("constraint", "True"),
+                                variables=finding.get("variables", []),
+                                constraint_type=constraint_type,
+                                location=(
+                                    finding.get("line_start", 0),
+                                    finding.get("line_end", 0),
+                                ),
+                                description=finding.get("message", ""),
+                                severity=ProbeSeverity(finding.get("severity", "medium").lower()),
+                            )
+                        )
 
         return constraints
 
@@ -917,28 +914,34 @@ class RuntimeVerificationProbes:
         sarif = {
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
             "version": "2.1.0",
-            "runs": [{
-                "tool": {
-                    "driver": {
-                        "name": "CodeVerify Runtime Probes",
-                        "version": "1.0.0",
-                    }
-                },
-                "results": [
-                    {
-                        "ruleId": v.probe_id,
-                        "level": "warning" if v.severity in (ProbeSeverity.LOW, ProbeSeverity.MEDIUM) else "error",
-                        "message": {"text": v.message},
-                        "locations": [{
-                            "physicalLocation": {
-                                "artifactLocation": {"uri": v.file_path},
-                                "region": {"startLine": v.line_number},
-                            }
-                        }],
-                    }
-                    for v in violations
-                ],
-            }],
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "CodeVerify Runtime Probes",
+                            "version": "1.0.0",
+                        }
+                    },
+                    "results": [
+                        {
+                            "ruleId": v.probe_id,
+                            "level": "warning"
+                            if v.severity in (ProbeSeverity.LOW, ProbeSeverity.MEDIUM)
+                            else "error",
+                            "message": {"text": v.message},
+                            "locations": [
+                                {
+                                    "physicalLocation": {
+                                        "artifactLocation": {"uri": v.file_path},
+                                        "region": {"startLine": v.line_number},
+                                    }
+                                }
+                            ],
+                        }
+                        for v in violations
+                    ],
+                }
+            ],
         }
 
         return json.dumps(sarif, indent=2)

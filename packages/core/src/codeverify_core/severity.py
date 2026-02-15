@@ -28,7 +28,7 @@ SEVERITY_ORDER: dict[str, int] = {
     "critical": 4,
     # Also handle alternative severity names
     "warning": 2,  # maps to medium
-    "error": 3,    # maps to high
+    "error": 3,  # maps to high
 }
 
 # Emoji mapping for display purposes
@@ -55,16 +55,16 @@ def parse_severity(
     default: FindingSeverity = FindingSeverity.MEDIUM,
 ) -> FindingSeverity:
     """Parse a severity value to FindingSeverity enum.
-    
+
     Handles string values with fallback to default for invalid values.
-    
+
     Args:
         value: String or FindingSeverity value
         default: Default severity if parsing fails
-        
+
     Returns:
         FindingSeverity enum value
-        
+
     Examples:
         >>> parse_severity("high")
         FindingSeverity.HIGH
@@ -75,7 +75,7 @@ def parse_severity(
     """
     if isinstance(value, FindingSeverity):
         return value
-    
+
     try:
         return FindingSeverity(value.lower())
     except (ValueError, AttributeError):
@@ -90,14 +90,14 @@ def parse_severity(
 
 def compare_severity(sev1: str | FindingSeverity, sev2: str | FindingSeverity) -> int:
     """Compare two severity values.
-    
+
     Args:
         sev1: First severity
         sev2: Second severity
-        
+
     Returns:
         -1 if sev1 < sev2, 0 if equal, 1 if sev1 > sev2
-        
+
     Examples:
         >>> compare_severity("high", "low")
         1
@@ -108,7 +108,7 @@ def compare_severity(sev1: str | FindingSeverity, sev2: str | FindingSeverity) -
     """
     val1 = SEVERITY_ORDER.get(str(sev1).lower(), 0)
     val2 = SEVERITY_ORDER.get(str(sev2).lower(), 0)
-    
+
     if val1 < val2:
         return -1
     elif val1 > val2:
@@ -118,13 +118,13 @@ def compare_severity(sev1: str | FindingSeverity, sev2: str | FindingSeverity) -
 
 def is_blocking_severity(severity: str | FindingSeverity) -> bool:
     """Check if a severity level should block merging.
-    
+
     Args:
         severity: Severity to check
-        
+
     Returns:
         True if severity is high or critical
-        
+
     Examples:
         >>> is_blocking_severity("critical")
         True
@@ -140,14 +140,14 @@ def is_above_threshold(
     threshold: str | FindingSeverity,
 ) -> bool:
     """Check if severity is at or above a threshold.
-    
+
     Args:
         severity: Severity to check
         threshold: Minimum severity threshold
-        
+
     Returns:
         True if severity >= threshold
-        
+
     Examples:
         >>> is_above_threshold("high", "medium")
         True
@@ -159,10 +159,10 @@ def is_above_threshold(
 
 def get_severity_emoji(severity: str | FindingSeverity) -> str:
     """Get emoji for severity level.
-    
+
     Args:
         severity: Severity to get emoji for
-        
+
     Returns:
         Emoji string
     """
@@ -171,10 +171,10 @@ def get_severity_emoji(severity: str | FindingSeverity) -> str:
 
 def get_severity_label(severity: str | FindingSeverity) -> str:
     """Get display label for severity level.
-    
+
     Args:
         severity: Severity to get label for
-        
+
     Returns:
         Human-readable label
     """
@@ -187,20 +187,21 @@ def sort_by_severity(
     descending: bool = True,
 ) -> list:
     """Sort items by severity.
-    
+
     Args:
         items: List of dicts or objects with severity attribute/key
         key: Key or attribute name containing severity
         descending: If True, most severe first
-        
+
     Returns:
         Sorted list
     """
+
     def get_order(item):
         if isinstance(item, dict):
             sev = item.get(key, "info")
         else:
             sev = getattr(item, key, "info")
         return SEVERITY_ORDER.get(str(sev).lower(), 0)
-    
+
     return sorted(items, key=get_order, reverse=descending)

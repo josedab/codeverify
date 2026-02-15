@@ -80,7 +80,9 @@ class BitbucketClient(VCSClient):
             id=data.get("uuid", ""),
             name=data["name"],
             full_name=data["full_name"],
-            owner=data["owner"]["nickname"] if data.get("owner") else data["full_name"].split("/")[0],
+            owner=data["owner"]["nickname"]
+            if data.get("owner")
+            else data["full_name"].split("/")[0],
             description=data.get("description"),
             default_branch=data.get("mainbranch", {}).get("name", "main"),
             private=data.get("is_private", False),
@@ -136,9 +138,7 @@ class BitbucketClient(VCSClient):
         """Get file content from repository."""
         client = self._get_client()
         commit = ref or "HEAD"
-        response = await client.get(
-            f"/repositories/{repo_full_name}/src/{commit}/{path}"
-        )
+        response = await client.get(f"/repositories/{repo_full_name}/src/{commit}/{path}")
         response.raise_for_status()
         return response.text
 
@@ -171,9 +171,7 @@ class BitbucketClient(VCSClient):
     ) -> PullRequest:
         """Get pull request details."""
         client = self._get_client()
-        response = await client.get(
-            f"/repositories/{repo_full_name}/pullrequests/{pr_number}"
-        )
+        response = await client.get(f"/repositories/{repo_full_name}/pullrequests/{pr_number}")
         response.raise_for_status()
         return self._parse_pull_request(response.json())
 
@@ -205,7 +203,9 @@ class BitbucketClient(VCSClient):
                     status=status,
                     additions=item.get("lines_added", 0),
                     deletions=item.get("lines_removed", 0),
-                    previous_filename=item.get("old", {}).get("path") if status == "renamed" else None,
+                    previous_filename=item.get("old", {}).get("path")
+                    if status == "renamed"
+                    else None,
                 )
             )
         return files
@@ -217,9 +217,7 @@ class BitbucketClient(VCSClient):
     ) -> str:
         """Get the diff for a pull request."""
         client = self._get_client()
-        response = await client.get(
-            f"/repositories/{repo_full_name}/pullrequests/{pr_number}/diff"
-        )
+        response = await client.get(f"/repositories/{repo_full_name}/pullrequests/{pr_number}/diff")
         response.raise_for_status()
         return response.text
 
@@ -315,7 +313,9 @@ class BitbucketClient(VCSClient):
         state_map = {
             CheckStatus.QUEUED: "INPROGRESS",
             CheckStatus.IN_PROGRESS: "INPROGRESS",
-            CheckStatus.COMPLETED: "SUCCESSFUL" if check_run.conclusion == CheckConclusion.SUCCESS else "FAILED",
+            CheckStatus.COMPLETED: "SUCCESSFUL"
+            if check_run.conclusion == CheckConclusion.SUCCESS
+            else "FAILED",
         }
 
         await self.create_commit_status(

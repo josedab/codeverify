@@ -4,7 +4,6 @@ This module contains the core data structures used for defining
 custom verification rules.
 """
 
-import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -189,8 +188,12 @@ class CustomRule:
             exclude_patterns=data.get("exclude_patterns", []),
             tags=data.get("tags", []),
             author=data.get("author"),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.utcnow(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.utcnow(),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else datetime.utcnow(),
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else datetime.utcnow(),
             version=data.get("version", 1),
             metadata=data.get("metadata", {}),
         )
@@ -198,6 +201,7 @@ class CustomRule:
     def to_yaml(self) -> str:
         """Convert to YAML format for .codeverify.yml."""
         import yaml
+
         rule_dict = {
             "id": str(self.id),
             "name": self.name,

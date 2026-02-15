@@ -11,18 +11,20 @@ import asyncio
 import hashlib
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncGenerator, Callable
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Enums & lightweight value objects
 # ---------------------------------------------------------------------------
 
+
 class StreamEventType(str, Enum):
     """Types of events emitted on the verification stream."""
+
     SESSION_CREATED = "session_created"
     STAGE_START = "stage_start"
     STAGE_COMPLETE = "stage_complete"
@@ -49,9 +51,11 @@ class SessionStatus(str, Enum):
 # Data models
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class StreamEvent:
     """A single event in the verification stream."""
+
     event_type: StreamEventType
     data: dict[str, Any]
     session_id: str
@@ -61,6 +65,7 @@ class StreamEvent:
     def to_sse(self) -> str:
         """Serialize as a Server-Sent Event line."""
         import json
+
         payload = {"type": self.event_type.value, "seq": self.sequence, **self.data}
         return f"data: {json.dumps(payload)}\n\n"
 
@@ -77,6 +82,7 @@ class StreamEvent:
 @dataclass
 class IncrementalDiff:
     """Represents an incremental code change within a session."""
+
     file_path: str
     old_code: str
     new_code: str
@@ -95,8 +101,13 @@ class IncrementalDiff:
 @dataclass
 class StreamingSessionConfig:
     """Configuration for a streaming verification session."""
+
     stages: list[VerificationStage] = field(
-        default_factory=lambda: [VerificationStage.PATTERN, VerificationStage.AI, VerificationStage.FORMAL]
+        default_factory=lambda: [
+            VerificationStage.PATTERN,
+            VerificationStage.AI,
+            VerificationStage.FORMAL,
+        ]
     )
     language: str = "python"
     timeout_seconds: float = 30.0
@@ -108,6 +119,7 @@ class StreamingSessionConfig:
 # ---------------------------------------------------------------------------
 # Streaming verification session
 # ---------------------------------------------------------------------------
+
 
 class StreamingVerificationSession:
     """Manages a single real-time verification session with incremental state."""
@@ -169,12 +181,15 @@ class StreamingVerificationSession:
             return evt
 
         if not diff.is_meaningful:
-            _emit(StreamEventType.COMPLETE, {
-                "file_path": diff.file_path,
-                "findings_count": 0,
-                "skipped": True,
-                "reason": "no_meaningful_change",
-            })
+            _emit(
+                StreamEventType.COMPLETE,
+                {
+                    "file_path": diff.file_path,
+                    "findings_count": 0,
+                    "skipped": True,
+                    "reason": "no_meaningful_change",
+                },
+            )
             self.status = SessionStatus.IDLE
             return events
 
@@ -182,10 +197,13 @@ class StreamingVerificationSession:
         all_findings: list[dict[str, Any]] = []
 
         for idx, stage in enumerate(self.config.stages):
-            _emit(StreamEventType.STAGE_START, {
-                "stage": stage.value,
-                "progress": idx / total_stages,
-            })
+            _emit(
+                StreamEventType.STAGE_START,
+                {
+                    "stage": stage.value,
+                    "progress": idx / total_stages,
+                },
+            )
 
             start = time.time()
 
@@ -204,22 +222,28 @@ class StreamingVerificationSession:
 
             all_findings.extend(findings)
 
-            _emit(StreamEventType.STAGE_COMPLETE, {
-                "stage": stage.value,
-                "findings_count": len(findings),
-                "elapsed_ms": elapsed_ms,
-                "progress": (idx + 1) / total_stages,
-            })
+            _emit(
+                StreamEventType.STAGE_COMPLETE,
+                {
+                    "stage": stage.value,
+                    "findings_count": len(findings),
+                    "elapsed_ms": elapsed_ms,
+                    "progress": (idx + 1) / total_stages,
+                },
+            )
 
         # Cache for next incremental run
         self._code_snapshots[diff.file_path] = diff.new_code
         self._cached_findings[diff.file_path] = all_findings
 
-        _emit(StreamEventType.COMPLETE, {
-            "file_path": diff.file_path,
-            "total_findings": len(all_findings),
-            "code_hash": diff.code_hash,
-        })
+        _emit(
+            StreamEventType.COMPLETE,
+            {
+                "file_path": diff.file_path,
+                "total_findings": len(all_findings),
+                "code_hash": diff.code_hash,
+            },
+        )
 
         self.status = SessionStatus.IDLE
         return events
@@ -228,6 +252,7 @@ class StreamingVerificationSession:
 
     def _run_pattern_check(self, diff: IncrementalDiff) -> list[dict[str, Any]]:
         import re
+
         findings: list[dict[str, Any]] = []
         PATTERNS = {
             "python": [
@@ -249,20 +274,24 @@ class StreamingVerificationSession:
                 (r"System\.out\.print", "Use logging framework", "low"),
             ],
         }
-        lang_patterns = PATTERNS.get(diff.file_path.rsplit(".", 1)[-1] if "." in diff.file_path else self.config.language, [])
+        lang_patterns = PATTERNS.get(
+            diff.file_path.rsplit(".", 1)[-1] if "." in diff.file_path else self.config.language, []
+        )
         if not lang_patterns:
             lang_patterns = PATTERNS.get(self.config.language, [])
 
         for i, line in enumerate(diff.new_code.splitlines(), 1):
             for pattern, message, severity in lang_patterns:
                 if re.search(pattern, line):
-                    findings.append({
-                        "line": i,
-                        "message": message,
-                        "severity": severity,
-                        "stage": "pattern",
-                        "file_path": diff.file_path,
-                    })
+                    findings.append(
+                        {
+                            "line": i,
+                            "message": message,
+                            "severity": severity,
+                            "stage": "pattern",
+                            "file_path": diff.file_path,
+                        }
+                    )
         return findings
 
     async def _run_ai_check(self, diff: IncrementalDiff) -> list[dict[str, Any]]:
@@ -270,38 +299,49 @@ class StreamingVerificationSession:
         findings: list[dict[str, Any]] = []
         lines = diff.new_code.splitlines()
         import re
+
         for i, line in enumerate(lines, 1):
             if re.match(r"^\s*(def|function|func)\s+\w+", line):
                 has_doc = False
                 for j in range(i, min(i + 3, len(lines))):
                     s = lines[j].strip() if j < len(lines) else ""
-                    if s.startswith('"""') or s.startswith("'''") or s.startswith("//") or s.startswith("/*"):
+                    if (
+                        s.startswith('"""')
+                        or s.startswith("'''")
+                        or s.startswith("//")
+                        or s.startswith("/*")
+                    ):
                         has_doc = True
                         break
                 if not has_doc:
-                    findings.append({
-                        "line": i,
-                        "message": "Function missing documentation",
-                        "severity": "low",
-                        "stage": "ai",
-                        "file_path": diff.file_path,
-                    })
+                    findings.append(
+                        {
+                            "line": i,
+                            "message": "Function missing documentation",
+                            "severity": "low",
+                            "stage": "ai",
+                            "file_path": diff.file_path,
+                        }
+                    )
         return findings
 
     async def _run_formal_check(self, diff: IncrementalDiff) -> list[dict[str, Any]]:
         await asyncio.sleep(0.01)
         findings: list[dict[str, Any]] = []
         import re
+
         for i, line in enumerate(diff.new_code.splitlines(), 1):
             if "/" in line and "import" not in line and "#" not in line.split("/")[0]:
                 if re.search(r"\b\w+\s*/\s*\w+", line):
-                    findings.append({
-                        "line": i,
-                        "message": "Potential division by zero — formal verification required",
-                        "severity": "high",
-                        "stage": "formal",
-                        "file_path": diff.file_path,
-                    })
+                    findings.append(
+                        {
+                            "line": i,
+                            "message": "Potential division by zero — formal verification required",
+                            "severity": "high",
+                            "stage": "formal",
+                            "file_path": diff.file_path,
+                        }
+                    )
         return findings
 
     def close(self) -> None:
@@ -313,6 +353,7 @@ class StreamingVerificationSession:
 # Session pool with TTL management
 # ---------------------------------------------------------------------------
 
+
 class StreamingSessionPool:
     """Pool of streaming sessions with automatic expiry and recycling."""
 
@@ -321,7 +362,9 @@ class StreamingSessionPool:
         self.default_ttl_seconds = default_ttl_seconds
         self._sessions: dict[str, StreamingVerificationSession] = {}
 
-    def create_session(self, config: StreamingSessionConfig | None = None) -> StreamingVerificationSession:
+    def create_session(
+        self, config: StreamingSessionConfig | None = None
+    ) -> StreamingVerificationSession:
         self._evict_expired()
         if len(self._sessions) >= self.max_sessions:
             self._evict_oldest()

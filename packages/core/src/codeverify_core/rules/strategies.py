@@ -24,17 +24,17 @@ logger = structlog.get_logger()
 
 class RuleEvaluationStrategy(ABC):
     """Abstract strategy for evaluating rules of a specific type.
-    
+
     Implement this interface to add support for new rule types.
     """
 
     @abstractmethod
     def can_evaluate(self, rule_type: RuleType) -> bool:
         """Check if this strategy can evaluate the given rule type.
-        
+
         Args:
             rule_type: The type of rule to check
-            
+
         Returns:
             True if this strategy handles the given rule type
         """
@@ -49,13 +49,13 @@ class RuleEvaluationStrategy(ABC):
         evaluator: "RuleEvaluator",
     ) -> list[dict[str, Any]]:
         """Evaluate the rule and return violations.
-        
+
         Args:
             rule: The rule to evaluate
             code: The code to check
             file_path: Path to the file being checked
             evaluator: The evaluator instance (for accessing helper methods)
-            
+
         Returns:
             List of violation dictionaries
         """
@@ -110,7 +110,7 @@ class PatternRuleStrategy(RuleEvaluationStrategy):
 
 class CompositeRuleStrategy(RuleEvaluationStrategy):
     """Strategy for evaluating composite rules with multiple conditions.
-    
+
     Supports AND/OR logic between conditions.
     """
 
@@ -144,7 +144,7 @@ class CompositeRuleStrategy(RuleEvaluationStrategy):
 
 class ASTRuleStrategy(RuleEvaluationStrategy):
     """Strategy for evaluating AST-based rules.
-    
+
     Currently a placeholder - full implementation requires AST parsing infrastructure.
     """
 
@@ -165,7 +165,7 @@ class ASTRuleStrategy(RuleEvaluationStrategy):
 
 class SemanticRuleStrategy(RuleEvaluationStrategy):
     """Strategy for evaluating semantic AI-powered rules.
-    
+
     Currently a placeholder - full implementation requires AI agent infrastructure.
     """
 
@@ -195,7 +195,7 @@ _default_strategies: list[RuleEvaluationStrategy] = [
 
 def get_default_strategies() -> list[RuleEvaluationStrategy]:
     """Get a copy of the default evaluation strategies.
-    
+
     Returns:
         List of default RuleEvaluationStrategy instances
     """

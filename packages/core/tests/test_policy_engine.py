@@ -1,12 +1,9 @@
 """Tests for Policy Engine / CI-CD Gates module."""
 
-import pytest
-
 from codeverify_core.policy_engine import (
     PolicyAction,
     PolicyCondition,
     PolicyEngine,
-    PolicyEvaluationResult,
     PolicyRule,
     PolicyScope,
     PolicySet,
@@ -58,9 +55,12 @@ class TestPolicySet:
             description="Default policy set",
             rules=[
                 PolicyRule(
-                    id="r1", name="Rule 1",
+                    id="r1",
+                    name="Rule 1",
                     description="First rule",
-                    conditions=[PolicyCondition(field="severity", operator="equals", value="critical")],
+                    conditions=[
+                        PolicyCondition(field="severity", operator="equals", value="critical")
+                    ],
                     action=PolicyAction.DENY,
                     scope=PolicyScope.REPOSITORY,
                 ),
@@ -98,7 +98,7 @@ class TestPolicyEngine:
                 PolicyRule(
                     id="block-all-high",
                     name="Block high findings",
-            description="Block high severity",
+                    description="Block high severity",
                     conditions=[PolicyCondition(field="severity", operator="equals", value="high")],
                     action=PolicyAction.DENY,
                     scope=PolicyScope.REPOSITORY,

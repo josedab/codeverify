@@ -114,10 +114,14 @@ class TestKnowledgeGraph:
     def test_find_similar_proofs_returns_matches(self):
         """find_similar_proofs returns matches above threshold."""
         g = self._make_graph()
-        g.add_node(GraphNode(
-            id="p1", node_type=NodeType.PROOF, label="proof",
-            properties={"pattern_hash": "aabbccdd"},
-        ))
+        g.add_node(
+            GraphNode(
+                id="p1",
+                node_type=NodeType.PROOF,
+                label="proof",
+                properties={"pattern_hash": "aabbccdd"},
+            )
+        )
         results = g.find_similar_proofs("aabbccdd", threshold=0.5)
         assert len(results) >= 1
         assert results[0][1] >= 0.5
@@ -125,10 +129,14 @@ class TestKnowledgeGraph:
     def test_find_similar_proofs_empty_for_no_matches(self):
         """find_similar_proofs returns empty for no matches."""
         g = self._make_graph()
-        g.add_node(GraphNode(
-            id="p1", node_type=NodeType.PROOF, label="proof",
-            properties={"pattern_hash": "aabbccdd"},
-        ))
+        g.add_node(
+            GraphNode(
+                id="p1",
+                node_type=NodeType.PROOF,
+                label="proof",
+                properties={"pattern_hash": "aabbccdd"},
+            )
+        )
         results = g.find_similar_proofs("zzzzzzzz", threshold=0.99)
         assert results == []
 
@@ -163,10 +171,14 @@ class TestProofReuseEngine:
 
     def _make_engine(self) -> tuple[KnowledgeGraph, ProofReuseEngine]:
         g = KnowledgeGraph()
-        g.add_node(GraphNode(
-            id="proof1", node_type=NodeType.PROOF, label="null check proof",
-            properties={"pattern_hash": "aabbccdd11223344"},
-        ))
+        g.add_node(
+            GraphNode(
+                id="proof1",
+                node_type=NodeType.PROOF,
+                label="null check proof",
+                properties={"pattern_hash": "aabbccdd11223344"},
+            )
+        )
         return g, ProofReuseEngine(g)
 
     def test_suggest_proof(self):

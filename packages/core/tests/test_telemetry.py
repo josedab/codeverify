@@ -1,7 +1,5 @@
 """Tests for Telemetry & ROI Analytics module."""
 
-import pytest
-
 from codeverify_core.telemetry import (
     CostEstimator,
     FindingLifecycle,
@@ -101,4 +99,3 @@ class TestROIDashboard:
         report = dashboard.generate_report(period_days=30)
         summary = dashboard.generate_executive_summary(report)
         assert isinstance(summary, str)
-

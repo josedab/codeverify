@@ -189,8 +189,12 @@ class CustomRule:
             exclude_patterns=data.get("exclude_patterns", []),
             tags=data.get("tags", []),
             author=data.get("author"),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.utcnow(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.utcnow(),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else datetime.utcnow(),
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else datetime.utcnow(),
             version=data.get("version", 1),
             metadata=data.get("metadata", {}),
         )
@@ -198,6 +202,7 @@ class CustomRule:
     def to_yaml(self) -> str:
         """Convert to YAML format for .codeverify.yml."""
         import yaml
+
         rule_dict = {
             "id": str(self.id),
             "name": self.name,
@@ -664,43 +669,40 @@ class RuleBuilder:
 # Pre-built rule templates
 RULE_TEMPLATES = {
     "no-print": RuleBuilder()
-        .name("No Print Statements")
-        .description("Use logging instead of print statements")
-        .severity(RuleSeverity.LOW)
-        .pattern(r"\bprint\s*\(")
-        .action("Replace print() with proper logging", fix_template="logger.info({args})")
-        .for_languages("python")
-        .with_tags("style", "logging")
-        .build(),
-
+    .name("No Print Statements")
+    .description("Use logging instead of print statements")
+    .severity(RuleSeverity.LOW)
+    .pattern(r"\bprint\s*\(")
+    .action("Replace print() with proper logging", fix_template="logger.info({args})")
+    .for_languages("python")
+    .with_tags("style", "logging")
+    .build(),
     "no-hardcoded-secrets": RuleBuilder()
-        .name("No Hardcoded Secrets")
-        .description("Detect hardcoded passwords and API keys")
-        .severity(RuleSeverity.CRITICAL)
-        .pattern(r"(?i)(password|api_key|secret|token)\s*=\s*['\"][^'\"]+['\"]")
-        .action("Use environment variables for sensitive data")
-        .with_tags("security", "secrets")
-        .build(),
-
+    .name("No Hardcoded Secrets")
+    .description("Detect hardcoded passwords and API keys")
+    .severity(RuleSeverity.CRITICAL)
+    .pattern(r"(?i)(password|api_key|secret|token)\s*=\s*['\"][^'\"]+['\"]")
+    .action("Use environment variables for sensitive data")
+    .with_tags("security", "secrets")
+    .build(),
     "no-eval": RuleBuilder()
-        .name("No Eval Usage")
-        .description("Avoid using eval() which can execute arbitrary code")
-        .severity(RuleSeverity.HIGH)
-        .pattern(r"\beval\s*\(")
-        .action("Replace eval() with safer alternatives like ast.literal_eval()")
-        .for_languages("python")
-        .with_tags("security")
-        .build(),
-
+    .name("No Eval Usage")
+    .description("Avoid using eval() which can execute arbitrary code")
+    .severity(RuleSeverity.HIGH)
+    .pattern(r"\beval\s*\(")
+    .action("Replace eval() with safer alternatives like ast.literal_eval()")
+    .for_languages("python")
+    .with_tags("security")
+    .build(),
     "require-type-hints": RuleBuilder()
-        .name("Require Type Hints")
-        .description("Function parameters should have type hints")
-        .severity(RuleSeverity.LOW)
-        .pattern(r"def\s+\w+\s*\([^)]*[a-zA-Z_]\w*\s*[,)]")
-        .action("Add type hints to function parameters")
-        .for_languages("python")
-        .with_tags("style", "typing")
-        .build(),
+    .name("Require Type Hints")
+    .description("Function parameters should have type hints")
+    .severity(RuleSeverity.LOW)
+    .pattern(r"def\s+\w+\s*\([^)]*[a-zA-Z_]\w*\s*[,)]")
+    .action("Add type hints to function parameters")
+    .for_languages("python")
+    .with_tags("style", "typing")
+    .build(),
 }
 
 
@@ -764,7 +766,7 @@ class RuleViolation:
 
 def get_builtin_rules() -> dict[str, CustomRule]:
     """Get all built-in rule templates.
-    
+
     Returns:
         Dictionary mapping rule IDs to CustomRule instances.
     """

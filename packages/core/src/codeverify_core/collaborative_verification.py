@@ -10,14 +10,12 @@ Key features:
 4. Resolution Workflow: Finding state machine (open→discussing→resolved)
 """
 
-import asyncio
-import hashlib
-import json
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
@@ -308,8 +306,14 @@ class CollaborativeSessionManager:
     """Manages collaborative verification sessions."""
 
     PARTICIPANT_COLORS = [
-        "#3498db", "#e74c3c", "#2ecc71", "#f39c12",
-        "#9b59b6", "#1abc9c", "#e67e22", "#34495e",
+        "#3498db",
+        "#e74c3c",
+        "#2ecc71",
+        "#f39c12",
+        "#9b59b6",
+        "#1abc9c",
+        "#e67e22",
+        "#34495e",
     ]
 
     def __init__(self) -> None:
@@ -683,9 +687,7 @@ class CollaborativeSessionManager:
 
         # Count annotations
         total_annotations = len(session.annotations)
-        resolved_annotations = sum(
-            1 for a in session.annotations.values() if a.resolved
-        )
+        resolved_annotations = sum(1 for a in session.annotations.values() if a.resolved)
 
         return {
             "session_id": session_id,

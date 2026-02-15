@@ -23,7 +23,7 @@ T = TypeVar("T")
 
 class Repository(ABC, Generic[T]):
     """Abstract base class for repositories.
-    
+
     Repositories provide a collection-like interface for accessing domain
     entities while abstracting away the underlying storage mechanism.
     """
@@ -51,7 +51,7 @@ class Repository(ABC, Generic[T]):
 
 class InMemoryRepository(Repository[T]):
     """In-memory implementation of Repository.
-    
+
     Suitable for testing and development. Not suitable for production
     use as data is not persisted across restarts.
     """
@@ -62,7 +62,7 @@ class InMemoryRepository(Repository[T]):
     def _get_id(self, entity: T) -> str:
         """Extract ID from an entity. Override if ID field is not 'id'."""
         if hasattr(entity, "id"):
-            id_val = getattr(entity, "id")
+            id_val = entity.id
             return str(id_val) if id_val else ""
         raise ValueError(f"Entity {type(entity)} has no 'id' attribute")
 
@@ -81,10 +81,7 @@ class InMemoryRepository(Repository[T]):
         """List entities, applying filters by attribute matching."""
         results = list(self._storage.values())
         for key, value in filters.items():
-            results = [
-                e for e in results
-                if hasattr(e, key) and getattr(e, key) == value
-            ]
+            results = [e for e in results if hasattr(e, key) and getattr(e, key) == value]
         return results
 
 
@@ -95,16 +92,14 @@ class ScanResultRepository(Repository["CodebaseScanResult"]):
     """Repository interface for scan results."""
 
     @abstractmethod
-    async def get_by_repo(
-        self, repo_full_name: str, limit: int = 10
-    ) -> list["CodebaseScanResult"]:
+    async def get_by_repo(self, repo_full_name: str, limit: int = 10) -> list[CodebaseScanResult]:
         """Get scan history for a repository."""
         pass
 
     @abstractmethod
     async def get_completed_since(
         self, repo_full_name: str, since: datetime
-    ) -> list["CodebaseScanResult"]:
+    ) -> list[CodebaseScanResult]:
         """Get completed scans since a given date."""
         pass
 
@@ -113,12 +108,12 @@ class ScheduledScanRepository(Repository["ScheduledScan"]):
     """Repository interface for scheduled scans."""
 
     @abstractmethod
-    async def get_due_scans(self, before: datetime) -> list["ScheduledScan"]:
+    async def get_due_scans(self, before: datetime) -> list[ScheduledScan]:
         """Get scheduled scans due to run before the given time."""
         pass
 
     @abstractmethod
-    async def get_by_repo(self, repo_full_name: str) -> list["ScheduledScan"]:
+    async def get_by_repo(self, repo_full_name: str) -> list[ScheduledScan]:
         """Get all scheduled scans for a repository."""
         pass
 
@@ -127,14 +122,14 @@ class NotificationConfigRepository(Repository["NotificationConfig"]):
     """Repository interface for notification configurations."""
 
     @abstractmethod
-    async def get_by_repo(self, repo_full_name: str) -> list["NotificationConfig"]:
+    async def get_by_repo(self, repo_full_name: str) -> list[NotificationConfig]:
         """Get all notification configs for a repository."""
         pass
 
     @abstractmethod
     async def add_for_repo(
-        self, repo_full_name: str, config: "NotificationConfig"
-    ) -> "NotificationConfig":
+        self, repo_full_name: str, config: NotificationConfig
+    ) -> NotificationConfig:
         """Add a notification config for a repository."""
         pass
 
@@ -154,6 +149,7 @@ if TYPE_CHECKING:
 @dataclass
 class RepoNotificationConfigs:
     """Wrapper to store configs by repository."""
+
     id: str  # repo_full_name
     configs: list[Any] = field(default_factory=list)
 
@@ -161,23 +157,19 @@ class RepoNotificationConfigs:
 class InMemoryScanResultRepository(InMemoryRepository["CodebaseScanResult"], ScanResultRepository):
     """In-memory implementation of ScanResultRepository."""
 
-    async def get_by_repo(
-        self, repo_full_name: str, limit: int = 10
-    ) -> list["CodebaseScanResult"]:
-        results = [
-            r for r in self._storage.values()
-            if r.repo_full_name == repo_full_name
-        ]
+    async def get_by_repo(self, repo_full_name: str, limit: int = 10) -> list[CodebaseScanResult]:
+        results = [r for r in self._storage.values() if r.repo_full_name == repo_full_name]
         results.sort(key=lambda r: r.started_at or datetime.min, reverse=True)
         return results[:limit]
 
     async def get_completed_since(
         self, repo_full_name: str, since: datetime
-    ) -> list["CodebaseScanResult"]:
+    ) -> list[CodebaseScanResult]:
         from codeverify_core.scanning import ScanStatus
-        
+
         return [
-            r for r in self._storage.values()
+            r
+            for r in self._storage.values()
             if r.repo_full_name == repo_full_name
             and r.started_at
             and r.started_at > since
@@ -188,17 +180,13 @@ class InMemoryScanResultRepository(InMemoryRepository["CodebaseScanResult"], Sca
 class InMemoryScheduledScanRepository(InMemoryRepository["ScheduledScan"], ScheduledScanRepository):
     """In-memory implementation of ScheduledScanRepository."""
 
-    async def get_due_scans(self, before: datetime) -> list["ScheduledScan"]:
+    async def get_due_scans(self, before: datetime) -> list[ScheduledScan]:
         return [
-            s for s in self._storage.values()
-            if s.enabled and s.next_run and s.next_run <= before
+            s for s in self._storage.values() if s.enabled and s.next_run and s.next_run <= before
         ]
 
-    async def get_by_repo(self, repo_full_name: str) -> list["ScheduledScan"]:
-        return [
-            s for s in self._storage.values()
-            if s.config.repo_full_name == repo_full_name
-        ]
+    async def get_by_repo(self, repo_full_name: str) -> list[ScheduledScan]:
+        return [s for s in self._storage.values() if s.config.repo_full_name == repo_full_name]
 
 
 class InMemoryNotificationConfigRepository(NotificationConfigRepository):

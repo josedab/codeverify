@@ -9,7 +9,7 @@ Example usage:
     event_bus = EventBus()
     event_bus.subscribe(AnalysisCompleteEvent, send_slack_notification)
     event_bus.subscribe(AnalysisCompleteEvent, send_teams_notification)
-    
+
     # Publish events from anywhere
     await event_bus.publish(AnalysisCompleteEvent(
         repo_full_name="org/repo",
@@ -18,13 +18,13 @@ Example usage:
     ))
 """
 
-import asyncio
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Coroutine, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 from uuid import uuid4
 
 import structlog
@@ -41,7 +41,7 @@ EventHandler = Callable[[E], Coroutine[Any, Any, None]]
 
 class EventPriority(int, Enum):
     """Priority levels for event handlers."""
-    
+
     LOW = 0
     NORMAL = 50
     HIGH = 100
@@ -51,10 +51,10 @@ class EventPriority(int, Enum):
 @dataclass
 class Event(ABC):
     """Base class for all events."""
-    
+
     event_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    
+
     @property
     @abstractmethod
     def event_type(self) -> str:
@@ -65,7 +65,7 @@ class Event(ABC):
 @dataclass
 class AnalysisCompleteEvent(Event):
     """Event fired when a PR analysis completes."""
-    
+
     repo_full_name: str = ""
     pr_number: int = 0
     pr_title: str = ""
@@ -77,7 +77,7 @@ class AnalysisCompleteEvent(Event):
     findings_url: str = ""
     author: str = ""
     analysis_id: str = ""
-    
+
     @property
     def event_type(self) -> str:
         return "analysis.complete"
@@ -86,7 +86,7 @@ class AnalysisCompleteEvent(Event):
 @dataclass
 class AnalysisFailedEvent(Event):
     """Event fired when a PR analysis fails."""
-    
+
     repo_full_name: str = ""
     pr_number: int = 0
     pr_title: str = ""
@@ -94,7 +94,7 @@ class AnalysisFailedEvent(Event):
     error_message: str = ""
     error_type: str = ""
     analysis_id: str = ""
-    
+
     @property
     def event_type(self) -> str:
         return "analysis.failed"
@@ -103,7 +103,7 @@ class AnalysisFailedEvent(Event):
 @dataclass
 class CriticalFindingEvent(Event):
     """Event fired when a critical security finding is detected."""
-    
+
     repo_full_name: str = ""
     pr_number: int = 0
     pr_url: str = ""
@@ -115,7 +115,7 @@ class CriticalFindingEvent(Event):
     file_path: str = ""
     line_number: int | None = None
     author: str = ""
-    
+
     @property
     def event_type(self) -> str:
         return "finding.critical"
@@ -124,7 +124,7 @@ class CriticalFindingEvent(Event):
 @dataclass
 class ScanCompleteEvent(Event):
     """Event fired when a codebase scan completes."""
-    
+
     repo_full_name: str = ""
     scan_type: str = ""
     status: str = ""
@@ -134,7 +134,7 @@ class ScanCompleteEvent(Event):
     critical_findings: int = 0
     scan_url: str = ""
     scan_id: str = ""
-    
+
     @property
     def event_type(self) -> str:
         return "scan.complete"
@@ -143,7 +143,7 @@ class ScanCompleteEvent(Event):
 @dataclass
 class DigestReadyEvent(Event):
     """Event fired when a digest report is ready to send."""
-    
+
     organization: str = ""
     period: str = ""  # "daily", "weekly"
     start_date: datetime = field(default_factory=datetime.utcnow)
@@ -155,7 +155,7 @@ class DigestReadyEvent(Event):
     critical_findings: int = 0
     top_issues: list[dict[str, Any]] = field(default_factory=list)
     trend: str = "stable"  # "improving", "stable", "declining"
-    
+
     @property
     def event_type(self) -> str:
         return f"digest.{self.period}"
@@ -164,11 +164,11 @@ class DigestReadyEvent(Event):
 @dataclass
 class Subscription(Generic[E]):
     """Represents a subscription to an event type."""
-    
+
     handler: EventHandler
     priority: EventPriority = EventPriority.NORMAL
     filter_fn: Callable[[E], bool] | None = None
-    
+
     def matches(self, event: E) -> bool:
         """Check if this subscription should handle the event."""
         if self.filter_fn is None:
@@ -179,7 +179,7 @@ class Subscription(Generic[E]):
 class EventBus:
     """
     Central event bus for publishing and subscribing to events.
-    
+
     The event bus supports:
     - Multiple handlers per event type
     - Priority-based handler execution
@@ -187,12 +187,12 @@ class EventBus:
     - Async handler execution
     - Error isolation between handlers
     """
-    
+
     def __init__(self) -> None:
         """Initialize the event bus."""
         self._subscriptions: dict[type[Event], list[Subscription]] = defaultdict(list)
         self._middleware: list[Callable[[Event], Coroutine[Any, Any, Event | None]]] = []
-    
+
     def subscribe(
         self,
         event_type: type[E],
@@ -202,13 +202,13 @@ class EventBus:
     ) -> Callable[[], None]:
         """
         Subscribe a handler to an event type.
-        
+
         Args:
             event_type: The event class to subscribe to
             handler: Async function to handle the event
             priority: Handler priority (higher runs first)
             filter_fn: Optional filter to selectively handle events
-            
+
         Returns:
             Unsubscribe function
         """
@@ -218,45 +218,45 @@ class EventBus:
             filter_fn=filter_fn,
         )
         self._subscriptions[event_type].append(subscription)
-        
+
         # Sort by priority (descending)
         self._subscriptions[event_type].sort(
             key=lambda s: s.priority.value,
             reverse=True,
         )
-        
+
         logger.debug(
             "Event handler subscribed",
             event_type=event_type.__name__,
             priority=priority.name,
         )
-        
+
         def unsubscribe() -> None:
             self._subscriptions[event_type].remove(subscription)
-        
+
         return unsubscribe
-    
+
     def add_middleware(
         self,
         middleware: Callable[[Event], Coroutine[Any, Any, Event | None]],
     ) -> None:
         """
         Add middleware that processes events before handlers.
-        
+
         Middleware can:
         - Modify events before they reach handlers
         - Filter events by returning None
         - Add logging, metrics, etc.
         """
         self._middleware.append(middleware)
-    
+
     async def publish(self, event: Event) -> list[Exception]:
         """
         Publish an event to all subscribed handlers.
-        
+
         Args:
             event: The event to publish
-            
+
         Returns:
             List of exceptions from failed handlers (empty if all succeeded)
         """
@@ -265,7 +265,7 @@ class EventBus:
             event_type=event.event_type,
             event_id=event.event_id,
         )
-        
+
         # Run middleware
         processed_event: Event | None = event
         for middleware in self._middleware:
@@ -282,19 +282,19 @@ class EventBus:
                 )
                 # Continue with original event if middleware fails
                 processed_event = event
-        
+
         # Get subscriptions for this event type
         subscriptions = self._subscriptions.get(type(event), [])
         if not subscriptions:
             logger.debug("No handlers for event", event_type=event.event_type)
             return []
-        
+
         # Execute handlers
         errors: list[Exception] = []
         for subscription in subscriptions:
             if not subscription.matches(processed_event):
                 continue
-                
+
             try:
                 await subscription.handler(processed_event)
             except Exception as e:
@@ -305,16 +305,16 @@ class EventBus:
                     error=str(e),
                 )
                 errors.append(e)
-        
+
         return errors
-    
+
     async def publish_all(self, events: list[Event]) -> dict[str, list[Exception]]:
         """
         Publish multiple events, returning errors per event.
-        
+
         Args:
             events: List of events to publish
-            
+
         Returns:
             Dict mapping event_id to list of errors
         """
@@ -324,7 +324,7 @@ class EventBus:
             if errors:
                 results[event.event_id] = errors
         return results
-    
+
     def clear(self) -> None:
         """Clear all subscriptions and middleware."""
         self._subscriptions.clear()
@@ -359,13 +359,15 @@ def on_event(
 ) -> Callable[[EventHandler], EventHandler]:
     """
     Decorator to subscribe a function to an event type.
-    
+
     Example:
         @on_event(AnalysisCompleteEvent)
         async def handle_analysis(event: AnalysisCompleteEvent):
             print(f"Analysis complete: {event.repo_full_name}")
     """
+
     def decorator(handler: EventHandler) -> EventHandler:
         get_event_bus().subscribe(event_type, handler, priority, filter_fn)
         return handler
+
     return decorator

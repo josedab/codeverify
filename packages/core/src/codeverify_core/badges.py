@@ -360,16 +360,13 @@ def evaluate_tier(
         # Check high findings
         if evidence.high_count > reqs.max_high_findings:
             missing.append(
-                f"High findings {evidence.high_count} "
-                f"> allowed {reqs.max_high_findings}"
+                f"High findings {evidence.high_count} > allowed {reqs.max_high_findings}"
             )
         progress["high"] = 1.0 if evidence.high_count <= reqs.max_high_findings else 0.0
 
         # Check formal proofs ratio
         total_checks = evidence.formal_proofs_count + evidence.ai_analyses_count
-        formal_ratio = (
-            evidence.formal_proofs_count / total_checks if total_checks > 0 else 0.0
-        )
+        formal_ratio = evidence.formal_proofs_count / total_checks if total_checks > 0 else 0.0
         if formal_ratio < reqs.min_formal_proofs_ratio:
             missing.append(
                 f"Formal proof ratio {formal_ratio:.0%} "
@@ -388,9 +385,7 @@ def evaluate_tier(
                 f"Consecutive clean analyses {consecutive_clean} "
                 f"< required {reqs.min_consecutive_clean_analyses}"
             )
-        progress["consecutive"] = min(
-            consecutive_clean / reqs.min_consecutive_clean_analyses, 1.0
-        )
+        progress["consecutive"] = min(consecutive_clean / reqs.min_consecutive_clean_analyses, 1.0)
 
         # If all requirements met, this is the tier
         if not missing:

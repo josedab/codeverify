@@ -1,35 +1,31 @@
 """Tests for new code quality abstractions."""
 
-import pytest
 from datetime import datetime
+
+import pytest
 
 from codeverify_core.models import (
     FindingSeverity,
-    Result,
     OperationResult,
-    TimestampMixin,
-    DataclassTimestampMixin,
-    parse_severity,
-    compare_severity,
-    is_blocking_severity,
+    Result,
     parse_iso_datetime,
 )
 from codeverify_core.repositories import (
-    InMemoryRepository,
-    InMemoryScanResultRepository,
     InMemoryNotificationConfigRepository,
-    get_scan_result_repository,
-    set_scan_result_repository,
 )
 from codeverify_core.rules import (
-    RuleEvaluator,
-    RuleBuilder,
-    RuleType,
-    RuleSeverity,
-    PatternRuleStrategy,
     CompositeRuleStrategy,
+    PatternRuleStrategy,
+    RuleBuilder,
+    RuleEvaluator,
+    RuleSeverity,
+    RuleType,
 )
-
+from codeverify_core.severity import (
+    compare_severity,
+    is_blocking_severity,
+    parse_severity,
+)
 
 # ============================================================================
 # Result Type Tests
@@ -73,7 +69,7 @@ class TestResult:
         """Test unwrap_or with default values."""
         ok_result = Result.ok(42)
         err_result = Result.err("error")
-        
+
         assert ok_result.unwrap_or(0) == 42
         assert err_result.unwrap_or(0) == 0
 
@@ -204,18 +200,18 @@ class TestRepositoryPattern:
     async def test_notification_config_repository(self):
         """Test InMemoryNotificationConfigRepository."""
         repo = InMemoryNotificationConfigRepository()
-        
+
         # Add configs for a repo
         config1 = {"channel": "slack", "enabled": True}
         await repo.add_for_repo("owner/repo", config1)
-        
+
         config2 = {"channel": "teams", "enabled": False}
         await repo.add_for_repo("owner/repo", config2)
-        
+
         # Get configs
         configs = await repo.get_by_repo("owner/repo")
         assert len(configs) == 2
-        
+
         # Different repo should be empty
         other_configs = await repo.get_by_repo("other/repo")
         assert len(other_configs) == 0
@@ -244,13 +240,8 @@ class TestRuleEvaluationStrategies:
     def test_evaluator_with_custom_strategies(self):
         """Test that RuleEvaluator accepts custom strategies."""
         custom_strategies = [PatternRuleStrategy()]
-        rule = (
-            RuleBuilder()
-            .name("test-rule")
-            .pattern(r"TODO")
-            .build()
-        )
-        
+        rule = RuleBuilder().name("test-rule").pattern(r"TODO").build()
+
         evaluator = RuleEvaluator([rule], strategies=custom_strategies)
         assert len(evaluator._strategies) == 1
 
@@ -264,7 +255,7 @@ class TestRuleEvaluationStrategies:
             .severity(RuleSeverity.LOW)
             .build()
         )
-        
+
         evaluator = RuleEvaluator([rule])
         code = """
 def greet():
@@ -285,6 +276,7 @@ class TestIntegration:
 
     def test_severity_with_result(self):
         """Test using severity utilities with Result type."""
+
         def validate_severity(sev: str) -> Result[FindingSeverity, str]:
             try:
                 parsed = parse_severity(sev)
@@ -294,10 +286,10 @@ class TestIntegration:
                 return Result.ok(parsed)
             except Exception as e:
                 return Result.err(str(e))
-        
+
         result = validate_severity("high")
         assert result.is_ok
         assert result.unwrap() == FindingSeverity.HIGH
-        
+
         result = validate_severity("info")
         assert result.is_err

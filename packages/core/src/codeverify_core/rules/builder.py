@@ -19,7 +19,7 @@ from codeverify_core.rules.models import (
 
 class RuleBuilder:
     """Builder class for creating custom rules with a fluent interface.
-    
+
     Example:
         >>> rule = (RuleBuilder()
         ...     .name("No Print Statements")
@@ -50,7 +50,7 @@ class RuleBuilder:
 
     def name(self, name: str) -> "RuleBuilder":
         """Set the rule name.
-        
+
         Args:
             name: Human-readable rule name
         """
@@ -59,7 +59,7 @@ class RuleBuilder:
 
     def description(self, description: str) -> "RuleBuilder":
         """Set the rule description.
-        
+
         Args:
             description: Detailed description of what the rule checks
         """
@@ -68,7 +68,7 @@ class RuleBuilder:
 
     def severity(self, severity: RuleSeverity | str) -> "RuleBuilder":
         """Set the severity level.
-        
+
         Args:
             severity: Severity level (RuleSeverity enum or string)
         """
@@ -79,7 +79,7 @@ class RuleBuilder:
 
     def scope(self, scope: RuleScope | str) -> "RuleBuilder":
         """Set the rule scope.
-        
+
         Args:
             scope: Scope where rule applies (RuleScope enum or string)
         """
@@ -90,7 +90,7 @@ class RuleBuilder:
 
     def pattern(self, pattern: str, description: str = "") -> "RuleBuilder":
         """Add a regex pattern condition.
-        
+
         Args:
             pattern: Regular expression pattern to match
             description: Optional description of what the pattern matches
@@ -109,7 +109,7 @@ class RuleBuilder:
 
     def contains(self, text: str, case_sensitive: bool = True) -> "RuleBuilder":
         """Add a contains condition.
-        
+
         Args:
             text: Text to search for
             case_sensitive: Whether the search is case-sensitive
@@ -127,7 +127,7 @@ class RuleBuilder:
 
     def not_contains(self, text: str, case_sensitive: bool = True) -> "RuleBuilder":
         """Add a not-contains condition.
-        
+
         Args:
             text: Text that should not be present
             case_sensitive: Whether the search is case-sensitive
@@ -152,7 +152,7 @@ class RuleBuilder:
         description: str = "",
     ) -> "RuleBuilder":
         """Add a custom condition.
-        
+
         Args:
             field: Field to check (code, line_count, imports, etc.)
             operator: Condition operator
@@ -181,7 +181,7 @@ class RuleBuilder:
         action_type: str = "report",
     ) -> "RuleBuilder":
         """Add an action for when the rule matches.
-        
+
         Args:
             message: Message to display when rule matches
             fix_template: Optional template for auto-fix suggestion
@@ -198,7 +198,7 @@ class RuleBuilder:
 
     def for_languages(self, *languages: str) -> "RuleBuilder":
         """Set applicable languages.
-        
+
         Args:
             *languages: Language identifiers (e.g., "python", "typescript")
         """
@@ -207,7 +207,7 @@ class RuleBuilder:
 
     def for_files(self, *patterns: str) -> "RuleBuilder":
         """Set file patterns (glob syntax).
-        
+
         Args:
             *patterns: Glob patterns for files to include
         """
@@ -216,7 +216,7 @@ class RuleBuilder:
 
     def exclude_files(self, *patterns: str) -> "RuleBuilder":
         """Set exclusion patterns.
-        
+
         Args:
             *patterns: Glob patterns for files to exclude
         """
@@ -225,7 +225,7 @@ class RuleBuilder:
 
     def with_tags(self, *tags: str) -> "RuleBuilder":
         """Add tags for categorization.
-        
+
         Args:
             *tags: Tag strings
         """
@@ -234,7 +234,7 @@ class RuleBuilder:
 
     def with_logic(self, logic: str) -> "RuleBuilder":
         """Set condition logic (AND/OR).
-        
+
         Args:
             logic: "AND" or "OR"
         """
@@ -243,7 +243,7 @@ class RuleBuilder:
 
     def enabled(self, enabled: bool = True) -> "RuleBuilder":
         """Set whether the rule is enabled.
-        
+
         Args:
             enabled: Whether the rule should be active
         """
@@ -267,7 +267,7 @@ class RuleBuilder:
 
     def build(self) -> CustomRule:
         """Build the custom rule.
-        
+
         Returns:
             Configured CustomRule instance
         """

@@ -11,12 +11,9 @@ import asyncio
 import hashlib
 import re
 import time
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from typing import Any
-
 
 # =============================================================================
 # Enums
@@ -146,9 +143,7 @@ class FixGenerator:
         },
         {
             "name": "mutable_default_list",
-            "pattern": re.compile(
-                r"def\s+(\w+)\s*\(([^)]*?)(\w+)\s*:\s*list\s*=\s*\[\]([^)]*)\)"
-            ),
+            "pattern": re.compile(r"def\s+(\w+)\s*\(([^)]*?)(\w+)\s*:\s*list\s*=\s*\[\]([^)]*)\)"),
             "replacement": r"def \1(\2\3: list | None = None\4)",
             "explanation": "Replace mutable default argument [] with None to avoid shared state.",
             "confidence": 0.90,
@@ -156,9 +151,7 @@ class FixGenerator:
         },
         {
             "name": "mutable_default_dict",
-            "pattern": re.compile(
-                r"def\s+(\w+)\s*\(([^)]*?)(\w+)\s*:\s*dict\s*=\s*\{\}([^)]*)\)"
-            ),
+            "pattern": re.compile(r"def\s+(\w+)\s*\(([^)]*?)(\w+)\s*:\s*dict\s*=\s*\{\}([^)]*)\)"),
             "replacement": r"def \1(\2\3: dict | None = None\4)",
             "explanation": "Replace mutable default argument {} with None to avoid shared state.",
             "confidence": 0.90,
@@ -230,9 +223,7 @@ class DifferentialVerifier:
 
         issue_resolved = self._check_issue_resolved(issue, patch)
         no_new_bugs = self._check_no_new_bugs(original_code, patch.fixed_code)
-        behaviour_preserved = self._check_behaviour_preserved(
-            original_code, patch.fixed_code
-        )
+        behaviour_preserved = self._check_behaviour_preserved(original_code, patch.fixed_code)
 
         elapsed_ms = (time.monotonic() - start) * 1000
 
@@ -260,9 +251,7 @@ class DifferentialVerifier:
 
     # -- internal checks -----------------------------------------------------
 
-    def _check_issue_resolved(
-        self, issue: CodeIssue, patch: GeneratedPatch
-    ) -> bool:
+    def _check_issue_resolved(self, issue: CodeIssue, patch: GeneratedPatch) -> bool:
         """Return True when the issue's characteristic pattern is absent."""
         keywords = issue.message.lower().split()
         snippet_lower = patch.fixed_code.lower()
@@ -277,9 +266,7 @@ class DifferentialVerifier:
                 return False
         return True
 
-    def _check_no_new_bugs(
-        self, original_code: str, fixed_code: str
-    ) -> bool:
+    def _check_no_new_bugs(self, original_code: str, fixed_code: str) -> bool:
         """Return True when no new suspicious patterns appear."""
         for pat in self._SUSPICIOUS_PATTERNS:
             original_hits = len(pat.findall(original_code))
@@ -288,9 +275,7 @@ class DifferentialVerifier:
                 return False
         return True
 
-    def _check_behaviour_preserved(
-        self, original_code: str, fixed_code: str
-    ) -> bool:
+    def _check_behaviour_preserved(self, original_code: str, fixed_code: str) -> bool:
         """Heuristic: behaviour is preserved when the structural diff is small."""
         orig_lines = original_code.strip().splitlines()
         fix_lines = fixed_code.strip().splitlines()
@@ -298,9 +283,7 @@ class DifferentialVerifier:
         if not orig_lines:
             return True
 
-        diff_count = sum(
-            1 for a, b in zip(orig_lines, fix_lines) if a != b
-        )
+        diff_count = sum(1 for a, b in zip(orig_lines, fix_lines) if a != b)
         diff_count += abs(len(orig_lines) - len(fix_lines))
 
         # Allow up to 40 % of lines to differ
@@ -332,9 +315,7 @@ class AutofixPipeline:
         self._verifier = verifier or DifferentialVerifier()
         self._cache = cache or FixCache()
 
-    async def fix_issue(
-        self, issue: CodeIssue, context: str
-    ) -> VerifiedFix:
+    async def fix_issue(self, issue: CodeIssue, context: str) -> VerifiedFix:
         """Attempt to fix a single issue with retry logic.
 
         Generates a patch, optionally verifies it, and retries up to
@@ -387,11 +368,7 @@ class AutofixPipeline:
             await asyncio.sleep(0)
 
         # All attempts exhausted
-        status = (
-            FixAttemptStatus.REJECTED
-            if last_proof is not None
-            else FixAttemptStatus.FAILED
-        )
+        status = FixAttemptStatus.REJECTED if last_proof is not None else FixAttemptStatus.FAILED
         return VerifiedFix(
             issue=issue,
             patch=last_patch
@@ -407,9 +384,7 @@ class AutofixPipeline:
             attempts=attempts,
         )
 
-    async def fix_batch(
-        self, issues: list[CodeIssue], context: str
-    ) -> list[VerifiedFix]:
+    async def fix_batch(self, issues: list[CodeIssue], context: str) -> list[VerifiedFix]:
         """Fix a batch of issues concurrently."""
         tasks = [self.fix_issue(issue, context) for issue in issues]
         return list(await asyncio.gather(*tasks))
@@ -512,3 +487,204 @@ def reset_autofix_pipeline() -> None:
     if _autofix_pipeline is not None:
         _autofix_pipeline._cache.clear()
     _autofix_pipeline = None
+
+
+# =============================================================================
+# GitHub Suggested Changes Integration
+# =============================================================================
+
+
+@dataclass
+class GitHubSuggestedChange:
+    """A GitHub PR review suggestion formatted for the suggested changes API."""
+
+    file_path: str
+    start_line: int
+    end_line: int
+    original_code: str
+    suggested_code: str
+    comment_body: str
+    confidence: float
+    category: str
+
+    def to_review_comment(self) -> dict[str, Any]:
+        """Format as a GitHub pull request review comment with suggestion."""
+        suggestion_block = f"```suggestion\n{self.suggested_code}\n```"
+        body = (
+            f"**CodeVerify Autofix** ({self.category}) — "
+            f"confidence: {self.confidence:.0%}\n\n"
+            f"{self.comment_body}\n\n"
+            f"{suggestion_block}"
+        )
+        return {
+            "path": self.file_path,
+            "line": self.end_line,
+            "start_line": self.start_line if self.start_line != self.end_line else None,
+            "body": body,
+        }
+
+
+class SuggestedChangeGenerator:
+    """Converts verified fixes into GitHub suggested changes.
+
+    Usage:
+        gen = SuggestedChangeGenerator()
+        fix = VerifiedFix(...)
+        suggestions = gen.from_verified_fix(fix)
+        # Submit via GitHub API
+        comments = [s.to_review_comment() for s in suggestions]
+    """
+
+    def from_verified_fix(self, fix: VerifiedFix) -> list[GitHubSuggestedChange]:
+        """Convert a verified fix into GitHub suggested changes."""
+        if fix.status != FixAttemptStatus.VERIFIED:
+            return []
+
+        if not fix.patch.diff_text:
+            return []
+
+        return [
+            GitHubSuggestedChange(
+                file_path=fix.issue.file_path,
+                start_line=fix.issue.line,
+                end_line=fix.issue.line,
+                original_code=fix.patch.original_code,
+                suggested_code=fix.patch.fixed_code,
+                comment_body=fix.patch.explanation,
+                confidence=fix.patch.confidence,
+                category=fix.issue.category,
+            )
+        ]
+
+    def from_verified_fixes(
+        self, fixes: list[VerifiedFix], min_confidence: float = 0.8
+    ) -> list[GitHubSuggestedChange]:
+        """Convert multiple verified fixes into suggested changes."""
+        suggestions: list[GitHubSuggestedChange] = []
+        for fix in fixes:
+            for suggestion in self.from_verified_fix(fix):
+                if suggestion.confidence >= min_confidence:
+                    suggestions.append(suggestion)
+        return suggestions
+
+    def format_pr_review(
+        self,
+        suggestions: list[GitHubSuggestedChange],
+        summary: str = "",
+    ) -> dict[str, Any]:
+        """Format all suggestions as a single PR review submission."""
+        comments = []
+        for s in suggestions:
+            comment = s.to_review_comment()
+            # Remove None start_line for single-line suggestions
+            if comment["start_line"] is None:
+                del comment["start_line"]
+            comments.append(comment)
+
+        body = summary or (
+            f"## CodeVerify Autofix\n\n"
+            f"Found **{len(suggestions)}** auto-fixable issue(s) with verified patches.\n\n"
+            f"Click **Apply suggestion** to accept each fix."
+        )
+
+        return {
+            "event": "COMMENT",
+            "body": body,
+            "comments": comments,
+        }
+
+
+# =============================================================================
+# Additional Fix Patterns (Go, Java, TypeScript)
+# =============================================================================
+
+
+GO_FIX_PATTERNS: list[dict[str, Any]] = [
+    {
+        "name": "go_error_ignored",
+        "pattern": re.compile(r"(\w+),\s*_\s*:?=\s*(\w+)\(([^)]*)\)"),
+        "replacement": r"\1, err := \2(\3)\n\tif err != nil {\n\t\treturn err\n\t}",
+        "explanation": "Handle the ignored error return value.",
+        "confidence": 0.85,
+        "category": "error_handling",
+        "language": "go",
+    },
+    {
+        "name": "go_nil_map",
+        "pattern": re.compile(r"(var\s+(\w+)\s+map\[(\w+)\](\w+))"),
+        "replacement": r"\2 := make(map[\3]\4)",
+        "explanation": "Initialize map with make() to prevent nil map panic.",
+        "confidence": 0.90,
+        "category": "null_safety",
+        "language": "go",
+    },
+]
+
+JAVA_FIX_PATTERNS: list[dict[str, Any]] = [
+    {
+        "name": "java_string_equals",
+        "pattern": re.compile(r'(\w+)\s*==\s*"([^"]*)"'),
+        "replacement": r'"\2".equals(\1)',
+        "explanation": "Use .equals() for String comparison instead of ==.",
+        "confidence": 0.95,
+        "category": "bug",
+        "language": "java",
+    },
+    {
+        "name": "java_empty_catch",
+        "pattern": re.compile(r"(catch\s*\(\s*(\w+)\s+(\w+)\s*\))\s*\{\s*\}"),
+        "replacement": r'\1 {\n        log.error("Unexpected exception", \3);\n    }',
+        "explanation": "Log exceptions instead of silently swallowing them.",
+        "confidence": 0.88,
+        "category": "error_handling",
+        "language": "java",
+    },
+]
+
+TS_FIX_PATTERNS: list[dict[str, Any]] = [
+    {
+        "name": "ts_any_to_unknown",
+        "pattern": re.compile(r":\s*any\b"),
+        "replacement": ": unknown",
+        "explanation": "Replace 'any' with 'unknown' for type safety.",
+        "confidence": 0.80,
+        "category": "type_safety",
+        "language": "typescript",
+    },
+]
+
+ALL_LANGUAGE_FIX_PATTERNS: dict[str, list[dict[str, Any]]] = {
+    "go": GO_FIX_PATTERNS,
+    "java": JAVA_FIX_PATTERNS,
+    "typescript": TS_FIX_PATTERNS,
+}
+
+
+class MultiLanguageFixGenerator(FixGenerator):
+    """Extended fix generator with Go, Java, and TypeScript patterns."""
+
+    def generate_fix(
+        self,
+        issue: CodeIssue,
+        context: str,
+        language: str = "python",
+    ) -> GeneratedPatch:
+        """Generate a fix, checking language-specific patterns first."""
+        code = issue.code_snippet
+        lang_patterns = ALL_LANGUAGE_FIX_PATTERNS.get(language, [])
+
+        for fix in lang_patterns:
+            match = fix["pattern"].search(code)
+            if match:
+                fixed_code = fix["pattern"].sub(fix["replacement"], code)
+                diff_text = _make_diff(code, fixed_code)
+                return GeneratedPatch(
+                    original_code=code,
+                    fixed_code=fixed_code,
+                    diff_text=diff_text,
+                    explanation=fix["explanation"],
+                    confidence=fix["confidence"],
+                )
+
+        # Fall back to base Python patterns
+        return super().generate_fix(issue, context)

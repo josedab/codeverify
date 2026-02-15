@@ -13,7 +13,7 @@ Modules:
 
 Example:
     >>> from codeverify_core.rules import RuleBuilder, RuleEvaluator
-    >>> 
+    >>>
     >>> # Create a custom rule
     >>> rule = (RuleBuilder()
     ...     .name("No Print Statements")
@@ -22,13 +22,18 @@ Example:
     ...     .action("Use logging instead")
     ...     .for_languages("python")
     ...     .build())
-    >>> 
+    >>>
     >>> # Evaluate code
     >>> evaluator = RuleEvaluator([rule])
     >>> violations = evaluator.evaluate(code, "main.py", "python")
 """
 
 # Models
+# Builder
+from codeverify_core.rules.builder import RuleBuilder
+
+# Evaluator
+from codeverify_core.rules.evaluator import RuleEvaluator
 from codeverify_core.rules.models import (
     ConditionOperator,
     CustomRule,
@@ -49,12 +54,6 @@ from codeverify_core.rules.strategies import (
     SemanticRuleStrategy,
     get_default_strategies,
 )
-
-# Evaluator
-from codeverify_core.rules.evaluator import RuleEvaluator
-
-# Builder
-from codeverify_core.rules.builder import RuleBuilder
 
 # Templates
 from codeverify_core.rules.templates import (

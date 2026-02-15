@@ -7,13 +7,14 @@ This module provides:
 4. Query autocomplete and suggestions
 """
 
+import hashlib
+import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
-import hashlib
-import json
-import re
+
 import structlog
 
 logger = structlog.get_logger()
@@ -21,6 +22,7 @@ logger = structlog.get_logger()
 
 class QueryIntent(str, Enum):
     """Types of query intents."""
+
     FIND_BUGS = "find_bugs"  # "Show me all null pointer bugs"
     CHECK_PROPERTY = "check_property"  # "Can x be null?"
     COMPARE = "compare"  # "How does this compare to the other PR?"
@@ -31,6 +33,7 @@ class QueryIntent(str, Enum):
 
 class BugCategory(str, Enum):
     """Bug categories for search."""
+
     NULL_SAFETY = "null_safety"
     BOUNDS = "bounds"
     OVERFLOW = "overflow"
@@ -46,21 +49,22 @@ class BugCategory(str, Enum):
 @dataclass
 class SemanticQuery:
     """A parsed semantic query."""
+
     query_id: str = ""
     original_text: str = ""
     intent: QueryIntent = QueryIntent.FIND_BUGS
-    
+
     # Extracted entities
     bug_category: BugCategory | None = None
     variable_name: str | None = None
     file_pattern: str | None = None
     severity: str | None = None
     time_range: tuple[datetime, datetime] | None = None
-    
+
     # Search parameters
     keywords: list[str] = field(default_factory=list)
     filters: dict[str, Any] = field(default_factory=dict)
-    
+
     # Confidence
     confidence: float = 0.5
 
@@ -68,6 +72,7 @@ class SemanticQuery:
 @dataclass
 class SearchResult:
     """A search result."""
+
     finding_id: str = ""
     score: float = 0.0
     category: str = ""
@@ -79,7 +84,7 @@ class SearchResult:
     code_snippet: str = ""
     created_at: datetime = field(default_factory=datetime.utcnow)
     repository: str = ""
-    
+
     # Why this result matched
     match_reason: str = ""
 
@@ -87,6 +92,7 @@ class SearchResult:
 @dataclass
 class QueryResponse:
     """Response to a semantic query."""
+
     query_id: str = ""
     intent: str = ""
     answer: str = ""
@@ -159,42 +165,42 @@ class QueryParser:
             query_id=hashlib.sha256(f"{datetime.utcnow()}-{query_text}".encode()).hexdigest()[:16],
             original_text=query_text,
         )
-        
+
         query_lower = query_text.lower().strip()
-        
+
         # Detect intent
         query.intent, query.confidence = self._detect_intent(query_lower)
-        
+
         # Extract category
         query.bug_category = self._extract_category(query_lower)
-        
+
         # Extract variable names
         query.variable_name = self._extract_variable(query_lower)
-        
+
         # Extract file patterns
         query.file_pattern = self._extract_file_pattern(query_lower)
-        
+
         # Extract severity
         query.severity = self._extract_severity(query_lower)
-        
+
         # Extract keywords
         query.keywords = self._extract_keywords(query_lower)
-        
+
         # Build filters
         query.filters = self._build_filters(query)
-        
+
         return query
 
     def _detect_intent(self, query: str) -> tuple[QueryIntent, float]:
         """Detect the query intent."""
         best_intent = QueryIntent.FIND_BUGS
         best_confidence = 0.3
-        
+
         for intent, patterns in INTENT_PATTERNS.items():
             for pattern in patterns:
                 if re.search(pattern, query):
                     return intent, 0.9
-        
+
         return best_intent, best_confidence
 
     def _extract_category(self, query: str) -> BugCategory | None:
@@ -221,11 +227,11 @@ class QueryParser:
         match = re.search(r"in\s+(?:files?\s+)?([^\s]+\.(?:py|ts|js|java|go|rs))", query)
         if match:
             return match.group(1)
-        
+
         match = re.search(r"in\s+(\S+/)", query)
         if match:
             return match.group(1) + "*"
-        
+
         return None
 
     def _extract_severity(self, query: str) -> str | None:
@@ -240,33 +246,68 @@ class QueryParser:
         """Extract search keywords."""
         # Remove common words
         stop_words = {
-            "the", "a", "an", "is", "are", "was", "were", "be", "been",
-            "being", "have", "has", "had", "do", "does", "did", "will",
-            "would", "could", "should", "may", "might", "must", "can",
-            "show", "me", "all", "find", "list", "search", "for", "in",
-            "to", "of", "and", "or", "with", "that", "this", "it",
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "can",
+            "show",
+            "me",
+            "all",
+            "find",
+            "list",
+            "search",
+            "for",
+            "in",
+            "to",
+            "of",
+            "and",
+            "or",
+            "with",
+            "that",
+            "this",
+            "it",
         }
-        
-        words = re.findall(r'\b\w+\b', query.lower())
+
+        words = re.findall(r"\b\w+\b", query.lower())
         keywords = [w for w in words if w not in stop_words and len(w) > 2]
         return list(set(keywords))
 
     def _build_filters(self, query: SemanticQuery) -> dict[str, Any]:
         """Build search filters from parsed query."""
         filters = {}
-        
+
         if query.bug_category and query.bug_category != BugCategory.ALL:
             filters["category"] = query.bug_category.value
-        
+
         if query.severity:
             filters["severity"] = query.severity
-        
+
         if query.file_pattern:
             filters["file_pattern"] = query.file_pattern
-        
+
         if query.variable_name:
             filters["variable"] = query.variable_name
-        
+
         return filters
 
 
@@ -283,22 +324,22 @@ class FindingsIndex:
         """Add a finding to the index."""
         finding_id = finding.get("id", str(hash(json.dumps(finding, default=str))))
         self._findings[finding_id] = finding
-        
+
         # Index by category
         category = finding.get("category", "unknown")
         if category not in self._category_index:
             self._category_index[category] = set()
         self._category_index[category].add(finding_id)
-        
+
         # Index by severity
         severity = finding.get("severity", "unknown")
         if severity not in self._severity_index:
             self._severity_index[severity] = set()
         self._severity_index[severity].add(finding_id)
-        
+
         # Index by keywords
         text = f"{finding.get('title', '')} {finding.get('description', '')}".lower()
-        words = re.findall(r'\b\w+\b', text)
+        words = re.findall(r"\b\w+\b", text)
         for word in words:
             if len(word) > 3:
                 if word not in self._keyword_index:
@@ -314,35 +355,35 @@ class FindingsIndex:
     ) -> list[dict[str, Any]]:
         """Search findings."""
         candidate_ids: set[str] | None = None
-        
+
         # Filter by category
         if category and category in self._category_index:
             category_ids = self._category_index[category]
             candidate_ids = category_ids if candidate_ids is None else candidate_ids & category_ids
-        
+
         # Filter by severity
         if severity and severity in self._severity_index:
             severity_ids = self._severity_index[severity]
             candidate_ids = severity_ids if candidate_ids is None else candidate_ids & severity_ids
-        
+
         # If no filters, start with all findings
         if candidate_ids is None:
             candidate_ids = set(self._findings.keys())
-        
+
         # Score by keyword matches
         scores: dict[str, float] = {}
         for finding_id in candidate_ids:
             scores[finding_id] = 0.0
-            
+
             if keywords:
                 for keyword in keywords:
                     if keyword in self._keyword_index:
                         if finding_id in self._keyword_index[keyword]:
                             scores[finding_id] += 1.0
-        
+
         # Sort by score
         sorted_ids = sorted(candidate_ids, key=lambda x: scores[x], reverse=True)
-        
+
         return [self._findings[fid] for fid in sorted_ids[:limit]]
 
     def get_finding(self, finding_id: str) -> dict[str, Any] | None:
@@ -378,12 +419,13 @@ class NLQueryEngine:
     async def query(self, query_text: str) -> QueryResponse:
         """Execute a natural language query."""
         import time
+
         start = time.time()
-        
+
         # Parse query
         parsed = self.parser.parse(query_text)
         self._query_history.append(parsed)
-        
+
         # Route based on intent
         if parsed.intent == QueryIntent.FIND_BUGS:
             response = self._handle_find_bugs(parsed)
@@ -397,14 +439,14 @@ class NLQueryEngine:
             response = self._handle_trend(parsed)
         else:
             response = self._handle_find_bugs(parsed)  # Default to search
-        
+
         response.query_id = parsed.query_id
         response.intent = parsed.intent.value
         response.processing_time_ms = (time.time() - start) * 1000
-        
+
         # Add suggestions
         response.related_queries = self._generate_related_queries(parsed)
-        
+
         return response
 
     def _handle_find_bugs(self, query: SemanticQuery) -> QueryResponse:
@@ -415,7 +457,7 @@ class NLQueryEngine:
             severity=query.filters.get("severity"),
             limit=20,
         )
-        
+
         search_results = [
             SearchResult(
                 finding_id=r.get("id", ""),
@@ -431,7 +473,7 @@ class NLQueryEngine:
             )
             for r in results
         ]
-        
+
         # Generate answer
         if search_results:
             answer = f"Found {len(search_results)} matching bugs"
@@ -441,10 +483,12 @@ class NLQueryEngine:
                 answer += f" with severity '{query.severity}'"
         else:
             answer = "No matching bugs found"
-        
+
         return QueryResponse(
             answer=answer,
-            explanation=f"Searched for: {', '.join(query.keywords)}" if query.keywords else "No specific keywords",
+            explanation=f"Searched for: {', '.join(query.keywords)}"
+            if query.keywords
+            else "No specific keywords",
             results=search_results,
             total_results=len(search_results),
             suggestions=self._generate_suggestions(query),
@@ -453,7 +497,7 @@ class NLQueryEngine:
     def _handle_check_property(self, query: SemanticQuery) -> QueryResponse:
         """Handle property check queries."""
         var = query.variable_name or "variable"
-        
+
         # Search for related findings
         if query.bug_category:
             keywords = [var] if var != "variable" else []
@@ -462,14 +506,14 @@ class NLQueryEngine:
                 category=query.bug_category.value,
                 limit=5,
             )
-            
+
             if results:
                 answer = f"Yes, {var} could potentially have issues. Found {len(results)} related findings."
             else:
                 answer = f"No known issues found for {var}."
         else:
             answer = f"Unable to determine property for {var}. Try being more specific."
-        
+
         return QueryResponse(
             answer=answer,
             explanation="Checked historical findings for similar patterns.",
@@ -483,7 +527,7 @@ class NLQueryEngine:
     def _handle_explain(self, query: SemanticQuery) -> QueryResponse:
         """Handle explanation queries."""
         category = query.bug_category
-        
+
         explanations = {
             BugCategory.NULL_SAFETY: (
                 "Null safety bugs occur when code assumes a value exists but it might be null/None. "
@@ -506,12 +550,14 @@ class NLQueryEngine:
                 "Always sanitize user input and use parameterized queries."
             ),
         }
-        
+
         if category:
-            answer = explanations.get(category, f"No detailed explanation available for {category.value}.")
+            answer = explanations.get(
+                category, f"No detailed explanation available for {category.value}."
+            )
         else:
             answer = "Please specify what type of bug you want explained."
-        
+
         return QueryResponse(
             answer=answer,
             explanation="",
@@ -539,14 +585,14 @@ class NLQueryEngine:
                 "Use default: `result = x / divisor if divisor else 0`",
             ],
         }
-        
+
         category = query.bug_category
         if category and category in fixes:
             suggestions = fixes[category]
             answer = f"To fix {category.value} bugs:\n" + "\n".join(f"• {s}" for s in suggestions)
         else:
             answer = "Specify the type of bug you want to fix."
-        
+
         return QueryResponse(
             answer=answer,
             explanation="Common fix patterns for this bug category.",
@@ -556,15 +602,17 @@ class NLQueryEngine:
     def _handle_trend(self, query: SemanticQuery) -> QueryResponse:
         """Handle trend queries."""
         counts = self.index.get_category_counts()
-        
+
         if query.bug_category:
             count = counts.get(query.bug_category.value, 0)
             answer = f"Found {count} {query.bug_category.value} bugs in the index."
         else:
             total = sum(counts.values())
             answer = f"Total bugs indexed: {total}\n"
-            answer += "\n".join(f"• {cat}: {cnt}" for cat, cnt in sorted(counts.items(), key=lambda x: -x[1])[:5])
-        
+            answer += "\n".join(
+                f"• {cat}: {cnt}" for cat, cnt in sorted(counts.items(), key=lambda x: -x[1])[:5]
+            )
+
         return QueryResponse(
             answer=answer,
             explanation="Bug counts from indexed findings.",
@@ -573,26 +621,26 @@ class NLQueryEngine:
     def _generate_suggestions(self, query: SemanticQuery) -> list[str]:
         """Generate search suggestions."""
         suggestions = []
-        
+
         if not query.bug_category:
             suggestions.append("Filter by category: 'null safety bugs', 'bounds check issues'")
-        
+
         if not query.severity:
             suggestions.append("Filter by severity: 'high severity bugs'")
-        
+
         return suggestions
 
     def _generate_related_queries(self, query: SemanticQuery) -> list[str]:
         """Generate related queries."""
         related = []
-        
+
         if query.bug_category:
             related.append(f"How to fix {query.bug_category.value} bugs?")
             related.append(f"Explain {query.bug_category.value} issues")
-        
+
         if query.variable_name:
             related.append(f"All bugs involving {query.variable_name}")
-        
+
         return related[:3]
 
     def get_autocomplete(self, prefix: str, limit: int = 5) -> list[str]:
@@ -607,10 +655,10 @@ class NLQueryEngine:
             "List all critical bugs",
             "Compare this PR to previous",
         ]
-        
+
         prefix_lower = prefix.lower()
         matches = [s for s in suggestions if s.lower().startswith(prefix_lower)]
-        
+
         return matches[:limit]
 
 

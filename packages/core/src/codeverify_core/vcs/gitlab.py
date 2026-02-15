@@ -1,6 +1,5 @@
 """GitLab VCS client implementation."""
 
-import hashlib
 import hmac
 from datetime import datetime
 from typing import Any
@@ -176,11 +175,7 @@ class GitLabClient(VCSClient):
         )
         response.raise_for_status()
 
-        return [
-            item["path"]
-            for item in response.json()
-            if item["type"] == "blob"
-        ]
+        return [item["path"] for item in response.json() if item["type"] == "blob"]
 
     async def get_pull_request(
         self,
@@ -190,9 +185,7 @@ class GitLabClient(VCSClient):
         """Get merge request details."""
         client = self._get_client()
         project_path = self._encode_project_path(repo_full_name)
-        response = await client.get(
-            f"/projects/{project_path}/merge_requests/{pr_number}"
-        )
+        response = await client.get(f"/projects/{project_path}/merge_requests/{pr_number}")
         response.raise_for_status()
         return self._parse_merge_request(response.json())
 
@@ -204,9 +197,7 @@ class GitLabClient(VCSClient):
         """Get files changed in a merge request."""
         client = self._get_client()
         project_path = self._encode_project_path(repo_full_name)
-        response = await client.get(
-            f"/projects/{project_path}/merge_requests/{pr_number}/changes"
-        )
+        response = await client.get(f"/projects/{project_path}/merge_requests/{pr_number}/changes")
         response.raise_for_status()
 
         files = []
@@ -226,7 +217,9 @@ class GitLabClient(VCSClient):
                     filename=change["new_path"],
                     status=status,
                     patch=change.get("diff"),
-                    previous_filename=change.get("old_path") if change.get("renamed_file") else None,
+                    previous_filename=change.get("old_path")
+                    if change.get("renamed_file")
+                    else None,
                 )
             )
         return files
@@ -241,9 +234,7 @@ class GitLabClient(VCSClient):
         project_path = self._encode_project_path(repo_full_name)
 
         # Get changes and concatenate diffs
-        response = await client.get(
-            f"/projects/{project_path}/merge_requests/{pr_number}/changes"
-        )
+        response = await client.get(f"/projects/{project_path}/merge_requests/{pr_number}/changes")
         response.raise_for_status()
 
         diffs = []
@@ -316,8 +307,12 @@ class GitLabClient(VCSClient):
         return PullRequestComment(
             id=note.get("id", data["id"]),
             body=body,
-            author=self._parse_user(note["author"]) if note.get("author") else User(id=0, username="unknown"),
-            created_at=datetime.fromisoformat(note["created_at"].replace("Z", "+00:00")) if note.get("created_at") else datetime.utcnow(),
+            author=self._parse_user(note["author"])
+            if note.get("author")
+            else User(id=0, username="unknown"),
+            created_at=datetime.fromisoformat(note["created_at"].replace("Z", "+00:00"))
+            if note.get("created_at")
+            else datetime.utcnow(),
             path=path,
             line=line,
         )
@@ -331,9 +326,7 @@ class GitLabClient(VCSClient):
         """Update an existing note."""
         # GitLab requires MR IID to update notes
         # This is a simplified implementation
-        raise NotImplementedError(
-            "GitLab note updates require MR IID. Use specific update method."
-        )
+        raise NotImplementedError("GitLab note updates require MR IID. Use specific update method.")
 
     async def delete_comment(
         self,
@@ -357,7 +350,9 @@ class GitLabClient(VCSClient):
         state_map = {
             CheckStatus.QUEUED: "pending",
             CheckStatus.IN_PROGRESS: "running",
-            CheckStatus.COMPLETED: "success" if check_run.conclusion == CheckConclusion.SUCCESS else "failed",
+            CheckStatus.COMPLETED: "success"
+            if check_run.conclusion == CheckConclusion.SUCCESS
+            else "failed",
         }
 
         await self.create_commit_status(

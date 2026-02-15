@@ -8,14 +8,14 @@ This module provides:
 """
 
 import hashlib
-import json
 import zipfile
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, computed_field
@@ -194,9 +194,9 @@ class AgentManifest(BaseModel):
 
 class BaseAgent(ABC):
     """Base class for CodeVerify agents.
-    
+
     Implement this class to create custom verification agents.
-    
+
     Example:
         ```python
         class SecurityAgent(BaseAgent):
@@ -228,10 +228,10 @@ class BaseAgent(ABC):
     def analyze(self, context: AnalysisContext) -> AnalysisResult:
         """
         Analyze code and return findings.
-        
+
         Args:
             context: Analysis context with files and metadata
-            
+
         Returns:
             AnalysisResult with findings and summary
         """
@@ -240,55 +240,59 @@ class BaseAgent(ABC):
     def report(self, result: AnalysisResult) -> str:
         """
         Generate a human-readable report from analysis results.
-        
+
         Override to customize report format.
         """
         lines = [
             f"# Analysis Report - {self.manifest.display_name or self.manifest.name}",
-            f"",
+            "",
             f"**Version**: {self.manifest.version}",
             f"**Status**: {result.status}",
             f"**Files Analyzed**: {result.files_analyzed}",
             f"**Findings**: {len(result.findings)}",
-            f"",
+            "",
         ]
 
         if result.summary:
-            lines.extend([f"## Summary", f"", result.summary, f""])
+            lines.extend(["## Summary", "", result.summary, ""])
 
         if result.findings:
             lines.append("## Findings")
             lines.append("")
             for i, finding in enumerate(result.findings, 1):
-                lines.extend([
-                    f"### {i}. [{finding.severity.value.upper()}] {finding.title}",
-                    f"",
-                    f"**File**: `{finding.file_path}:{finding.line_start}`",
-                    f"",
-                    finding.description,
-                    f"",
-                ])
+                lines.extend(
+                    [
+                        f"### {i}. [{finding.severity.value.upper()}] {finding.title}",
+                        "",
+                        f"**File**: `{finding.file_path}:{finding.line_start}`",
+                        "",
+                        finding.description,
+                        "",
+                    ]
+                )
                 if finding.suggested_fix:
-                    lines.extend([
-                        f"**Suggested Fix**:",
-                        f"```",
-                        finding.suggested_fix,
-                        f"```",
-                        f"",
-                    ])
+                    lines.extend(
+                        [
+                            "**Suggested Fix**:",
+                            "```",
+                            finding.suggested_fix,
+                            "```",
+                            "",
+                        ]
+                    )
 
         return "\n".join(lines)
 
     def fix(self, finding: Finding, context: AnalysisContext) -> str | None:
         """
         Generate a fix for a finding.
-        
+
         Override to provide automatic fixes.
-        
+
         Args:
             finding: The finding to fix
             context: Analysis context
-            
+
         Returns:
             Fixed code or None if fix not available
         """
@@ -297,7 +301,7 @@ class BaseAgent(ABC):
     def validate(self, context: AnalysisContext) -> bool:
         """
         Validate that the agent can analyze the given context.
-        
+
         Override to add custom validation.
         """
         return True
@@ -305,7 +309,7 @@ class BaseAgent(ABC):
     def initialize(self) -> None:
         """
         Initialize agent resources.
-        
+
         Override to set up resources needed for analysis.
         Called once before first analysis.
         """
@@ -314,7 +318,7 @@ class BaseAgent(ABC):
     def cleanup(self) -> None:
         """
         Clean up agent resources.
-        
+
         Override to release resources.
         Called when agent is unloaded.
         """
@@ -323,7 +327,7 @@ class BaseAgent(ABC):
     def get_config_schema(self) -> dict[str, Any]:
         """
         Return JSON Schema for agent configuration.
-        
+
         Override to define configuration options.
         """
         return {"type": "object", "properties": {}}
@@ -343,12 +347,12 @@ class AgentPackage:
     ) -> Path:
         """
         Create a .cvagent package from source directory.
-        
+
         Args:
             manifest: Agent manifest
             source_dir: Directory containing agent source code
             output_path: Output path for .cvagent file (optional)
-            
+
         Returns:
             Path to created .cvagent file
         """
@@ -374,11 +378,11 @@ class AgentPackage:
     ) -> bytes:
         """
         Create a .cvagent package from file bytes.
-        
+
         Args:
             manifest: Agent manifest
             files: Dictionary of filename -> content bytes
-            
+
         Returns:
             Package bytes
         """
@@ -393,10 +397,10 @@ class AgentPackage:
     def read(package_path: Path) -> tuple[AgentManifest, dict[str, bytes]]:
         """
         Read a .cvagent package.
-        
+
         Args:
             package_path: Path to .cvagent file
-            
+
         Returns:
             Tuple of (manifest, files dict)
         """
@@ -478,10 +482,7 @@ class AgentLifecycle:
             key = f"{qualified_name}@{version}"
             return self._agents.get(key)
         # Find latest version
-        matching = [
-            (k, a) for k, a in self._agents.items()
-            if k.startswith(f"{qualified_name}@")
-        ]
+        matching = [(k, a) for k, a in self._agents.items() if k.startswith(f"{qualified_name}@")]
         if matching:
             return sorted(matching, key=lambda x: x[0])[-1][1]
         return None
@@ -548,7 +549,7 @@ def agent(
 ) -> Callable[[type[T]], type[T]]:
     """
     Decorator to define an agent class with manifest.
-    
+
     Example:
         ```python
         @agent(
@@ -564,6 +565,7 @@ def agent(
                 ...
         ```
     """
+
     def decorator(cls: type[T]) -> type[T]:
         manifest = AgentManifest(
             name=name,

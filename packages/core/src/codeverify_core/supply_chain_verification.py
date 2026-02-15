@@ -10,7 +10,6 @@ Key features:
 4. Lockfile Verification: Verify integrity of dependency locks
 """
 
-import hashlib
 import json
 import re
 from abc import ABC, abstractmethod
@@ -18,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 import structlog
 
@@ -199,20 +198,24 @@ class NpmDependencyParser(DependencyParser):
 
             # Regular dependencies
             for name, version in data.get("dependencies", {}).items():
-                packages.append(PackageInfo(
-                    name=name,
-                    version=self._normalize_version(version),
-                    ecosystem=PackageEcosystem.NPM,
-                ))
+                packages.append(
+                    PackageInfo(
+                        name=name,
+                        version=self._normalize_version(version),
+                        ecosystem=PackageEcosystem.NPM,
+                    )
+                )
 
             # Dev dependencies
             for name, version in data.get("devDependencies", {}).items():
-                packages.append(PackageInfo(
-                    name=name,
-                    version=self._normalize_version(version),
-                    ecosystem=PackageEcosystem.NPM,
-                    dev_dependency=True,
-                ))
+                packages.append(
+                    PackageInfo(
+                        name=name,
+                        version=self._normalize_version(version),
+                        ecosystem=PackageEcosystem.NPM,
+                        dev_dependency=True,
+                    )
+                )
 
         except json.JSONDecodeError as e:
             logger.error("Failed to parse package.json", error=str(e))
@@ -232,12 +235,14 @@ class NpmDependencyParser(DependencyParser):
                     if path == "":  # Root package
                         continue
                     name = path.split("node_modules/")[-1]
-                    packages.append(PackageInfo(
-                        name=name,
-                        version=info.get("version", ""),
-                        ecosystem=PackageEcosystem.NPM,
-                        checksum=info.get("integrity"),
-                    ))
+                    packages.append(
+                        PackageInfo(
+                            name=name,
+                            version=info.get("version", ""),
+                            ecosystem=PackageEcosystem.NPM,
+                            checksum=info.get("integrity"),
+                        )
+                    )
 
             # Legacy format (dependencies)
             elif "dependencies" in data:
@@ -258,12 +263,14 @@ class NpmDependencyParser(DependencyParser):
             result = []
 
         for name, info in deps.items():
-            result.append(PackageInfo(
-                name=name,
-                version=info.get("version", ""),
-                ecosystem=PackageEcosystem.NPM,
-                checksum=info.get("integrity"),
-            ))
+            result.append(
+                PackageInfo(
+                    name=name,
+                    version=info.get("version", ""),
+                    ecosystem=PackageEcosystem.NPM,
+                    checksum=info.get("integrity"),
+                )
+            )
 
             # Recurse into nested dependencies
             if "dependencies" in info:
@@ -299,11 +306,13 @@ class PypiDependencyParser(DependencyParser):
             if match:
                 name = match.group(1)
                 version = match.group(3) or "*"
-                packages.append(PackageInfo(
-                    name=name,
-                    version=version,
-                    ecosystem=PackageEcosystem.PYPI,
-                ))
+                packages.append(
+                    PackageInfo(
+                        name=name,
+                        version=version,
+                        ecosystem=PackageEcosystem.PYPI,
+                    )
+                )
 
         return packages
 
@@ -312,7 +321,7 @@ class PypiDependencyParser(DependencyParser):
         packages = []
 
         # Simple regex-based parsing (would use toml library in production)
-        deps_match = re.search(r'dependencies\s*=\s*\[(.*?)\]', content, re.DOTALL)
+        deps_match = re.search(r"dependencies\s*=\s*\[(.*?)\]", content, re.DOTALL)
         if deps_match:
             deps_str = deps_match.group(1)
             for match in re.finditer(r'"([^"]+)"', deps_str):
@@ -320,11 +329,13 @@ class PypiDependencyParser(DependencyParser):
                 parts = re.split(r"[>=<~!]", spec, maxsplit=1)
                 name = parts[0].strip()
                 version = parts[1].strip() if len(parts) > 1 else "*"
-                packages.append(PackageInfo(
-                    name=name,
-                    version=version,
-                    ecosystem=PackageEcosystem.PYPI,
-                ))
+                packages.append(
+                    PackageInfo(
+                        name=name,
+                        version=version,
+                        ecosystem=PackageEcosystem.PYPI,
+                    )
+                )
 
         return packages
 
@@ -342,11 +353,13 @@ class PypiDependencyParser(DependencyParser):
                     current_package["name"] = line.split("=")[1].strip().strip('"')
                 elif line.startswith("version = "):
                     current_package["version"] = line.split("=")[1].strip().strip('"')
-                    packages.append(PackageInfo(
-                        name=current_package.get("name", ""),
-                        version=current_package.get("version", ""),
-                        ecosystem=PackageEcosystem.PYPI,
-                    ))
+                    packages.append(
+                        PackageInfo(
+                            name=current_package.get("name", ""),
+                            version=current_package.get("version", ""),
+                            ecosystem=PackageEcosystem.PYPI,
+                        )
+                    )
                     current_package = None
 
         return packages
@@ -404,46 +417,52 @@ class ThreatDetector:
             typosquat = self._check_typosquatting(package)
             if typosquat:
                 threat_id += 1
-                threats.append(SupplyChainThreat(
-                    id=f"threat-{threat_id}",
-                    threat_type=ThreatType.TYPOSQUATTING,
-                    package=package,
-                    risk_level=RiskLevel.HIGH,
-                    title=f"Potential typosquatting: {package.name}",
-                    description=f"Package name '{package.name}' is similar to popular package '{typosquat}'",
-                    evidence=[f"Similar to: {typosquat}"],
-                    remediation=f"Verify this is the intended package, not a typosquat of '{typosquat}'",
-                ))
+                threats.append(
+                    SupplyChainThreat(
+                        id=f"threat-{threat_id}",
+                        threat_type=ThreatType.TYPOSQUATTING,
+                        package=package,
+                        risk_level=RiskLevel.HIGH,
+                        title=f"Potential typosquatting: {package.name}",
+                        description=f"Package name '{package.name}' is similar to popular package '{typosquat}'",
+                        evidence=[f"Similar to: {typosquat}"],
+                        remediation=f"Verify this is the intended package, not a typosquat of '{typosquat}'",
+                    )
+                )
 
             # Check known malicious
             if package.name.lower() in self._known_malicious:
                 threat_id += 1
-                threats.append(SupplyChainThreat(
-                    id=f"threat-{threat_id}",
-                    threat_type=ThreatType.MALICIOUS_UPDATE,
-                    package=package,
-                    risk_level=RiskLevel.CRITICAL,
-                    title=f"Known malicious package: {package.name}",
-                    description="This package has been flagged as malicious",
-                    evidence=["Listed in known malicious package database"],
-                    remediation="Remove this package immediately",
-                ))
+                threats.append(
+                    SupplyChainThreat(
+                        id=f"threat-{threat_id}",
+                        threat_type=ThreatType.MALICIOUS_UPDATE,
+                        package=package,
+                        risk_level=RiskLevel.CRITICAL,
+                        title=f"Known malicious package: {package.name}",
+                        description="This package has been flagged as malicious",
+                        evidence=["Listed in known malicious package database"],
+                        remediation="Remove this package immediately",
+                    )
+                )
 
             # Check known vulnerabilities
             vulns = self._check_vulnerabilities(package)
             for vuln in vulns:
                 threat_id += 1
-                threats.append(SupplyChainThreat(
-                    id=f"threat-{threat_id}",
-                    threat_type=ThreatType.KNOWN_VULNERABILITY,
-                    package=package,
-                    risk_level=RiskLevel.HIGH,
-                    title=f"Known vulnerability in {package.name}@{package.version}",
-                    description=vuln.get("description", "Security vulnerability detected"),
-                    evidence=[f"CVE: {vuln.get('cve', 'N/A')}"],
-                    remediation=f"Upgrade to version {vuln.get('fixed_version', 'latest')}",
-                    cve_ids=[vuln.get("cve")] if vuln.get("cve") else [],
-                ))
+                threats.append(
+                    SupplyChainThreat(
+                        id=f"threat-{threat_id}",
+                        threat_type=ThreatType.KNOWN_VULNERABILITY,
+                        package=package,
+                        risk_level=RiskLevel.HIGH,
+                        title=f"Known vulnerability in {package.name}@{package.version}",
+                        description=vuln.get("description", "Security vulnerability detected"),
+                        evidence=[f"CVE: {vuln.get('cve', 'N/A')}"],
+                        remediation=f"Upgrade to version {vuln.get('fixed_version', 'latest')}",
+                        cve_ids=[vuln.get("cve")] if vuln.get("cve") else [],
+                    )
+                )
 
         # Check code samples for malicious patterns
         if code_samples:
@@ -515,38 +534,42 @@ class ThreatDetector:
             for pattern, description in self.MALICIOUS_PATTERNS:
                 matches = re.findall(pattern, code, re.IGNORECASE)
                 if matches:
-                    threats.append(SupplyChainThreat(
-                        id="",  # Will be set by caller
-                        threat_type=ThreatType.CODE_INJECTION,
-                        package=PackageInfo(
-                            name=file_path,
-                            version="N/A",
-                            ecosystem=PackageEcosystem.NPM,  # Will be corrected
-                        ),
-                        risk_level=RiskLevel.MEDIUM,
-                        title=f"Suspicious code pattern: {description}",
-                        description=f"Found {len(matches)} occurrence(s) of suspicious pattern",
-                        evidence=[f"File: {file_path}", f"Pattern: {pattern}"],
-                        remediation="Review the code to ensure it's not malicious",
-                    ))
+                    threats.append(
+                        SupplyChainThreat(
+                            id="",  # Will be set by caller
+                            threat_type=ThreatType.CODE_INJECTION,
+                            package=PackageInfo(
+                                name=file_path,
+                                version="N/A",
+                                ecosystem=PackageEcosystem.NPM,  # Will be corrected
+                            ),
+                            risk_level=RiskLevel.MEDIUM,
+                            title=f"Suspicious code pattern: {description}",
+                            description=f"Found {len(matches)} occurrence(s) of suspicious pattern",
+                            evidence=[f"File: {file_path}", f"Pattern: {pattern}"],
+                            remediation="Review the code to ensure it's not malicious",
+                        )
+                    )
 
             # Check exfiltration patterns
             for pattern, description in self.EXFIL_PATTERNS:
                 if re.search(pattern, code, re.IGNORECASE):
-                    threats.append(SupplyChainThreat(
-                        id="",
-                        threat_type=ThreatType.DATA_EXFILTRATION,
-                        package=PackageInfo(
-                            name=file_path,
-                            version="N/A",
-                            ecosystem=PackageEcosystem.NPM,
-                        ),
-                        risk_level=RiskLevel.HIGH,
-                        title=f"Potential data access: {description}",
-                        description="Code accesses potentially sensitive data",
-                        evidence=[f"File: {file_path}", f"Pattern: {description}"],
-                        remediation="Verify this data access is legitimate",
-                    ))
+                    threats.append(
+                        SupplyChainThreat(
+                            id="",
+                            threat_type=ThreatType.DATA_EXFILTRATION,
+                            package=PackageInfo(
+                                name=file_path,
+                                version="N/A",
+                                ecosystem=PackageEcosystem.NPM,
+                            ),
+                            risk_level=RiskLevel.HIGH,
+                            title=f"Potential data access: {description}",
+                            description="Code accesses potentially sensitive data",
+                            evidence=[f"File: {file_path}", f"Pattern: {description}"],
+                            remediation="Verify this data access is legitimate",
+                        )
+                    )
 
         return threats
 
@@ -646,6 +669,7 @@ class SupplyChainVerifier:
     ) -> VerificationResult:
         """Verify all dependencies in a project."""
         import time
+
         start_time = time.time()
 
         path = Path(project_path)
@@ -656,9 +680,7 @@ class SupplyChainVerifier:
         # Check for npm
         package_json = path / "package.json"
         if package_json.exists():
-            packages = self._parsers[PackageEcosystem.NPM].parse(
-                package_json.read_text()
-            )
+            packages = self._parsers[PackageEcosystem.NPM].parse(package_json.read_text())
             all_packages.extend(packages)
 
             # Verify lockfile
@@ -675,16 +697,12 @@ class SupplyChainVerifier:
         # Check for Python
         requirements = path / "requirements.txt"
         if requirements.exists():
-            packages = self._parsers[PackageEcosystem.PYPI].parse(
-                requirements.read_text()
-            )
+            packages = self._parsers[PackageEcosystem.PYPI].parse(requirements.read_text())
             all_packages.extend(packages)
 
         pyproject = path / "pyproject.toml"
         if pyproject.exists():
-            packages = self._parsers[PackageEcosystem.PYPI].parse(
-                pyproject.read_text()
-            )
+            packages = self._parsers[PackageEcosystem.PYPI].parse(pyproject.read_text())
             all_packages.extend(packages)
 
         # Filter dev dependencies if requested
@@ -705,7 +723,10 @@ class SupplyChainVerifier:
         elapsed_ms = (time.time() - start_time) * 1000
 
         return VerificationResult(
-            success=len([t for t in threats if t.risk_level in (RiskLevel.CRITICAL, RiskLevel.HIGH)]) == 0,
+            success=len(
+                [t for t in threats if t.risk_level in (RiskLevel.CRITICAL, RiskLevel.HIGH)]
+            )
+            == 0,
             threats=threats,
             packages_scanned=len(all_packages),
             risk_summary=risk_summary,
@@ -720,6 +741,7 @@ class SupplyChainVerifier:
     ) -> VerificationResult:
         """Verify a specific list of packages."""
         import time
+
         start_time = time.time()
 
         threats = self._threat_detector.detect_threats(packages)
@@ -733,7 +755,10 @@ class SupplyChainVerifier:
         elapsed_ms = (time.time() - start_time) * 1000
 
         return VerificationResult(
-            success=len([t for t in threats if t.risk_level in (RiskLevel.CRITICAL, RiskLevel.HIGH)]) == 0,
+            success=len(
+                [t for t in threats if t.risk_level in (RiskLevel.CRITICAL, RiskLevel.HIGH)]
+            )
+            == 0,
             threats=threats,
             packages_scanned=len(packages),
             risk_summary=risk_summary,
@@ -793,16 +818,12 @@ class SupplyChainVerifier:
         # Critical threats
         critical = [t for t in threats if t.risk_level == RiskLevel.CRITICAL]
         if critical:
-            recommendations.append(
-                f"URGENT: Remove {len(critical)} critical threat(s) immediately"
-            )
+            recommendations.append(f"URGENT: Remove {len(critical)} critical threat(s) immediately")
 
         # High threats
         high = [t for t in threats if t.risk_level == RiskLevel.HIGH]
         if high:
-            recommendations.append(
-                f"Review and address {len(high)} high-risk finding(s)"
-            )
+            recommendations.append(f"Review and address {len(high)} high-risk finding(s)")
 
         # Lockfile issues
         if issues:

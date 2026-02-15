@@ -16,8 +16,8 @@ from codeverify_core.rules.models import (
     RuleCondition,
 )
 from codeverify_core.rules.strategies import (
-    PatternRuleStrategy,
     CompositeRuleStrategy,
+    PatternRuleStrategy,
     RuleEvaluationStrategy,
     get_default_strategies,
 )
@@ -27,11 +27,11 @@ logger = structlog.get_logger()
 
 class RuleEvaluator:
     """Evaluates custom rules against code using pluggable strategies.
-    
+
     The evaluator uses the Strategy pattern to support different rule types.
     New rule types can be added by implementing RuleEvaluationStrategy and
     registering it with the evaluator.
-    
+
     Example:
         >>> rules = [my_rule1, my_rule2]
         >>> evaluator = RuleEvaluator(rules)
@@ -44,7 +44,7 @@ class RuleEvaluator:
         strategies: list[RuleEvaluationStrategy] | None = None,
     ) -> None:
         """Initialize with rules and optional custom strategies.
-        
+
         Args:
             rules: List of CustomRule instances to evaluate
             strategies: Optional list of evaluation strategies.
@@ -55,7 +55,7 @@ class RuleEvaluator:
 
     def register_strategy(self, strategy: RuleEvaluationStrategy) -> None:
         """Register a new evaluation strategy.
-        
+
         Args:
             strategy: Strategy instance to register
         """
@@ -68,12 +68,12 @@ class RuleEvaluator:
         language: str | None = None,
     ) -> list[dict[str, Any]]:
         """Evaluate all rules against the code.
-        
+
         Args:
             code: The source code to evaluate
             file_path: Path to the file being evaluated
             language: Optional language identifier (e.g., "python", "typescript")
-            
+
         Returns:
             List of violation dictionaries
         """
@@ -97,12 +97,12 @@ class RuleEvaluator:
         language: str | None,
     ) -> bool:
         """Check if a rule applies to a file.
-        
+
         Args:
             rule: The rule to check
             file_path: Path to the file
             language: Language of the file
-            
+
         Returns:
             True if the rule should be evaluated for this file
         """
@@ -130,12 +130,12 @@ class RuleEvaluator:
         file_path: str,
     ) -> list[dict[str, Any]]:
         """Evaluate a single rule using registered strategies.
-        
+
         Args:
             rule: The rule to evaluate
             code: The source code
             file_path: Path to the file
-            
+
         Returns:
             List of violation dictionaries
         """
@@ -176,11 +176,11 @@ class RuleEvaluator:
         code: str,
     ) -> bool:
         """Evaluate a single condition.
-        
+
         Args:
             condition: The condition to evaluate
             code: The source code
-            
+
         Returns:
             True if the condition matches
         """
@@ -208,11 +208,11 @@ class RuleEvaluator:
 
     def _get_field_value(self, field: str, code: str) -> Any:
         """Get the value of a field from code.
-        
+
         Args:
             field: Field name to extract
             code: The source code
-            
+
         Returns:
             Extracted field value
         """
@@ -240,13 +240,13 @@ class RuleEvaluator:
         line_content: str,
     ) -> dict[str, Any]:
         """Create a violation record.
-        
+
         Args:
             rule: The violated rule
             file_path: Path to the file
             line_num: Line number of the violation
             line_content: Content of the violating line
-            
+
         Returns:
             Violation dictionary
         """

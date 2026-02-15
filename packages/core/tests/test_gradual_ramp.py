@@ -1,36 +1,37 @@
 """Tests for Gradual Verification Ramp module."""
 
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch
 
 from codeverify_core.gradual_ramp import (
     BaselineCollector,
-    BaselineMetrics,
-    EnforcementDecision,
     EnforcementLevel,
     GradualVerificationRamp,
     RampPhase,
-    RampProgress,
     RampSchedule,
-    RampState,
 )
-from codeverify_core.models import Finding, FindingCategory, FindingSeverity
+from codeverify_core.models import (
+    CodeLocation,
+    Finding,
+    FindingCategory,
+    FindingSeverity,
+    VerificationType,
+)
 
 
 def create_finding(
-    severity: str = "warning",
-    category: str = "correctness",
+    severity: str = "low",
+    category: str = "logic_error",
     message: str = "Test finding",
 ) -> Finding:
     """Create a test finding."""
     return Finding(
-        id=f"finding-{id(message)}",
-        message=message,
+        title=message,
+        description=message,
         category=FindingCategory(category),
         severity=FindingSeverity(severity),
-        file_path="src/test.py",
-        line_number=10,
+        location=CodeLocation(file_path="src/test.py", line_start=10),
+        confidence=0.9,
+        verification_type=VerificationType.PATTERN,
     )
 
 
@@ -86,20 +87,20 @@ class TestBaselineCollector:
         """Empty baseline has zero findings."""
         collector = BaselineCollector()
         baseline = collector.compute_baseline("repo", datetime.utcnow())
-        
+
         assert baseline.total_findings == 0
         assert baseline.total_prs == 0
 
     def test_record_pr(self):
         """Records PR findings."""
         collector = BaselineCollector()
-        
+
         findings = [
-            create_finding(severity="error"),
-            create_finding(severity="warning"),
+            create_finding(severity="high"),
+            create_finding(severity="medium"),
         ]
         collector.record_pr(findings)
-        
+
         baseline = collector.compute_baseline("repo", datetime.utcnow())
         assert baseline.total_findings == 2
         assert baseline.total_prs == 1
@@ -107,10 +108,10 @@ class TestBaselineCollector:
     def test_multiple_prs(self):
         """Records multiple PRs."""
         collector = BaselineCollector()
-        
+
         for _ in range(5):
             collector.record_pr([create_finding()])
-        
+
         baseline = collector.compute_baseline("repo", datetime.utcnow())
         assert baseline.total_prs == 5
         assert baseline.total_findings == 5
@@ -118,29 +119,31 @@ class TestBaselineCollector:
     def test_findings_by_severity(self):
         """Counts findings by severity."""
         collector = BaselineCollector()
-        
-        collector.record_pr([
-            create_finding(severity="critical"),
-            create_finding(severity="error"),
-            create_finding(severity="error"),
-            create_finding(severity="warning"),
-        ])
-        
+
+        collector.record_pr(
+            [
+                create_finding(severity="critical"),
+                create_finding(severity="high"),
+                create_finding(severity="high"),
+                create_finding(severity="medium"),
+            ]
+        )
+
         baseline = collector.compute_baseline("repo", datetime.utcnow())
-        
+
         assert baseline.findings_by_severity.get("critical", 0) == 1
-        assert baseline.findings_by_severity.get("error", 0) == 2
-        assert baseline.findings_by_severity.get("warning", 0) == 1
+        assert baseline.findings_by_severity.get("high", 0) == 2
+        assert baseline.findings_by_severity.get("medium", 0) == 1
 
     def test_avg_findings_per_pr(self):
         """Calculates average findings per PR."""
         collector = BaselineCollector()
-        
+
         collector.record_pr([create_finding()] * 4)
         collector.record_pr([create_finding()] * 6)
-        
+
         baseline = collector.compute_baseline("repo", datetime.utcnow())
-        
+
         assert baseline.avg_findings_per_pr == 5.0
 
 
@@ -151,7 +154,7 @@ class TestGradualVerificationRamp:
         """Starts a new ramp."""
         ramp = GradualVerificationRamp()
         state = ramp.start_ramp("my-repo")
-        
+
         assert state.repository == "my-repo"
         assert state.enabled is True
         assert state.current_phase == RampPhase.BASELINE
@@ -160,7 +163,7 @@ class TestGradualVerificationRamp:
         """Uses custom schedule."""
         schedule = RampSchedule(baseline_days=3)
         ramp = GradualVerificationRamp(default_schedule=schedule)
-        
+
         state = ramp.start_ramp("repo")
         assert state.schedule.baseline_days == 3
 
@@ -174,7 +177,7 @@ class TestGradualVerificationRamp:
         """Baseline phase at start."""
         ramp = GradualVerificationRamp()
         state = ramp.start_ramp("repo")
-        
+
         assert state.current_phase == RampPhase.BASELINE
         assert state.enforcement_level == EnforcementLevel.SHADOW
 
@@ -185,7 +188,7 @@ class TestGradualVerificationRamp:
             "repo",
             start_date=datetime.utcnow() - timedelta(days=8),
         )
-        
+
         state = ramp.get_state("repo")
         assert state.current_phase == RampPhase.OBSERVATION
         assert state.enforcement_level == EnforcementLevel.WARN
@@ -198,12 +201,12 @@ class TestGradualVerificationRamp:
             critical_enforcement_day=21,
         )
         ramp = GradualVerificationRamp(default_schedule=schedule)
-        
+
         state = ramp.start_ramp(
             "repo",
             start_date=datetime.utcnow() - timedelta(days=22),
         )
-        
+
         state = ramp.get_state("repo")
         assert state.current_phase == RampPhase.TRANSITION
 
@@ -215,12 +218,12 @@ class TestGradualVerificationRamp:
             transition_days=1,
         )
         ramp = GradualVerificationRamp(default_schedule=schedule)
-        
+
         state = ramp.start_ramp(
             "repo",
             start_date=datetime.utcnow() - timedelta(days=10),
         )
-        
+
         state = ramp.get_state("repo")
         assert state.current_phase == RampPhase.ENFORCING
         assert state.enforcement_level == EnforcementLevel.FULL
@@ -233,14 +236,14 @@ class TestEnforcementDecisions:
         """Baseline phase never blocks."""
         ramp = GradualVerificationRamp()
         ramp.start_ramp("repo")
-        
+
         findings = [
             create_finding(severity="critical"),
-            create_finding(severity="error"),
+            create_finding(severity="high"),
         ]
-        
+
         decision = ramp.evaluate_enforcement("repo", findings)
-        
+
         assert decision.should_block is False
         assert decision.phase == RampPhase.BASELINE
 
@@ -251,10 +254,10 @@ class TestEnforcementDecisions:
             "repo",
             start_date=datetime.utcnow() - timedelta(days=10),
         )
-        
+
         findings = [create_finding(severity="critical")]
         decision = ramp.evaluate_enforcement("repo", findings)
-        
+
         assert decision.should_block is False
         assert len(decision.warning_findings) == 1
 
@@ -268,23 +271,23 @@ class TestEnforcementDecisions:
             error_enforcement_day=10,
         )
         ramp = GradualVerificationRamp(default_schedule=schedule)
-        
+
         ramp.start_ramp(
             "repo",
             start_date=datetime.utcnow() - timedelta(days=3),
         )
-        
+
         # Critical should block
         critical_decision = ramp.evaluate_enforcement(
             "repo",
             [create_finding(severity="critical")],
         )
         assert critical_decision.should_block is True
-        
-        # Error should not block yet
+
+        # High should not block yet
         error_decision = ramp.evaluate_enforcement(
             "repo",
-            [create_finding(severity="error")],
+            [create_finding(severity="high")],
         )
         assert error_decision.should_block is False
 
@@ -296,19 +299,19 @@ class TestEnforcementDecisions:
             transition_days=1,
         )
         ramp = GradualVerificationRamp(default_schedule=schedule)
-        
+
         ramp.start_ramp(
             "repo",
             start_date=datetime.utcnow() - timedelta(days=100),
         )
-        
+
         findings = [
-            create_finding(severity="error"),
-            create_finding(severity="warning"),
+            create_finding(severity="high"),
+            create_finding(severity="medium"),
         ]
-        
+
         decision = ramp.evaluate_enforcement("repo", findings)
-        
+
         assert decision.should_block is True
         assert decision.enforcement_level == EnforcementLevel.FULL
 
@@ -321,29 +324,29 @@ class TestEnforcementDecisions:
             info_enforcement_day=None,  # Never enforce info
         )
         ramp = GradualVerificationRamp(default_schedule=schedule)
-        
+
         ramp.start_ramp(
             "repo",
             start_date=datetime.utcnow() - timedelta(days=100),
         )
-        
+
         decision = ramp.evaluate_enforcement(
             "repo",
             [create_finding(severity="info")],
         )
-        
+
         assert decision.should_block is False
 
     def test_no_ramp_full_enforcement(self):
         """No ramp configured means full enforcement."""
         ramp = GradualVerificationRamp()
-        
+
         # No start_ramp called
         decision = ramp.evaluate_enforcement(
             "unknown-repo",
-            [create_finding(severity="error")],
+            [create_finding(severity="high")],
         )
-        
+
         assert decision.should_block is True
         assert decision.phase == RampPhase.ENFORCING
 
@@ -355,9 +358,9 @@ class TestRampManagement:
         """Can pause a ramp."""
         ramp = GradualVerificationRamp()
         ramp.start_ramp("repo")
-        
+
         assert ramp.pause_ramp("repo") is True
-        
+
         state = ramp.get_state("repo")
         assert state.paused is True
 
@@ -369,18 +372,18 @@ class TestRampManagement:
             transition_days=1,
         )
         ramp = GradualVerificationRamp(default_schedule=schedule)
-        
+
         ramp.start_ramp(
             "repo",
             start_date=datetime.utcnow() - timedelta(days=100),
         )
         ramp.pause_ramp("repo")
-        
+
         decision = ramp.evaluate_enforcement(
             "repo",
             [create_finding(severity="critical")],
         )
-        
+
         assert decision.should_block is False
         assert "paused" in decision.reason.lower()
 
@@ -390,7 +393,7 @@ class TestRampManagement:
         ramp.start_ramp("repo")
         ramp.pause_ramp("repo")
         ramp.resume_ramp("repo")
-        
+
         state = ramp.get_state("repo")
         assert state.paused is False
 
@@ -398,11 +401,11 @@ class TestRampManagement:
         """Can extend ramp duration."""
         ramp = GradualVerificationRamp()
         ramp.start_ramp("repo")
-        
+
         original_transition = ramp.get_state("repo").schedule.transition_days
-        
+
         ramp.extend_ramp("repo", 7)
-        
+
         new_transition = ramp.get_state("repo").schedule.transition_days
         assert new_transition == original_transition + 7
 
@@ -410,9 +413,9 @@ class TestRampManagement:
         """Can end ramp early."""
         ramp = GradualVerificationRamp()
         ramp.start_ramp("repo")
-        
+
         ramp.end_ramp("repo")
-        
+
         state = ramp.get_state("repo")
         assert state.current_phase == RampPhase.ENFORCING
         assert state.enforcement_level == EnforcementLevel.FULL
@@ -423,9 +426,9 @@ class TestRampManagement:
         ramp.start_ramp("repo1")
         ramp.start_ramp("repo2")
         ramp.start_ramp("repo3")
-        
+
         all_ramps = ramp.get_all_ramps()
-        
+
         assert len(all_ramps) == 3
         repos = [r.repository for r in all_ramps]
         assert "repo1" in repos
@@ -442,9 +445,9 @@ class TestProgressReport:
             "repo",
             start_date=datetime.utcnow() - timedelta(days=10),
         )
-        
+
         progress = ramp.get_progress_report("repo")
-        
+
         assert progress is not None
         assert progress.repository == "repo"
         assert progress.days_elapsed == 10
@@ -460,13 +463,13 @@ class TestProgressReport:
         """Progress includes metrics."""
         ramp = GradualVerificationRamp()
         ramp.start_ramp("repo")
-        
+
         # Record some findings
         ramp.evaluate_enforcement("repo", [create_finding()])
         ramp.evaluate_enforcement("repo", [create_finding()])
-        
+
         progress = ramp.get_progress_report("repo")
-        
+
         assert "findings_during_ramp" in progress.metrics
         assert progress.metrics["findings_during_ramp"] == 2
 
@@ -474,9 +477,9 @@ class TestProgressReport:
         """Progress includes recommendations."""
         ramp = GradualVerificationRamp()
         ramp.start_ramp("repo")
-        
+
         progress = ramp.get_progress_report("repo")
-        
+
         assert isinstance(progress.recommendations, list)
 
 
@@ -487,14 +490,14 @@ class TestPRComment:
         """Formats PR comment."""
         ramp = GradualVerificationRamp()
         ramp.start_ramp("repo")
-        
+
         decision = ramp.evaluate_enforcement(
             "repo",
-            [create_finding(severity="error")],
+            [create_finding(severity="high")],
         )
-        
+
         comment = ramp.format_pr_comment(decision)
-        
+
         assert "CodeVerify" in comment
         assert "Phase" in comment
 
@@ -502,14 +505,14 @@ class TestPRComment:
         """Comment shows warning findings."""
         ramp = GradualVerificationRamp()
         ramp.start_ramp("repo")
-        
+
         decision = ramp.evaluate_enforcement(
             "repo",
             [create_finding(message="Test warning message")],
         )
-        
+
         comment = ramp.format_pr_comment(decision)
-        
+
         assert "Warning" in comment
 
     def test_comment_shows_days_until_enforcement(self):
@@ -520,17 +523,17 @@ class TestPRComment:
             critical_enforcement_day=21,
         )
         ramp = GradualVerificationRamp(default_schedule=schedule)
-        
+
         ramp.start_ramp(
             "repo",
             start_date=datetime.utcnow() - timedelta(days=10),
         )
-        
+
         decision = ramp.evaluate_enforcement(
             "repo",
             [create_finding(severity="critical")],
         )
-        
+
         if decision.days_until_enforcement:
             comment = ramp.format_pr_comment(decision)
             assert "days" in comment.lower()
@@ -543,9 +546,9 @@ class TestGradualRampEdgeCases:
         """Handles no findings."""
         ramp = GradualVerificationRamp()
         ramp.start_ramp("repo")
-        
+
         decision = ramp.evaluate_enforcement("repo", [])
-        
+
         assert decision.should_block is False
         assert len(decision.blocking_findings) == 0
         assert len(decision.warning_findings) == 0
@@ -563,7 +566,7 @@ class TestGradualRampEdgeCases:
     def test_concurrent_repos(self):
         """Handles multiple repos independently."""
         ramp = GradualVerificationRamp()
-        
+
         # Start ramps at different times
         ramp.start_ramp(
             "repo1",
@@ -573,9 +576,9 @@ class TestGradualRampEdgeCases:
             "repo2",
             start_date=datetime.utcnow() - timedelta(days=30),
         )
-        
+
         state1 = ramp.get_state("repo1")
         state2 = ramp.get_state("repo2")
-        
+
         # Should be in different phases
         assert state1.days_elapsed != state2.days_elapsed

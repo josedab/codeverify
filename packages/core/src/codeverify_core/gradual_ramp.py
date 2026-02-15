@@ -8,19 +8,20 @@ Provides a gentle introduction to CodeVerify for new repositories/teams:
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
 import structlog
 
-from codeverify_core.models import Analysis, Finding, FindingSeverity
+from codeverify_core.models import Finding
 
 logger = structlog.get_logger()
 
 
 class EnforcementLevel(str, Enum):
     """Level of enforcement during ramp."""
+
     SHADOW = "shadow"  # Silent observation only
     WARN = "warn"  # Warnings, never block
     SOFT_BLOCK = "soft_block"  # Block critical only
@@ -30,6 +31,7 @@ class EnforcementLevel(str, Enum):
 
 class RampPhase(str, Enum):
     """Phase of the verification ramp."""
+
     BASELINE = "baseline"  # Establishing baseline
     OBSERVATION = "observation"  # Observing with warnings
     TRANSITION = "transition"  # Gradually increasing enforcement
@@ -39,10 +41,11 @@ class RampPhase(str, Enum):
 @dataclass
 class RampSchedule:
     """Schedule for verification ramp-up."""
+
     baseline_days: int = 7  # Days to establish baseline
     observation_days: int = 14  # Days of warning-only mode
     transition_days: int = 14  # Days of gradual enforcement
-    
+
     # Severity enforcement schedule (day when enforcement starts)
     critical_enforcement_day: int = 21
     error_enforcement_day: int = 28
@@ -53,6 +56,7 @@ class RampSchedule:
 @dataclass
 class BaselineMetrics:
     """Baseline metrics for a repository."""
+
     repository: str
     start_date: datetime
     end_date: datetime | None
@@ -67,6 +71,7 @@ class BaselineMetrics:
 @dataclass
 class RampState:
     """Current state of the verification ramp."""
+
     repository: str
     enabled: bool
     start_date: datetime
@@ -75,12 +80,12 @@ class RampState:
     days_elapsed: int
     schedule: RampSchedule
     baseline: BaselineMetrics | None = None
-    
+
     # Progress tracking
     findings_while_ramping: int = 0
     warnings_issued: int = 0
     would_have_blocked: int = 0
-    
+
     # Customization
     paused: bool = False
     skip_teams: list[str] = field(default_factory=list)
@@ -90,6 +95,7 @@ class RampState:
 @dataclass
 class EnforcementDecision:
     """Decision about whether to block a PR."""
+
     should_block: bool
     enforcement_level: EnforcementLevel
     phase: RampPhase
@@ -102,6 +108,7 @@ class EnforcementDecision:
 @dataclass
 class RampProgress:
     """Progress report for the ramp."""
+
     repository: str
     current_phase: RampPhase
     enforcement_level: EnforcementLevel
@@ -132,25 +139,29 @@ class BaselineCollector:
         """Compute baseline metrics."""
         findings_by_severity: dict[str, int] = {}
         findings_by_category: dict[str, int] = {}
-        
+
         for _, finding in self._findings:
-            sev = finding.severity.value if hasattr(finding.severity, 'value') else str(finding.severity)
+            sev = (
+                finding.severity.value
+                if hasattr(finding.severity, "value")
+                else str(finding.severity)
+            )
             findings_by_severity[sev] = findings_by_severity.get(sev, 0) + 1
-            
-            cat = finding.category.value if hasattr(finding.category, 'value') else str(finding.category)
+
+            cat = (
+                finding.category.value
+                if hasattr(finding.category, "value")
+                else str(finding.category)
+            )
             findings_by_category[cat] = findings_by_category.get(cat, 0) + 1
-        
+
         total = len(self._findings)
         avg = total / self._pr_count if self._pr_count > 0 else 0
-        
+
         # Top 3 categories
-        sorted_cats = sorted(
-            findings_by_category.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
+        sorted_cats = sorted(findings_by_category.items(), key=lambda x: x[1], reverse=True)
         most_common = [cat for cat, _ in sorted_cats[:3]]
-        
+
         return BaselineMetrics(
             repository=repository,
             start_date=start_date,
@@ -167,7 +178,7 @@ class BaselineCollector:
 class GradualVerificationRamp:
     """
     Manages gradual verification ramp-up for repositories.
-    
+
     Provides warnings-only mode during onboarding, then progressively
     increases enforcement over time.
     """
@@ -187,7 +198,7 @@ class GradualVerificationRamp:
         """Start verification ramp for a repository."""
         schedule = schedule or self.default_schedule
         start = start_date or datetime.utcnow()
-        
+
         state = RampState(
             repository=repository,
             enabled=True,
@@ -197,10 +208,10 @@ class GradualVerificationRamp:
             days_elapsed=0,
             schedule=schedule,
         )
-        
+
         self._ramp_states[repository] = state
         self._baseline_collectors[repository] = BaselineCollector()
-        
+
         logger.info(
             "Verification ramp started",
             repository=repository,
@@ -208,7 +219,7 @@ class GradualVerificationRamp:
             schedule_observation=schedule.observation_days,
             schedule_transition=schedule.transition_days,
         )
-        
+
         return state
 
     def get_state(self, repository: str) -> RampState | None:
@@ -225,20 +236,20 @@ class GradualVerificationRamp:
     ) -> EnforcementDecision:
         """
         Evaluate whether to block a PR based on ramp status.
-        
+
         Args:
             repository: Repository identifier
             findings: Findings from verification
-            
+
         Returns:
             EnforcementDecision with block decision and details
         """
         state = self.get_state(repository)
-        
+
         # No ramp configured - full enforcement
         if not state or not state.enabled:
             return self._full_enforcement(findings)
-        
+
         # Paused - warning only
         if state.paused:
             return EnforcementDecision(
@@ -248,33 +259,36 @@ class GradualVerificationRamp:
                 reason="Ramp is paused",
                 warning_findings=findings,
             )
-        
+
         # Update baseline if still collecting
         if state.current_phase == RampPhase.BASELINE:
             collector = self._baseline_collectors.get(repository)
             if collector:
                 collector.record_pr(findings)
-        
+
         # Determine blocking based on phase and severity
         return self._evaluate_by_phase(state, findings)
 
     def _update_state(self, state: RampState) -> None:
         """Update state based on elapsed time."""
+        if not state.enabled:
+            return
+
         now = datetime.utcnow()
         days_elapsed = (now - state.start_date).days
         state.days_elapsed = days_elapsed
-        
+
         schedule = state.schedule
-        
+
         # Determine phase
         if days_elapsed < schedule.baseline_days:
             state.current_phase = RampPhase.BASELINE
             state.enforcement_level = EnforcementLevel.SHADOW
-            
+
         elif days_elapsed < schedule.baseline_days + schedule.observation_days:
             state.current_phase = RampPhase.OBSERVATION
             state.enforcement_level = EnforcementLevel.WARN
-            
+
             # Compute baseline if transitioning from baseline
             if state.baseline is None:
                 collector = self._baseline_collectors.get(state.repository)
@@ -283,14 +297,12 @@ class GradualVerificationRamp:
                         state.repository,
                         state.start_date,
                     )
-                    
+
         elif days_elapsed < (
-            schedule.baseline_days +
-            schedule.observation_days +
-            schedule.transition_days
+            schedule.baseline_days + schedule.observation_days + schedule.transition_days
         ):
             state.current_phase = RampPhase.TRANSITION
-            
+
             # Progressive enforcement
             if days_elapsed >= schedule.critical_enforcement_day:
                 if days_elapsed >= schedule.error_enforcement_day:
@@ -314,30 +326,30 @@ class GradualVerificationRamp:
         """Evaluate enforcement based on current phase."""
         blocking_findings = []
         warning_findings = []
-        
+
         for finding in findings:
             should_block = self._should_block_finding(
                 finding, state.enforcement_level, state.schedule
             )
-            
+
             if should_block:
                 blocking_findings.append(finding)
             else:
                 warning_findings.append(finding)
-        
+
         # Track statistics
         state.findings_while_ramping += len(findings)
         state.warnings_issued += len(warning_findings)
         if blocking_findings:
             state.would_have_blocked += 1
-        
+
         should_block = len(blocking_findings) > 0
-        
+
         # Calculate days until next enforcement milestone
         days_until = self._days_until_enforcement(state, findings)
-        
+
         reason = self._generate_reason(state, blocking_findings, warning_findings)
-        
+
         return EnforcementDecision(
             should_block=should_block,
             enforcement_level=state.enforcement_level,
@@ -357,29 +369,29 @@ class GradualVerificationRamp:
         """Determine if a finding should block based on enforcement level."""
         if level == EnforcementLevel.SHADOW:
             return False
-        
+
         if level == EnforcementLevel.WARN:
             return False
-        
+
         # Get severity value
         sev = finding.severity
-        if hasattr(sev, 'value'):
+        if hasattr(sev, "value"):
             sev_value = sev.value.lower()
         else:
             sev_value = str(sev).lower()
-        
+
         if level == EnforcementLevel.SOFT_BLOCK:
             return sev_value == "critical"
-        
+
         if level == EnforcementLevel.MEDIUM_BLOCK:
-            return sev_value in ("critical", "error")
-        
+            return sev_value in ("critical", "high")
+
         if level == EnforcementLevel.FULL:
             # Block all except info (unless configured)
             if sev_value == "info" and schedule.info_enforcement_day is None:
                 return False
-            return sev_value in ("critical", "error", "warning")
-        
+            return sev_value in ("critical", "high", "medium")
+
         return False
 
     def _days_until_enforcement(
@@ -390,27 +402,27 @@ class GradualVerificationRamp:
         """Calculate days until findings would block."""
         if state.enforcement_level == EnforcementLevel.FULL:
             return None  # Already enforcing
-        
+
         # Find the next milestone that would affect current findings
         schedule = state.schedule
         days = state.days_elapsed
-        
+
         severities = set()
         for f in findings:
             sev = f.severity
-            if hasattr(sev, 'value'):
+            if hasattr(sev, "value"):
                 severities.add(sev.value.lower())
             else:
                 severities.add(str(sev).lower())
-        
+
         milestones = []
         if "critical" in severities and days < schedule.critical_enforcement_day:
             milestones.append(schedule.critical_enforcement_day - days)
-        if "error" in severities and days < schedule.error_enforcement_day:
+        if "high" in severities and days < schedule.error_enforcement_day:
             milestones.append(schedule.error_enforcement_day - days)
-        if "warning" in severities and days < schedule.warning_enforcement_day:
+        if "medium" in severities and days < schedule.warning_enforcement_day:
             milestones.append(schedule.warning_enforcement_day - days)
-        
+
         return min(milestones) if milestones else None
 
     def _generate_reason(
@@ -422,15 +434,15 @@ class GradualVerificationRamp:
         """Generate explanation for the decision."""
         if state.current_phase == RampPhase.BASELINE:
             return f"Baseline collection (day {state.days_elapsed}/{state.schedule.baseline_days})"
-        
+
         if state.current_phase == RampPhase.OBSERVATION:
             return f"Observation period - {len(warnings)} warnings issued"
-        
+
         if state.current_phase == RampPhase.TRANSITION:
             if blocking:
                 return f"Transition phase - blocking {len(blocking)} critical/error findings"
             return f"Transition phase - {len(warnings)} warnings (not blocking yet)"
-        
+
         if blocking:
             return f"Full enforcement - blocking {len(blocking)} findings"
         return "Full enforcement - no blocking findings"
@@ -439,19 +451,19 @@ class GradualVerificationRamp:
         """Apply full enforcement (no ramp)."""
         blocking = []
         warnings = []
-        
+
         for finding in findings:
             sev = finding.severity
-            if hasattr(sev, 'value'):
+            if hasattr(sev, "value"):
                 sev_value = sev.value.lower()
             else:
                 sev_value = str(sev).lower()
-            
-            if sev_value in ("critical", "error", "warning"):
+
+            if sev_value in ("critical", "high", "medium"):
                 blocking.append(finding)
             else:
                 warnings.append(finding)
-        
+
         return EnforcementDecision(
             should_block=len(blocking) > 0,
             enforcement_level=EnforcementLevel.FULL,
@@ -466,20 +478,18 @@ class GradualVerificationRamp:
         state = self.get_state(repository)
         if not state:
             return None
-        
+
         schedule = state.schedule
-        total_days = (
-            schedule.baseline_days +
-            schedule.observation_days +
-            schedule.transition_days
-        )
-        
+        total_days = schedule.baseline_days + schedule.observation_days + schedule.transition_days
+
         days_remaining = max(0, total_days - state.days_elapsed)
         percent = min(100, (state.days_elapsed / total_days) * 100) if total_days > 0 else 100
-        
+
         # Determine next milestone
         if state.current_phase == RampPhase.BASELINE:
-            next_milestone = f"Observation starts in {schedule.baseline_days - state.days_elapsed} days"
+            next_milestone = (
+                f"Observation starts in {schedule.baseline_days - state.days_elapsed} days"
+            )
         elif state.current_phase == RampPhase.OBSERVATION:
             days_to_transition = (
                 schedule.baseline_days + schedule.observation_days - state.days_elapsed
@@ -489,21 +499,21 @@ class GradualVerificationRamp:
             next_milestone = f"Full enforcement in {days_remaining} days"
         else:
             next_milestone = "Full enforcement active"
-        
+
         # Generate recommendations
         recommendations = self._generate_recommendations(state)
-        
+
         metrics = {
             "findings_during_ramp": state.findings_while_ramping,
             "warnings_issued": state.warnings_issued,
             "would_have_blocked": state.would_have_blocked,
         }
-        
+
         if state.baseline:
             metrics["baseline_avg_per_pr"] = state.baseline.avg_findings_per_pr
             metrics["baseline_total"] = state.baseline.total_findings
             metrics["common_categories"] = state.baseline.most_common_categories
-        
+
         return RampProgress(
             repository=repository,
             current_phase=state.current_phase,
@@ -519,32 +529,30 @@ class GradualVerificationRamp:
     def _generate_recommendations(self, state: RampState) -> list[str]:
         """Generate recommendations based on ramp progress."""
         recommendations = []
-        
+
         if state.baseline:
             avg = state.baseline.avg_findings_per_pr
             if avg > 5:
                 recommendations.append(
                     "High finding rate detected. Consider team training before full enforcement."
                 )
-            
+
             if state.baseline.most_common_categories:
                 top_cat = state.baseline.most_common_categories[0]
                 recommendations.append(
                     f"Focus on {top_cat} issues - most common category in baseline."
                 )
-        
+
         if state.would_have_blocked > 0:
             block_rate = state.would_have_blocked / max(state.findings_while_ramping, 1) * 100
             if block_rate > 20:
                 recommendations.append(
                     "Many PRs would have been blocked. Review findings before enforcement."
                 )
-        
+
         if state.current_phase == RampPhase.TRANSITION:
-            recommendations.append(
-                "Transition phase - monitor team feedback and adjust if needed."
-            )
-        
+            recommendations.append("Transition phase - monitor team feedback and adjust if needed.")
+
         return recommendations
 
     def pause_ramp(self, repository: str) -> bool:
@@ -572,10 +580,10 @@ class GradualVerificationRamp:
             # Add to transition days
             state.schedule.transition_days += extra_days
             state.schedule.warning_enforcement_day += extra_days
-            
+
             # Recalculate state
             self._update_state(state)
-            
+
             logger.info(
                 "Ramp extended",
                 repository=repository,
@@ -588,9 +596,10 @@ class GradualVerificationRamp:
         """End ramp and move to full enforcement."""
         state = self._ramp_states.get(repository)
         if state:
+            state.enabled = False
             state.current_phase = RampPhase.ENFORCING
             state.enforcement_level = EnforcementLevel.FULL
-            
+
             logger.info("Ramp ended - full enforcement", repository=repository)
             return True
         return False
@@ -609,7 +618,7 @@ class GradualVerificationRamp:
             "## CodeVerify Onboarding Status",
             "",
         ]
-        
+
         # Phase indicator
         phase_emoji = {
             RampPhase.BASELINE: "📊",
@@ -617,39 +626,43 @@ class GradualVerificationRamp:
             RampPhase.TRANSITION: "🔄",
             RampPhase.ENFORCING: "✅",
         }
-        
+
         emoji = phase_emoji.get(decision.phase, "ℹ️")
         lines.append(f"{emoji} **Phase:** {decision.phase.value.title()}")
-        lines.append(f"**Enforcement Level:** {decision.enforcement_level.value.replace('_', ' ').title()}")
+        lines.append(
+            f"**Enforcement Level:** {decision.enforcement_level.value.replace('_', ' ').title()}"
+        )
         lines.append("")
-        
+
         # Warning findings
         if decision.warning_findings:
             lines.append(f"### ⚠️ Warnings ({len(decision.warning_findings)})")
             lines.append("*These findings will become blocking in future phases.*")
             lines.append("")
             for f in decision.warning_findings[:5]:  # Show first 5
-                sev = f.severity.value if hasattr(f.severity, 'value') else str(f.severity)
-                lines.append(f"- **{sev.upper()}**: {f.message}")
-            
+                sev = f.severity.value if hasattr(f.severity, "value") else str(f.severity)
+                lines.append(f"- **{sev.upper()}**: {f.title}")
+
             if len(decision.warning_findings) > 5:
                 lines.append(f"- ... and {len(decision.warning_findings) - 5} more")
             lines.append("")
-        
+
         # Blocking findings
         if decision.blocking_findings:
             lines.append(f"### 🚫 Blocking ({len(decision.blocking_findings)})")
             for f in decision.blocking_findings:
-                sev = f.severity.value if hasattr(f.severity, 'value') else str(f.severity)
-                lines.append(f"- **{sev.upper()}**: {f.message}")
+                sev = f.severity.value if hasattr(f.severity, "value") else str(f.severity)
+                lines.append(f"- **{sev.upper()}**: {f.title}")
             lines.append("")
-        
+
         # Days until enforcement
         if decision.days_until_enforcement:
-            lines.append(f"📅 *Some warnings will become blocking in {decision.days_until_enforcement} days.*")
+            lines.append(
+                f"📅 *Some warnings will become blocking in {decision.days_until_enforcement} days.*"
+            )
             lines.append("")
-        
+
         lines.append("---")
         lines.append("*CodeVerify is gradually ramping up verification for this repository.*")
-        
+
         return "\n".join(lines)

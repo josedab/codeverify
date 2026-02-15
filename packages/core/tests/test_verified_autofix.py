@@ -2,8 +2,6 @@
 
 import asyncio
 
-import pytest
-
 from codeverify_core.verified_autofix import (
     AutofixConfig,
     AutofixPipeline,
@@ -179,9 +177,7 @@ class TestAutofixPipeline:
         """fix_issue returns a VerifiedFix."""
         pipeline = AutofixPipeline()
         issue = self._make_issue("eval(user_input)")
-        result = asyncio.get_event_loop().run_until_complete(
-            pipeline.fix_issue(issue, "")
-        )
+        result = asyncio.get_event_loop().run_until_complete(pipeline.fix_issue(issue, ""))
         assert isinstance(result, VerifiedFix)
         assert result.status == FixAttemptStatus.VERIFIED
 
@@ -192,9 +188,7 @@ class TestAutofixPipeline:
             self._make_issue("eval(a)"),
             self._make_issue("eval(b)"),
         ]
-        results = asyncio.get_event_loop().run_until_complete(
-            pipeline.fix_batch(issues, "")
-        )
+        results = asyncio.get_event_loop().run_until_complete(pipeline.fix_batch(issues, ""))
         assert len(results) == 2
         assert all(isinstance(r, VerifiedFix) for r in results)
 

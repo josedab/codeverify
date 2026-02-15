@@ -11,8 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
-import hashlib
-import json
+
 import structlog
 
 logger = structlog.get_logger()
@@ -20,6 +19,7 @@ logger = structlog.get_logger()
 
 class ProofStatus(str, Enum):
     """Status of a formal proof."""
+
     PROVEN = "proven"
     DISPROVEN = "disproven"
     TIMEOUT = "timeout"
@@ -29,6 +29,7 @@ class ProofStatus(str, Enum):
 
 class VerificationCategory(str, Enum):
     """Categories of verification."""
+
     NULL_SAFETY = "null_safety"
     BOUNDS_CHECK = "bounds_check"
     OVERFLOW = "overflow"
@@ -43,13 +44,14 @@ class VerificationCategory(str, Enum):
 @dataclass
 class LineCoverage:
     """Coverage status for a single line."""
+
     line_number: int
     proof_status: ProofStatus
     categories: list[VerificationCategory] = field(default_factory=list)
     proof_time_ms: float = 0.0
     last_verified: datetime | None = None
     constraints_checked: int = 0
-    
+
     # Details
     proof_summary: str = ""
     counterexample: dict[str, Any] | None = None
@@ -58,26 +60,27 @@ class LineCoverage:
 @dataclass
 class FunctionCoverage:
     """Coverage status for a function."""
+
     function_name: str
     start_line: int
     end_line: int
-    
+
     # Coverage metrics
     total_lines: int = 0
     covered_lines: int = 0
     proven_lines: int = 0
     disproven_lines: int = 0
-    
+
     # Proof breakdown
     preconditions_verified: int = 0
     postconditions_verified: int = 0
     invariants_verified: int = 0
     assertions_verified: int = 0
-    
+
     # Quality metrics
     proof_strength: float = 0.0  # 0-1
     complexity_score: float = 0.0
-    
+
     # Line-level details
     line_coverage: list[LineCoverage] = field(default_factory=list)
 
@@ -85,22 +88,23 @@ class FunctionCoverage:
 @dataclass
 class FileCoverage:
     """Coverage status for a file."""
+
     file_path: str
     language: str
-    
+
     # Coverage metrics
     total_lines: int = 0
     executable_lines: int = 0
     covered_lines: int = 0
     proven_lines: int = 0
     coverage_percentage: float = 0.0
-    
+
     # Function-level breakdown
     functions: list[FunctionCoverage] = field(default_factory=list)
-    
+
     # Uncovered areas
     uncovered_ranges: list[tuple[int, int]] = field(default_factory=list)
-    
+
     # Last analysis
     last_analyzed: datetime | None = None
     analysis_duration_ms: float = 0.0
@@ -109,10 +113,11 @@ class FileCoverage:
 @dataclass
 class RepositoryCoverage:
     """Coverage status for entire repository."""
+
     repository: str
     branch: str = "main"
     commit_sha: str = ""
-    
+
     # Aggregate metrics
     total_files: int = 0
     files_with_proofs: int = 0
@@ -120,18 +125,18 @@ class RepositoryCoverage:
     functions_with_proofs: int = 0
     total_lines: int = 0
     proven_lines: int = 0
-    
+
     # Coverage percentages
     file_coverage: float = 0.0
     function_coverage: float = 0.0
     line_coverage: float = 0.0
-    
+
     # Proof strength
     overall_proof_strength: float = 0.0
-    
+
     # File breakdown
     files: list[FileCoverage] = field(default_factory=list)
-    
+
     # Analysis metadata
     analyzed_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -139,6 +144,7 @@ class RepositoryCoverage:
 @dataclass
 class CoverageTrend:
     """Coverage trend over time."""
+
     date: datetime
     line_coverage: float
     function_coverage: float
@@ -150,22 +156,23 @@ class CoverageTrend:
 @dataclass
 class DashboardData:
     """Data for the proof coverage dashboard."""
+
     repository: str
     current_coverage: RepositoryCoverage
-    
+
     # Summary stats
     total_proofs: int = 0
     passed_proofs: int = 0
     failed_proofs: int = 0
     pending_proofs: int = 0
-    
+
     # Trends (last 30 days)
     trends: list[CoverageTrend] = field(default_factory=list)
-    
+
     # Top issues
     files_needing_coverage: list[str] = field(default_factory=list)
     functions_with_failures: list[tuple[str, str]] = field(default_factory=list)
-    
+
     # Coverage heatmap data
     heatmap: list[dict[str, Any]] = field(default_factory=list)
 
@@ -182,7 +189,7 @@ class ProofCoverageCalculator:
         """Calculate line-level coverage from verification results."""
         lines = code.split("\n")
         coverage = []
-        
+
         # Build lookup of verification results by line
         line_results: dict[int, list[dict[str, Any]]] = {}
         for result in verification_results:
@@ -190,17 +197,17 @@ class ProofCoverageCalculator:
             if line not in line_results:
                 line_results[line] = []
             line_results[line].append(result)
-        
+
         for i, line_content in enumerate(lines, start=1):
             # Determine if line is executable
             is_executable = self._is_executable_line(line_content, language)
-            
+
             if not is_executable:
                 continue
-            
+
             # Check verification results for this line
             results = line_results.get(i, [])
-            
+
             if results:
                 # Determine overall status
                 statuses = [r.get("proof_status", "unknown") for r in results]
@@ -212,7 +219,7 @@ class ProofCoverageCalculator:
                     status = ProofStatus.TIMEOUT
                 else:
                     status = ProofStatus.UNKNOWN
-                
+
                 # Collect categories
                 categories = []
                 for r in results:
@@ -222,47 +229,52 @@ class ProofCoverageCalculator:
                             categories.append(VerificationCategory(cat))
                         except ValueError:
                             pass
-                
-                coverage.append(LineCoverage(
-                    line_number=i,
-                    proof_status=status,
-                    categories=categories,
-                    proof_time_ms=sum(r.get("proof_time_ms", 0) for r in results),
-                    constraints_checked=len(results),
-                    last_verified=datetime.utcnow(),
-                ))
+
+                coverage.append(
+                    LineCoverage(
+                        line_number=i,
+                        proof_status=status,
+                        categories=categories,
+                        proof_time_ms=sum(r.get("proof_time_ms", 0) for r in results),
+                        constraints_checked=len(results),
+                        last_verified=datetime.utcnow(),
+                    )
+                )
             else:
-                coverage.append(LineCoverage(
-                    line_number=i,
-                    proof_status=ProofStatus.NOT_ATTEMPTED,
-                ))
-        
+                coverage.append(
+                    LineCoverage(
+                        line_number=i,
+                        proof_status=ProofStatus.NOT_ATTEMPTED,
+                    )
+                )
+
         return coverage
 
     def _is_executable_line(self, line: str, language: str) -> bool:
         """Check if a line is executable (not comment/blank)."""
         stripped = line.strip()
-        
+
         if not stripped:
             return False
-        
+
         # Language-specific comment patterns
         if language in ("python", "py"):
             if stripped.startswith("#"):
                 return False
             if stripped.startswith('"""') or stripped.startswith("'''"):
                 return False
-        elif language in ("typescript", "javascript", "ts", "js"):
+        elif language in ("typescript", "javascript", "ts", "js") or language in (
+            "java",
+            "go",
+            "rust",
+            "c",
+            "cpp",
+        ):
             if stripped.startswith("//"):
                 return False
             if stripped.startswith("/*") or stripped.startswith("*"):
                 return False
-        elif language in ("java", "go", "rust", "c", "cpp"):
-            if stripped.startswith("//"):
-                return False
-            if stripped.startswith("/*") or stripped.startswith("*"):
-                return False
-        
+
         return True
 
     def calculate_function_coverage(
@@ -273,40 +285,31 @@ class ProofCoverageCalculator:
         line_coverages: list[LineCoverage],
     ) -> FunctionCoverage:
         """Calculate function-level coverage."""
-        func_lines = [
-            lc for lc in line_coverages
-            if start_line <= lc.line_number <= end_line
-        ]
-        
+        func_lines = [lc for lc in line_coverages if start_line <= lc.line_number <= end_line]
+
         total_lines = len(func_lines)
-        covered_lines = len([lc for lc in func_lines if lc.proof_status != ProofStatus.NOT_ATTEMPTED])
+        covered_lines = len(
+            [lc for lc in func_lines if lc.proof_status != ProofStatus.NOT_ATTEMPTED]
+        )
         proven_lines = len([lc for lc in func_lines if lc.proof_status == ProofStatus.PROVEN])
         disproven_lines = len([lc for lc in func_lines if lc.proof_status == ProofStatus.DISPROVEN])
-        
+
         # Calculate proof strength
         if covered_lines > 0:
             proof_strength = proven_lines / covered_lines
         else:
             proof_strength = 0.0
-        
+
         # Count by category
         preconditions = sum(
-            1 for lc in func_lines
-            if VerificationCategory.PRECONDITION in lc.categories
+            1 for lc in func_lines if VerificationCategory.PRECONDITION in lc.categories
         )
         postconditions = sum(
-            1 for lc in func_lines
-            if VerificationCategory.POSTCONDITION in lc.categories
+            1 for lc in func_lines if VerificationCategory.POSTCONDITION in lc.categories
         )
-        invariants = sum(
-            1 for lc in func_lines
-            if VerificationCategory.INVARIANT in lc.categories
-        )
-        assertions = sum(
-            1 for lc in func_lines
-            if VerificationCategory.ASSERTION in lc.categories
-        )
-        
+        invariants = sum(1 for lc in func_lines if VerificationCategory.INVARIANT in lc.categories)
+        assertions = sum(1 for lc in func_lines if VerificationCategory.ASSERTION in lc.categories)
+
         return FunctionCoverage(
             function_name=function_name,
             start_line=start_line,
@@ -333,14 +336,18 @@ class ProofCoverageCalculator:
     ) -> FileCoverage:
         """Calculate file-level coverage."""
         line_coverages = self.calculate_line_coverage(code, verification_results, language)
-        
+
         total_lines = len(code.split("\n"))
         executable_lines = len(line_coverages)
-        covered_lines = len([lc for lc in line_coverages if lc.proof_status != ProofStatus.NOT_ATTEMPTED])
+        covered_lines = len(
+            [lc for lc in line_coverages if lc.proof_status != ProofStatus.NOT_ATTEMPTED]
+        )
         proven_lines = len([lc for lc in line_coverages if lc.proof_status == ProofStatus.PROVEN])
-        
-        coverage_percentage = (covered_lines / executable_lines * 100) if executable_lines > 0 else 0.0
-        
+
+        coverage_percentage = (
+            (covered_lines / executable_lines * 100) if executable_lines > 0 else 0.0
+        )
+
         # Calculate function coverage
         func_coverages = []
         if functions:
@@ -352,10 +359,10 @@ class ProofCoverageCalculator:
                     line_coverages,
                 )
                 func_coverages.append(func_cov)
-        
+
         # Find uncovered ranges
         uncovered_ranges = self._find_uncovered_ranges(line_coverages)
-        
+
         return FileCoverage(
             file_path=file_path,
             language=language,
@@ -372,17 +379,16 @@ class ProofCoverageCalculator:
     def _find_uncovered_ranges(self, line_coverages: list[LineCoverage]) -> list[tuple[int, int]]:
         """Find contiguous ranges of uncovered lines."""
         uncovered = [
-            lc.line_number for lc in line_coverages
-            if lc.proof_status == ProofStatus.NOT_ATTEMPTED
+            lc.line_number for lc in line_coverages if lc.proof_status == ProofStatus.NOT_ATTEMPTED
         ]
-        
+
         if not uncovered:
             return []
-        
+
         ranges = []
         start = uncovered[0]
         end = uncovered[0]
-        
+
         for line in uncovered[1:]:
             if line == end + 1:
                 end = line
@@ -390,7 +396,7 @@ class ProofCoverageCalculator:
                 ranges.append((start, end))
                 start = line
                 end = line
-        
+
         ranges.append((start, end))
         return ranges
 
@@ -411,51 +417,56 @@ class ProofCoverageDashboard:
         """Generate dashboard data for a repository."""
         # Calculate coverage for each file
         file_coverages = []
-        
+
         for file_info in files:
             path = file_info.get("path", "")
             code = file_info.get("content", "")
             language = file_info.get("language", "python")
             functions = file_info.get("functions", [])
             results = verification_results.get(path, [])
-            
+
             file_cov = self.calculator.calculate_file_coverage(
                 path, code, results, functions, language
             )
             file_coverages.append(file_cov)
-        
+
         # Calculate repository-level coverage
-        repo_coverage = self._calculate_repository_coverage(
-            repository, file_coverages
-        )
-        
+        repo_coverage = self._calculate_repository_coverage(repository, file_coverages)
+
         # Get trends
         trends = self._get_trends(repository)
-        
+
         # Find files needing coverage
         files_needing_coverage = [
-            fc.file_path for fc in file_coverages
-            if fc.coverage_percentage < 50
+            fc.file_path for fc in file_coverages if fc.coverage_percentage < 50
         ][:10]
-        
+
         # Find functions with failures
         functions_with_failures = []
         for fc in file_coverages:
             for func in fc.functions:
                 if func.disproven_lines > 0:
                     functions_with_failures.append((fc.file_path, func.function_name))
-        
+
         # Generate heatmap data
         heatmap = self._generate_heatmap(file_coverages)
-        
+
         # Count proofs
         total_proofs = sum(fc.covered_lines for fc in file_coverages)
         passed_proofs = sum(fc.proven_lines for fc in file_coverages)
         failed_proofs = sum(
-            len([lc for lc in (func.line_coverage for func in fc.functions for lc in func.line_coverage) if lc.proof_status == ProofStatus.DISPROVEN])
+            len(
+                [
+                    lc
+                    for lc in (
+                        func.line_coverage for func in fc.functions for lc in func.line_coverage
+                    )
+                    if lc.proof_status == ProofStatus.DISPROVEN
+                ]
+            )
             for fc in file_coverages
         )
-        
+
         return DashboardData(
             repository=repository,
             current_coverage=repo_coverage,
@@ -477,20 +488,21 @@ class ProofCoverageDashboard:
         """Calculate repository-level coverage."""
         total_files = len(file_coverages)
         files_with_proofs = len([fc for fc in file_coverages if fc.covered_lines > 0])
-        
+
         total_functions = sum(len(fc.functions) for fc in file_coverages)
         functions_with_proofs = sum(
-            len([f for f in fc.functions if f.covered_lines > 0])
-            for fc in file_coverages
+            len([f for f in fc.functions if f.covered_lines > 0]) for fc in file_coverages
         )
-        
+
         total_lines = sum(fc.executable_lines for fc in file_coverages)
         proven_lines = sum(fc.proven_lines for fc in file_coverages)
-        
+
         file_coverage = (files_with_proofs / total_files * 100) if total_files > 0 else 0
-        function_coverage = (functions_with_proofs / total_functions * 100) if total_functions > 0 else 0
+        function_coverage = (
+            (functions_with_proofs / total_functions * 100) if total_functions > 0 else 0
+        )
         line_coverage = (proven_lines / total_lines * 100) if total_lines > 0 else 0
-        
+
         # Calculate overall proof strength
         strengths = [
             func.proof_strength
@@ -499,7 +511,7 @@ class ProofCoverageDashboard:
             if func.covered_lines > 0
         ]
         overall_strength = sum(strengths) / len(strengths) if strengths else 0
-        
+
         return RepositoryCoverage(
             repository=repository,
             total_files=total_files,
@@ -518,7 +530,7 @@ class ProofCoverageDashboard:
     def _get_trends(self, repository: str, days: int = 30) -> list[CoverageTrend]:
         """Get coverage trends."""
         history = self._coverage_history.get(repository, [])
-        
+
         if not history:
             # Generate synthetic trend data for demo
             trends = []
@@ -527,16 +539,18 @@ class ProofCoverageDashboard:
                 date = datetime.utcnow() - timedelta(days=days - i)
                 # Simulate gradual improvement
                 coverage = base_coverage + (i * 0.5)
-                trends.append(CoverageTrend(
-                    date=date,
-                    line_coverage=min(coverage, 80),
-                    function_coverage=min(coverage + 5, 85),
-                    proof_strength=min(coverage / 100, 0.8),
-                    proven_count=int(coverage * 10),
-                    disproven_count=max(0, 50 - i),
-                ))
+                trends.append(
+                    CoverageTrend(
+                        date=date,
+                        line_coverage=min(coverage, 80),
+                        function_coverage=min(coverage + 5, 85),
+                        proof_strength=min(coverage / 100, 0.8),
+                        proven_count=int(coverage * 10),
+                        disproven_count=max(0, 50 - i),
+                    )
+                )
             return trends
-        
+
         # Use actual history
         return [
             CoverageTrend(
@@ -545,10 +559,7 @@ class ProofCoverageDashboard:
                 function_coverage=rc.function_coverage,
                 proof_strength=rc.overall_proof_strength,
                 proven_count=rc.proven_lines,
-                disproven_count=sum(
-                    fc.covered_lines - fc.proven_lines
-                    for fc in rc.files
-                ),
+                disproven_count=sum(fc.covered_lines - fc.proven_lines for fc in rc.files),
             )
             for rc in history[-days:]
         ]
@@ -556,7 +567,7 @@ class ProofCoverageDashboard:
     def _generate_heatmap(self, file_coverages: list[FileCoverage]) -> list[dict[str, Any]]:
         """Generate heatmap data for visualization."""
         heatmap = []
-        
+
         for fc in file_coverages:
             # Group by directory
             parts = fc.file_path.split("/")
@@ -564,17 +575,19 @@ class ProofCoverageDashboard:
                 directory = "/".join(parts[:-1])
             else:
                 directory = ""
-            
-            heatmap.append({
-                "path": fc.file_path,
-                "directory": directory,
-                "filename": parts[-1] if parts else fc.file_path,
-                "coverage": fc.coverage_percentage,
-                "lines": fc.executable_lines,
-                "proven": fc.proven_lines,
-                "color": self._coverage_to_color(fc.coverage_percentage),
-            })
-        
+
+            heatmap.append(
+                {
+                    "path": fc.file_path,
+                    "directory": directory,
+                    "filename": parts[-1] if parts else fc.file_path,
+                    "coverage": fc.coverage_percentage,
+                    "lines": fc.executable_lines,
+                    "proven": fc.proven_lines,
+                    "color": self._coverage_to_color(fc.coverage_percentage),
+                }
+            )
+
         return heatmap
 
     def _coverage_to_color(self, coverage: float) -> str:
@@ -594,14 +607,13 @@ class ProofCoverageDashboard:
         """Record coverage for trend tracking."""
         if repository not in self._coverage_history:
             self._coverage_history[repository] = []
-        
+
         self._coverage_history[repository].append(coverage)
-        
+
         # Keep only last 90 days
         cutoff = datetime.utcnow() - timedelta(days=90)
         self._coverage_history[repository] = [
-            c for c in self._coverage_history[repository]
-            if c.analyzed_at > cutoff
+            c for c in self._coverage_history[repository] if c.analyzed_at > cutoff
         ]
 
     def to_json(self, dashboard_data: DashboardData) -> dict[str, Any]:
@@ -631,8 +643,7 @@ class ProofCoverageDashboard:
             ],
             "filesNeedingCoverage": dashboard_data.files_needing_coverage,
             "functionsWithFailures": [
-                {"file": f, "function": fn}
-                for f, fn in dashboard_data.functions_with_failures
+                {"file": f, "function": fn} for f, fn in dashboard_data.functions_with_failures
             ],
             "heatmap": dashboard_data.heatmap,
         }

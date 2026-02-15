@@ -1,7 +1,5 @@
 """Tests for Language Support module."""
 
-import pytest
-
 from codeverify_core.language_support import (
     LanguageConfig,
     LanguageFeature,
@@ -120,11 +118,7 @@ class TestLanguageParser:
     def test_parse_imports_python(self):
         """Extracts Python imports."""
         parser = LanguageParser()
-        code = (
-            "import os\n"
-            "from pathlib import Path\n"
-            "import json\n"
-        )
+        code = "import os\nfrom pathlib import Path\nimport json\n"
         imports = parser.parse_imports(code, SupportedLanguage.PYTHON)
         assert len(imports) >= 2
         assert any("os" in i for i in imports)

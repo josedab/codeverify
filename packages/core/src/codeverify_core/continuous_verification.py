@@ -11,10 +11,11 @@ import asyncio
 import hashlib
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, TypeVar
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -99,7 +100,7 @@ class ASTNode:
 
 class IncrementalASTParser:
     """Incremental AST parser with change tracking.
-    
+
     Maintains an AST representation that can be efficiently updated
     when code changes occur.
     """
@@ -130,7 +131,12 @@ class IncrementalASTParser:
             id=root_id,
             node_type="module",
             name=None,
-            range=TextRange(0, 0, len(self.content_lines) - 1, len(self.content_lines[-1]) if self.content_lines else 0),
+            range=TextRange(
+                0,
+                0,
+                len(self.content_lines) - 1,
+                len(self.content_lines[-1]) if self.content_lines else 0,
+            ),
             content_hash=self._hash_content(content),
         )
         self.nodes[root_id] = root
@@ -179,13 +185,17 @@ class IncrementalASTParser:
                     id=str(uuid4()),
                     node_type="async_function" if is_async else "function",
                     name=func_name,
-                    range=TextRange(i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0),
+                    range=TextRange(
+                        i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0
+                    ),
                     content_hash=self._hash_content(func_content),
                     parent_id=root.id,
                 )
                 self.nodes[node.id] = node
                 root.children.append(node)
-                self._node_by_range[(i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0)] = node.id
+                self._node_by_range[
+                    (i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0)
+                ] = node.id
                 i = end_line + 1
                 continue
 
@@ -209,13 +219,17 @@ class IncrementalASTParser:
                     id=str(uuid4()),
                     node_type="class",
                     name=class_name,
-                    range=TextRange(i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0),
+                    range=TextRange(
+                        i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0
+                    ),
                     content_hash=self._hash_content(class_content),
                     parent_id=root.id,
                 )
                 self.nodes[node.id] = node
                 root.children.append(node)
-                self._node_by_range[(i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0)] = node.id
+                self._node_by_range[
+                    (i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0)
+                ] = node.id
                 i = end_line + 1
                 continue
 
@@ -267,7 +281,9 @@ class IncrementalASTParser:
                     id=str(uuid4()),
                     node_type="function",
                     name=func_name,
-                    range=TextRange(i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0),
+                    range=TextRange(
+                        i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0
+                    ),
                     content_hash=self._hash_content(func_content),
                     parent_id=root.id,
                 )
@@ -305,7 +321,9 @@ class IncrementalASTParser:
                     id=str(uuid4()),
                     node_type="class",
                     name=class_name,
-                    range=TextRange(i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0),
+                    range=TextRange(
+                        i, 0, end_line, len(lines[end_line]) if end_line < len(lines) else 0
+                    ),
                     content_hash=self._hash_content(class_content),
                     parent_id=root.id,
                 )
@@ -437,9 +455,7 @@ class ConstraintCache:
         self._node_constraints[node_id].discard(content_hash)
 
         # Find and invalidate dependents
-        dependents = [
-            h for h, c in self.cache.items() if content_hash in c.dependencies
-        ]
+        dependents = [h for h, c in self.cache.items() if content_hash in c.dependencies]
 
         # Remove this constraint
         del self.cache[content_hash]
@@ -608,7 +624,7 @@ class VerificationResult(BaseModel):
 
 class ContinuousVerificationEngine:
     """Main engine for continuous real-time verification.
-    
+
     Orchestrates incremental parsing, caching, debouncing,
     and verification for real-time code analysis.
     """
@@ -693,7 +709,7 @@ class ContinuousVerificationEngine:
                     except Exception:
                         pass
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except asyncio.CancelledError:
                 break
@@ -746,10 +762,7 @@ class ContinuousVerificationEngine:
 
     def get_verification_status(self) -> dict[str, VerificationStatus]:
         """Get verification status for all nodes."""
-        return {
-            node_id: node.verification_status
-            for node_id, node in self.parser.nodes.items()
-        }
+        return {node_id: node.verification_status for node_id, node in self.parser.nodes.items()}
 
     def get_node_at_position(self, line: int, col: int) -> ASTNode | None:
         """Get the most specific node at a position."""
@@ -764,7 +777,7 @@ class ContinuousVerificationEngine:
         # Return most specific (smallest) node
         return min(
             candidates,
-            key=lambda n: (n.range.end_line - n.range.start_line),
+            key=lambda n: n.range.end_line - n.range.start_line,
         )
 
     def get_stats(self) -> dict[str, Any]:
@@ -774,7 +787,8 @@ class ContinuousVerificationEngine:
             "cache": self.cache.get_stats(),
             "pending_verifications": self._verification_queue.qsize(),
             "verified_nodes": sum(
-                1 for n in self.parser.nodes.values()
+                1
+                for n in self.parser.nodes.values()
                 if n.verification_status == VerificationStatus.VERIFIED
             ),
             "stale_nodes": len(self.parser.get_stale_nodes()),

@@ -20,6 +20,7 @@ logger = structlog.get_logger()
 
 class TenantTier(str, Enum):
     """Subscription tier for a tenant."""
+
     FREE = "free"
     PRO = "pro"
     ENTERPRISE = "enterprise"
@@ -28,6 +29,7 @@ class TenantTier(str, Enum):
 @dataclass
 class TenantConfig:
     """Configuration and metadata for a single tenant."""
+
     id: str
     name: str
     slug: str
@@ -54,6 +56,7 @@ class TenantConfig:
 @dataclass
 class TenantLimits:
     """Tier-specific default resource limits."""
+
     max_repos: int
     max_analyses_per_month: int
     max_users: int
@@ -81,8 +84,12 @@ class TenantLimits:
                 sso_enabled=False,
                 audit_logs_enabled=True,
                 default_features=[
-                    "basic_scanning", "pattern_matching", "ai_analysis",
-                    "custom_rules", "api_access", "priority_support",
+                    "basic_scanning",
+                    "pattern_matching",
+                    "ai_analysis",
+                    "custom_rules",
+                    "api_access",
+                    "priority_support",
                 ],
             )
         if tier == TenantTier.ENTERPRISE:
@@ -93,10 +100,16 @@ class TenantLimits:
                 sso_enabled=True,
                 audit_logs_enabled=True,
                 default_features=[
-                    "basic_scanning", "pattern_matching", "ai_analysis",
-                    "custom_rules", "api_access", "priority_support",
-                    "formal_verification", "custom_models",
-                    "dedicated_support", "sla_guarantee",
+                    "basic_scanning",
+                    "pattern_matching",
+                    "ai_analysis",
+                    "custom_rules",
+                    "api_access",
+                    "priority_support",
+                    "formal_verification",
+                    "custom_models",
+                    "dedicated_support",
+                    "sla_guarantee",
                 ],
             )
         raise ValueError(f"Unknown tenant tier: {tier}")
@@ -105,6 +118,7 @@ class TenantLimits:
 @dataclass
 class _TenantUsage:
     """Internal mutable usage counters for a single tenant."""
+
     analyses_used: int = 0
     repos_count: int = 0
     users_count: int = 0
@@ -150,8 +164,7 @@ class UsageTracker:
         """
         if resource not in self._RESOURCE_LIMIT_MAP:
             raise ValueError(
-                f"Unknown resource '{resource}'. "
-                f"Must be one of {list(self._RESOURCE_LIMIT_MAP)}"
+                f"Unknown resource '{resource}'. Must be one of {list(self._RESOURCE_LIMIT_MAP)}"
             )
         tenant = self._tenants.get(tenant_id)
         if tenant is None:
@@ -177,8 +190,7 @@ class UsageTracker:
         """Record consumption of a resource for a tenant."""
         if resource not in self._RESOURCE_USAGE_MAP:
             raise ValueError(
-                f"Unknown resource '{resource}'. "
-                f"Must be one of {list(self._RESOURCE_USAGE_MAP)}"
+                f"Unknown resource '{resource}'. Must be one of {list(self._RESOURCE_USAGE_MAP)}"
             )
         if tenant_id not in self._usage:
             raise KeyError(f"Tenant '{tenant_id}' is not registered")
@@ -390,9 +402,7 @@ class TenantIsolation:
 
     def get_encryption_key_id(self, tenant_id: str) -> str:
         """Derive a deterministic encryption key id (``cmk-{hash}``) for KMS lookup."""
-        digest = hashlib.sha256(
-            f"codeverify:encryption:{tenant_id}".encode()
-        ).hexdigest()[:16]
+        digest = hashlib.sha256(f"codeverify:encryption:{tenant_id}".encode()).hexdigest()[:16]
         key_id = f"cmk-{digest}"
         logger.debug("Encryption key id resolved", tenant_id=tenant_id, key_id=key_id)
         return key_id

@@ -12,10 +12,9 @@ import hashlib
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
-
 
 # =============================================================================
 # Enums
@@ -59,7 +58,7 @@ class GraphNode:
     node_type: NodeType
     label: str
     properties: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -115,9 +114,7 @@ class KnowledgeGraph:
     def add_node(self, node: GraphNode) -> str:
         """Add a node to the graph. Returns the node id."""
         if len(self._nodes) >= self.config.max_nodes:
-            raise ValueError(
-                f"Maximum node count ({self.config.max_nodes}) reached."
-            )
+            raise ValueError(f"Maximum node count ({self.config.max_nodes}) reached.")
 
         self._nodes[node.id] = node
         self._nodes_by_type[node.node_type].append(node.id)
@@ -235,11 +232,7 @@ class KnowledgeGraph:
         # Include last-frontier nodes
         visited_ids.update(frontier)
 
-        nodes = [
-            self._nodes[nid]
-            for nid in visited_ids
-            if nid in self._nodes
-        ]
+        nodes = [self._nodes[nid] for nid in visited_ids if nid in self._nodes]
         return nodes, edge_set
 
     def get_stats(self) -> dict[str, Any]:
@@ -315,7 +308,7 @@ class ProofReuseEngine:
                 "proof_id": proof_id,
                 "function_id": function_id,
                 "success": success,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
 
@@ -326,7 +319,7 @@ class ProofReuseEngine:
                 target_id=proof_id,
                 edge_type=EdgeType.REUSES_PROOF,
                 weight=1.0,
-                properties={"recorded_at": datetime.now(timezone.utc).isoformat()},
+                properties={"recorded_at": datetime.now(UTC).isoformat()},
             )
             self._graph.add_edge(edge)
 

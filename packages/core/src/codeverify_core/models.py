@@ -8,7 +8,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================================
 # Timestamp mixins for consistent datetime handling
 # ============================================================================
@@ -39,11 +38,11 @@ class DataclassTimestampMixin:
 
 def parse_iso_datetime(value: str | None, default: datetime | None = None) -> datetime | None:
     """Parse ISO datetime string, handling Z suffix.
-    
+
     Args:
         value: ISO datetime string (may end in Z)
         default: Default value if parsing fails or value is None
-        
+
     Returns:
         Parsed datetime or default
     """
@@ -74,16 +73,6 @@ class AnalysisStatus(str, Enum):
 # Import FindingSeverity from severity module for backwards compatibility
 from codeverify_core.severity import (
     FindingSeverity,
-    SEVERITY_ORDER,
-    SEVERITY_EMOJI,
-    SEVERITY_LABELS,
-    parse_severity,
-    compare_severity,
-    is_blocking_severity,
-    is_above_threshold,
-    get_severity_emoji,
-    get_severity_label,
-    sort_by_severity,
 )
 
 
@@ -296,10 +285,10 @@ E = TypeVar("E")
 @dataclass
 class Result(Generic[T, E]):
     """A Result type for explicit success/failure handling.
-    
+
     Inspired by Rust's Result type. Use this instead of exceptions
     for expected error conditions that callers should handle.
-    
+
     Usage:
         def parse_config(path: str) -> Result[Config, str]:
             try:
@@ -307,70 +296,70 @@ class Result(Generic[T, E]):
                 return Result.ok(config)
             except FileNotFoundError:
                 return Result.err("Config file not found")
-                
+
         result = parse_config("config.yaml")
         if result.is_ok:
             config = result.unwrap()
         else:
             print(f"Error: {result.error}")
     """
-    
+
     _value: T | None = None
     _error: E | None = None
     _is_ok: bool = True
-    
+
     @classmethod
     def ok(cls, value: T) -> "Result[T, E]":
         """Create a successful result."""
         return cls(_value=value, _error=None, _is_ok=True)
-    
+
     @classmethod
     def err(cls, error: E) -> "Result[T, E]":
         """Create a failed result."""
         return cls(_value=None, _error=error, _is_ok=False)
-    
+
     @property
     def is_ok(self) -> bool:
         """Check if result is successful."""
         return self._is_ok
-    
+
     @property
     def is_err(self) -> bool:
         """Check if result is an error."""
         return not self._is_ok
-    
+
     @property
     def value(self) -> T | None:
         """Get the value if successful, None otherwise."""
         return self._value
-    
+
     @property
     def error(self) -> E | None:
         """Get the error if failed, None otherwise."""
         return self._error
-    
+
     def unwrap(self) -> T:
         """Get the value, raising ValueError if result is an error."""
         if not self._is_ok:
             raise ValueError(f"Called unwrap on error result: {self._error}")
         return self._value  # type: ignore
-    
+
     def unwrap_or(self, default: T) -> T:
         """Get the value or a default if result is an error."""
         return self._value if self._is_ok else default  # type: ignore
-    
+
     def unwrap_err(self) -> E:
         """Get the error, raising ValueError if result is successful."""
         if self._is_ok:
             raise ValueError("Called unwrap_err on successful result")
         return self._error  # type: ignore
-    
+
     def map(self, func: "callable[[T], T]") -> "Result[T, E]":
         """Apply a function to the value if successful."""
         if self._is_ok:
             return Result.ok(func(self._value))  # type: ignore
         return self  # type: ignore
-    
+
     def map_err(self, func: "callable[[E], E]") -> "Result[T, E]":
         """Apply a function to the error if failed."""
         if not self._is_ok:
@@ -385,21 +374,21 @@ BoolResult = Result[bool, str]
 
 class OperationResult(BaseModel):
     """Pydantic model for serializable operation results.
-    
+
     Use this for API responses where you need JSON serialization.
     For internal code, prefer the Result dataclass.
     """
-    
+
     success: bool
     data: Any | None = None
     error: str | None = None
     error_code: str | None = None
-    
+
     @classmethod
     def ok(cls, data: Any = None) -> "OperationResult":
         """Create a successful result."""
         return cls(success=True, data=data)
-    
+
     @classmethod
     def err(cls, error: str, error_code: str | None = None) -> "OperationResult":
         """Create a failed result."""
