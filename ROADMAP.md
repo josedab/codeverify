@@ -4,7 +4,7 @@ This document outlines the planned features and development direction for CodeVe
 
 ## Current Status
 
-**Version:** 0.3.0 (Released)
+**Version:** 1.2.0 (Released)
 
 CodeVerify is currently in active development. We welcome community feedback and contributions.
 
@@ -47,13 +47,49 @@ CodeVerify is currently in active development. We welcome community feedback and
 - Team learning mode for org-wide pattern detection
 - Gradual verification ramp for onboarding
 
+### v1.0.0 Features
+- AI Code Insurance Underwriting Platform
+- Cross-Repository Security Graph
+- Differential Privacy-Preserving Proof Marketplace
+- Blockchain-Verified Code Provenance
+- Natural Language Compliance Query Engine
+- AI Model Bias & Fairness Verification
+- IDE Copilot Undo with Proof Preservation
+- Predictive Code Quality Forecasting
+- Verification-Driven Code Generation
+- Real-Time Collaborative Verification Sessions
+
+### v1.1.0 Features
+- Hosted SaaS Platform with Free Tier (multi-tenant, usage metering, billing)
+- Go + Java Language Support (advanced parsers, idiomatic patterns)
+- Autofix Agent with PR Generation (verification loop, PR automation)
+- GitHub Copilot Chat Extension (verify/explain/fix commands)
+- Incremental Verification Engine (content-addressed caching, dependency graph)
+- Organization Security Posture Dashboard (risk heatmap, DORA, compliance)
+- CI/CD Pipeline Orchestrator (6 platforms, quality gates, config generation)
+- LLM-Powered Proof Explainer (counterexample parsing, fix suggestions)
+- Supply Chain Verification (SBOM, CVE matching, license compliance)
+- Self-Learning Rule Engine (ML false positive classifier, feedback loop)
+
+### v1.2.0 Features
+- Rust & C/C++ Memory Safety Verification (ownership analysis, pointer analysis, data race detection)
+- GitHub Copilot Workspace Integration (plan verification, constraint injection, trust scoring)
+- Zero-Config Onboarding (language auto-detection, config generation, GitHub Actions setup)
+- Autonomous Verification Agent (continuous monitoring, auto-triage, fix generation, learning loop)
+- Verification-as-a-Service API (hosted API, caching, SARIF output, webhooks)
+- Interactive Proof Explorer (Z3 tree visualization, animation, multi-format rendering)
+- Cross-Repository Blast Radius Analysis (org dependency graph, impact propagation, Mermaid diagrams)
+- AI Code Review Benchmark Suite (labeled datasets, benchmark runner, leaderboard)
+- Fine-Tuned Verification LLM (local inference, air-gap packaging, 90% cost reduction)
+- Developer Certification Program (5-module course, assessments, digital credentials)
+
 ## Planned Features
 
 ### Language Support
 - [ ] Go language support
 - [ ] Java language support
-- [ ] Rust language support
-- [ ] C/C++ language support
+- [x] Rust language support (v1.2.0)
+- [x] C/C++ language support (v1.2.0)
 
 ### IDE Integration
 - [ ] JetBrains IDE plugin (IntelliJ, PyCharm, WebStorm)
@@ -64,14 +100,14 @@ CodeVerify is currently in active development. We welcome community feedback and
 - [ ] Audit logging dashboard
 - [ ] Compliance reporting (SOC 2, HIPAA)
 - [ ] On-premises deployment option
-- [ ] Air-gapped installation support
+- [x] Air-gapped installation support (v1.2.0 - Fine-Tuned LLM air-gap packaging)
 
 ### Analysis Improvements
-- [ ] Cross-repository analysis
+- [x] Cross-repository analysis (v1.2.0 - Cross-Repo Blast Radius)
 - [ ] Incremental verification for faster feedback
-- [ ] Custom LLM model fine-tuning
-- [ ] Memory safety verification for C/C++
-- [ ] Concurrency bug detection
+- [x] Custom LLM model fine-tuning (v1.2.0 - Fine-Tuned Verification LLM)
+- [x] Memory safety verification for C/C++ (v1.2.0)
+- [x] Concurrency bug detection (v1.2.0 - Data Race Detector)
 
 ### API & Integration
 - [ ] GraphQL API
