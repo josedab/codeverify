@@ -1,0 +1,34 @@
+# CodeVerify Zero-Config Quickstart
+# Drop this file into .github/workflows/ and it works immediately.
+# No API key needed for free tier. Upgrade to pro for AI analysis.
+
+name: CodeVerify
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+  checks: write
+
+jobs:
+  codeverify:
+    name: Verify Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: codeverify/codeverify-action@v1
+        with:
+          # Free tier: no API key needed
+          # Set tier to 'pro' and add api-key for AI-powered analysis
+          tier: free
+          fail-on: high
+          enable-pr-comments: 'true'
+          enable-sarif: 'true'
+          enable-cache: 'true'
+          enforcement-mode: 'blocking'
