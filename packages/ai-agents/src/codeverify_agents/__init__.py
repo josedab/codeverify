@@ -455,6 +455,14 @@ from codeverify_agents.model_comparison import (
     RoutingRecommendation,
 )
 
+# LLM-Powered Proof Explanation Agent (v1.5.0)
+from codeverify_agents.proof_explanation_agent import (
+    ExplanationMode,
+    ExplanationRequest,
+    ExplanationResponse,
+    ProofExplanationAgent,
+)
+
 __all__ = [
     # Base
     "AgentConfig",
@@ -800,4 +808,9 @@ __all__ = [
     "ModelProvider",
     "ModelResult",
     "RoutingRecommendation",
+    # LLM-Powered Proof Explanation Agent
+    "ExplanationMode",
+    "ExplanationRequest",
+    "ExplanationResponse",
+    "ProofExplanationAgent",
 ]
