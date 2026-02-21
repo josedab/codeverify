@@ -42,6 +42,7 @@ from codeverify_api.routers import (
     feedback,
     fix_verification,
     formal_specs,
+    graphql_insights,
     hallucination,
     health,
     impact_analysis,
@@ -73,6 +74,7 @@ from codeverify_api.routers import (
     verification_cache,
     verification_debugger,
     webhooks,
+    widgets,
 )
 
 logger = structlog.get_logger()
@@ -197,6 +199,12 @@ app.include_router(telemetry.router, prefix="/api/v1/telemetry", tags=["telemetr
 app.include_router(policy_engine.router, prefix="/api/v1/policies", tags=["policy-engine"])
 app.include_router(impact_analysis.router, prefix="/api/v1/impact", tags=["impact-analysis"])
 app.include_router(copilot.router, prefix="/api/v1/copilot", tags=["copilot-extension"])
+
+# v1.4.0 API endpoints
+app.include_router(
+    graphql_insights.router, prefix="/api/v1/insights", tags=["graphql-insights"]
+)
+app.include_router(widgets.router, prefix="/api/v1/widgets", tags=["widgets"])
 
 
 # Global exception handler
