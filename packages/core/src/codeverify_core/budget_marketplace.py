@@ -9,9 +9,22 @@ Features:
 - Wallet management with balance tracking
 - Dynamic pricing based on supply/demand
 - Capacity leasing for idle verification workers
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.proof_artifact_marketplace``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
 
 from __future__ import annotations
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.budget_marketplace is deprecated. Use codeverify_core.proof_artifact_marketplace instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import time
 import uuid

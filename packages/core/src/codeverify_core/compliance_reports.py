@@ -4,9 +4,22 @@ Generates HTML, text, and JSON compliance reports from verification results
 with framework-specific control mappings, evidence linking, and audit trails.
 
 Supported frameworks: SOC 2, HIPAA, PCI-DSS, GDPR, ISO 27001.
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.compliance_engine``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
 
 from __future__ import annotations
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.compliance_reports is deprecated. Use codeverify_core.compliance_engine instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import json
 from dataclasses import dataclass, field

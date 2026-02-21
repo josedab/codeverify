@@ -2,9 +2,22 @@
 
 Provides tenant lifecycle management, usage tracking, resource limits,
 and data isolation for CodeVerify's multi-tenant SaaS offering.
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.hosted_saas``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
 
 from __future__ import annotations
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.multi_tenancy is deprecated. Use codeverify_core.hosted_saas instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import hashlib
 import uuid

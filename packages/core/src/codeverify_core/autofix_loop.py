@@ -3,9 +3,22 @@
 Generates LLM-powered fixes for findings, then re-verifies each fix
 with Z3. Iterates up to N rounds if a fix introduces new issues.
 Only suggests fixes that are mathematically proven correct.
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.autofix_verified_patches``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
 
 from __future__ import annotations
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.autofix_loop is deprecated. Use codeverify_core.autofix_verified_patches instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import hashlib
 import time

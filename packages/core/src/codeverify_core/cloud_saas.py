@@ -2,9 +2,22 @@
 
 Provides tenant isolation, GitHub OAuth flow, and multi-tenant
 configuration for CodeVerify's hosted SaaS offering.
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.hosted_saas``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
 
 from __future__ import annotations
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.cloud_saas is deprecated. Use codeverify_core.hosted_saas instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import hashlib
 import secrets

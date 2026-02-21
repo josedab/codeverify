@@ -2,7 +2,20 @@
 
 Extends the proof repository with marketplace features: pricing tiers,
 author reputation and leaderboards, licensing, and revenue sharing.
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.proof_artifact_marketplace``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.proof_marketplace is deprecated. Use codeverify_core.proof_artifact_marketplace instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import uuid
 from dataclasses import dataclass, field

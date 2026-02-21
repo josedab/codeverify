@@ -10,9 +10,22 @@ Key components:
     - **RegressionChecker**: ensure a fix doesn't break existing behaviour.
     - **BatchFixProcessor**: process multiple fixes with ordering strategies.
     - **PRDescriptionGenerator**: build rich PR descriptions from batch results.
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.autofix_verified_patches``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
 
 from __future__ import annotations
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.autofix_validation is deprecated. Use codeverify_core.autofix_verified_patches instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import ast
 import difflib

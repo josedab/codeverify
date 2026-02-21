@@ -4,9 +4,22 @@ Provides programmatic compliance with real SOC2, HIPAA, PCI-DSS v4, ISO 27001,
 GDPR, NIST 800-53, FedRAMP, and EU AI Act control definitions. Includes an
 integrated evidence vault with cryptographic integrity, HMAC-based attestation
 signatures, and automated compliance report generation.
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.compliance_engine``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
 
 from __future__ import annotations
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.compliance_as_code is deprecated. Use codeverify_core.compliance_engine instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import hashlib
 import hmac

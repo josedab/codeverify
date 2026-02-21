@@ -2,7 +2,20 @@
 
 Maps verification rules to compliance controls, provides exception workflows
 with role-based approvals, and generates audit-ready compliance reports.
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.compliance_engine``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.compliance_framework is deprecated. Use codeverify_core.compliance_engine instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import uuid
 from dataclasses import dataclass, field

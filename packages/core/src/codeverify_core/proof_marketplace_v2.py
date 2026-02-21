@@ -3,9 +3,22 @@
 Builds on the original proof marketplace with community features, quality
 metrics, TF-IDF-like proof search, contributor gamification, and structured
 review workflows.  Designed for large-scale proof reuse across organizations.
+
+.. deprecated::
+    This module is superseded by ``codeverify_core.proof_artifact_marketplace``.
+    It remains importable for backward compatibility but will be
+    removed in a future release.
 """
 
 from __future__ import annotations
+
+import warnings as _warnings
+_warnings.warn(
+    "codeverify_core.proof_marketplace_v2 is deprecated. Use codeverify_core.proof_artifact_marketplace instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 import math
 import re
