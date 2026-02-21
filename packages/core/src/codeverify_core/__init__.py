@@ -18,6 +18,8 @@ Common imports:
 See ``examples/`` in the repository root for runnable demos.
 """
 
+__version__ = "1.6.0"
+
 # Import severity utilities directly from the severity module
 from codeverify_core.agent_runtime import (
     AgentLoadError,
@@ -1879,7 +1881,623 @@ from codeverify_core.certification import (
     reset_certification_program,
 )
 
+# GitHub Marketplace & One-Click Install (v1.3.0)
+from codeverify_core.marketplace_listing import (
+    ConfigAutoGenerator,
+    Installation,
+    InstallationEvent,
+    InstallationStatus,
+    MarketplaceListing,
+    MarketplacePlan,
+    MarketplaceService,
+    OnboardingConfig,
+    OnboardingPhase,
+    PlanLimits,
+    UsageMetric,
+    UsageRecord,
+    get_marketplace_service,
+    reset_marketplace_service,
+)
+
+# Streaming IDE Verification (v1.3.0)
+from codeverify_core.streaming_ide import (
+    BlockDiagnostic,
+    BlockVerificationResult,
+    CodeBlock,
+    CodeBlockParser,
+    DiagnosticSeverity,
+    FileVerificationResult,
+    IncrementalVerificationCache,
+    StreamingIDEVerificationService,
+    StreamingSession,
+    StreamingVerifier,
+    VerificationCacheEntry,
+    VerificationTrigger,
+    get_streaming_ide_service,
+    reset_streaming_ide_service,
+)
+
+# Verification Insights API — GraphQL (v1.3.0)
+from codeverify_core.graphql_insights import (
+    ApiKeyScope,
+    GraphQLApiKey,
+    GraphQLInsightsService,
+    GraphQLQuery,
+    GraphQLResponse,
+    PageInfo,
+    QueryAnalyzer,
+    QueryType,
+    RateLimitConfig,
+    RateLimitState,
+    RateLimitTier,
+    RateLimiter,
+    WebhookDelivery,
+    WebhookEvent,
+    WebhookSubscription,
+    get_graphql_insights_service,
+    reset_graphql_insights_service,
+)
+
+# AI Autofix with Verified Patches (v1.3.0)
+from codeverify_core.autofix_verified_patches import (
+    AutofixVerifiedService,
+    BatchFixResult,
+    FixCandidate,
+    FixConfidence,
+    FixStatus,
+    FixStrategy,
+    FixTemplateEngine,
+    FixVerificationResult,
+    FixVerifier,
+    FixableFinding,
+    PRSuggestion,
+    SafetyGuardrails,
+    get_autofix_verified_service,
+    reset_autofix_verified_service,
+)
+from codeverify_core.autofix_verified_patches import (
+    FindingCategory as AutofixFindingCategory,
+)
+
+# Organization Security Posture Score (v1.3.0)
+from codeverify_core.org_posture import (
+    AlertSeverity,
+    DORAMetricLevel,
+    DORAMetrics,
+    ExecutiveDigest,
+    HeatmapEntry,
+    OrgSecurityPostureService,
+    PostureAlert,
+    PostureCalculator,
+    PostureScore,
+    PostureTrend,
+    RepositoryMetrics,
+    TrendDetector,
+    get_org_posture_service,
+    reset_org_posture_service,
+)
+from codeverify_core.org_posture import (
+    RiskLevel as PostureRiskLevel,
+)
+
+# Copilot Extension — Chat + Agent (v1.3.0)
+from codeverify_core.copilot_chat_agent import (
+    AgentMode,
+    ChatContext,
+    ChatMessage,
+    ChatResponse,
+    ChatSession,
+    CodeAction,
+    CommandHandler,
+    CommandRouter,
+    CopilotCommand,
+    CopilotExtensionService,
+    ResponseType,
+    get_copilot_extension_service,
+    reset_copilot_extension_service,
+)
+from codeverify_core.copilot_chat_agent import (
+    SessionState as CopilotSessionState,
+)
+
+# Multi-Tenant Hosted SaaS Platform (v1.3.0)
+from codeverify_core.hosted_saas import (
+    BillingCycle,
+    BillingEngine,
+    FeatureFlag,
+    FeatureGate,
+    HostedSaaSService,
+    Invoice,
+    PaymentStatus,
+    PlanConfig,
+    SaaSPlan,
+    Tenant,
+    TenantProvisioner,
+    TenantStatus,
+    get_hosted_saas_service,
+    reset_hosted_saas_service,
+)
+from codeverify_core.hosted_saas import (
+    UsageMeter as SaaSUsageMeter,
+)
+
+# Proof Artifact Marketplace (v1.3.0)
+from codeverify_core.proof_artifact_marketplace import (
+    ArtifactStatus,
+    ProofAnonymizer,
+    ProofArtifact,
+    ProofArtifactMarketplaceService,
+    ProofCategory,
+    ProofLanguage,
+    ProofMatcher,
+    ProofTemplate,
+    SearchResult,
+    get_proof_marketplace_service,
+    reset_proof_marketplace_service,
+)
+from codeverify_core.proof_artifact_marketplace import (
+    MarketplaceStats as ProofMarketplaceStats,
+)
+
+# Compliance-as-Code Engine (v1.3.0)
+from codeverify_core.compliance_engine import (
+    CheckResult,
+    CheckStatus,
+    CodebaseScanner,
+    ComplianceAsCodeService,
+    ComplianceCheck,
+    ComplianceCheckLibrary,
+    ComplianceFramework,
+    ComplianceReport,
+    Evidence,
+    EvidenceStrength,
+    NLQueryParser,
+    NLQueryResult,
+    QueryIntent,
+    get_compliance_engine,
+    reset_compliance_engine,
+)
+
+# Performance & Cost Dashboard (v1.3.0)
+from codeverify_core.perf_cost_dashboard import (
+    BudgetAlert,
+    BudgetConfig,
+    CostCalculator,
+    CostCategory,
+    CostDashboardData,
+    ModelProvider,
+    OptimizationEngine,
+    OptimizationRecommendation,
+    OptimizationType,
+    PerformanceCostDashboardService,
+    ROIMetrics,
+    ReviewCost,
+    SolverMetric,
+    TokenUsageRecord,
+    get_cost_dashboard_service,
+    reset_cost_dashboard_service,
+)
+from codeverify_core.perf_cost_dashboard import (
+    AlertLevel as CostAlertLevel,
+)
+
+# Agentic Review Orchestrator (v1.4.0)
+from codeverify_core.agentic_orchestrator import (
+    AgenticReviewOrchestrator,
+    AgentFinding,
+    CircuitBreaker,
+    CircuitBreakerState,
+    CircuitState,
+    ConflictResolution,
+    ConflictResolver,
+    ConflictStrategy,
+    OrchestratorResult,
+    PlannerAgent,
+    PRContext,
+    ReviewPlan,
+    SubAgentExecutor,
+    TaskResult,
+    TaskStatus,
+    VerificationTask,
+    get_agentic_orchestrator,
+    reset_agentic_orchestrator,
+)
+from codeverify_core.agentic_orchestrator import (
+    TaskPriority as AgentTaskPriority,
+)
+from codeverify_core.agentic_orchestrator import (
+    TaskType as AgentTaskType,
+)
+
+# Verification-Aware Code Generation (v1.4.0)
+from codeverify_core.verified_codegen_loop import (
+    ConstraintTranslator,
+    Counterexample,
+    DerivedConstraint,
+    FixAttemptStatus,
+    FixGenerator,
+    FixVerifier,
+    GenerationResult,
+    ProofCertificate,
+    ProofStrength,
+    VerificationAwareCodeGenService,
+    get_verified_codegen_service,
+    reset_verified_codegen_service,
+)
+from codeverify_core.verified_codegen_loop import (
+    ConstraintType as CodegenConstraintType,
+)
+from codeverify_core.verified_codegen_loop import (
+    FixCandidate as CodegenFixCandidate,
+)
+
+# Privacy-Preserving Federated Verification (v1.4.0)
+from codeverify_core.federated_verification import (
+    AggregatedPattern,
+    AggregationStatus,
+    AuditLogEntry,
+    ContributionAuthenticator,
+    FederatedAggregator,
+    FederatedRound,
+    FederatedVerificationService,
+    InputValidator,
+    LaplaceMechanism,
+    LocalPattern,
+    NoiseCalibrator,
+    OrgContribution,
+    PatternExtractor,
+    PatternType,
+    PrivacyBudget,
+    PrivacyConfig,
+    PrivacyLevel,
+    get_federated_verification_service,
+    reset_federated_verification_service,
+)
+
+# Live Verification Debugger (v1.4.0)
+from codeverify_core.live_debugger import (
+    DebugSession,
+    LiveVerificationDebuggerService,
+    NodeStatus,
+    ProofExporter,
+    ProofNode,
+    ProofStep,
+    ProofSummary,
+    ProofTreeBuilder,
+    StepAction,
+    StepGenerator,
+    get_live_debugger_service,
+    reset_live_debugger_service,
+)
+from codeverify_core.live_debugger import (
+    ExportFormat as DebugExportFormat,
+)
+
+# AI Drift & Regression Monitor (v1.4.0)
+from codeverify_core.drift_monitor import (
+    BehavioralFingerprint,
+    DriftAlert,
+    DriftDetector,
+    DriftMonitorService,
+    DriftReport,
+    DriftSeverity,
+    DriftType,
+    FingerprintExtractor,
+    InvariantMonitor,
+    MonitorStatus,
+    VerifiedInvariant,
+    get_drift_monitor_service,
+    reset_drift_monitor_service,
+)
+
+# Spec-First Development Workflow (v1.4.0)
+from codeverify_core.spec_first import (
+    GeneratedSpec,
+    SpecAutoGenerator,
+    SpecCompiler,
+    SpecCoverage,
+    SpecFile,
+    SpecFirstService,
+    SpecParser,
+    SpecStatus,
+    SpecType,
+    SpecVerificationResult,
+    SpecVerifier,
+    Specification,
+    get_spec_first_service,
+    reset_spec_first_service,
+)
+from codeverify_core.spec_first import (
+    CompilationResult as SpecCompilationResult,
+)
+
+# Multi-Language Polyglot Bridge (v1.4.0)
+from codeverify_core.polyglot_bridge import (
+    BridgeLanguage,
+    BridgeReport,
+    ContractElement,
+    ContractElementType,
+    ContractExtractor,
+    ContractMismatch,
+    MismatchSeverity,
+    PolyglotBridgeService,
+    ServiceContract,
+    ServiceNode,
+    TypeChecker,
+    TypeCompatibility,
+    get_polyglot_bridge_service,
+    reset_polyglot_bridge_service,
+)
+
+# Organizational Learning Engine (v1.4.0)
+from codeverify_core.org_learning import (
+    FPClassifier,
+    OrgLearningProfile,
+    OrgLearningService,
+    PredictionOutcome,
+    QualityPrediction,
+    QualityPredictor,
+    RulePerformance,
+    SeverityCalibration,
+    SeverityCalibrator,
+    get_org_learning_service,
+    reset_org_learning_service,
+)
+from codeverify_core.org_learning import (
+    FeedbackType as LearningFeedbackType,
+)
+from codeverify_core.org_learning import (
+    FindingFeedback as LearningFindingFeedback,
+)
+
+# Verification Cost Optimizer — Smart Router (v1.4.0)
+from codeverify_core.smart_router import (
+    CostOptimizerService,
+    DepthConfig,
+    DepthRouter,
+    FileRiskScore,
+    RiskBucket,
+    RiskScorer,
+    RoutingDecision,
+    RoutingStats,
+    VerificationDepth,
+    get_cost_optimizer_service,
+    reset_cost_optimizer_service,
+)
+
+# Embeddable Verification Widget (v1.4.0)
+from codeverify_core.embed_widget import (
+    BadgeData,
+    BadgeRenderer,
+    BadgeStatus,
+    EmbedCodeGenerator,
+    EmbedFormat,
+    EmbeddableWidgetService,
+    FindingSummaryData,
+    TrustScoreData,
+    WidgetConfig,
+    WidgetRenderResult,
+    WidgetTheme,
+    WidgetType,
+    get_widget_service,
+    reset_widget_service,
+)
+
+# Runtime Verification Bridge (v1.5.0)
+from codeverify_core.runtime_bridge import (
+    AssertionLanguage, AssertionTranslator, BridgeStats, FeedbackEffect,
+    FeedbackEngine, FeedbackRecord, InstrumentationConfig,
+    RuntimeAssertion, RuntimeVerificationBridgeService, RuntimeViolation,
+    ViolationCollector, ViolationSeverity,
+    get_runtime_bridge_service, reset_runtime_bridge_service,
+)
+# Verification-Guided Fuzzing (v1.5.0)
+from codeverify_core.guided_fuzzing import (
+    FuzzCampaign, FuzzConfig, FuzzExecution, FuzzExecutor, FuzzInput,
+    FuzzResult, FuzzTestCase, InputGenerator, InputType,
+    TestCodeGenerator, VerificationGuidedFuzzingService,
+    get_guided_fuzzing_service, reset_guided_fuzzing_service,
+)
+# Intent-Preserving Refactoring (v1.5.0)
+from codeverify_core.intent_refactoring import (
+    BehavioralContract, EquivalenceChecker, EquivalenceProof,
+    EquivalenceResult, IntentPreservingRefactoringService,
+    RefactoringType, RefactoringVerification,
+    get_intent_refactoring_service, reset_intent_refactoring_service,
+)
+from codeverify_core.intent_refactoring import (
+    ContractExtractor as RefactoringContractExtractor,
+)
+# Context-Window Verification (v1.5.0)
+from codeverify_core.context_window_verify import (
+    ConsistencyChecker, ConsistencyIssue, ConsistencyIssueType,
+    ContextOptimizationResult, ContextOptimizer, ContextQuality,
+    ContextSnippet, ContextWindow, ContextWindowVerificationService,
+    TruncationDetector,
+    get_context_window_service, reset_context_window_service,
+)
+# Verification Replay & Regression (v1.5.0)
+from codeverify_core.verification_replay_regression import (
+    RecordedSession, RegressionTrend, ReplayComparison, ReplayEngine,
+    ReplayReport, ReplayResult, SessionRecorder, SessionStatus,
+    VerificationReplayService, VerificationSnapshot,
+    get_verification_replay_service, reset_verification_replay_service,
+)
+# Natural Language Proof Explanation (v1.5.0)
+from codeverify_core.nl_proof_explanation import (
+    DetailLevel, ExplanationContext, ExplanationGenerator,
+    ExplanationType, NLProofExplanationService, ProofExplanation,
+    get_nl_explanation_service, reset_nl_explanation_service,
+)
+# Verification-Aware Review Assignments (v1.5.0)
+from codeverify_core.review_assignments import (
+    AssignmentStats, ExpertiseArea, PRRiskLevel, PRRiskProfile,
+    ReviewAssignment, ReviewAssignmentService, ReviewerMatcher,
+    RiskClassifier,
+    get_review_assignment_service, reset_review_assignment_service,
+)
+from codeverify_core.review_assignments import (
+    Reviewer as ReviewerProfile,
+)
+# Multi-Repository Invariant Propagation (v1.5.0)
+from codeverify_core.invariant_propagation import (
+    GovernanceSummary, InvariantPropagationService, InvariantRegistry,
+    InvariantScope, PropagationEngine, PropagationReport,
+    PropagationResult, PropagationStatus, RegisteredInvariant,
+    get_invariant_propagation_service, reset_invariant_propagation_service,
+)
+# Proof-Based Documentation Generation (v1.5.0)
+from codeverify_core.proof_docs import (
+    DocFormat, DocRenderer, DocSection, FreshnessStatus, GeneratedDoc,
+    ProofBasedDocService, PropertyExtractor, VerifiedProperty,
+    get_proof_docs_service, reset_proof_docs_service,
+)
+# Gamified Developer Security Training (v1.5.0)
+from codeverify_core.gamified_training import (
+    ChallengeStatus, CurriculumGenerator, DeveloperProgress,
+    FixChallenge, GamifiedTrainingService, SkillLevel,
+    TeamLeaderboard, TrainingLesson, WeaknessArea,
+    get_gamified_training_service, reset_gamified_training_service,
+)
+from codeverify_core.gamified_training import (
+    BadgeType as TrainingBadgeType,
+)
+
+# AI Agent Marketplace (v1.6.0)
+from codeverify_core.agent_marketplace import (
+    AgentInstallation, AgentManifest, AgentMarketplaceService, AgentReview,
+    PublishedAgent, PublishStatus, RevenueShare,
+    get_agent_marketplace_service, reset_agent_marketplace_service,
+)
+from codeverify_core.agent_marketplace import AgentCategory as MktAgentCategory
+from codeverify_core.agent_marketplace import PricingModel as MktPricingModel
+# Verification Telemetry & Benchmarking (v1.6.0)
+from codeverify_core.verification_telemetry import (
+    BenchmarkResult, BenchmarkTier, MetricType, OrgTelemetry,
+    QuarterlyReport, TelemetryAggregator, VerificationTelemetryService,
+    get_telemetry_benchmark_service, reset_telemetry_benchmark_service,
+)
+# LLM Output Verification Protocol (v1.6.0)
+from codeverify_core.verification_protocol import (
+    CheckType as ProtocolCheckType, Finding as ProtocolFinding,
+    MessageType as ProtocolMessageType, ProofCert, ProtocolCapabilities,
+    VerificationProtocolServer, VerifyRequest, VerifyResponse, VerifyStatus,
+    get_verification_protocol_server, reset_verification_protocol_server,
+)
+# Predictive Defect Heatmap (v1.6.0)
+from codeverify_core.defect_heatmap import (
+    DefectHeatmapService, DefectPredictor, FileHistory, HeatmapData,
+    HeatmapLevel, PredictionResult, RiskTrend, TicketSuggestion,
+    get_defect_heatmap_service, reset_defect_heatmap_service,
+)
+# Self-Healing Codebase Agent (v1.6.0)
+from codeverify_core.self_healing import (
+    Diagnosis, DiagnosisType, HealingAction, HealingConfig, HealingStatus,
+    IncidentDiagnoser, RuntimeIncident, SelfHealingService,
+    get_self_healing_service, reset_self_healing_service,
+)
+from codeverify_core.self_healing import AutonomyLevel as HealingAutonomyLevel
+# Verification-Native CI/CD (v1.6.0)
+from codeverify_core.verification_cicd import (
+    DeployStrategy, GatePolicy, PipelineExecutor, PipelineParser,
+    PipelineStage, PipelineStatus, ProofGate, StageType,
+    VerificationCICDService, VerifyPipeline, VerifyYml,
+    get_verification_cicd_service, reset_verification_cicd_service,
+)
+# Code Evolution Timeline (v1.6.0)
+from codeverify_core.evolution_timeline import (
+    CodeEvolutionService, EvolutionEvent, EventType as EvolutionEventType,
+    FunctionTimeline, RepositoryEvolution, TimelineBuilder, TimelineRenderer,
+    get_code_evolution_service, reset_code_evolution_service,
+)
+# Verification Credit System (v1.6.0)
+from codeverify_core.credit_system import (
+    CreditRule, CreditSource, CreditTransaction, LeaderboardEntry as CreditLeaderboardEntry,
+    OrgCredits, RedemptionType, VerificationCreditService,
+    get_credit_service, reset_credit_service,
+)
+# Multi-Modal Verification (v1.6.0)
+from codeverify_core.multimodal_verify import (
+    APIContractVerifier, ConfigVerifier, MigrationVerifier, ModalFinding,
+    ModalSeverity, ModalType, ModalVerificationResult,
+    MultiModalVerificationService, TerraformVerifier,
+    get_multimodal_service, reset_multimodal_service,
+)
+# Verification-Aware Code Search (v1.6.0)
+from codeverify_core.verification_search import (
+    CodeEntity, QueryParser as SearchQueryParser, SearchField, SearchHit,
+    SearchIndex, SearchQuery, SearchResults, VerificationSearchService,
+    get_verification_search_service, reset_verification_search_service,
+)
+from codeverify_core.verification_search import VerificationStatus as SearchVerificationStatus
+
+
+# ─── Lazy Loading Support ─────────────────────────────────────────────
+# Allows `from codeverify_core import SomeClass` to work without
+# eagerly importing all 184 modules. Submodules can be imported
+# directly (e.g., `from codeverify_core.runtime_bridge import ...`)
+# for faster startup when only a subset is needed.
+
+_LAZY_MODULE_MAP: dict[str, str] = {
+    # v1.3.0
+    "MarketplaceService": "marketplace_listing",
+    "StreamingIDEVerificationService": "streaming_ide",
+    "GraphQLInsightsService": "graphql_insights",
+    "AutofixVerifiedService": "autofix_verified_patches",
+    "OrgSecurityPostureService": "org_posture",
+    "CopilotExtensionService": "copilot_chat_agent",
+    "HostedSaaSService": "hosted_saas",
+    "ProofArtifactMarketplaceService": "proof_artifact_marketplace",
+    "ComplianceAsCodeService": "compliance_engine",
+    "PerformanceCostDashboardService": "perf_cost_dashboard",
+    # v1.4.0
+    "AgenticReviewOrchestrator": "agentic_orchestrator",
+    "VerificationAwareCodeGenService": "verified_codegen_loop",
+    "FederatedVerificationService": "federated_verification",
+    "LiveVerificationDebuggerService": "live_debugger",
+    "DriftMonitorService": "drift_monitor",
+    "SpecFirstService": "spec_first",
+    "PolyglotBridgeService": "polyglot_bridge",
+    "OrgLearningService": "org_learning",
+    "CostOptimizerService": "smart_router",
+    "EmbeddableWidgetService": "embed_widget",
+    # v1.5.0
+    "RuntimeVerificationBridgeService": "runtime_bridge",
+    "VerificationGuidedFuzzingService": "guided_fuzzing",
+    "IntentPreservingRefactoringService": "intent_refactoring",
+    "ContextWindowVerificationService": "context_window_verify",
+    "VerificationReplayService": "verification_replay_regression",
+    "NLProofExplanationService": "nl_proof_explanation",
+    "ReviewAssignmentService": "review_assignments",
+    "InvariantPropagationService": "invariant_propagation",
+    "ProofBasedDocService": "proof_docs",
+    "GamifiedTrainingService": "gamified_training",
+    # v1.6.0
+    "AgentMarketplaceService": "agent_marketplace",
+    "VerificationTelemetryService": "verification_telemetry",
+    "VerificationProtocolServer": "verification_protocol",
+    "DefectHeatmapService": "defect_heatmap",
+    "SelfHealingService": "self_healing",
+    "VerificationCICDService": "verification_cicd",
+    "CodeEvolutionService": "evolution_timeline",
+    "VerificationCreditService": "credit_system",
+    "MultiModalVerificationService": "multimodal_verify",
+    "VerificationSearchService": "verification_search",
+}
+
+
+def __getattr__(name: str):
+    """Lazy import fallback for symbols not yet loaded."""
+    if name in _LAZY_MODULE_MAP:
+        import importlib
+        module = importlib.import_module(f"codeverify_core.{_LAZY_MODULE_MAP[name]}")
+        return getattr(module, name)
+    raise AttributeError(f"module 'codeverify_core' has no attribute {name!r}")
+
+
 __all__ = [
+    # Version
+    "__version__",
     # Models
     "Analysis",
     "AnalysisStatus",
@@ -3269,4 +3887,417 @@ __all__ = [
     "ModuleStatus",
     "get_certification_program",
     "reset_certification_program",
+    # GitHub Marketplace & One-Click Install (v1.3.0)
+    "ConfigAutoGenerator",
+    "Installation",
+    "InstallationEvent",
+    "InstallationStatus",
+    "MarketplaceListing",
+    "MarketplacePlan",
+    "MarketplaceService",
+    "OnboardingConfig",
+    "OnboardingPhase",
+    "PlanLimits",
+    "UsageMetric",
+    "UsageRecord",
+    "get_marketplace_service",
+    "reset_marketplace_service",
+    # Streaming IDE Verification (v1.3.0)
+    "BlockDiagnostic",
+    "BlockVerificationResult",
+    "CodeBlock",
+    "CodeBlockParser",
+    "DiagnosticSeverity",
+    "FileVerificationResult",
+    "IncrementalVerificationCache",
+    "StreamingIDEVerificationService",
+    "StreamingSession",
+    "StreamingVerifier",
+    "VerificationCacheEntry",
+    "VerificationTrigger",
+    "get_streaming_ide_service",
+    "reset_streaming_ide_service",
+    # Verification Insights API — GraphQL (v1.3.0)
+    "ApiKeyScope",
+    "GraphQLApiKey",
+    "GraphQLInsightsService",
+    "GraphQLQuery",
+    "GraphQLResponse",
+    "PageInfo",
+    "QueryAnalyzer",
+    "QueryType",
+    "RateLimitConfig",
+    "RateLimitState",
+    "RateLimitTier",
+    "RateLimiter",
+    "WebhookDelivery",
+    "WebhookEvent",
+    "WebhookSubscription",
+    "get_graphql_insights_service",
+    "reset_graphql_insights_service",
+    # AI Autofix with Verified Patches (v1.3.0)
+    "AutofixFindingCategory",
+    "AutofixVerifiedService",
+    "BatchFixResult",
+    "FixCandidate",
+    "FixConfidence",
+    "FixStatus",
+    "FixStrategy",
+    "FixTemplateEngine",
+    "FixVerificationResult",
+    "FixVerifier",
+    "FixableFinding",
+    "PRSuggestion",
+    "SafetyGuardrails",
+    "get_autofix_verified_service",
+    "reset_autofix_verified_service",
+    # Organization Security Posture Score (v1.3.0)
+    "AlertSeverity",
+    "DORAMetricLevel",
+    "DORAMetrics",
+    "ExecutiveDigest",
+    "HeatmapEntry",
+    "OrgSecurityPostureService",
+    "PostureAlert",
+    "PostureCalculator",
+    "PostureRiskLevel",
+    "PostureScore",
+    "PostureTrend",
+    "RepositoryMetrics",
+    "TrendDetector",
+    "get_org_posture_service",
+    "reset_org_posture_service",
+    # Copilot Extension — Chat + Agent (v1.3.0)
+    "AgentMode",
+    "ChatContext",
+    "ChatMessage",
+    "ChatResponse",
+    "ChatSession",
+    "CodeAction",
+    "CommandHandler",
+    "CommandRouter",
+    "CopilotCommand",
+    "CopilotExtensionService",
+    "CopilotSessionState",
+    "ResponseType",
+    "get_copilot_extension_service",
+    "reset_copilot_extension_service",
+    # Multi-Tenant Hosted SaaS Platform (v1.3.0)
+    "BillingCycle",
+    "BillingEngine",
+    "FeatureFlag",
+    "FeatureGate",
+    "HostedSaaSService",
+    "Invoice",
+    "PaymentStatus",
+    "PlanConfig",
+    "SaaSPlan",
+    "SaaSUsageMeter",
+    "Tenant",
+    "TenantProvisioner",
+    "TenantStatus",
+    "get_hosted_saas_service",
+    "reset_hosted_saas_service",
+    # Proof Artifact Marketplace (v1.3.0)
+    "ArtifactStatus",
+    "ProofAnonymizer",
+    "ProofArtifact",
+    "ProofArtifactMarketplaceService",
+    "ProofCategory",
+    "ProofLanguage",
+    "ProofMarketplaceStats",
+    "ProofMatcher",
+    "ProofTemplate",
+    "SearchResult",
+    "get_proof_marketplace_service",
+    "reset_proof_marketplace_service",
+    # Compliance-as-Code Engine (v1.3.0)
+    "CheckResult",
+    "CheckStatus",
+    "CodebaseScanner",
+    "ComplianceAsCodeService",
+    "ComplianceCheck",
+    "ComplianceCheckLibrary",
+    "ComplianceFramework",
+    "ComplianceReport",
+    "Evidence",
+    "EvidenceStrength",
+    "NLQueryParser",
+    "NLQueryResult",
+    "QueryIntent",
+    "get_compliance_engine",
+    "reset_compliance_engine",
+    # Performance & Cost Dashboard (v1.3.0)
+    "BudgetAlert",
+    "BudgetConfig",
+    "CostAlertLevel",
+    "CostCalculator",
+    "CostCategory",
+    "CostDashboardData",
+    "ModelProvider",
+    "OptimizationEngine",
+    "OptimizationRecommendation",
+    "OptimizationType",
+    "PerformanceCostDashboardService",
+    "ROIMetrics",
+    "ReviewCost",
+    "SolverMetric",
+    "TokenUsageRecord",
+    "get_cost_dashboard_service",
+    "reset_cost_dashboard_service",
+    # Agentic Review Orchestrator (v1.4.0)
+    "AgenticReviewOrchestrator",
+    "AgentFinding",
+    "AgentTaskPriority",
+    "AgentTaskType",
+    "CircuitBreaker",
+    "CircuitBreakerState",
+    "CircuitState",
+    "ConflictResolution",
+    "ConflictResolver",
+    "ConflictStrategy",
+    "OrchestratorResult",
+    "PlannerAgent",
+    "PRContext",
+    "ReviewPlan",
+    "SubAgentExecutor",
+    "TaskResult",
+    "TaskStatus",
+    "VerificationTask",
+    "get_agentic_orchestrator",
+    "reset_agentic_orchestrator",
+    # Verification-Aware Code Generation (v1.4.0)
+    "CodegenConstraintType",
+    "CodegenFixCandidate",
+    "ConstraintTranslator",
+    "Counterexample",
+    "DerivedConstraint",
+    "FixAttemptStatus",
+    "FixGenerator",
+    "FixVerifier",
+    "GenerationResult",
+    "ProofCertificate",
+    "ProofStrength",
+    "VerificationAwareCodeGenService",
+    "get_verified_codegen_service",
+    "reset_verified_codegen_service",
+    # Privacy-Preserving Federated Verification (v1.4.0)
+    "AggregatedPattern",
+    "AggregationStatus",
+    "AuditLogEntry",
+    "ContributionAuthenticator",
+    "FederatedAggregator",
+    "FederatedRound",
+    "FederatedVerificationService",
+    "InputValidator",
+    "LaplaceMechanism",
+    "LocalPattern",
+    "NoiseCalibrator",
+    "OrgContribution",
+    "PatternExtractor",
+    "PatternType",
+    "PrivacyBudget",
+    "PrivacyConfig",
+    "PrivacyLevel",
+    "get_federated_verification_service",
+    "reset_federated_verification_service",
+    # Live Verification Debugger (v1.4.0)
+    "DebugExportFormat",
+    "DebugSession",
+    "LiveVerificationDebuggerService",
+    "NodeStatus",
+    "ProofExporter",
+    "ProofNode",
+    "ProofStep",
+    "ProofSummary",
+    "ProofTreeBuilder",
+    "StepAction",
+    "StepGenerator",
+    "get_live_debugger_service",
+    "reset_live_debugger_service",
+    # AI Drift & Regression Monitor (v1.4.0)
+    "BehavioralFingerprint",
+    "DriftAlert",
+    "DriftDetector",
+    "DriftMonitorService",
+    "DriftReport",
+    "DriftSeverity",
+    "DriftType",
+    "FingerprintExtractor",
+    "InvariantMonitor",
+    "MonitorStatus",
+    "VerifiedInvariant",
+    "get_drift_monitor_service",
+    "reset_drift_monitor_service",
+    # Spec-First Development Workflow (v1.4.0)
+    "GeneratedSpec",
+    "SpecAutoGenerator",
+    "SpecCompilationResult",
+    "SpecCompiler",
+    "SpecCoverage",
+    "SpecFile",
+    "SpecFirstService",
+    "SpecParser",
+    "SpecStatus",
+    "SpecType",
+    "SpecVerificationResult",
+    "SpecVerifier",
+    "Specification",
+    "get_spec_first_service",
+    "reset_spec_first_service",
+    # Multi-Language Polyglot Bridge (v1.4.0)
+    "BridgeLanguage",
+    "BridgeReport",
+    "ContractElement",
+    "ContractElementType",
+    "ContractExtractor",
+    "ContractMismatch",
+    "MismatchSeverity",
+    "PolyglotBridgeService",
+    "ServiceContract",
+    "ServiceNode",
+    "TypeChecker",
+    "TypeCompatibility",
+    "get_polyglot_bridge_service",
+    "reset_polyglot_bridge_service",
+    # Organizational Learning Engine (v1.4.0)
+    "FPClassifier",
+    "LearningFeedbackType",
+    "LearningFindingFeedback",
+    "OrgLearningProfile",
+    "OrgLearningService",
+    "PredictionOutcome",
+    "QualityPrediction",
+    "QualityPredictor",
+    "RulePerformance",
+    "SeverityCalibration",
+    "SeverityCalibrator",
+    "get_org_learning_service",
+    "reset_org_learning_service",
+    # Verification Cost Optimizer — Smart Router (v1.4.0)
+    "CostOptimizerService",
+    "DepthConfig",
+    "DepthRouter",
+    "FileRiskScore",
+    "RiskBucket",
+    "RiskScorer",
+    "RoutingDecision",
+    "RoutingStats",
+    "VerificationDepth",
+    "get_cost_optimizer_service",
+    "reset_cost_optimizer_service",
+    # Embeddable Verification Widget (v1.4.0)
+    "BadgeData",
+    "BadgeRenderer",
+    "BadgeStatus",
+    "EmbedCodeGenerator",
+    "EmbedFormat",
+    "EmbeddableWidgetService",
+    "FindingSummaryData",
+    "TrustScoreData",
+    "WidgetConfig",
+    "WidgetRenderResult",
+    "WidgetTheme",
+    "WidgetType",
+    "get_widget_service",
+    "reset_widget_service",
+    # Runtime Verification Bridge (v1.5.0)
+    "AssertionLanguage", "AssertionTranslator", "BridgeStats",
+    "FeedbackEffect", "FeedbackEngine", "FeedbackRecord",
+    "InstrumentationConfig", "RuntimeAssertion",
+    "RuntimeVerificationBridgeService", "RuntimeViolation",
+    "ViolationCollector", "ViolationSeverity",
+    "get_runtime_bridge_service", "reset_runtime_bridge_service",
+    # Verification-Guided Fuzzing (v1.5.0)
+    "FuzzCampaign", "FuzzConfig", "FuzzExecution", "FuzzExecutor",
+    "FuzzInput", "FuzzResult", "FuzzTestCase", "InputGenerator",
+    "InputType", "TestCodeGenerator", "VerificationGuidedFuzzingService",
+    "get_guided_fuzzing_service", "reset_guided_fuzzing_service",
+    # Intent-Preserving Refactoring (v1.5.0)
+    "BehavioralContract", "EquivalenceChecker", "EquivalenceProof",
+    "EquivalenceResult", "IntentPreservingRefactoringService",
+    "RefactoringContractExtractor", "RefactoringType", "RefactoringVerification",
+    "get_intent_refactoring_service", "reset_intent_refactoring_service",
+    # Context-Window Verification (v1.5.0)
+    "ConsistencyChecker", "ConsistencyIssue", "ConsistencyIssueType",
+    "ContextOptimizationResult", "ContextOptimizer", "ContextQuality",
+    "ContextSnippet", "ContextWindow", "ContextWindowVerificationService",
+    "TruncationDetector",
+    "get_context_window_service", "reset_context_window_service",
+    # Verification Replay & Regression (v1.5.0)
+    "RecordedSession", "RegressionTrend", "ReplayComparison",
+    "ReplayEngine", "ReplayReport", "ReplayResult",
+    "SessionRecorder", "SessionStatus", "VerificationReplayService",
+    "VerificationSnapshot",
+    "get_verification_replay_service", "reset_verification_replay_service",
+    # Natural Language Proof Explanation (v1.5.0)
+    "DetailLevel", "ExplanationContext", "ExplanationGenerator",
+    "ExplanationType", "NLProofExplanationService", "ProofExplanation",
+    "get_nl_explanation_service", "reset_nl_explanation_service",
+    # Verification-Aware Review Assignments (v1.5.0)
+    "AssignmentStats", "ExpertiseArea", "PRRiskLevel", "PRRiskProfile",
+    "ReviewAssignment", "ReviewAssignmentService", "ReviewerMatcher",
+    "ReviewerProfile", "RiskClassifier",
+    "get_review_assignment_service", "reset_review_assignment_service",
+    # Multi-Repository Invariant Propagation (v1.5.0)
+    "GovernanceSummary", "InvariantPropagationService", "InvariantRegistry",
+    "InvariantScope", "PropagationEngine", "PropagationReport",
+    "PropagationResult", "PropagationStatus", "RegisteredInvariant",
+    "get_invariant_propagation_service", "reset_invariant_propagation_service",
+    # Proof-Based Documentation Generation (v1.5.0)
+    "DocFormat", "DocRenderer", "DocSection", "FreshnessStatus",
+    "GeneratedDoc", "ProofBasedDocService", "PropertyExtractor",
+    "VerifiedProperty",
+    "get_proof_docs_service", "reset_proof_docs_service",
+    # Gamified Developer Security Training (v1.5.0)
+    "ChallengeStatus", "CurriculumGenerator", "DeveloperProgress",
+    "FixChallenge", "GamifiedTrainingService", "SkillLevel",
+    "TeamLeaderboard", "TrainingBadgeType", "TrainingLesson", "WeaknessArea",
+    "get_gamified_training_service", "reset_gamified_training_service",
+    # AI Agent Marketplace (v1.6.0)
+    "AgentInstallation", "AgentManifest", "AgentMarketplaceService",
+    "AgentReview", "MktAgentCategory", "MktPricingModel",
+    "PublishedAgent", "PublishStatus", "RevenueShare",
+    "get_agent_marketplace_service", "reset_agent_marketplace_service",
+    # Verification Telemetry & Benchmarking (v1.6.0)
+    "BenchmarkResult", "BenchmarkTier", "MetricType", "OrgTelemetry",
+    "QuarterlyReport", "TelemetryAggregator", "VerificationTelemetryService",
+    "get_telemetry_benchmark_service", "reset_telemetry_benchmark_service",
+    # LLM Output Verification Protocol (v1.6.0)
+    "ProtocolCapabilities", "ProtocolCheckType", "ProtocolFinding",
+    "ProtocolMessageType", "ProofCert", "VerificationProtocolServer",
+    "VerifyRequest", "VerifyResponse", "VerifyStatus",
+    "get_verification_protocol_server", "reset_verification_protocol_server",
+    # Predictive Defect Heatmap (v1.6.0)
+    "DefectHeatmapService", "DefectPredictor", "FileHistory",
+    "HeatmapData", "HeatmapLevel", "PredictionResult", "RiskTrend", "TicketSuggestion",
+    "get_defect_heatmap_service", "reset_defect_heatmap_service",
+    # Self-Healing Codebase Agent (v1.6.0)
+    "Diagnosis", "DiagnosisType", "HealingAction", "HealingAutonomyLevel",
+    "HealingConfig", "HealingStatus", "IncidentDiagnoser",
+    "RuntimeIncident", "SelfHealingService",
+    "get_self_healing_service", "reset_self_healing_service",
+    # Verification-Native CI/CD (v1.6.0)
+    "DeployStrategy", "GatePolicy", "PipelineExecutor", "PipelineParser",
+    "PipelineStage", "PipelineStatus", "ProofGate", "StageType",
+    "VerificationCICDService", "VerifyPipeline", "VerifyYml",
+    "get_verification_cicd_service", "reset_verification_cicd_service",
+    # Code Evolution Timeline (v1.6.0)
+    "CodeEvolutionService", "EvolutionEvent", "EvolutionEventType",
+    "FunctionTimeline", "RepositoryEvolution", "TimelineBuilder", "TimelineRenderer",
+    "get_code_evolution_service", "reset_code_evolution_service",
+    # Verification Credit System (v1.6.0)
+    "CreditLeaderboardEntry", "CreditRule", "CreditSource", "CreditTransaction",
+    "OrgCredits", "RedemptionType", "VerificationCreditService",
+    "get_credit_service", "reset_credit_service",
+    # Multi-Modal Verification (v1.6.0)
+    "APIContractVerifier", "ConfigVerifier", "MigrationVerifier",
+    "ModalFinding", "ModalSeverity", "ModalType", "ModalVerificationResult",
+    "MultiModalVerificationService", "TerraformVerifier",
+    "get_multimodal_service", "reset_multimodal_service",
+    # Verification-Aware Code Search (v1.6.0)
+    "CodeEntity", "SearchField", "SearchHit", "SearchIndex",
+    "SearchQuery", "SearchQueryParser", "SearchResults",
+    "SearchVerificationStatus", "VerificationSearchService",
+    "get_verification_search_service", "reset_verification_search_service",
 ]
