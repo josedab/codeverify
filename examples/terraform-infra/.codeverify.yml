@@ -1,0 +1,12 @@
+version: "1"
+
+languages: []
+
+verification:
+  enabled: true
+
+ai:
+  enabled: true
+  security: true
+
+# Multi-modal: verifies Terraform, not source code

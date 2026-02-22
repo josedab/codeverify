@@ -1,0 +1,16 @@
+version: "1"
+
+languages:
+  - go
+
+verification:
+  enabled: true
+  checks:
+    - null_safety
+    - array_bounds
+    - division_by_zero
+
+ai:
+  enabled: true
+  semantic: true
+  security: true
