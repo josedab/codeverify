@@ -1,0 +1,278 @@
+# CodeVerify Hosted Free Tier — Production Configuration
+#
+# Kubernetes deployment for the hosted SaaS platform.
+# Provides Free (50 verifications/month), Pro ($49), Enterprise ($199) tiers.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: codeverify-production
+
+---
+# PostgreSQL (managed — use RDS/CloudSQL in production)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: codeverify-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: codeverify
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: codeverify-secrets
+                  key: db-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: codeverify-secrets
+                  key: db-password
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+
+---
+# Redis
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: codeverify-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+# API Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: codeverify-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: codeverify/api:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: codeverify-secrets
+                  key: database-url
+            - name: REDIS_URL
+              value: redis://redis:6379/0
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: codeverify-secrets
+                  key: jwt-secret
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: codeverify-secrets
+                  key: stripe-secret
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+---
+# Worker
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: codeverify-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: codeverify/worker:latest
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: codeverify-secrets
+                  key: database-url
+            - name: REDIS_URL
+              value: redis://redis:6379/0
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: codeverify-secrets
+                  key: openai-key
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: codeverify-secrets
+                  key: anthropic-key
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1000m"
+            limits:
+              memory: "4Gi"
+              cpu: "4000m"
+
+---
+# HPA for API
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: codeverify-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+---
+# HPA for Worker
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-hpa
+  namespace: codeverify-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: codeverify-ingress
+  namespace: codeverify-production
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit-connections: "20"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.codeverify.dev
+        - codeverify.dev
+      secretName: codeverify-tls
+  rules:
+    - host: api.codeverify.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8000
+    - host: codeverify.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 3000
