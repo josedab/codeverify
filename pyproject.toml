@@ -37,7 +37,6 @@ dependencies = [
     "pytest-cov>=4.1",
     "ruff>=0.2",
     "mypy>=1.8",
-    "black>=24.0",
 ]
 
 [tool.ruff]
@@ -73,6 +72,4 @@ asyncio_mode = "auto"
 testpaths = ["tests", "apps/*/tests", "packages/*/tests"]
 addopts = "-v --tb=short"
 
-[tool.black]
-line-length = 100
-target-version = ["py311"]
+

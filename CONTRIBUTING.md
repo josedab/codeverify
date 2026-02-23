@@ -151,7 +151,7 @@ class TestFeatureName:
 - Follow [PEP 8](https://pep8.org/)
 - Use type hints for all functions
 - Use `ruff` for linting: `ruff check .`
-- Use `black` for formatting: `black .`
+- Use `ruff` for formatting: `ruff format .`
 
 ```python
 from typing import Optional
