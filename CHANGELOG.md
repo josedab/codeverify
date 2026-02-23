@@ -5,6 +5,310 @@ All notable changes to CodeVerify will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+_No unreleased changes._
+
+## [1.6.0] - 2026-02-22
+
+### Added
+
+#### Next-Generation Features (v1.6.0)
+
+- **AI Agent Marketplace**: Third-party agent publishing platform with review, install, revenue sharing
+- **Verification Telemetry & Benchmarking**: Anonymized cross-org benchmarking with quarterly reports
+- **LLM Output Verification Protocol**: Standardized protocol for any AI assistant to verify code
+- **Predictive Defect Heatmap**: ML model predicting defect-prone files with Jira/Linear ticket suggestions
+- **Self-Healing Codebase Agent**: Autonomous monitor→diagnose→fix→verify→PR pipeline
+- **Verification-Native CI/CD**: .verify.yml pipeline DSL with proof-based gates and auto-rollback
+- **Code Evolution Timeline**: Function behavioral contract evolution visualization with Mermaid
+- **Verification Credit System**: Org-level gamification with credits, redemption, leaderboard
+- **Multi-Modal Verification**: IaC (Terraform), DB migrations, API contracts, config file verification
+- **Verification-Aware Code Search**: Semantic search by verification status, trust score, proof coverage
+
+#### Testing
+
+- Added 32 comprehensive tests covering all 10 v1.6.0 features
+- Total test count: 1739 passed, 7 skipped
+
+#### New Modules
+
+- `codeverify_core.agent_marketplace` - AI agent marketplace
+- `codeverify_core.verification_telemetry` - Telemetry and benchmarking
+- `codeverify_core.verification_protocol` - LLM verification protocol
+- `codeverify_core.defect_heatmap` - Predictive defect heatmap
+- `codeverify_core.self_healing` - Self-healing codebase agent
+- `codeverify_core.verification_cicd` - Verification-native CI/CD
+- `codeverify_core.evolution_timeline` - Code evolution timeline
+- `codeverify_core.credit_system` - Verification credit system
+- `codeverify_core.multimodal_verify` - Multi-modal verification
+- `codeverify_core.verification_search` - Verification-aware code search
+
+## [1.5.0] - 2026-02-22
+
+### Added
+
+#### Next-Generation Features (v1.5.0)
+
+- **Runtime Verification Bridge**: Static→runtime verification loop
+  - Z3 constraint to runtime assertion translation (Python, TypeScript, Go)
+  - Runtime violation capture with execution context serialization
+  - Feedback loop: confirmed violations boost confidence, non-violations reduce FPs
+  - Performance-aware instrumentation with sampling and decorator generation
+
+- **Verification-Guided Fuzzing**: Counterexample-driven property testing
+  - Z3 counterexample to test input translation with type classification
+  - Input mutation generation for broader coverage
+  - Execution classification: confirmed_bug, false_positive, inconclusive
+  - Pytest test code generation from counterexamples
+
+- **Intent-Preserving Refactoring**: Behavioral equivalence proofs
+  - Pre/post-refactoring contract extraction (parameters, return types, exceptions)
+  - Z3 equivalence proof generation across refactoring types
+  - Safety scoring with divergent property detection
+
+- **Context-Window Verification**: LLM analysis quality assurance
+  - Context consistency checking (type conflicts, duplicate definitions, truncation)
+  - Optimal snippet selection within token budgets
+  - Truncation detection with quality scoring
+
+- **Verification Replay & Regression**: Proof-based regression testing
+  - Session recording with content-addressed snapshots
+  - Replay engine detecting regressions in previously-proven properties
+  - Trend tracking for proof regression rates over time
+
+- **Natural Language Proof Explanation**: Human-readable Z3 explanations
+  - Template-based counterexample narratives (brief/standard/detailed)
+  - Proof success summarization
+  - PR comment generation with Markdown formatting and caching
+
+- **Verification-Aware Review Assignments**: Intelligent reviewer routing
+  - PR risk classification from verification findings
+  - Reviewer-expertise matching (security→AppSec, types→TS expert)
+  - Load balancing with configurable caps
+
+- **Multi-Repository Invariant Propagation**: Cross-repo guarantees
+  - Central invariant registry with scope (repo/org/global)
+  - Propagation engine checking invariants across dependent repos
+  - Governance dashboard with compliance rates and violation tracking
+
+- **Proof-Based Documentation Generation**: Verified API docs
+  - Property extraction from code and specs with proof references
+  - Multiple output formats (Markdown, HTML, OpenAPI)
+  - Freshness tracking detecting stale documentation
+
+- **Gamified Developer Security Training**: Learn from real findings
+  - Personalized curriculum from individual finding history
+  - Interactive fix-it challenges using real vulnerability patterns
+  - Progress tracking, streak counting, badge earning
+  - Team leaderboard with skill level progression
+
+#### Testing
+
+- Added 43 comprehensive tests covering all 10 v1.5.0 features
+- Total test count: 1682 passed, 7 skipped
+
+#### New Modules
+
+- `codeverify_core.runtime_bridge` - Runtime verification bridge
+- `codeverify_core.guided_fuzzing` - Verification-guided fuzzing
+- `codeverify_core.intent_refactoring` - Intent-preserving refactoring
+- `codeverify_core.context_window_verify` - Context-window verification
+- `codeverify_core.verification_replay_regression` - Verification replay
+- `codeverify_core.nl_proof_explanation` - NL proof explanation
+- `codeverify_core.review_assignments` - Review assignments
+- `codeverify_core.invariant_propagation` - Invariant propagation
+- `codeverify_core.proof_docs` - Proof-based documentation
+- `codeverify_core.gamified_training` - Gamified training
+
+## [1.4.0] - 2026-02-22
+
+### Added
+
+#### Next-Generation Features (v1.4.0)
+
+- **Agentic Review Orchestrator**: Autonomous agent pipeline
+  - Planner agent decomposes PRs into typed verification tasks
+  - Parallel dispatch of specialized sub-agents with timeout handling
+  - Conflict resolution across agent findings via confidence-weighted voting
+  - Circuit breaker pattern for agent reliability
+  - Budget-aware task planning and cost estimation
+
+- **Verification-Aware Code Generation**: Provably correct autofix
+  - Counterexample-to-constraint translation for LLM prompting
+  - Iterative generate→verify loop with Z3 proof certificates
+  - Multi-candidate generation with parallel verification
+  - Fallback to template fixes when loop exhausts iterations
+  - Cost tracking per fix attempt
+
+- **Privacy-Preserving Federated Verification**: Cross-org learning
+  - Differential privacy with Laplace noise and epsilon budget tracking
+  - Federated aggregation of verification patterns across organizations
+  - k-anonymity enforcement (minimum org count per pattern)
+  - Privacy level presets (strict/moderate/relaxed)
+  - Pattern adoption tracking and contribution metrics
+
+- **Live Verification Debugger**: Interactive proof exploration
+  - Proof tree construction from Z3 constraint sets
+  - Step-through constraint propagation with variable tracking
+  - Variable override and re-evaluation
+  - Export to Mermaid, HTML, DOT, JSON formats
+  - Shareable proof URLs with permalink support
+
+- **AI Drift & Regression Monitor**: Behavioral change detection
+  - Behavioral fingerprinting per function (signature, content, calls, raises)
+  - Drift detection on push via fingerprint comparison
+  - Invariant monitoring for previously-verified properties
+  - Signature, behavior, and exception change classification
+  - Historical drift timeline with acknowledgment
+
+- **Spec-First Development Workflow**: NL specifications → Z3 assertions
+  - .spec.cv file format with @requires, @ensures, @invariant, @assert
+  - NL→Z3 compilation (10+ pattern templates)
+  - Automatic verification of code against declared specs
+  - Spec auto-generation from type hints and docstrings
+  - Spec coverage metrics per file/function
+
+- **Multi-Language Polyglot Bridge**: Cross-language contract verification
+  - Contract extraction from Python, TypeScript, Go, Java, Rust
+  - Cross-language type compatibility checking with equivalence tables
+  - Parameter, return type, and error contract comparison
+  - Service boundary dependency graph generation
+  - Type mismatch detection with severity classification
+
+- **Organizational Learning Engine**: ML-powered false positive reduction
+  - Feedback collection (accept/dismiss/false-positive/helpful)
+  - Sigmoid-based false positive classifier with feature weights
+  - Severity calibration from historical feedback patterns
+  - Per-org noisy rule detection and auto-suppression
+  - Predictive quality scoring for code changes
+
+- **Verification Cost Optimizer (Smart Router)**: Budget-aware routing
+  - Per-file risk scoring from change size, file criticality, author history
+  - Multi-tier depth routing: pattern→static→AI→formal
+  - Budget constraint enforcement with priority-based allocation
+  - Savings estimation vs full-depth verification
+  - Routing statistics and usage tracking
+
+- **Embeddable Verification Widget**: Cross-platform visibility
+  - SVG and HTML badge rendering with status colors
+  - Trust score and finding summary widget types
+  - Embed code generation: iframe, React, Web Component, Markdown
+  - Widget data API with JSON responses
+  - Configurable themes (light/dark/auto)
+
+#### Testing
+
+- Added 55 comprehensive tests covering all 10 v1.4.0 features
+- Total test count: 1628 passed, 7 skipped
+
+#### New Modules
+
+- `codeverify_core.agentic_orchestrator` - Agentic review pipeline
+- `codeverify_core.verified_codegen_loop` - Verification-aware code generation
+- `codeverify_core.federated_verification` - Federated learning with privacy
+- `codeverify_core.live_debugger` - Interactive proof debugger
+- `codeverify_core.drift_monitor` - Behavioral drift detection
+- `codeverify_core.spec_first` - Spec-first development workflow
+- `codeverify_core.polyglot_bridge` - Cross-language contract verification
+- `codeverify_core.org_learning` - Organizational learning engine
+- `codeverify_core.smart_router` - Verification cost optimizer
+- `codeverify_core.embed_widget` - Embeddable verification widget
+
+## [1.3.0] - 2026-02-22
+
+### Added
+
+#### Next-Generation Features (v1.3.0)
+
+- **GitHub Marketplace & One-Click Install**: Seamless marketplace onboarding
+  - GitHub Marketplace listing metadata and pricing tiers (Free/Pro/Team/Enterprise)
+  - One-click install flow with automatic `.codeverify.yml` generation
+  - GitHub Actions workflow template generation
+  - Free-tier usage metering and enforcement
+  - Installation analytics and lifecycle management
+
+- **Streaming IDE Verification**: Real-time verification as you type
+  - Incremental function-level verification on file save
+  - Content-addressed verification caching for sub-second responses
+  - Inline proof status reporting (verified/warning/error per block)
+  - Multi-file dependency tracking and transitive invalidation
+  - Verification session management with debouncing
+
+- **Verification Insights API (GraphQL)**: Public API for verification data
+  - GraphQL schema for analyses, findings, trust scores, proofs, trends
+  - Scoped API key management (read, write, admin, webhooks)
+  - Tiered rate limiting (Free/Standard/Premium/Unlimited)
+  - Webhook subscriptions for verification events
+  - Query complexity analysis and depth limiting
+
+- **AI Autofix with Verified Patches**: Auto-generate and verify fixes
+  - Template-based and heuristic fix generation for common categories
+  - Verification loop: generate → verify with Z3 → rank by confidence
+  - One-click PR suggestion generation with confidence scoring
+  - Batch fix mode for scan results
+  - Safety guardrails (max diff lines, min confidence, allowed categories)
+
+- **Organization Security Posture Score**: Org-wide health scoring
+  - Composite posture score (0-100) from coverage, findings, fix rate, compliance
+  - DORA metrics integration (deployment freq, lead time, MTTR, change failure rate)
+  - Repository risk heatmap with weighted scoring
+  - Trend detection (improving/stable/declining)
+  - Executive digest generation with recommendations
+
+- **Copilot Extension (Chat + Agent)**: Native Copilot Chat integration
+  - Command routing: /verify, /explain, /fix, /trust-score, /scan, /help
+  - Context-aware responses using IDE selection and file info
+  - Multi-turn session management with conversation history
+  - Code action generation for one-click fixes
+  - Agent modes: passive, proactive, guardian
+
+- **Multi-Tenant Hosted SaaS Platform**: Managed service with billing
+  - Tenant provisioning with lifecycle management (provision/suspend/reactivate)
+  - Plan management (Free/$0, Pro/$49, Enterprise/$199) with feature gates
+  - Stripe-compatible billing with usage metering and overage charges
+  - Invoice generation and payment tracking
+  - Feature flags: SSO, audit log, custom models gated by plan
+
+- **Proof Artifact Marketplace**: Community proof sharing
+  - Proof artifact submission with metadata and categorization
+  - Privacy-preserving anonymization pipeline (email/URL/path stripping)
+  - Search by category, language, tags, and content
+  - Community voting and quality scoring
+  - Automatic proof reuse via content matching
+
+- **Compliance-as-Code Engine**: NL compliance queries
+  - Natural language compliance query parsing with intent classification
+  - 10+ pre-built compliance checks (SOC2, HIPAA, PCI-DSS, GDPR, EU AI Act)
+  - Automated evidence collection from codebase scanning
+  - Gap analysis with remediation recommendations
+  - Auditor-ready compliance report generation
+
+- **Performance & Cost Dashboard**: Cost visibility and optimization
+  - LLM token usage tracking per model and operation
+  - Z3 solver time and resource metrics
+  - Cost per review calculation with ROI metrics
+  - Budget alerts with configurable thresholds (warning/critical)
+  - Optimization recommendations (model downgrades, caching, batching)
+
+#### Testing
+
+- Added 59 comprehensive tests covering all 10 v1.3.0 features
+- Total test count: 1573 passed, 7 skipped
+
+#### New Modules
+
+- `codeverify_core.marketplace_listing` - GitHub Marketplace integration
+- `codeverify_core.streaming_ide` - Streaming IDE verification
+- `codeverify_core.graphql_insights` - GraphQL Insights API
+- `codeverify_core.autofix_verified_patches` - Verified autofix pipeline
+- `codeverify_core.org_posture` - Organization security posture
+- `codeverify_core.copilot_chat_agent` - Copilot Chat extension
+- `codeverify_core.hosted_saas` - Hosted SaaS platform
+- `codeverify_core.proof_artifact_marketplace` - Proof marketplace
+- `codeverify_core.compliance_engine` - Compliance-as-Code engine
+- `codeverify_core.perf_cost_dashboard` - Performance & cost dashboard
+
 ## [1.2.0] - 2026-02-15
 
 ### Added
@@ -513,110 +817,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Division by zero prevention
 - Security vulnerability scanning
 - Code quality analysis
-
----
-
-## [Unreleased]
-
-### Added
-
-#### Next-Gen Features (v0.3.0)
-
-- **AI Pair Reviewer**: Real-time code review as developers type
-  - Sub-function granularity analysis with streaming feedback
-  - Smart throttling (verify on pause, not keystroke)
-  - Learning from user corrections to reduce false positives
-  - VS Code integration with CodeLens and inline diagnostics
-  - `PairReviewerAgent` in ai-agents package
-  - `pairReviewerProvider.ts` for VS Code extension
-  - New commands: `togglePairReviewer`, `reviewUnit`, `applyFixes`
-
-- **Verification Memory Graph**: Persistent knowledge graph of verified code
-  - Proof artifact serialization and storage
-  - Knowledge graph with nodes for proofs, patterns, functions
-  - Cross-project learning for proof reuse
-  - Pattern similarity matching for proof suggestions
-  - Privacy-preserving organization-level proof aggregation
-  - `memory_graph.py` in core package with `VerificationKnowledgeGraph`
-
-- **Formal Specification Generator**: LLM-powered auto-generation of specs
-  - Pre/post condition inference from code + documentation
-  - Loop and class invariant detection
-  - Z3 validation with counterexample feedback
-  - Interactive refinement based on validation failures
-  - Specification coverage metrics
-  - `SpecificationGeneratorAgent` in ai-agents package
-
-- **Security Threat Modeling Agent**: AI-powered threat model generation
-  - STRIDE threat categorization (Spoofing, Tampering, etc.)
-  - OWASP Top 10 2021 mapping
-  - Attack surface identification and risk scoring
-  - Data flow diagram generation
-  - `ThreatModelingAgent` in ai-agents package
-
-- **Regression Oracle**: ML-powered bug prediction
-  - Risk scoring based on change metrics and history
-  - Author and file bug frequency tracking
-  - Similar past bug detection
-  - Verification priority assignment
-  - Budget allocation for batch verification
-  - `RegressionOracle` in ai-agents package
-
-- **Multi-Model Consensus Verification**: Reduce false positives
-  - Query multiple LLMs (GPT-5, Claude, GPT-4) in parallel
-  - Configurable consensus strategies (unanimous, majority, weighted)
-  - Finding similarity matching across models
-  - Escalation from fast to consensus for uncertain findings
-  - `MultiModelConsensus` in ai-agents package
-
-- **Proof Artifact Repository**: Searchable proof library
-  - Proof storage with category and language indexing
-  - Pattern-based proof templates for common cases
-  - Community proof sharing and voting
-  - Automatic proof creation from verification results
-  - `ProofArtifactRepository` in core package
-
-- **Compliance Attestation Engine**: Auto-generate compliance reports
-  - SOC2, HIPAA, PCI-DSS, GDPR, ISO 27001 frameworks
-  - Control mapping from verification results
-  - Evidence artifact linking
-  - Multi-framework report generation
-  - Attestation certificate generation
-  - `ComplianceAttestationEngine` in ai-agents package
-
-- **Verification Cost Optimizer**: Smart verification routing
-  - Risk-based depth selection (pattern → static → AI → formal)
-  - Budget constraint management
-  - Cost model learning from outcomes
-  - Batch optimization for multiple changes
-  - Usage metrics and reporting
-  - `VerificationCostOptimizer` in core package
-
-- **Cross-Language Verification Bridge**: Polyglot codebase support
-  - Language-agnostic type and function contracts
-  - Python and TypeScript adapters
-  - Contract inference from code
-  - Cross-language compatibility checking
-  - Stub generation in target languages
-  - `CrossLanguageVerificationBridge` in ai-agents package
-
-- **Sub-Function Analysis Engine**: Fine-grained incremental analysis
-  - Statement-level change detection
-  - Semantic block identification and dependency tracking
-  - `SubFunctionParser` with Python and TypeScript support
-  - `IncrementalAnalysisEngine` for targeted re-verification
-
-- **Real-Time Copilot Sessions**: Streaming verification sessions
-  - Session pooling for low latency
-  - Context-aware prompting
-  - Feedback loop for user corrections
-  - `CopilotReviewSession` and `CopilotSessionPool`
-
-### Planned
-- Java and Go language support
-- JetBrains IDE plugin
-- Custom LLM model fine-tuning
-- Self-hosted enterprise deployment
-- SAML/SSO authentication
-- Audit logging dashboard
-- GraphQL API
