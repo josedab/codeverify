@@ -32,7 +32,6 @@ jobs:
 
       - name: Run pip-audit on installed packages
         run: pip-audit --desc on
-        continue-on-error: true
 
       - name: Run npm audit on GitHub App
         working-directory: apps/github-app
@@ -50,7 +49,7 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'
+          exit-code: '1'
           format: 'table'
 
   lint:
@@ -193,7 +192,7 @@ jobs:
         with:
           image-ref: 'codeverify/api:test'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'
+          exit-code: '1'
           format: 'table'
 
       - name: Scan Worker image for vulnerabilities
@@ -201,5 +200,5 @@ jobs:
         with:
           image-ref: 'codeverify/worker:test'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'
+          exit-code: '1'
           format: 'table'
