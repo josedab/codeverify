@@ -1,0 +1,20 @@
+labels: [question]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know about CodeVerify?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Setup & Installation
+        - Verification (Z3)
+        - AI Agents
+        - VS Code Extension
+        - API
+        - Other

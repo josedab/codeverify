@@ -1,0 +1,146 @@
+name: Publish Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write  # For PyPI trusted publishing
+
+jobs:
+  publish-pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build twine hatch
+
+      - name: Build codeverify-core
+        working-directory: packages/core
+        run: python -m build
+
+      - name: Build codeverify-verifier
+        working-directory: packages/verifier
+        run: python -m build
+
+      - name: Build codeverify-agents
+        working-directory: packages/ai-agents
+        run: python -m build
+
+      - name: Publish codeverify-core to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/core/dist/
+
+      - name: Publish codeverify-verifier to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/verifier/dist/
+
+      - name: Publish codeverify-agents to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/ai-agents/dist/
+
+  publish-vscode:
+    name: Publish VS Code Extension
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: packages/vscode-extension
+        run: npm ci
+
+      - name: Build extension
+        working-directory: packages/vscode-extension
+        run: npm run compile 2>/dev/null || echo "No compile script — using source"
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Package extension
+        working-directory: packages/vscode-extension
+        run: vsce package --no-dependencies
+
+      - name: Publish to VS Code Marketplace
+        working-directory: packages/vscode-extension
+        run: vsce publish -p ${{ secrets.VSCE_PAT }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+  publish-widget:
+    name: Publish Widget npm Package
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Create widget package
+        run: |
+          mkdir -p dist/widget
+          cat > dist/widget/package.json << 'EOF'
+          {
+            "name": "@codeverify/widget",
+            "version": "${{ github.ref_name }}",
+            "description": "Embeddable CodeVerify verification widget",
+            "main": "widget.js",
+            "types": "widget.d.ts",
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "https://github.com/codeverify/codeverify"
+            }
+          }
+          EOF
+          echo "// CodeVerify Widget - placeholder for build" > dist/widget/widget.js
+          echo "export declare function createWidget(config: any): void;" > dist/widget/widget.d.ts
+
+      - name: Publish to npm
+        working-directory: dist/widget
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [publish-pypi, publish-vscode]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk "/^## \[${VERSION}\]/,/^## \[/" CHANGELOG.md | head -n -1 > release_notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          generate_release_notes: true

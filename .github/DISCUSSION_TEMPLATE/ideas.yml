@@ -1,0 +1,17 @@
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your Idea
+      description: Describe the feature or improvement.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Nice to have
+        - Important
+        - Critical for adoption
