@@ -24,7 +24,7 @@ setup: ## Full development environment setup
 	@test -f .env || (cp .env.minimal .env && echo "⚠️  Created .env from minimal template — for AI features, see .env.example")
 	@echo "✅ Setup complete! Run 'source .venv/bin/activate' then 'make dev'"
 
-dev: docker-up ## Start all services for local development
+dev: docker-up migrate ## Start all services for local development
 	@echo "Starting services (use Ctrl+C to stop)..."
 	@echo "  API:        http://localhost:8000"
 	@echo "  Dashboard:  http://localhost:3000"
