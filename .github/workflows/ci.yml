@@ -35,13 +35,11 @@ jobs:
 
       - name: Run npm audit on GitHub App
         working-directory: apps/github-app
-        run: npm audit --audit-level=high || true
-        continue-on-error: true
+        run: npm audit --audit-level=high
 
       - name: Run npm audit on Web
         working-directory: apps/web
-        run: npm audit --audit-level=high || true
-        continue-on-error: true
+        run: npm audit --audit-level=high
 
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@master
