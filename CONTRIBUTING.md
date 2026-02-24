@@ -13,6 +13,8 @@ Thank you for your interest in contributing to CodeVerify! This document provide
 
 ### Development Setup
 
+> **Recommended:** Run `make setup` for a single-command setup that handles all steps below automatically.
+
 1. **Fork and clone the repository**
    ```bash
    git clone https://github.com/YOUR_USERNAME/codeverify.git
@@ -204,7 +206,11 @@ codeverify/
 ├── packages/
 │   ├── core/          # Shared utilities
 │   ├── verifier/      # Z3 verification engine
-│   └── ai-agents/     # LLM agents
+│   ├── ai-agents/     # LLM agents
+│   ├── cli/           # Command-line interface
+│   ├── z3-mcp/        # Z3 MCP server
+│   ├── lsp-server/    # Language server protocol
+│   └── vscode-extension/ # VS Code extension
 ├── docs/              # Documentation
 ├── scripts/           # Development scripts
 └── tests/             # Integration tests
