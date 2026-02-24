@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import time
 import uuid
 from collections import defaultdict
@@ -26,7 +27,9 @@ logger = structlog.get_logger()
 # Constants
 # ---------------------------------------------------------------------------
 
-_HMAC_SECRET = b"codeverify-proof-service-v1"
+_HMAC_SECRET = os.environ.get("CODEVERIFY_PROOF_HMAC_SECRET", "").encode() or None
+if _HMAC_SECRET is None:
+    raise RuntimeError("CODEVERIFY_PROOF_HMAC_SECRET environment variable must be set")
 _RATE_LIMIT_WINDOW_SECONDS = 60
 _DEFAULT_TIMEOUT_SECONDS = 30
 _MAX_PRIORITY = 10

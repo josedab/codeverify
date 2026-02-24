@@ -23,6 +23,7 @@ _warnings.warn(
 
 import hashlib
 import hmac
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -477,8 +478,10 @@ class EvidenceVault:
 # Attestation Engine
 # =============================================================================
 
-# Shared HMAC secret (in production, inject via secrets manager)
-_ATTESTATION_SECRET = b"codeverify-compliance-attestation-key"
+# Shared HMAC secret (must be set via environment variable)
+_ATTESTATION_SECRET = os.environ.get("CODEVERIFY_ATTESTATION_SECRET", "").encode() or None
+if _ATTESTATION_SECRET is None:
+    raise RuntimeError("CODEVERIFY_ATTESTATION_SECRET environment variable must be set")
 
 
 class AttestationEngine:
