@@ -272,10 +272,10 @@ print(user.name)
 Currently:
 - ✅ Python
 - ✅ TypeScript/JavaScript
+- ✅ Go
+- ✅ Java
 
 Coming soon:
-- 🔜 Go
-- 🔜 Java
 - 🔜 Rust
 
 ### How do I report a false positive?
