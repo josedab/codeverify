@@ -1,5 +1,6 @@
 """Configuration settings for CodeVerify API."""
 
+import sys
 from functools import lru_cache
 from typing import Any
 
@@ -58,7 +59,14 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()
+    s = Settings()
+    if s.ENVIRONMENT != "development" and s.SECRET_KEY == "change-this-in-production":
+        print(
+            "FATAL: SECRET_KEY must be changed from the default value in non-development environments.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return s
 
 
 settings = get_settings()
