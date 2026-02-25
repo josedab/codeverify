@@ -1,13 +1,14 @@
 """Public API Platform - REST/GraphQL API for programmatic access."""
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from codeverify_api.auth.dependencies import TokenData, get_current_user
 from codeverify_api.db.database import get_db
 
 router = APIRouter()
@@ -95,7 +96,10 @@ _webhook_deliveries: list[dict[str, Any]] = []
 
 
 @router.post("/keys", response_model=APIKeyWithSecret, status_code=status.HTTP_201_CREATED)
-async def create_api_key(request: APIKeyCreate) -> APIKeyWithSecret:
+async def create_api_key(
+    request: APIKeyCreate,
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
+) -> APIKeyWithSecret:
     """
     Create a new API key.
 
@@ -140,7 +144,9 @@ async def create_api_key(request: APIKeyCreate) -> APIKeyWithSecret:
 
 
 @router.get("/keys", response_model=list[APIKey])
-async def list_api_keys() -> list[APIKey]:
+async def list_api_keys(
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
+) -> list[APIKey]:
     """List all API keys (without secrets)."""
     return [
         APIKey(
@@ -157,7 +163,10 @@ async def list_api_keys() -> list[APIKey]:
 
 
 @router.delete("/keys/{key_id}")
-async def revoke_api_key(key_id: str) -> dict[str, Any]:
+async def revoke_api_key(
+    key_id: str,
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
+) -> dict[str, Any]:
     """Revoke an API key."""
     if key_id not in _api_keys:
         raise HTTPException(
@@ -173,7 +182,10 @@ async def revoke_api_key(key_id: str) -> dict[str, Any]:
 
 
 @router.post("/webhooks", response_model=Webhook, status_code=status.HTTP_201_CREATED)
-async def create_webhook(request: WebhookCreate) -> Webhook:
+async def create_webhook(
+    request: WebhookCreate,
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
+) -> Webhook:
     """Create a new webhook subscription."""
     webhook_id = str(uuid4())
     now = datetime.utcnow()
@@ -201,7 +213,9 @@ async def create_webhook(request: WebhookCreate) -> Webhook:
 
 
 @router.get("/webhooks", response_model=list[Webhook])
-async def list_webhooks() -> list[Webhook]:
+async def list_webhooks(
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
+) -> list[Webhook]:
     """List all webhooks."""
     return [
         Webhook(
@@ -218,7 +232,10 @@ async def list_webhooks() -> list[Webhook]:
 
 
 @router.get("/webhooks/{webhook_id}", response_model=Webhook)
-async def get_webhook(webhook_id: str) -> Webhook:
+async def get_webhook(
+    webhook_id: str,
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
+) -> Webhook:
     """Get webhook details."""
     if webhook_id not in _webhooks:
         raise HTTPException(
@@ -241,6 +258,7 @@ async def get_webhook(webhook_id: str) -> Webhook:
 @router.patch("/webhooks/{webhook_id}")
 async def update_webhook(
     webhook_id: str,
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
     url: str | None = None,
     events: list[str] | None = None,
     active: bool | None = None,
@@ -272,7 +290,10 @@ async def update_webhook(
 
 
 @router.delete("/webhooks/{webhook_id}")
-async def delete_webhook(webhook_id: str) -> dict[str, Any]:
+async def delete_webhook(
+    webhook_id: str,
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
+) -> dict[str, Any]:
     """Delete a webhook."""
     if webhook_id not in _webhooks:
         raise HTTPException(
@@ -285,7 +306,10 @@ async def delete_webhook(webhook_id: str) -> dict[str, Any]:
 
 
 @router.post("/webhooks/{webhook_id}/test")
-async def test_webhook(webhook_id: str) -> dict[str, Any]:
+async def test_webhook(
+    webhook_id: str,
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
+) -> dict[str, Any]:
     """Send a test event to a webhook."""
     if webhook_id not in _webhooks:
         raise HTTPException(
@@ -315,6 +339,7 @@ async def test_webhook(webhook_id: str) -> dict[str, Any]:
 @router.get("/webhooks/{webhook_id}/deliveries", response_model=list[WebhookDelivery])
 async def get_webhook_deliveries(
     webhook_id: str,
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
     limit: int = Query(default=20, le=100),
 ) -> list[WebhookDelivery]:
     """Get recent deliveries for a webhook."""
@@ -354,6 +379,7 @@ async def api_list_analyses(
     limit: int = Query(default=20, le=100),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
 ) -> dict[str, Any]:
     """
     List analyses via public API.
@@ -406,6 +432,7 @@ async def api_list_analyses(
 async def api_get_analysis(
     analysis_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
 ) -> dict[str, Any]:
     """
     Get analysis details via public API.
@@ -465,6 +492,7 @@ async def api_trigger_analysis(
     ref: str = "HEAD",
     pr_number: int | None = None,
     db: AsyncSession = Depends(get_db),
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
 ) -> dict[str, Any]:
     """
     Trigger a new analysis via API.
@@ -516,6 +544,7 @@ async def api_list_findings(
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
 ) -> dict[str, Any]:
     """List findings via public API."""
     from sqlalchemy import func, select
@@ -583,6 +612,7 @@ async def api_get_stats(
     repo: str | None = None,
     days: int = Query(default=30, le=90),
     db: AsyncSession = Depends(get_db),
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
 ) -> dict[str, Any]:
     """Get statistics via public API."""
     from datetime import timedelta
@@ -647,7 +677,9 @@ WEBHOOK_EVENTS = {
 
 
 @router.get("/events")
-async def list_webhook_events() -> dict[str, Any]:
+async def list_webhook_events(
+    current_user: Annotated[TokenData, Depends(get_current_user)] = None,
+) -> dict[str, Any]:
     """List available webhook events."""
     return {
         "events": [{"name": name, "description": desc} for name, desc in WEBHOOK_EVENTS.items()]
