@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from codeverify_api.config import settings
 from codeverify_api.middleware.metrics import setup_metrics
 from codeverify_api.middleware.rate_limit import setup_rate_limiting
-from codeverify_api.middleware.security import setup_security_headers
+from codeverify_api.middleware.security import setup_input_sanitization, setup_security_headers
 from codeverify_api.middleware.sentry import setup_sentry
 
 # Next-gen feature routers (v0.3.0)
@@ -100,6 +100,7 @@ app = FastAPI(
 # Setup middleware
 setup_sentry(app)
 setup_security_headers(app)
+setup_input_sanitization(app)
 setup_rate_limiting(app)
 setup_metrics(app)
 
@@ -108,8 +109,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Include routers
