@@ -5,6 +5,7 @@ from typing import Annotated, Any
 from urllib.parse import urlparse
 from uuid import UUID
 
+import redis.asyncio as aioredis
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
@@ -22,8 +23,36 @@ from codeverify_api.utils.encryption import encrypt_token
 router = APIRouter()
 logger = structlog.get_logger()
 
-# Store for OAuth states (in production, use Redis)
-_oauth_states: dict[str, str] = {}
+OAUTH_STATE_TTL_SECONDS = 600  # 10-minute expiry for OAuth states
+OAUTH_STATE_PREFIX = "oauth_state:"
+
+
+def _get_redis() -> aioredis.Redis:
+    """Get a Redis client for OAuth state storage."""
+    return aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+
+
+async def _store_oauth_state(state: str, redirect_uri: str) -> None:
+    """Store OAuth state in Redis with TTL."""
+    client = _get_redis()
+    try:
+        await client.set(f"{OAUTH_STATE_PREFIX}{state}", redirect_uri, ex=OAUTH_STATE_TTL_SECONDS)
+    finally:
+        await client.aclose()
+
+
+async def _pop_oauth_state(state: str) -> str | None:
+    """Retrieve and delete OAuth state from Redis (atomic pop)."""
+    client = _get_redis()
+    try:
+        key = f"{OAUTH_STATE_PREFIX}{state}"
+        pipe = client.pipeline()
+        pipe.get(key)
+        pipe.delete(key)
+        results = await pipe.execute()
+        return results[0]
+    finally:
+        await client.aclose()
 
 
 class TokenResponse(BaseModel):
@@ -64,7 +93,7 @@ async def login(
     """Initiate GitHub OAuth login flow."""
     _validate_redirect_uri(redirect_uri)
     state = secrets.token_urlsafe(32)
-    _oauth_states[state] = redirect_uri
+    await _store_oauth_state(state, redirect_uri)
 
     github = GitHubOAuth()
     callback_url = f"{settings.API_HOST}:{settings.API_PORT}/api/v1/auth/callback"
@@ -83,8 +112,8 @@ async def oauth_callback(
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
     """Handle GitHub OAuth callback."""
-    # Verify state
-    redirect_uri = _oauth_states.pop(state, None)
+    # Verify state (atomic get-and-delete from Redis)
+    redirect_uri = await _pop_oauth_state(state)
     if redirect_uri is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
