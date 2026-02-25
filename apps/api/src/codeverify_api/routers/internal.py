@@ -1,5 +1,6 @@
 """Internal API endpoints for worker communication."""
 
+import hmac
 import os
 from datetime import datetime
 from typing import Any
@@ -72,9 +73,6 @@ async def verify_internal_key(
     expected_key = os.environ.get("INTERNAL_API_KEY", "")
 
     if not expected_key:
-        # If no key configured, allow in development
-        if os.environ.get("ENVIRONMENT", "development") == "development":
-            return True
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Internal API not configured",
@@ -88,7 +86,7 @@ async def verify_internal_key(
 
     token = authorization[7:]  # Remove "Bearer " prefix
 
-    if token != expected_key:
+    if not hmac.compare_digest(token, expected_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid internal API key",
