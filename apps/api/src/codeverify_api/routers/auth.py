@@ -2,6 +2,7 @@
 
 import secrets
 from typing import Annotated, Any
+from urllib.parse import urlparse
 from uuid import UUID
 
 import structlog
@@ -44,11 +45,24 @@ class UserResponse(BaseModel):
     avatar_url: str | None
 
 
+def _validate_redirect_uri(redirect_uri: str) -> None:
+    """Validate redirect_uri against allowed origins to prevent open redirects."""
+    parsed = urlparse(redirect_uri)
+    allowed_origins = settings.CORS_ORIGINS
+    redirect_origin = f"{parsed.scheme}://{parsed.netloc}"
+    if redirect_origin not in allowed_origins:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="redirect_uri is not in the list of allowed origins",
+        )
+
+
 @router.get("/login")
 async def login(
     redirect_uri: str = Query(..., description="URL to redirect after authentication"),
 ) -> RedirectResponse:
     """Initiate GitHub OAuth login flow."""
+    _validate_redirect_uri(redirect_uri)
     state = secrets.token_urlsafe(32)
     _oauth_states[state] = redirect_uri
 
@@ -183,7 +197,7 @@ async def exchange_token(
             username=github_user["login"],
             email=email,
             avatar_url=github_user.get("avatar_url"),
-            access_token_encrypted=access_token,
+            access_token_encrypted=encrypt_token(access_token),
         )
         db.add(user)
         await db.flush()
