@@ -71,6 +71,13 @@ jobs:
       - name: Run Ruff format check
         run: ruff format --check .
 
+      - name: Install packages for type checking
+        run: |
+          pip install -e "packages/core" -e "packages/verifier"
+
+      - name: Run mypy
+        run: mypy --strict packages/core/ packages/verifier/
+
   test-python:
     name: Test Python
     runs-on: ubuntu-latest
