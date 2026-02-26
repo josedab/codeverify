@@ -180,7 +180,7 @@ RATE_LIMIT_REQUESTS=100
 RATE_LIMIT_WINDOW=60
 
 # CORS
-CORS_ORIGINS=http://localhost:3000,https://dashboard.codeverify.io
+CORS_ORIGINS=http://localhost:3000,https://dashboard.codeverify.dev
 ```
 
 ## Database

@@ -180,7 +180,7 @@
         },
         "codeverify.apiEndpoint": {
           "type": "string",
-          "default": "https://api.codeverify.io",
+          "default": "https://api.codeverify.dev",
           "description": "CodeVerify API endpoint"
         },
         "codeverify.apiKey": {

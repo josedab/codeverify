@@ -53,7 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize client
     const config = vscode.workspace.getConfiguration('codeverify');
     client = new CodeVerifyClient({
-        apiEndpoint: config.get('apiEndpoint', 'https://api.codeverify.io'),
+        apiEndpoint: config.get('apiEndpoint', 'https://api.codeverify.dev'),
         apiKey: config.get('apiKey', ''),
         cliPath: config.get('cliPath', 'codeverify'),
         localAnalysisEnabled: config.get('localAnalysisEnabled', true),
@@ -811,7 +811,7 @@ async function dismissFinding(finding: any) {
 
 function openDashboard() {
     const config = vscode.workspace.getConfiguration('codeverify');
-    const endpoint = config.get('apiEndpoint', 'https://api.codeverify.io');
+    const endpoint = config.get('apiEndpoint', 'https://api.codeverify.dev');
     const dashboardUrl = endpoint.replace('/api', '').replace('api.', '') + '/dashboard';
     vscode.env.openExternal(vscode.Uri.parse(dashboardUrl));
 }

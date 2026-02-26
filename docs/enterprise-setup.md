@@ -539,4 +539,4 @@ Enterprise customers have access to:
 - **Quarterly Business Reviews**: Performance and roadmap discussions
 - **Custom Integrations**: Engineering assistance for custom needs
 
-Contact: enterprise@codeverify.io
+Contact: enterprise@codeverify.dev

@@ -13,7 +13,7 @@ metadata:
 data:
   ENVIRONMENT: "production"
   LOG_LEVEL: "info"
-  CORS_ORIGINS: "https://codeverify.io,https://dashboard.codeverify.io"
+  CORS_ORIGINS: "https://codeverify.dev,https://dashboard.codeverify.dev"
 ---
 apiVersion: v1
 kind: Secret
@@ -153,7 +153,7 @@ spec:
         - containerPort: 3000
         env:
         - name: NEXT_PUBLIC_API_URL
-          value: "https://api.codeverify.io"
+          value: "https://api.codeverify.dev"
         resources:
           requests:
             memory: "128Mi"
@@ -187,11 +187,11 @@ metadata:
 spec:
   tls:
   - hosts:
-    - api.codeverify.io
-    - codeverify.io
+    - api.codeverify.dev
+    - codeverify.dev
     secretName: codeverify-tls
   rules:
-  - host: api.codeverify.io
+  - host: api.codeverify.dev
     http:
       paths:
       - path: /
@@ -201,7 +201,7 @@ spec:
             name: codeverify-api
             port:
               number: 80
-  - host: codeverify.io
+  - host: codeverify.dev
     http:
       paths:
       - path: /

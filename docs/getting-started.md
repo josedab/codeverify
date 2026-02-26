@@ -173,7 +173,7 @@ Each finding includes a confidence score (0-100%):
 
 ## Dashboard
 
-Access your team dashboard at [dashboard.codeverify.io](https://dashboard.codeverify.io):
+Access your team dashboard at [dashboard.codeverify.dev](https://dashboard.codeverify.dev):
 
 - **Overview**: Analysis trends and pass rates
 - **Repositories**: Configure per-repo settings
@@ -241,7 +241,7 @@ For programmatic access, generate an API key:
 ```bash
 # Example: Get analysis results
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  https://api.codeverify.io/v1/analyses/ANALYSIS_ID
+  https://api.codeverify.dev/v1/analyses/ANALYSIS_ID
 ```
 
 See our [API Documentation](/api-docs) for full reference.
@@ -284,9 +284,9 @@ Click the 👎 button on any finding to report it. This helps us improve!
 
 ## Support
 
-- 📖 [Documentation](https://docs.codeverify.io)
+- 📖 [Documentation](https://docs.codeverify.dev)
 - 💬 [Discord Community](https://discord.gg/codeverify)
-- 📧 [Email Support](mailto:support@codeverify.io)
+- 📧 [Email Support](mailto:support@codeverify.dev)
 - 🐛 [Report Issues](https://github.com/codeverify/codeverify/issues)
 
 ---

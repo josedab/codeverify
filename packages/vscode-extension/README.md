@@ -44,7 +44,7 @@ Open Settings (`Ctrl+,`) and search for "CodeVerify":
 |---------|-------------|---------|
 | `codeverify.enabled` | Enable CodeVerify | `true` |
 | `codeverify.analyzeOnSave` | Auto-analyze on save | `true` |
-| `codeverify.apiEndpoint` | API endpoint | `https://api.codeverify.io` |
+| `codeverify.apiEndpoint` | API endpoint | `https://api.codeverify.dev` |
 | `codeverify.apiKey` | API key (optional) | `` |
 | `codeverify.severityFilter` | Min severity to show | `all` |
 | `codeverify.showInlineAnnotations` | Show inline annotations | `true` |

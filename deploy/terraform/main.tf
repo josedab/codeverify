@@ -52,7 +52,7 @@ variable "environment" {
 variable "domain_name" {
   description = "Main domain name"
   type        = string
-  default     = "codeverify.io"
+  default     = "codeverify.dev"
 }
 
 # VPC

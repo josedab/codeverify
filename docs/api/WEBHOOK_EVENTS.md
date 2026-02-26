@@ -403,7 +403,7 @@ func verifyWebhook(payload []byte, signature, secret string) bool {
 ### Create Webhook
 
 ```bash
-curl -X POST https://api.codeverify.io/api/webhooks \
+curl -X POST https://api.codeverify.dev/api/webhooks \
   -H "X-API-Key: cv_your_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -416,20 +416,20 @@ curl -X POST https://api.codeverify.io/api/webhooks \
 ### List Webhooks
 
 ```bash
-curl https://api.codeverify.io/api/webhooks \
+curl https://api.codeverify.dev/api/webhooks \
   -H "X-API-Key: cv_your_key"
 ```
 
 ### Delete Webhook
 
 ```bash
-curl -X DELETE https://api.codeverify.io/api/webhooks/{webhook_id} \
+curl -X DELETE https://api.codeverify.dev/api/webhooks/{webhook_id} \
   -H "X-API-Key: cv_your_key"
 ```
 
 ### View Recent Deliveries
 
 ```bash
-curl https://api.codeverify.io/api/webhooks/{webhook_id}/deliveries \
+curl https://api.codeverify.dev/api/webhooks/{webhook_id}/deliveries \
   -H "X-API-Key: cv_your_key"
 ```

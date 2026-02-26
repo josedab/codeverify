@@ -120,7 +120,7 @@ Go to **GitHub Settings → Developer settings → GitHub Apps → New GitHub Ap
 
 **Settings:**
 - **Name:** CodeVerify
-- **Homepage URL:** https://codeverify.io
+- **Homepage URL:** https://codeverify.dev
 - **Webhook URL:** https://your-domain/webhooks/github
 - **Webhook secret:** Generate a secure secret
 
