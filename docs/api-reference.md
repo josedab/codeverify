@@ -4,13 +4,13 @@
 
 The CodeVerify API provides programmatic access to analyses, findings, and configuration.
 
-**Base URL:** `https://api.codeverify.io/v1`
+**Base URL:** `https://api.codeverify.dev/v1`
 
 **Authentication:** Bearer token in `Authorization` header
 
 ```bash
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-     https://api.codeverify.io/v1/analyses
+     https://api.codeverify.dev/v1/analyses
 ```
 
 ## Authentication
@@ -631,9 +631,228 @@ Returns monthly usage breakdown.
 
 ---
 
+## Trust Score
+
+### Analyze Code Trust Score
+
+```
+POST /trust-score/analyze
+Content-Type: application/json
+
+{
+  "code": "def process(data):\n    return data * 2",
+  "language": "python",
+  "context": {
+    "file_path": "src/processor.py",
+    "author": "john.doe"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "score": 78,
+  "risk_level": "low",
+  "ai_probability": 15,
+  "factors": {
+    "complexity_score": 0.85,
+    "pattern_score": 0.75,
+    "historical_score": 0.80,
+    "verification_score": 0.70,
+    "quality_score": 0.82
+  },
+  "recommendations": [
+    "Add type hints for better verification",
+    "Consider adding input validation"
+  ],
+  "confidence": 0.88
+}
+```
+
+---
+
+## Custom Rules
+
+### Create Rule
+
+```
+POST /rules
+Content-Type: application/json
+
+{
+  "id": "no-print",
+  "name": "No Print Statements",
+  "description": "Disallow print statements in production code",
+  "type": "pattern",
+  "pattern": "print\\s*\\(",
+  "severity": "warning",
+  "message": "Use logging instead of print statements"
+}
+```
+
+### Test Rule
+
+```
+POST /rules/test
+Content-Type: application/json
+
+{
+  "rule": {
+    "type": "pattern",
+    "pattern": "print\\s*\\(",
+    "severity": "warning",
+    "message": "No print"
+  },
+  "code": "def hello():\n    print('hello')\n    print('world')"
+}
+```
+
+---
+
+## Codebase Scanning
+
+### Trigger Full Scan
+
+```
+POST /scans
+Content-Type: application/json
+
+{
+  "repository": "owner/repo",
+  "branch": "main",
+  "config": {
+    "include_patterns": ["**/*.py", "**/*.js"],
+    "exclude_patterns": ["**/test/**"],
+    "severity_threshold": "medium"
+  }
+}
+```
+
+### Schedule Recurring Scan
+
+```
+POST /scans/schedule
+Content-Type: application/json
+
+{
+  "repository": "owner/repo",
+  "cron": "0 0 * * *",
+  "branch": "main",
+  "notify_on": ["failure", "new_critical"]
+}
+```
+
+---
+
+## Notifications
+
+### Configure Slack
+
+```
+POST /notifications/slack
+Content-Type: application/json
+
+{
+  "webhook_url": "https://hooks.slack.com/services/xxx/yyy/zzz",
+  "channel": "#code-reviews",
+  "events": ["analysis.completed", "security.critical"],
+  "format": "detailed"
+}
+```
+
+### Configure Microsoft Teams
+
+```
+POST /notifications/teams
+Content-Type: application/json
+
+{
+  "webhook_url": "https://outlook.office.com/webhook/...",
+  "events": ["analysis.completed"]
+}
+```
+
+---
+
+## Verification Debugger
+
+### Trace Verification
+
+```
+POST /debugger/trace
+Content-Type: application/json
+
+{
+  "code": "def divide(a, b):\n    assert b != 0\n    return a / b",
+  "language": "python"
+}
+```
+
+**Response:**
+```json
+{
+  "result": "verified",
+  "steps": [
+    {
+      "step_number": 1,
+      "title": "Parse function signature",
+      "status": "passed",
+      "description": "Extracted parameters: a, b"
+    },
+    {
+      "step_number": 2,
+      "title": "Check assertion: b != 0",
+      "status": "passed",
+      "constraint": "b != 0",
+      "description": "Precondition verified"
+    }
+  ]
+}
+```
+
+---
+
+## Diff Summarizer
+
+### Generate PR Summary
+
+```
+POST /diff/summarize
+Content-Type: application/json
+
+{
+  "diff": "diff --git a/src/auth.py...",
+  "context": {
+    "pr_number": 42,
+    "base_branch": "main",
+    "files_changed": 3
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "title": "Improve authentication flow",
+  "description": "This PR refactors the authentication module to support OAuth2...",
+  "changes": [
+    {"type": "added", "description": "OAuth2 provider support"},
+    {"type": "modified", "description": "Token refresh logic"},
+    {"type": "security", "description": "Added CSRF protection"}
+  ],
+  "risk_assessment": {
+    "level": "medium",
+    "reasons": ["Modifies authentication logic", "Changes session handling"]
+  }
+}
+```
+
+---
+
 ## Changelog
 
-### v1.3.0 (2026-03)
+### v1.3.0 (2026-02-22)
 - Added export endpoints for compliance (CSV/PDF)
 - Added SAML SSO support
 - Enhanced feedback loop for false positives
