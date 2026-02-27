@@ -1,6 +1,6 @@
 # Next-Generation Features Guide
 
-This guide covers the 10 next-generation features added in CodeVerify v0.3.0.
+This guide covers the next-generation features added in CodeVerify v0.3.0 through v1.6.0.
 
 ## Table of Contents
 

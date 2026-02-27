@@ -16,7 +16,7 @@ AI-powered code review with formal verification. Catch bugs, security vulnerabil
   - Integer overflow detection
   - Division by zero prevention
 - **GitHub Integration**: Seamless PR checks, inline comments, and suggested fixes
-- **Multi-Language**: Supports Python and TypeScript (more coming soon)
+- **Multi-Language**: Supports Python, TypeScript, Go, Java, Rust, and C++
 - **Configurable**: Per-repository settings via `.codeverify.yml`
 - **Team Dashboard**: Track metrics, trends, and findings across your organization
 
@@ -232,11 +232,14 @@ See [docs/examples/](docs/examples/) for more configuration examples.
 | `GITHUB_APP_ID` | Yes | GitHub App ID |
 | `GITHUB_APP_PRIVATE_KEY` | Yes | GitHub App private key (PEM) |
 | `GITHUB_WEBHOOK_SECRET` | Yes | Webhook signing secret |
+| `SECRET_KEY` | Yes | Application secret key |
 | `JWT_SECRET` | Yes | Secret for JWT tokens |
 | `OPENAI_API_KEY` | No* | OpenAI API key |
 | `ANTHROPIC_API_KEY` | No* | Anthropic API key |
 
 *At least one LLM API key is required for AI analysis.
+
+See [`.env.example`](.env.example) for the full list of 40+ environment variables including feature flags, Stripe billing, Slack/Teams notifications, rate limiting, GitLab/Bitbucket integration, and monitoring settings.
 
 ## 🧪 Running Tests
 
@@ -261,7 +264,7 @@ pytest --cov=codeverify --cov-report=html
 - **[Architecture](docs/architecture/overview.md)** - System design
 - **[Verification](docs/verification.md)** - Z3 formal verification deep-dive
 - **[Custom Rules](docs/custom-rules.md)** - Creating custom rules
-- **[Next-Gen Features](docs/nextgen-features.md)** - v0.3.0 features guide
+- **[Next-Gen Features](docs/nextgen-features.md)** - v0.3.0–v1.6.0 features guide
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 - **[Configuration Examples](docs/examples/)** - Sample `.codeverify.yml` files
 
@@ -359,7 +362,7 @@ sequenceDiagram
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and [COMMUNITY.md](COMMUNITY.md) for community resources, Discord, and office hours.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
