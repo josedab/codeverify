@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shield, LayoutDashboard, Settings, LogOut, GitPullRequest, GitBranch, CreditCard, FileText, BarChart3, Network, Bug } from "lucide-react";
+import { Shield, LayoutDashboard, Settings, LogOut, GitPullRequest, GitBranch, CreditCard, FileText, BarChart3, Network, Bug, Eye } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -25,6 +25,7 @@ export default function DashboardLayout({
             <NavItem href="/dashboard/analytics" icon={<BarChart3 />} label="Analytics" />
             <NavItem href="/dashboard/cross-repo" icon={<Network />} label="Cross-Repo" />
             <NavItem href="/dashboard/debugger" icon={<Bug />} label="Debugger" />
+            <NavItem href="/dashboard/proof-explorer" icon={<Eye />} label="Proof Explorer" />
             <NavItem href="/dashboard/audit-logs" icon={<FileText />} label="Audit Logs" />
             <NavItem href="/dashboard/usage" icon={<CreditCard />} label="Usage & Billing" />
             <NavItem href="/dashboard/settings" icon={<Settings />} label="Settings" />
