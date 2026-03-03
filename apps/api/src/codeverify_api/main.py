@@ -27,6 +27,7 @@ from codeverify_api.routers import (
     code_search,
     collaboration,
     compliance,
+    compliance_mappings,
     consensus,
     context_analysis,
     continuous_learning,
@@ -42,6 +43,7 @@ from codeverify_api.routers import (
     feedback,
     fix_verification,
     formal_specs,
+    governance,
     graphql_insights,
     hallucination,
     health,
@@ -49,22 +51,26 @@ from codeverify_api.routers import (
     internal,
     language_support,
     marketplace,
-    network,
-    nl_queries,
+    marketplace_install,
+    network,    nl_queries,
     notifications,
     organizations,
     paste_interception,
     policy_engine,
+    proof_explorer,
     public_api,
     regression,
     replay,
     repositories,
     risk_prediction,
     rules,
+    saas,
     scanning,
+    smart_budget,
     sso,
     stats,
     streaming,
+    team_analytics,
     telemetry,
     tenancy,
     threat_modeling,
@@ -73,6 +79,7 @@ from codeverify_api.routers import (
     verification_api,
     verification_cache,
     verification_debugger,
+    verified_autofix,
     webhooks,
     widgets,
 )
@@ -152,6 +159,9 @@ app.include_router(
 )
 app.include_router(consensus.router, prefix="/api/v1/consensus", tags=["consensus-verification"])
 app.include_router(compliance.router, prefix="/api/v1/compliance", tags=["compliance-attestation"])
+app.include_router(
+    compliance_mappings.router, prefix="/api/v1/compliance-mappings", tags=["compliance-mappings"]
+)
 app.include_router(cost_optimization.router, prefix="/api/v1/cost", tags=["cost-optimization"])
 app.include_router(cross_language.router, prefix="/api/v1/cross-language", tags=["cross-language"])
 
@@ -206,6 +216,27 @@ app.include_router(
     graphql_insights.router, prefix="/api/v1/insights", tags=["graphql-insights"]
 )
 app.include_router(widgets.router, prefix="/api/v1/widgets", tags=["widgets"])
+
+# SaaS platform (v1.6.0)
+app.include_router(saas.router, prefix="/api/v1/saas", tags=["saas-platform"])
+app.include_router(
+    marketplace_install.router, prefix="/api/v1/marketplace-install", tags=["marketplace-install"]
+)
+app.include_router(
+    verified_autofix.router, prefix="/api/v1/verified-autofix", tags=["verified-autofix"]
+)
+app.include_router(
+    proof_explorer.router, prefix="/api/v1/proof-explorer", tags=["proof-explorer"]
+)
+app.include_router(
+    smart_budget.router, prefix="/api/v1/smart-budget", tags=["smart-budget"]
+)
+app.include_router(
+    team_analytics.router, prefix="/api/v1/team-analytics", tags=["team-analytics"]
+)
+app.include_router(
+    governance.router, prefix="/api/v1/governance", tags=["multi-repo-governance"]
+)
 
 
 # Global exception handler
