@@ -1,0 +1,115 @@
+# CodeVerify SDK — GitHub Actions Integration
+#
+# Usage in your workflow:
+#   - name: Run CodeVerify Verification
+#     uses: codeverify/codeverify-action@v1
+#     with:
+#       api-key: ${{ secrets.CODEVERIFY_API_KEY }}
+#       checks: "null_safety,bounds_check,injection"
+#       fail-on: "critical,high"
+
+name: "CodeVerify Verify"
+description: "Run CodeVerify verification checks on your code"
+author: "CodeVerify"
+
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  api-key:
+    description: "CodeVerify API key"
+    required: false
+  api-url:
+    description: "CodeVerify API URL"
+    required: false
+    default: "https://api.codeverify.dev"
+  checks:
+    description: "Comma-separated list of checks to run"
+    required: false
+    default: "all"
+  language:
+    description: "Programming language (auto-detected if not set)"
+    required: false
+  fail-on:
+    description: "Severity levels that cause failure (comma-separated)"
+    required: false
+    default: "critical,high"
+  paths:
+    description: "Glob patterns for files to check"
+    required: false
+    default: "**/*.py,**/*.ts,**/*.js"
+
+outputs:
+  passed:
+    description: "Whether all checks passed"
+  findings-count:
+    description: "Number of findings"
+  critical-count:
+    description: "Number of critical findings"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install CodeVerify SDK
+      shell: bash
+      run: pip install codeverify-sdk
+
+    - name: Run verification
+      shell: bash
+      env:
+        CODEVERIFY_API_KEY: ${{ inputs.api-key }}
+        CODEVERIFY_API_URL: ${{ inputs.api-url }}
+      run: |
+        python -c "
+        import codeverify_sdk
+        import glob
+        import json
+        import sys
+
+        codeverify_sdk.configure(
+            api_key='${{ inputs.api-key }}' or None,
+            api_url='${{ inputs.api-url }}',
+        )
+
+        patterns = '${{ inputs.paths }}'.split(',')
+        fail_severities = set('${{ inputs.fail-on }}'.split(','))
+        checks = '${{ inputs.checks }}'.split(',') if '${{ inputs.checks }}' != 'all' else None
+
+        total_findings = 0
+        critical_findings = 0
+        all_passed = True
+
+        for pattern in patterns:
+            for filepath in glob.glob(pattern.strip(), recursive=True):
+                try:
+                    with open(filepath) as f:
+                        code = f.read()
+
+                    result = codeverify_sdk.verify(code, checks=checks)
+                    safety = codeverify_sdk.check_safety(code)
+
+                    findings = result.findings + safety.issues
+                    total_findings += len(findings)
+
+                    for f in findings:
+                        if f.severity in fail_severities:
+                            all_passed = False
+                            critical_findings += 1
+                        print(f'::warning file={filepath},line={f.line_start or 1}::[CodeVerify] [{f.severity.upper()}] {f.title}: {f.description}')
+
+                except Exception as e:
+                    print(f'::warning file={filepath}::CodeVerify: {e}')
+
+        # Set outputs
+        with open('$GITHUB_OUTPUT', 'a') as f:
+            f.write(f'passed={str(all_passed).lower()}\n')
+            f.write(f'findings-count={total_findings}\n')
+            f.write(f'critical-count={critical_findings}\n')
+
+        if not all_passed:
+            print(f'::error::CodeVerify found {critical_findings} critical finding(s)')
+            sys.exit(1)
+        else:
+            print(f'✅ CodeVerify: All checks passed ({total_findings} info findings)')
+        "
