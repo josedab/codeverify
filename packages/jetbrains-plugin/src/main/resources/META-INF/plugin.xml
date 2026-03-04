@@ -36,11 +36,22 @@
             serviceImplementation="dev.codeverify.plugin.services.VerificationService"/>
         <projectService 
             serviceImplementation="dev.codeverify.plugin.services.FindingsManager"/>
+        <projectService
+            serviceImplementation="dev.codeverify.plugin.lsp.LspClient"/>
         
         <!-- Annotators and Inspections -->
         <externalAnnotator 
             language="" 
             implementationClass="dev.codeverify.plugin.services.CodeVerifyAnnotator"/>
+        
+        <!-- Gutter Icons (verification annotations) -->
+        <codeInsight.lineMarkerProvider
+            language=""
+            implementationClass="dev.codeverify.plugin.ui.CodeVerifyGutterIconProvider"/>
+
+        <!-- Background verification on save -->
+        <fileDocumentManagerListener
+            implementation="dev.codeverify.plugin.listeners.SaveVerificationListener"/>
         
         <!-- Tool Window -->
         <toolWindow 
