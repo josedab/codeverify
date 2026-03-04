@@ -64,6 +64,10 @@ class CodeVerifySettings : PersistentStateComponent<CodeVerifySettings.State> {
     var ollamaModel: String
         get() = myState.ollamaModel
         set(value) { myState.ollamaModel = value }
+
+    var lspServerPath: String
+        get() = myState.lspServerPath
+        set(value) { myState.lspServerPath = value }
     
     override fun getState(): State = myState
     
@@ -87,9 +91,13 @@ class CodeVerifySettings : PersistentStateComponent<CodeVerifySettings.State> {
         var offlineMode: Boolean = false
         var ollamaUrl: String = "http://localhost:11434"
         var ollamaModel: String = "codellama:7b-instruct"
+        var lspServerPath: String = ""
     }
     
     companion object {
+        val instance: CodeVerifySettings
+            get() = getInstance()
+
         fun getInstance(): CodeVerifySettings {
             return ApplicationManager.getApplication().getService(CodeVerifySettings::class.java)
         }
