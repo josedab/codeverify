@@ -1,0 +1,24 @@
+{
+  "name": "@codeverify/sdk",
+  "version": "0.1.0",
+  "description": "CodeVerify SDK — embed formal verification checks programmatically",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codeverify/codeverify",
+    "directory": "packages/sdk-typescript"
+  },
+  "keywords": ["codeverify", "verification", "formal-methods", "sdk"],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0"
+  },
+  "files": ["dist/", "README.md"]
+}
