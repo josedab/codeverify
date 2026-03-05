@@ -1,0 +1,124 @@
+---
+# Horizontal Pod Autoscaler for CodeVerify API
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: codeverify-api-hpa
+  namespace: codeverify
+  labels:
+    app.kubernetes.io/name: codeverify
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: codeverify-api
+  minReplicas: 2
+  maxReplicas: 20
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 120
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "100"
+---
+# Horizontal Pod Autoscaler for CodeVerify Worker
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: codeverify-worker-hpa
+  namespace: codeverify
+  labels:
+    app.kubernetes.io/name: codeverify
+    app.kubernetes.io/component: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: codeverify-worker
+  minReplicas: 1
+  maxReplicas: 30
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 120
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Pods
+      pods:
+        metric:
+          name: celery_queue_length
+        target:
+          type: AverageValue
+          averageValue: "5"
+---
+# Pod Disruption Budget - API
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: codeverify-api-pdb
+  namespace: codeverify
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: codeverify
+      app.kubernetes.io/component: api
+---
+# Pod Disruption Budget - Worker
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: codeverify-worker-pdb
+  namespace: codeverify
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: codeverify
+      app.kubernetes.io/component: worker
