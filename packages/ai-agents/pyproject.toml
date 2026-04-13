@@ -8,7 +8,7 @@ version = "0.2.0"
 description = "CodeVerify AI Agents for code analysis"
 requires-python = ">=3.11"
 dependencies = [
-    "openai>=1.10.0",
+    "openai>=2.31.0",
     "anthropic>=0.18.0",
     "httpx>=0.26.0",
     "structlog>=24.1.0",
