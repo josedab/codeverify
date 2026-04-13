@@ -9,7 +9,7 @@ license = {text = "MIT"}
 dependencies = [
     "click>=8.1.0",
     "rich>=13.0.0",
-    "pyyaml>=6.0",
+    "pyyaml>=6.0.3",
     "httpx>=0.25.0",
     "codeverify-core>=0.2.0",
     "codeverify-verifier>=0.2.0",
