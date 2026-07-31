@@ -101,7 +101,7 @@ def create_vcs_client(
     )
 
     # Create client
-    client_classes = {
+    client_classes: dict[str, type[VCSClient]] = {
         "github": GitHubClient,
         "gitlab": GitLabClient,
         "bitbucket": BitbucketClient,

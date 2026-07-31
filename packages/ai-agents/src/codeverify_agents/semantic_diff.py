@@ -504,7 +504,7 @@ class SemanticDiffVisualizer:
                 )
 
         # Group by file (clusters)
-        files = set(n["file"] for n in nodes)
+        files = {n["file"] for n in nodes}
         for file_path in files:
             file_nodes = [n["id"] for n in nodes if n["file"] == file_path]
             clusters.append(
@@ -747,7 +747,6 @@ class SemanticDiffAgent(BaseAgent):
 
         # Find edge differences
         before_edge_set = {(e.source_id, e.target_id) for e in before_edges}
-        after_edge_set = {(e.source_id, e.target_id) for e in after_edges}
 
         new_edges = [e for e in after_edges if (e.source_id, e.target_id) not in before_edge_set]
 

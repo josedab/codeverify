@@ -1,5 +1,6 @@
 """Verification Debugger - Interactive Z3 proof visualization and playback."""
 
+import ast
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -17,7 +18,20 @@ from z3 import (
 logger = structlog.get_logger()
 
 
-class StepType(str, Enum):
+def _static_truth_value(expr: ast.expr) -> bool | None:
+    """Return the literal truth value of ``expr``, or ``None`` if not statically knowable.
+
+    This only recognizes literal constants (e.g. ``True``, ``False``, ``0``); anything
+    that depends on names, calls, or other runtime state cannot be judged true or false
+    by AST inspection alone and must return ``None`` rather than guessing.
+    """
+    try:
+        return bool(ast.literal_eval(expr))
+    except (ValueError, TypeError):
+        return None
+
+
+class StepType(str, Enum):  # noqa: UP042
     """Type of verification step."""
 
     PARSE = "parse"
@@ -28,11 +42,12 @@ class StepType(str, Enum):
     GET_PROOF = "get_proof"
 
 
-class StepStatus(str, Enum):
+class StepStatus(str, Enum):  # noqa: UP042
     """Status of a verification step."""
 
     PENDING = "pending"
     SUCCESS = "success"
+    PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
 
@@ -103,6 +118,76 @@ class VerificationTrace:
         }
 
 
+@dataclass
+class ConstraintInfo:
+    """Source-level constraint metadata used by the compatibility debugger API."""
+
+    name: str
+    expression: str
+    variables: list[str] = field(default_factory=list)
+    source_line: int | None = None
+
+
+@dataclass
+class DebugStep:
+    """Source-level debugger step retained for CLI and SDK consumers."""
+
+    step_number: int
+    title: str
+    description: str
+    status: StepStatus = StepStatus.PENDING
+    constraint: str | None = None
+    model: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the step to the legacy dictionary representation."""
+        return {
+            "step_number": self.step_number,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status.value,
+            "constraint": self.constraint,
+            "model": self.model,
+        }
+
+
+@dataclass
+class DebugSession:
+    """Mutable source-debugging session for step-by-step CLI workflows."""
+
+    session_id: str
+    steps: list[DebugStep] = field(default_factory=list)
+    code: str = ""
+    current_step: int = 0
+
+    def add_step(self, step: DebugStep) -> None:
+        """Append a debugger step."""
+        self.steps.append(step)
+
+    def get_current_step(self) -> DebugStep | None:
+        """Return the first pending step, or the final step when complete."""
+        for step in self.steps:
+            if step.status == StepStatus.PENDING:
+                return step
+        return self.steps[-1] if self.steps else None
+
+    def all_passed(self) -> bool:
+        """Return whether every step completed successfully."""
+        return bool(self.steps) and all(
+            step.status in (StepStatus.PASSED, StepStatus.SUCCESS) for step in self.steps
+        )
+
+    def has_failures(self) -> bool:
+        """Return whether any step failed."""
+        return any(step.status == StepStatus.FAILED for step in self.steps)
+
+    def reset(self) -> None:
+        """Clear loaded code and debugger progress."""
+        self.steps.clear()
+        self.code = ""
+        self.current_step = 0
+
+
 class VerificationDebugger:
     """
     Interactive debugger for Z3 verification.
@@ -115,6 +200,146 @@ class VerificationDebugger:
         self.timeout_ms = timeout_ms
         self._step_counter = 0
         self._current_trace: VerificationTrace | None = None
+
+    async def trace(self, code: str, timeout_ms: int | None = None) -> dict[str, Any]:
+        """Trace source code using the compatibility API consumed by the CLI.
+
+        This walks the AST rather than running a full Z3 verification, so it must
+        never claim the code is ``"verified"`` on the strength of a successful parse
+        alone. Assertions that are statically-false literals (e.g. ``assert False``)
+        are the one case this trace *can* soundly judge without a solver, so those are
+        reported as ``"unverified"``; anything else that wasn't actually checked
+        (non-constant assertions, loop invariants) is reported as ``"unknown"``.
+        """
+        started = time.time()
+        steps: list[DebugStep] = []
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError as exc:
+            step = DebugStep(
+                step_number=1,
+                title="Parse source",
+                description=str(exc),
+                status=StepStatus.FAILED,
+            )
+            return {
+                "steps": [step.to_dict()],
+                "result": "error",
+                "error": str(exc),
+                "duration_ms": (time.time() - started) * 1000,
+            }
+
+        steps.append(
+            DebugStep(
+                step_number=1,
+                title="Parse source",
+                description="Source parsed successfully",
+                status=StepStatus.PASSED,
+            )
+        )
+
+        found_violation = False
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assert):
+                truth = _static_truth_value(node.test)
+                if truth is False:
+                    status = StepStatus.FAILED
+                    description = "Assertion is a constant that can never hold"
+                    found_violation = True
+                elif truth is True:
+                    status = StepStatus.PASSED
+                    description = "Assertion is a constant that always holds"
+                else:
+                    status = StepStatus.PENDING
+                    description = "Assertion depends on runtime values; not evaluated by this trace"
+                steps.append(
+                    DebugStep(
+                        step_number=len(steps) + 1,
+                        title="Check precondition",
+                        description=description,
+                        status=status,
+                        constraint=ast.unparse(node.test),
+                    )
+                )
+            elif isinstance(node, (ast.For, ast.While)):
+                steps.append(
+                    DebugStep(
+                        step_number=len(steps) + 1,
+                        title="Check loop",
+                        description=("Loop invariants and bounds are not evaluated by this trace"),
+                        status=StepStatus.PENDING,
+                    )
+                )
+
+        result = "unverified" if found_violation else "unknown"
+
+        return {
+            "steps": [step.to_dict() for step in steps],
+            "result": result,
+            "duration_ms": (time.time() - started) * 1000,
+            "timeout_ms": timeout_ms or self.timeout_ms,
+        }
+
+    def create_session(self) -> DebugSession:
+        """Create a source-level interactive debugging session."""
+        import uuid
+
+        return DebugSession(session_id=str(uuid.uuid4()))
+
+    async def load_code(self, session: DebugSession, code: str) -> None:
+        """Load source code and initialize session steps."""
+        result = await self.trace(code)
+        session.code = code
+        session.steps = [
+            DebugStep(
+                step_number=step.get("step_number", index + 1),
+                title=step.get("title", "Verification step"),
+                description=step.get("description", ""),
+                status=StepStatus(step.get("status", StepStatus.PENDING.value)),
+                constraint=step.get("constraint"),
+                model=step.get("model"),
+            )
+            for index, step in enumerate(result.get("steps", []))
+        ]
+        session.current_step = 0
+
+    async def step_next(self, session: DebugSession) -> DebugStep | None:
+        """Advance to and return the next session step."""
+        if session.current_step >= len(session.steps):
+            return None
+        step = session.steps[session.current_step]
+        session.current_step += 1
+        return step
+
+    async def explain_step(self, step: DebugStep) -> str:
+        """Return a concise explanation for a source-level debugger step."""
+        explanation = step.description or step.title
+        if step.constraint:
+            explanation = f"{explanation}: {step.constraint}"
+        if step.model:
+            explanation = f"{explanation}. Counterexample: {step.model}"
+        return explanation
+
+    def get_visualization_data(self, result: dict[str, Any]) -> dict[str, Any]:
+        """Convert compatibility trace output into graph data."""
+        steps = result.get("steps", [])
+        return {
+            "nodes": [
+                {
+                    "id": f"step_{index + 1}",
+                    "label": step.get("title", f"Step {index + 1}"),
+                    "status": step.get("status", StepStatus.PENDING.value),
+                }
+                for index, step in enumerate(steps)
+            ],
+            "edges": [
+                {"source": f"step_{index}", "target": f"step_{index + 1}"}
+                for index in range(1, len(steps))
+            ],
+            "result": result.get("result"),
+        }
 
     def _next_step_id(self) -> int:
         """Get next step ID."""
@@ -342,7 +567,7 @@ class VerificationDebugger:
         Returns:
             Dictionary with explanation components
         """
-        explanation = {
+        explanation: dict[str, Any] = {
             "summary": "",
             "meaning": "",
             "evidence": [],

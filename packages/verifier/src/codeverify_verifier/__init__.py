@@ -21,10 +21,15 @@ from codeverify_verifier.counterexample_playground import (
     create_playground,
 )
 from codeverify_verifier.debugger import (
+    ConstraintInfo,
     DebugSession,
     DebugStep,
+    InteractiveVerificationSession,
     StepStatus,
     VerificationDebugger,
+    VerificationStep,
+    VerificationTrace,
+    create_interactive_session,
 )
 from codeverify_verifier.prometheus_metrics import (
     Counter,
@@ -79,8 +84,13 @@ __all__ = [
     "generate_overflow_check",
     # Debugger
     "VerificationDebugger",
+    "VerificationStep",
+    "VerificationTrace",
     "DebugStep",
     "DebugSession",
+    "ConstraintInfo",
+    "InteractiveVerificationSession",
+    "create_interactive_session",
     "StepStatus",
     # Reachability Analysis
     "CallEdge",

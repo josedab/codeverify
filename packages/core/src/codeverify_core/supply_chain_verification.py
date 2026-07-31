@@ -344,7 +344,7 @@ class PypiDependencyParser(DependencyParser):
         packages = []
 
         # Simple poetry.lock parsing
-        current_package = None
+        current_package: dict[str, str] | None = None
         for line in content.split("\n"):
             if line.startswith("[[package]]"):
                 current_package = {}
@@ -401,7 +401,7 @@ class ThreatDetector:
 
     def __init__(self) -> None:
         self._known_malicious: set[str] = set()
-        self._known_vulnerabilities: dict[str, list[str]] = {}
+        self._known_vulnerabilities: dict[str, list[dict[str, Any]]] = {}
 
     def detect_threats(
         self,
@@ -450,6 +450,7 @@ class ThreatDetector:
             vulns = self._check_vulnerabilities(package)
             for vuln in vulns:
                 threat_id += 1
+                cve = vuln.get("cve")
                 threats.append(
                     SupplyChainThreat(
                         id=f"threat-{threat_id}",
@@ -460,7 +461,7 @@ class ThreatDetector:
                         description=vuln.get("description", "Security vulnerability detected"),
                         evidence=[f"CVE: {vuln.get('cve', 'N/A')}"],
                         remediation=f"Upgrade to version {vuln.get('fixed_version', 'latest')}",
-                        cve_ids=[vuln.get("cve")] if vuln.get("cve") else [],
+                        cve_ids=[str(cve)] if cve else [],
                     )
                 )
 
@@ -503,7 +504,7 @@ class ThreatDetector:
             return False
 
         # Count matching characters
-        matches = sum(1 for a, b in zip(name1, name2) if a == b)
+        matches = sum(1 for a, b in zip(name1, name2, strict=False) if a == b)
         similarity = matches / max(len(name1), len(name2))
 
         return similarity >= threshold
@@ -603,6 +604,7 @@ class LockfileVerifier:
         issues = []
 
         # Get appropriate parser
+        parser: DependencyParser
         if ecosystem == PackageEcosystem.NPM:
             parser = NpmDependencyParser()
         elif ecosystem == PackageEcosystem.PYPI:
@@ -775,9 +777,9 @@ class SupplyChainVerifier:
         new_code: str | None = None,
     ) -> DiffResult:
         """Analyze a package update for suspicious changes."""
-        files_added = []
-        files_removed = []
-        files_modified = []
+        files_added: list[str] = []
+        files_removed: list[str] = []
+        files_modified: list[str] = []
         behavioral_changes = []
         risk_indicators = []
 
@@ -787,7 +789,6 @@ class SupplyChainVerifier:
             new_lines = set(new_code.split("\n"))
 
             added_lines = new_lines - old_lines
-            removed_lines = old_lines - new_lines
 
             # Check for suspicious additions
             for line in added_lines:

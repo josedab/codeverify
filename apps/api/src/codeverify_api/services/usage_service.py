@@ -165,12 +165,10 @@ class UsageService:
             organization_id, billing.current_period_start, billing.current_period_end
         )
 
-        if resource_type == "analysis":
-            if summary.analyses_count >= limits.analyses_per_month:
-                return False, f"Analysis limit reached ({limits.analyses_per_month}/month)"
-        elif resource_type == "repository":
-            if summary.repositories_count >= limits.repositories:
-                return False, f"Repository limit reached ({limits.repositories})"
+        if resource_type == "analysis" and summary.analyses_count >= limits.analyses_per_month:
+            return False, f"Analysis limit reached ({limits.analyses_per_month}/month)"
+        if resource_type == "repository" and summary.repositories_count >= limits.repositories:
+            return False, f"Repository limit reached ({limits.repositories})"
 
         return True, "OK"
 

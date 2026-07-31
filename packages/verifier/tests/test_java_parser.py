@@ -123,7 +123,7 @@ public class Utils {
 public class Example {
     /**
      * Calculates the sum of two numbers.
-     * 
+     *
      * @param a first number
      * @param b second number
      * @return the sum
@@ -168,11 +168,11 @@ public class Complex {
         } else if (x < 0) {
             return -x;
         }
-        
+
         for (int i = 0; i < 10; i++) {
             x += i;
         }
-        
+
         switch (x) {
             case 1:
                 return 1;
@@ -222,9 +222,9 @@ public enum Status {
         code = """
 public abstract class Shape {
     protected String color;
-    
+
     public abstract double getArea();
-    
+
     public String getColor() {
         return color;
     }
@@ -247,7 +247,7 @@ public class Processor {
         process(getData());
         save();
     }
-    
+
     private void validate() {}
     private Object getData() { return null; }
     private void process(Object data) {}
@@ -292,7 +292,7 @@ public class VarArgsExample {
         code = """
 public class Outer {
     public void outerMethod() {}
-    
+
     public class Inner {
         public void innerMethod() {}
     }

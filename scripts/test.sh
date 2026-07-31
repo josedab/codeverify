@@ -14,33 +14,10 @@ if [ -d ".venv" ]; then
     source .venv/bin/activate
 fi
 
-# Run Python package tests (always available)
+# Run the complete Python suite.
 echo ""
-echo "📦 Running Python package tests..."
-pytest packages/ -v --tb=short
-
-# Run API tests
-echo ""
-echo "🌐 Running API tests..."
-pytest apps/api/tests -v --tb=short
-
-# Run worker tests if they exist
-echo ""
-if [ -d "apps/worker/tests" ] && ls apps/worker/tests/test_*.py >/dev/null 2>&1; then
-    echo "⚙️ Running Worker tests..."
-    pytest apps/worker/tests -v --tb=short
-else
-    echo "⏭️  Skipping worker tests (no test files found)"
-fi
-
-# Run integration tests if they exist
-echo ""
-if [ -d "tests/integration" ] && ls tests/integration/test_*.py >/dev/null 2>&1; then
-    echo "🔗 Running Integration tests..."
-    pytest tests/integration -v --tb=short
-else
-    echo "⏭️  Skipping integration tests (no test files found)"
-fi
+echo "📦 Running Python tests..."
+pytest packages/ apps/ tests/ -v --tb=short
 
 # Run Node.js tests if they exist
 echo ""
@@ -66,7 +43,7 @@ echo "✅ All tests completed!"
 if [ "$1" = "--coverage" ]; then
     echo ""
     echo "📊 Generating coverage report..."
-    pytest packages/ apps/api/tests \
+    pytest packages/ apps/ tests/ \
         --cov=codeverify \
         --cov-report=html \
         --cov-report=term-missing

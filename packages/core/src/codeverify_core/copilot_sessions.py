@@ -380,7 +380,7 @@ RULES:
 
         return findings
 
-    async def _mock_stream_response(self, prompt: str) -> AsyncIterator[str]:
+    async def _mock_stream_response(self, _prompt: str) -> AsyncIterator[str]:
         """Mock streaming response for testing.
 
         In production, replace with actual Copilot SDK streaming call.
@@ -407,7 +407,7 @@ class RealTimeCopilotReviewer:
     - Streaming findings
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.session_pool = CopilotSessionPool()
         self._active_sessions: dict[str, CopilotReviewSession] = {}
         self._user_corrections: dict[str, list[dict[str, Any]]] = defaultdict(

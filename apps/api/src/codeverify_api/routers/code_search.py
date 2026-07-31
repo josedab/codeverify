@@ -10,6 +10,7 @@ Provides REST API endpoints for semantic code search:
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -187,10 +188,8 @@ async def search_code(request: SearchRequest) -> dict[str, Any]:
 
     code_type = None
     if request.code_type:
-        try:
+        with contextlib.suppress(ValueError):
             code_type = CodeType(request.code_type)
-        except ValueError:
-            pass
 
     query = SearchQuery(
         query=request.query,

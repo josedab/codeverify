@@ -19,7 +19,7 @@ import hmac
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -62,8 +62,11 @@ class VerifyStatus(str, Enum):
 @dataclass
 class ProtocolCapabilities:
     """Server capabilities advertised to clients."""
+
     protocol_version: str = PROTOCOL_VERSION
-    supported_languages: list[str] = field(default_factory=lambda: ["python", "typescript", "go", "java", "rust", "c", "cpp"])
+    supported_languages: list[str] = field(
+        default_factory=lambda: ["python", "typescript", "go", "java", "rust", "c", "cpp"]
+    )
     supported_checks: list[str] = field(default_factory=lambda: [c.value for c in CheckType])
     max_file_size_bytes: int = 500_000
     max_files_per_request: int = 20
@@ -75,6 +78,7 @@ class ProtocolCapabilities:
 @dataclass
 class VerifyRequest:
     """Request to verify code."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
     protocol_version: str = PROTOCOL_VERSION
     client_id: str = ""
@@ -91,6 +95,7 @@ class VerifyRequest:
 @dataclass
 class Finding:
     """A verification finding."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     file_path: str = ""
     line: int = 0
@@ -104,23 +109,27 @@ class Finding:
 @dataclass
 class ProofCert:
     """A proof certificate for a verification result."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     check_type: CheckType = CheckType.NULL_SAFETY
     status: VerifyStatus = VerifyStatus.VERIFIED
     constraints_checked: int = 0
     content_hash: str = ""
     signature: str = ""
-    issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    issued_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def sign(self, secret: str) -> str:
         payload = f"{self.id}:{self.check_type.value}:{self.status.value}:{self.content_hash}"
-        self.signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+        self.signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()[
+            :16
+        ]
         return self.signature
 
 
 @dataclass
 class VerifyResponse:
     """Response from verification."""
+
     request_id: str = ""
     protocol_version: str = PROTOCOL_VERSION
     status: VerifyStatus = VerifyStatus.VERIFIED
@@ -134,13 +143,27 @@ class VerificationProtocolServer:
     """Server implementing the LLM Output Verification Protocol."""
 
     CHECK_PATTERNS: dict[CheckType, list[tuple[str, str, str]]] = {
-        CheckType.NULL_SAFETY: [("None.", "high", "Potential null dereference"), (".get(", "info", "Safe dictionary access pattern")],
-        CheckType.DIVISION_ZERO: [("/ 0", "critical", "Division by zero"), ("/ ", "medium", "Potential division by zero if divisor is 0")],
-        CheckType.SECURITY: [("eval(", "critical", "Use of eval() — code injection risk"), ("exec(", "high", "Use of exec() — code execution risk")],
-        CheckType.BOUNDS_CHECK: [("[i]", "medium", "Potential array out-of-bounds"), ("[-1]", "low", "Negative index access")],
+        CheckType.NULL_SAFETY: [
+            ("None.", "high", "Potential null dereference"),
+            (".get(", "info", "Safe dictionary access pattern"),
+        ],
+        CheckType.DIVISION_ZERO: [
+            ("/ 0", "critical", "Division by zero"),
+            ("/ ", "medium", "Potential division by zero if divisor is 0"),
+        ],
+        CheckType.SECURITY: [
+            ("eval(", "critical", "Use of eval() — code injection risk"),
+            ("exec(", "high", "Use of exec() — code execution risk"),
+        ],
+        CheckType.BOUNDS_CHECK: [
+            ("[i]", "medium", "Potential array out-of-bounds"),
+            ("[-1]", "low", "Negative index access"),
+        ],
     }
 
-    def __init__(self, server_id: str = "codeverify", signing_secret: str = "default-secret") -> None:
+    def __init__(
+        self, server_id: str = "codeverify", signing_secret: str = "default-secret"
+    ) -> None:
         self._server_id = server_id
         self._secret = signing_secret
         self._capabilities = ProtocolCapabilities()
@@ -166,14 +189,17 @@ class VerificationProtocolServer:
                 findings.extend(file_findings)
 
         if request.include_proofs:
-            checked_types = set(f.check_type for f in findings) if findings else set(checks)
+            checked_types = {f.check_type for f in findings} if findings else set(checks)
             for ct in checked_types:
                 ct_findings = [f for f in findings if f.check_type == ct]
                 status = VerifyStatus.FAILED if ct_findings else VerifyStatus.VERIFIED
                 cert = ProofCert(
-                    check_type=ct, status=status,
+                    check_type=ct,
+                    status=status,
                     constraints_checked=len(request.files),
-                    content_hash=hashlib.sha256("".join(f.get("content", "") for f in request.files).encode()).hexdigest()[:12],
+                    content_hash=hashlib.sha256(
+                        "".join(f.get("content", "") for f in request.files).encode()
+                    ).hexdigest()[:12],
                 )
                 cert.sign(self._secret)
                 proofs.append(cert)
@@ -190,9 +216,12 @@ class VerificationProtocolServer:
             self._sessions.setdefault(request.client_id, []).append(request)
 
         return VerifyResponse(
-            request_id=request.id, status=overall,
-            findings=findings, proofs=proofs,
-            verification_time_ms=elapsed, server_id=self._server_id,
+            request_id=request.id,
+            status=overall,
+            findings=findings,
+            proofs=proofs,
+            verification_time_ms=elapsed,
+            server_id=self._server_id,
         )
 
     def _check_code(self, path: str, content: str, check: CheckType) -> list[Finding]:
@@ -201,18 +230,28 @@ class VerificationProtocolServer:
         for i, line in enumerate(content.split("\n"), 1):
             for pattern, severity, message in patterns:
                 if pattern in line:
-                    findings.append(Finding(
-                        file_path=path, line=i, check_type=check,
-                        severity=severity, message=message,
-                    ))
+                    findings.append(
+                        Finding(
+                            file_path=path,
+                            line=i,
+                            check_type=check,
+                            severity=severity,
+                            message=message,
+                        )
+                    )
         return findings
 
 
 _protocol_instance: VerificationProtocolServer | None = None
+
+
 def get_verification_protocol_server() -> VerificationProtocolServer:
     global _protocol_instance
-    if _protocol_instance is None: _protocol_instance = VerificationProtocolServer()
+    if _protocol_instance is None:
+        _protocol_instance = VerificationProtocolServer()
     return _protocol_instance
+
+
 def reset_verification_protocol_server() -> None:
     global _protocol_instance
     _protocol_instance = None

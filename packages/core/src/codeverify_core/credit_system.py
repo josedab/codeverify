@@ -13,11 +13,9 @@ Features:
 from __future__ import annotations
 
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -42,18 +40,20 @@ class RedemptionType(str, Enum):
 @dataclass
 class CreditTransaction:
     """A credit earning or spending transaction."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     org_id: str = ""
     amount: int = 0
     source: CreditSource | None = None
     redemption: RedemptionType | None = None
     description: str = ""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class OrgCredits:
     """Credit balance for an organization."""
+
     org_id: str = ""
     org_name: str = ""
     balance: int = 0
@@ -66,6 +66,7 @@ class OrgCredits:
 @dataclass
 class CreditRule:
     """Rule for earning credits."""
+
     source: CreditSource = CreditSource.VERIFICATION_COVERAGE
     threshold: float = 0.8
     credits_awarded: int = 100
@@ -76,6 +77,7 @@ class CreditRule:
 @dataclass
 class LeaderboardEntry:
     """Leaderboard entry for an org."""
+
     org_id: str = ""
     org_name: str = ""
     balance: int = 0
@@ -89,7 +91,9 @@ CREDIT_RULES = [
     CreditRule(CreditSource.VERIFICATION_COVERAGE, 0.95, 200, "95%+ verification coverage", 1),
     CreditRule(CreditSource.FIX_RATE, 0.9, 150, "90%+ finding fix rate", 1),
     CreditRule(CreditSource.FEDERATED_CONTRIBUTION, 0, 50, "Contributed to federated learning", 5),
-    CreditRule(CreditSource.ZERO_CRITICAL_STREAK, 30, 300, "30-day zero critical findings streak", 1),
+    CreditRule(
+        CreditSource.ZERO_CRITICAL_STREAK, 30, 300, "30-day zero critical findings streak", 1
+    ),
     CreditRule(CreditSource.TRAINING_COMPLETION, 0, 75, "Completed security training module", 10),
 ]
 
@@ -112,7 +116,9 @@ class VerificationCreditService:
             self._orgs[org_id] = OrgCredits(org_id=org_id, org_name=org_name or org_id)
         return self._orgs[org_id]
 
-    def award_credits(self, org_id: str, source: CreditSource, amount: int, description: str = "") -> CreditTransaction:
+    def award_credits(
+        self, org_id: str, source: CreditSource, amount: int, description: str = ""
+    ) -> CreditTransaction:
         org = self._orgs.get(org_id)
         if not org:
             org = self.register_org(org_id)
@@ -138,7 +144,12 @@ class VerificationCreditService:
         cost = REDEMPTION_COSTS.get(redemption, 0)
         if org.balance < cost:
             return None
-        tx = CreditTransaction(org_id=org_id, amount=-cost, redemption=redemption, description=f"Redeemed: {redemption.value}")
+        tx = CreditTransaction(
+            org_id=org_id,
+            amount=-cost,
+            redemption=redemption,
+            description=f"Redeemed: {redemption.value}",
+        )
         org.balance -= cost
         org.total_spent += cost
         org.transactions.append(tx)
@@ -152,19 +163,32 @@ class VerificationCreditService:
 
     def get_leaderboard(self) -> list[LeaderboardEntry]:
         entries = sorted(self._orgs.values(), key=lambda o: o.total_earned, reverse=True)
-        return [LeaderboardEntry(org_id=o.org_id, org_name=o.org_name, balance=o.balance,
-                                 total_earned=o.total_earned, rank=i+1, badges=len(o.badges))
-                for i, o in enumerate(entries)]
+        return [
+            LeaderboardEntry(
+                org_id=o.org_id,
+                org_name=o.org_name,
+                balance=o.balance,
+                total_earned=o.total_earned,
+                rank=i + 1,
+                badges=len(o.badges),
+            )
+            for i, o in enumerate(entries)
+        ]
 
     def get_org(self, org_id: str) -> OrgCredits | None:
         return self._orgs.get(org_id)
 
 
 _credit_instance: VerificationCreditService | None = None
+
+
 def get_credit_service() -> VerificationCreditService:
     global _credit_instance
-    if _credit_instance is None: _credit_instance = VerificationCreditService()
+    if _credit_instance is None:
+        _credit_instance = VerificationCreditService()
     return _credit_instance
+
+
 def reset_credit_service() -> None:
     global _credit_instance
     _credit_instance = None

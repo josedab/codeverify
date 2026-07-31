@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -28,6 +28,7 @@ logger = structlog.get_logger()
 
 class NodeStatus(str, Enum):
     """Status of a proof tree node."""
+
     SATISFIED = "satisfied"
     VIOLATED = "violated"
     UNKNOWN = "unknown"
@@ -36,6 +37,7 @@ class NodeStatus(str, Enum):
 
 class StepAction(str, Enum):
     """Actions in a proof step."""
+
     ASSERT = "assert"
     PROPAGATE = "propagate"
     DECIDE = "decide"
@@ -46,6 +48,7 @@ class StepAction(str, Enum):
 
 class ExportFormat(str, Enum):
     """Export formats for proof visualizations."""
+
     HTML = "html"
     MERMAID = "mermaid"
     JSON = "json"
@@ -55,6 +58,7 @@ class ExportFormat(str, Enum):
 @dataclass
 class ProofNode:
     """A node in the proof tree."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     constraint: str = ""
     status: NodeStatus = NodeStatus.UNKNOWN
@@ -71,6 +75,7 @@ class ProofNode:
 @dataclass
 class ProofStep:
     """A single step in the constraint propagation."""
+
     step_number: int = 0
     action: StepAction = StepAction.ASSERT
     constraint: str = ""
@@ -82,6 +87,7 @@ class ProofStep:
 @dataclass
 class DebugSession:
     """An interactive debugging session."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     title: str = ""
     root_node: ProofNode | None = None
@@ -89,9 +95,10 @@ class DebugSession:
     current_step: int = 0
     variable_state: dict[str, Any] = field(default_factory=dict)
     user_overrides: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    share_token: str = field(default_factory=lambda: hashlib.sha256(
-        uuid.uuid4().bytes).hexdigest()[:12])
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    share_token: str = field(
+        default_factory=lambda: hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:12]
+    )
 
     @property
     def total_steps(self) -> int:
@@ -105,6 +112,7 @@ class DebugSession:
 @dataclass
 class ProofSummary:
     """Summary metrics for a proof tree."""
+
     total_nodes: int = 0
     max_depth: int = 0
     satisfied_count: int = 0
@@ -130,7 +138,7 @@ class ProofTreeBuilder:
         )
         vars_dict = variables or {}
 
-        for i, constraint in enumerate(constraints):
+        for _i, constraint in enumerate(constraints):
             status = self._evaluate_constraint(constraint, vars_dict)
             child = ProofNode(
                 constraint=constraint,
@@ -151,9 +159,7 @@ class ProofTreeBuilder:
 
         return root
 
-    def _evaluate_constraint(
-        self, constraint: str, variables: dict[str, Any]
-    ) -> NodeStatus:
+    def _evaluate_constraint(self, constraint: str, variables: dict[str, Any]) -> NodeStatus:
         """Simple constraint evaluation (pattern-based)."""
         c = constraint.lower().strip()
         if ">= 0" in c or "> 0" in c:
@@ -185,60 +191,74 @@ class StepGenerator:
         steps: list[ProofStep] = []
         step_num = 0
 
-        steps.append(ProofStep(
-            step_number=step_num,
-            action=StepAction.ASSERT,
-            constraint="Begin proof exploration",
-            explanation="Starting Z3 constraint solving",
-            node_id=root.id,
-        ))
+        steps.append(
+            ProofStep(
+                step_number=step_num,
+                action=StepAction.ASSERT,
+                constraint="Begin proof exploration",
+                explanation="Starting Z3 constraint solving",
+                node_id=root.id,
+            )
+        )
         step_num += 1
 
         for child in root.children:
-            steps.append(ProofStep(
-                step_number=step_num,
-                action=StepAction.ASSERT,
-                constraint=child.constraint,
-                variable_changes=child.variables,
-                explanation=f"Assert constraint: {child.constraint}",
-                node_id=child.id,
-            ))
+            steps.append(
+                ProofStep(
+                    step_number=step_num,
+                    action=StepAction.ASSERT,
+                    constraint=child.constraint,
+                    variable_changes=child.variables,
+                    explanation=f"Assert constraint: {child.constraint}",
+                    node_id=child.id,
+                )
+            )
             step_num += 1
 
             if child.status == NodeStatus.SATISFIED:
-                steps.append(ProofStep(
-                    step_number=step_num,
-                    action=StepAction.PROPAGATE,
-                    constraint=child.constraint,
-                    explanation=f"Constraint satisfied ✓",
-                    node_id=child.id,
-                ))
+                steps.append(
+                    ProofStep(
+                        step_number=step_num,
+                        action=StepAction.PROPAGATE,
+                        constraint=child.constraint,
+                        explanation="Constraint satisfied ✓",
+                        node_id=child.id,
+                    )
+                )
             elif child.status == NodeStatus.VIOLATED:
-                steps.append(ProofStep(
-                    step_number=step_num,
-                    action=StepAction.CONFLICT,
-                    constraint=child.constraint,
-                    explanation=f"Constraint violated ✗ — counterexample found",
-                    node_id=child.id,
-                ))
+                steps.append(
+                    ProofStep(
+                        step_number=step_num,
+                        action=StepAction.CONFLICT,
+                        constraint=child.constraint,
+                        explanation="Constraint violated ✗ — counterexample found",
+                        node_id=child.id,
+                    )
+                )
             else:
-                steps.append(ProofStep(
-                    step_number=step_num,
-                    action=StepAction.DECIDE,
-                    constraint=child.constraint,
-                    explanation=f"Constraint status undetermined",
-                    node_id=child.id,
-                ))
+                steps.append(
+                    ProofStep(
+                        step_number=step_num,
+                        action=StepAction.DECIDE,
+                        constraint=child.constraint,
+                        explanation="Constraint status undetermined",
+                        node_id=child.id,
+                    )
+                )
             step_num += 1
 
-        final_action = StepAction.PROPAGATE if root.status == NodeStatus.SATISFIED else StepAction.CONFLICT
-        steps.append(ProofStep(
-            step_number=step_num,
-            action=final_action,
-            constraint="Proof complete",
-            explanation=f"Final result: {root.status.value}",
-            node_id=root.id,
-        ))
+        final_action = (
+            StepAction.PROPAGATE if root.status == NodeStatus.SATISFIED else StepAction.CONFLICT
+        )
+        steps.append(
+            ProofStep(
+                step_number=step_num,
+                action=final_action,
+                constraint="Proof complete",
+                explanation=f"Final result: {root.status.value}",
+                node_id=root.id,
+            )
+        )
 
         return steps
 
@@ -263,7 +283,13 @@ class ProofExporter:
         return "\n".join(lines)
 
     def _mermaid_node(self, node: ProofNode, lines: list[str]) -> None:
-        icon = "✓" if node.status == NodeStatus.SATISFIED else "✗" if node.status == NodeStatus.VIOLATED else "?"
+        icon = (
+            "✓"
+            if node.status == NodeStatus.SATISFIED
+            else "✗"
+            if node.status == NodeStatus.VIOLATED
+            else "?"
+        )
         label = f"{icon} {node.constraint[:40]}"
         lines.append(f'    {node.id}["{label}"]')
         for child in node.children:
@@ -273,7 +299,13 @@ class ProofExporter:
     def _to_html(self, session: DebugSession) -> str:
         steps_html = ""
         for step in session.steps:
-            icon = "✓" if step.action == StepAction.PROPAGATE else "✗" if step.action == StepAction.CONFLICT else "→"
+            icon = (
+                "✓"
+                if step.action == StepAction.PROPAGATE
+                else "✗"
+                if step.action == StepAction.CONFLICT
+                else "→"
+            )
             steps_html += f"<li>{icon} Step {step.step_number}: {step.explanation}</li>\n"
         return (
             f"<html><body><h1>{session.title or 'Proof Debug'}</h1>"
@@ -289,7 +321,13 @@ class ProofExporter:
         return "\n".join(lines)
 
     def _dot_node(self, node: ProofNode, lines: list[str]) -> None:
-        color = "green" if node.status == NodeStatus.SATISFIED else "red" if node.status == NodeStatus.VIOLATED else "gray"
+        color = (
+            "green"
+            if node.status == NodeStatus.SATISFIED
+            else "red"
+            if node.status == NodeStatus.VIOLATED
+            else "gray"
+        )
         lines.append(f'  {node.id} [label="{node.constraint[:30]}" color="{color}"];')
         for child in node.children:
             lines.append(f"  {node.id} -> {child.id};")
@@ -297,14 +335,20 @@ class ProofExporter:
 
     def _to_json(self, session: DebugSession) -> str:
         import json
-        return json.dumps({
-            "id": session.id,
-            "title": session.title,
-            "share_url": session.share_url,
-            "total_steps": session.total_steps,
-            "steps": [{"step": s.step_number, "action": s.action.value,
-                        "explanation": s.explanation} for s in session.steps],
-        }, indent=2)
+
+        return json.dumps(
+            {
+                "id": session.id,
+                "title": session.title,
+                "share_url": session.share_url,
+                "total_steps": session.total_steps,
+                "steps": [
+                    {"step": s.step_number, "action": s.action.value, "explanation": s.explanation}
+                    for s in session.steps
+                ],
+            },
+            indent=2,
+        )
 
 
 class LiveVerificationDebuggerService:
@@ -355,16 +399,16 @@ class LiveVerificationDebuggerService:
         session.current_step -= 1
         return session.steps[session.current_step]
 
-    def override_variable(
-        self, session_id: str, variable: str, value: Any
-    ) -> DebugSession | None:
+    def override_variable(self, session_id: str, variable: str, value: Any) -> DebugSession | None:
         """Override a variable and re-evaluate constraints."""
         session = self._sessions.get(session_id)
         if not session:
             return None
         session.user_overrides[variable] = value
         merged = {**session.variable_state, **session.user_overrides}
-        constraints = [c.constraint for c in (session.root_node.children if session.root_node else [])]
+        constraints = [
+            c.constraint for c in (session.root_node.children if session.root_node else [])
+        ]
         new_root = self._builder.build_from_constraints(constraints, merged)
         new_steps = self._step_gen.generate_steps(new_root)
         session.root_node = new_root

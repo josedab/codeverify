@@ -125,9 +125,7 @@ class AIDetector:
     ]
 
     # AI tends to generate overly verbose variable names
-    VERBOSE_NAME_PATTERN = re.compile(
-        r"\b\w{25,}\b"
-    )
+    VERBOSE_NAME_PATTERN = re.compile(r"\b\w{25,}\b")
 
     # AI often generates placeholder/example values
     PLACEHOLDER_PATTERNS = [
@@ -135,7 +133,9 @@ class AIDetector:
         re.compile(r"your[_-]?(?:api[_-]?key|token|secret)", re.IGNORECASE),
     ]
 
-    def detect(self, code: str, context: dict[str, Any] | None = None) -> tuple[AISource, float, list[AIDetectionSignal]]:
+    def detect(
+        self, code: str, context: dict[str, Any] | None = None
+    ) -> tuple[AISource, float, list[AIDetectionSignal]]:
         """Detect if code is AI-generated and estimate confidence."""
         signals: list[AIDetectionSignal] = []
         context = context or {}
@@ -159,12 +159,16 @@ class AIDetector:
 
         for pattern in self.PLACEHOLDER_PATTERNS:
             if pattern.search(code):
-                signals.append(AIDetectionSignal("placeholder_values", 0.4, f"Pattern: {pattern.pattern}"))
+                signals.append(
+                    AIDetectionSignal("placeholder_values", 0.4, f"Pattern: {pattern.pattern}")
+                )
 
         # Large multi-line insertions are more likely AI
         line_count = code.count("\n") + 1
         if line_count > 15:
-            signals.append(AIDetectionSignal("large_insertion", 0.5, f"{line_count} lines inserted at once"))
+            signals.append(
+                AIDetectionSignal("large_insertion", 0.5, f"{line_count} lines inserted at once")
+            )
         elif line_count > 30:
             signals.append(AIDetectionSignal("very_large_insertion", 0.7, f"{line_count} lines"))
 
@@ -172,9 +176,11 @@ class AIDetector:
         lines = code.strip().split("\n")
         if len(lines) > 5:
             indent_pattern = re.compile(r"^(\s*)")
-            indents = [len(indent_pattern.match(l).group(1)) for l in lines if l.strip()]
+            indents = [len(indent_pattern.match(line).group(1)) for line in lines if line.strip()]
             if indents and len(set(indents)) <= 3:
-                signals.append(AIDetectionSignal("uniform_indent", 0.2, "Very consistent indentation"))
+                signals.append(
+                    AIDetectionSignal("uniform_indent", 0.2, "Very consistent indentation")
+                )
 
         if not signals:
             return AISource.HUMAN, 0.1, signals
@@ -188,51 +194,137 @@ class RiskScorer:
     """Scores risk of code insertions using pattern-based security checks."""
 
     SECURITY_PATTERNS = [
-        (re.compile(r"eval\s*\("), "code_injection", RiskLevel.CRITICAL, "eval() allows arbitrary code execution"),
-        (re.compile(r"exec\s*\("), "code_injection", RiskLevel.CRITICAL, "exec() allows arbitrary code execution"),
-        (re.compile(r"subprocess\.(?:call|run|Popen)\s*\(.*shell\s*=\s*True"), "command_injection", RiskLevel.CRITICAL, "Shell=True enables command injection"),
-        (re.compile(r"os\.system\s*\("), "command_injection", RiskLevel.HIGH, "os.system() is vulnerable to injection"),
-        (re.compile(r"__import__\s*\("), "code_injection", RiskLevel.HIGH, "Dynamic import can load malicious modules"),
-        (re.compile(r"pickle\.loads?\s*\("), "deserialization", RiskLevel.HIGH, "pickle deserialization is unsafe with untrusted data"),
-        (re.compile(r"yaml\.load\s*\((?!.*Loader)"), "deserialization", RiskLevel.HIGH, "yaml.load without SafeLoader is unsafe"),
-        (re.compile(r"SELECT\s+.*\+\s*[\w\"']|f[\"'].*SELECT.*\{"), "sql_injection", RiskLevel.HIGH, "String concatenation in SQL query"),
-        (re.compile(r"password\s*=\s*[\"'][^\"']+[\"']"), "hardcoded_secret", RiskLevel.HIGH, "Hardcoded password detected"),
-        (re.compile(r"(?:api[_-]?key|secret|token)\s*=\s*[\"'][A-Za-z0-9+/=]{16,}"), "hardcoded_secret", RiskLevel.CRITICAL, "Hardcoded secret/token detected"),
-        (re.compile(r"verify\s*=\s*False"), "tls_bypass", RiskLevel.MEDIUM, "TLS verification disabled"),
-        (re.compile(r"CORS\(.*origins?\s*=\s*[\"']\*[\"']"), "cors_misconfiguration", RiskLevel.MEDIUM, "CORS allows all origins"),
+        (
+            re.compile(r"eval\s*\("),
+            "code_injection",
+            RiskLevel.CRITICAL,
+            "eval() allows arbitrary code execution",
+        ),
+        (
+            re.compile(r"exec\s*\("),
+            "code_injection",
+            RiskLevel.CRITICAL,
+            "exec() allows arbitrary code execution",
+        ),
+        (
+            re.compile(r"subprocess\.(?:call|run|Popen)\s*\(.*shell\s*=\s*True"),
+            "command_injection",
+            RiskLevel.CRITICAL,
+            "Shell=True enables command injection",
+        ),
+        (
+            re.compile(r"os\.system\s*\("),
+            "command_injection",
+            RiskLevel.HIGH,
+            "os.system() is vulnerable to injection",
+        ),
+        (
+            re.compile(r"__import__\s*\("),
+            "code_injection",
+            RiskLevel.HIGH,
+            "Dynamic import can load malicious modules",
+        ),
+        (
+            re.compile(r"pickle\.loads?\s*\("),
+            "deserialization",
+            RiskLevel.HIGH,
+            "pickle deserialization is unsafe with untrusted data",
+        ),
+        (
+            re.compile(r"yaml\.load\s*\((?!.*Loader)"),
+            "deserialization",
+            RiskLevel.HIGH,
+            "yaml.load without SafeLoader is unsafe",
+        ),
+        (
+            re.compile(r"SELECT\s+.*\+\s*[\w\"']|f[\"'].*SELECT.*\{"),
+            "sql_injection",
+            RiskLevel.HIGH,
+            "String concatenation in SQL query",
+        ),
+        (
+            re.compile(r"password\s*=\s*[\"'][^\"']+[\"']"),
+            "hardcoded_secret",
+            RiskLevel.HIGH,
+            "Hardcoded password detected",
+        ),
+        (
+            re.compile(r"(?:api[_-]?key|secret|token)\s*=\s*[\"'][A-Za-z0-9+/=]{16,}"),
+            "hardcoded_secret",
+            RiskLevel.CRITICAL,
+            "Hardcoded secret/token detected",
+        ),
+        (
+            re.compile(r"verify\s*=\s*False"),
+            "tls_bypass",
+            RiskLevel.MEDIUM,
+            "TLS verification disabled",
+        ),
+        (
+            re.compile(r"CORS\(.*origins?\s*=\s*[\"']\*[\"']"),
+            "cors_misconfiguration",
+            RiskLevel.MEDIUM,
+            "CORS allows all origins",
+        ),
     ]
 
     CORRECTNESS_PATTERNS = [
-        (re.compile(r"except\s*:\s*$", re.MULTILINE), "bare_except", RiskLevel.LOW, "Bare except catches all exceptions including SystemExit"),
-        (re.compile(r"except\s+Exception\s*:\s*\n\s*pass"), "swallowed_exception", RiskLevel.MEDIUM, "Exception silently swallowed"),
-        (re.compile(r"\.split\(\)[^\]]*\[\d+\]"), "index_error", RiskLevel.LOW, "Unchecked index access on split result"),
-        (re.compile(r"type\(\w+\)\s*=="), "type_comparison", RiskLevel.LOW, "Use isinstance() instead of type() =="),
+        (
+            re.compile(r"except\s*:\s*$", re.MULTILINE),
+            "bare_except",
+            RiskLevel.LOW,
+            "Bare except catches all exceptions including SystemExit",
+        ),
+        (
+            re.compile(r"except\s+Exception\s*:\s*\n\s*pass"),
+            "swallowed_exception",
+            RiskLevel.MEDIUM,
+            "Exception silently swallowed",
+        ),
+        (
+            re.compile(r"\.split\(\)[^\]]*\[\d+\]"),
+            "index_error",
+            RiskLevel.LOW,
+            "Unchecked index access on split result",
+        ),
+        (
+            re.compile(r"type\(\w+\)\s*=="),
+            "type_comparison",
+            RiskLevel.LOW,
+            "Use isinstance() instead of type() ==",
+        ),
     ]
 
-    def score(self, code: str, language: str = "python") -> tuple[float, RiskLevel, list[RiskFactor]]:
+    def score(
+        self, code: str, _language: str = "python"
+    ) -> tuple[float, RiskLevel, list[RiskFactor]]:
         """Score the risk of a code insertion. Returns (score, level, factors)."""
         factors: list[RiskFactor] = []
 
         for pattern, category, severity, desc in self.SECURITY_PATTERNS:
             for match in pattern.finditer(code):
-                line_num = code[:match.start()].count("\n") + 1
-                factors.append(RiskFactor(
-                    category=category,
-                    severity=severity,
-                    description=desc,
-                    line=line_num,
-                    fix_suggestion=self._suggest_fix(category),
-                ))
+                line_num = code[: match.start()].count("\n") + 1
+                factors.append(
+                    RiskFactor(
+                        category=category,
+                        severity=severity,
+                        description=desc,
+                        line=line_num,
+                        fix_suggestion=self._suggest_fix(category),
+                    )
+                )
 
         for pattern, category, severity, desc in self.CORRECTNESS_PATTERNS:
             for match in pattern.finditer(code):
-                line_num = code[:match.start()].count("\n") + 1
-                factors.append(RiskFactor(
-                    category=category,
-                    severity=severity,
-                    description=desc,
-                    line=line_num,
-                ))
+                line_num = code[: match.start()].count("\n") + 1
+                factors.append(
+                    RiskFactor(
+                        category=category,
+                        severity=severity,
+                        description=desc,
+                        line=line_num,
+                    )
+                )
 
         # Calculate score
         severity_weights = {

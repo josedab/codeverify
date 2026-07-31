@@ -4,9 +4,8 @@ Uses the Behavioral Regression Oracle's risk predictions to allocate
 verification compute budget, reducing cost while maintaining coverage.
 """
 
-import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -239,7 +238,7 @@ class VerificationBudgetOptimizer:
     def get_cost_report(self) -> CostReport:
         """Generate a cost report from allocation history."""
         if not self._allocation_log:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             return CostReport(period_start=now, period_end=now)
 
         by_depth: dict[str, float] = {}
@@ -262,12 +261,10 @@ class VerificationBudgetOptimizer:
             by_risk[risk_key] = by_risk.get(risk_key, 0) + alloc.estimated_cost
 
         return CostReport(
-            period_start=self._allocation_log[0].to_dict().get(
-                "timestamp", datetime.now(timezone.utc)
-            )
+            period_start=self._allocation_log[0].to_dict().get("timestamp", datetime.now(UTC))
             if isinstance(self._allocation_log[0].to_dict().get("timestamp"), datetime)
-            else datetime.now(timezone.utc),
-            period_end=datetime.now(timezone.utc),
+            else datetime.now(UTC),
+            period_end=datetime.now(UTC),
             total_cost=total_cost,
             total_files=len(self._allocation_log),
             by_depth=by_depth,
@@ -302,5 +299,5 @@ class VerificationBudgetOptimizer:
         return depth
 
     def _new_day_usage(self) -> BudgetUsage:
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
         return BudgetUsage(date=today, allocated=self.config.daily_budget_units)

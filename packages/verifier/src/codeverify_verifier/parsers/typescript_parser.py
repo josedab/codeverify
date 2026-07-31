@@ -185,9 +185,11 @@ class TypeScriptParser(CodeParser):
 
         for match in re.finditer(method_pattern, class_body):
             name = match.group(1)
-            if name in ("constructor", "class", "if", "for", "while", "switch"):
-                if name != "constructor":
-                    continue
+            if (
+                name in ("constructor", "class", "if", "for", "while", "switch")
+                and name != "constructor"
+            ):
+                continue
 
             params_str = match.group(2)
             return_type = match.group(3)

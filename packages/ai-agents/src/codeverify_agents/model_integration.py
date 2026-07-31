@@ -125,14 +125,16 @@ class FeatureExtractor:
     def _extract_structural(self, code: str) -> dict[str, float]:
         """Extract structural features."""
         lines = code.split("\n")
-        non_empty = [l for l in lines if l.strip()]
+        non_empty = [line for line in lines if line.strip()]
 
-        line_lengths = [len(l) for l in non_empty]
+        line_lengths = [len(line) for line in non_empty]
         avg_length = sum(line_lengths) / max(len(line_lengths), 1)
 
         # Calculate variance
         if len(line_lengths) > 1:
-            variance = sum((l - avg_length) ** 2 for l in line_lengths) / len(line_lengths)
+            variance = sum((length - avg_length) ** 2 for length in line_lengths) / len(
+                line_lengths
+            )
         else:
             variance = 0.0
 
@@ -150,12 +152,14 @@ class FeatureExtractor:
         blank_ratio = (len(lines) - len(non_empty)) / max(len(lines), 1)
 
         # Comment density
-        comment_lines = len([l for l in lines if l.strip().startswith(("#", "//", "/*", "*"))])
+        comment_lines = len(
+            [line for line in lines if line.strip().startswith(("#", "//", "/*", "*"))]
+        )
         comment_density = comment_lines / max(len(non_empty), 1)
 
         # Count functions and classes
-        function_count = len([l for l in lines if "def " in l or "function " in l])
-        class_count = len([l for l in lines if "class " in l])
+        function_count = len([line for line in lines if "def " in line or "function " in line])
+        class_count = len([line for line in lines if "class " in line])
 
         return {
             "line_count": float(len(lines)),
@@ -169,7 +173,7 @@ class FeatureExtractor:
             "class_count": float(class_count),
         }
 
-    def _extract_style(self, code: str, language: str) -> dict[str, float]:
+    def _extract_style(self, code: str, _language: str) -> dict[str, float]:
         """Extract style features."""
         import re
 
@@ -226,7 +230,9 @@ class FeatureExtractor:
         lengths = [len(i) for i in identifiers]
         avg_length = sum(lengths) / len(lengths)
         variance = (
-            sum((l - avg_length) ** 2 for l in lengths) / len(lengths) if len(lengths) > 1 else 0
+            sum((length - avg_length) ** 2 for length in lengths) / len(lengths)
+            if len(lengths) > 1
+            else 0
         )
 
         # Docstring coverage
@@ -275,8 +281,8 @@ class FeatureExtractor:
         has_example = any(re.search(p, code, re.IGNORECASE) for p in example_patterns)
 
         # Verbose comments (AI tends to over-explain)
-        comment_lines = [l for l in lines if l.strip().startswith("#")]
-        total_comment_length = sum(len(l) for l in comment_lines)
+        comment_lines = [line for line in lines if line.strip().startswith("#")]
+        total_comment_length = sum(len(line) for line in comment_lines)
         verbose_ratio = total_comment_length / max(len(code), 1)
 
         # Perfect formatting (AI produces very consistent formatting)
@@ -340,12 +346,12 @@ class FeatureExtractor:
         normalized_entropy = entropy / max_entropy if max_entropy > 0 else 0
 
         # Structure regularity (AI code tends to be very regular)
-        lines = [l for l in code.split("\n") if l.strip()]
+        lines = [line for line in code.split("\n") if line.strip()]
         if len(lines) > 1:
-            line_lengths = [len(l) for l in lines]
+            line_lengths = [len(line) for line in lines]
             avg = sum(line_lengths) / len(line_lengths)
             regularity = 1.0 - (
-                sum(abs(l - avg) for l in line_lengths) / (len(lines) * max(avg, 1))
+                sum(abs(length - avg) for length in line_lengths) / (len(lines) * max(avg, 1))
             )
         else:
             regularity = 0.5
@@ -511,7 +517,7 @@ class ONNXModelBackend(BaseModelBackend):
         inference_time = (time.time() - start) * 1000 / len(features_batch)
 
         results = []
-        for i, probs in enumerate(outputs[0]):
+        for _i, probs in enumerate(outputs[0]):
             predicted_idx = int(np.argmax(probs))
             predicted_class = self.config.output_classes[predicted_idx]
 
@@ -611,7 +617,7 @@ class ModelEnsemble:
         total_inference_time = 0
         all_features_used = {}
 
-        for (model, _), weight in zip(self.models, self.normalized_weights):
+        for (model, _), weight in zip(self.models, self.normalized_weights, strict=True):
             result = model.predict(features)
             total_inference_time += result.inference_time_ms
 
@@ -734,13 +740,13 @@ def calculate_total(items):
 def calculate_total(items: list) -> float:
     \"\"\"
     Calculate the total price of all items.
-    
+
     Args:
         items: A list of item objects with price and quantity attributes.
-        
+
     Returns:
         The total price as a float.
-        
+
     Example:
         >>> items = [Item(price=10, qty=2), Item(price=5, qty=3)]
         >>> calculate_total(items)
@@ -748,13 +754,13 @@ def calculate_total(items: list) -> float:
     \"\"\"
     # Initialize the total to zero
     total = 0.0
-    
+
     # Iterate through each item and add to total
     for item in items:
         # Calculate subtotal for this item
         subtotal = item.price * item.qty
         total += subtotal
-    
+
     # Return the final total
     return total
 """

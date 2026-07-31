@@ -6,6 +6,7 @@ This module provides SAML 2.0 SSO authentication support for enterprise customer
 from __future__ import annotations
 
 import base64
+import contextlib
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -81,7 +82,7 @@ _saml_configs: dict[str, SAMLConfig] = {}
 _pending_auth_requests: dict[str, SAMLAuthRequest] = {}
 
 
-def _generate_sp_metadata(config: SAMLConfig, base_url: str) -> str:
+def _generate_sp_metadata(config: SAMLConfig, _base_url: str) -> str:
     """Generate SP metadata XML."""
     return f"""<?xml version="1.0"?>
 <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
@@ -295,8 +296,8 @@ async def assertion_consumer_service(
         raise HTTPException(status_code=400, detail="Missing SAMLResponse")
 
     try:
-        # Decode SAML response
-        decoded_response = base64.b64decode(saml_response).decode()
+        # Decode SAML response (validates payload is well-formed base64 text)
+        base64.b64decode(saml_response).decode()
 
         # In production, would:
         # 1. Verify XML signature using IdP certificate
@@ -319,10 +320,8 @@ async def assertion_consumer_service(
         # Decode relay state for redirect
         redirect_uri = None
         if relay_state:
-            try:
+            with contextlib.suppress(Exception):
                 redirect_uri = base64.b64decode(relay_state).decode()
-            except Exception:
-                pass
 
         return {
             "status": "authenticated",
@@ -332,7 +331,9 @@ async def assertion_consumer_service(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to process SAML response: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to process SAML response: {str(e)}"
+        ) from e
 
 
 @router.get("/logout/{organization_id}")

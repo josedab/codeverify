@@ -572,9 +572,9 @@ def _extract_code_pattern(code: str) -> str | None:
 
 def _calculate_match_score(
     code: str,
-    features: dict[str, Any],
+    _features: dict[str, Any],
     pattern: dict[str, Any],
-    file_path: str,
+    _file_path: str,
     detected_lang: str,
 ) -> float:
     """Calculate match score for a pattern."""

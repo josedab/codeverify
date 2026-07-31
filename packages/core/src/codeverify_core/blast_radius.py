@@ -5,7 +5,7 @@ team notification routing, and structured impact reports.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -70,7 +70,7 @@ class BlastRadiusReport:
     source_files: list[str]
     change_type: ChangeType
     affected_services: list[AffectedService] = field(default_factory=list)
-    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def total_affected(self) -> int:
@@ -79,8 +79,7 @@ class BlastRadiusReport:
     @property
     def critical_count(self) -> int:
         return sum(
-            1 for s in self.affected_services
-            if s.impact_severity == ImpactSeverity.CRITICAL
+            1 for s in self.affected_services if s.impact_severity == ImpactSeverity.CRITICAL
         )
 
     @property
@@ -116,9 +115,7 @@ class BlastRadiusReport:
                 "critical": self.critical_count,
                 "radius_score": round(self.radius_score, 1),
                 "affected_teams": self.affected_teams,
-                "max_hop_count": max(
-                    (s.hop_count for s in self.affected_services), default=0
-                ),
+                "max_hop_count": max((s.hop_count for s in self.affected_services), default=0),
             },
             "affected_services": [s.to_dict() for s in self.affected_services],
             "generated_at": self.generated_at.isoformat(),
@@ -127,14 +124,14 @@ class BlastRadiusReport:
     def to_markdown(self) -> str:
         """Generate a markdown summary of the blast radius."""
         lines = [
-            f"# 💥 Blast Radius Report",
-            f"",
+            "# 💥 Blast Radius Report",
+            "",
             f"**Source:** `{self.source_repository}`",
             f"**Change Type:** {self.change_type.value}",
             f"**Radius Score:** {self.radius_score:.1f}/100",
             f"**Affected Services:** {self.total_affected}",
             f"**Affected Teams:** {', '.join(self.affected_teams) or 'None'}",
-            f"",
+            "",
         ]
 
         if self.critical_count:
@@ -292,9 +289,7 @@ class BlastRadiusAnalyzer:
         )
         return report
 
-    def generate_notifications(
-        self, report: BlastRadiusReport
-    ) -> list[TeamNotification]:
+    def generate_notifications(self, report: BlastRadiusReport) -> list[TeamNotification]:
         """Generate team notifications from a blast radius report."""
         team_map: dict[str, list[AffectedService]] = {}
         for svc in report.affected_services:
@@ -327,9 +322,7 @@ class BlastRadiusAnalyzer:
 
         return notifications
 
-    def _compute_severity(
-        self, change_type: ChangeType, hop_distance: int
-    ) -> ImpactSeverity:
+    def _compute_severity(self, change_type: ChangeType, hop_distance: int) -> ImpactSeverity:
         """Compute impact severity based on change type and distance."""
         if change_type == ChangeType.BREAKING:
             if hop_distance <= 1:

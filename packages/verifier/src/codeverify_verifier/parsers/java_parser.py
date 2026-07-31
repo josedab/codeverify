@@ -76,8 +76,8 @@ class JavaParser(CodeParser):
             r"\s*(?:class|interface|enum)\s+"
             r"(?P<name>\w+)"
             r"(?:\s*<[^>]+>)?"  # Generic type parameters
-            r"(?:\s+extends\s+(?P<extends>[\w.<>,\s]+))?"
-            r"(?:\s+implements\s+(?P<implements>[\w.<>,\s]+))?"
+            r"(?:\s+extends\s+(?P<extends>[\w.$<>, ?]+?)(?=\s+implements|\s*{))?"
+            r"(?:\s+implements\s+(?P<implements>[\w.$<>, ?]+?))?"
             r"\s*{"
         )
 
@@ -113,9 +113,9 @@ class JavaParser(CodeParser):
                 # Build base classes list
                 base_classes: list[str] = []
                 if extends:
-                    base_classes.extend([b.strip() for b in extends.split(",")])
+                    base_classes.extend(base.strip() for base in self._split_parameters(extends))
                 if implements:
-                    base_classes.extend([b.strip() for b in implements.split(",")])
+                    base_classes.extend(base.strip() for base in self._split_parameters(implements))
 
                 # Extract Javadoc
                 docstring = self._extract_javadoc(lines, i)
@@ -144,7 +144,7 @@ class JavaParser(CodeParser):
 
         # Match method declarations
         method_pattern = re.compile(
-            r"^\s*(?P<annotations>(?:@\w+(?:\([^)]*\))?\s+)*)"
+            r"^\s*(?P<annotations>(?:@[\w.]+(?:\([^)]*\))?\s+)*)"
             r"(?P<modifiers>(?:public|private|protected|abstract|final|static|synchronized|native|\s)+)?"
             r"\s*(?P<generics><[^>]+>\s+)?"
             r"(?P<return>[\w.<>,\[\]\s?]+)\s+"
@@ -201,8 +201,15 @@ class JavaParser(CodeParser):
 
                 # Parse annotations as decorators
                 decorators: list[str] = []
-                if annotations:
-                    for ann in re.findall(r"@(\w+)(?:\([^)]*\))?", annotations):
+                annotation_lines: list[str] = []
+                annotation_index = i - 1
+                while annotation_index >= 0 and lines[annotation_index].strip().startswith("@"):
+                    annotation_lines.insert(0, lines[annotation_index].strip())
+                    annotation_index -= 1
+
+                annotation_text = " ".join([*annotation_lines, annotations or ""])
+                if annotation_text:
+                    for ann in re.findall(r"@([\w.]+)(?:\([^)]*\))?", annotation_text):
                         decorators.append(f"@{ann}")
 
                 if throws:
@@ -398,10 +405,10 @@ class JavaParser(CodeParser):
 
             if line.endswith("*/"):
                 in_javadoc = True
-                comments.insert(0, line.rstrip("*/").strip())
+                comments.insert(0, line.removesuffix("*/").strip())
             elif in_javadoc:
                 if line.startswith("/**"):
-                    comments.insert(0, line.lstrip("/**").strip())
+                    comments.insert(0, line.removeprefix("/**").strip())
                     break
                 elif line.startswith("*"):
                     comments.insert(0, line.lstrip("* ").strip())

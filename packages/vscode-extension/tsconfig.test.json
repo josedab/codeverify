@@ -1,0 +1,10 @@
+{
+  // Compiles unit tests (excluded from tsconfig.json) to a separate output
+  // directory so the published extension output in "out/" stays test-free.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "out-test"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", ".vscode-test"]
+}

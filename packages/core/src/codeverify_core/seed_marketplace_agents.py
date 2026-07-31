@@ -112,8 +112,9 @@ def seed_marketplace(svc: AgentMarketplaceService | None = None) -> list[str]:
     agent_ids: list[str] = []
     for manifest in SEED_AGENTS:
         agent = svc.submit_agent(manifest)
-        svc.review_agent(agent.id, "codeverify-team", approved=True,
-                        comments="First-party agent — auto-approved")
+        svc.review_agent(
+            agent.id, "codeverify-team", approved=True, comments="First-party agent — auto-approved"
+        )
         svc.publish_agent(agent.id)
         agent_ids.append(agent.id)
         print(f"  ✅ Published: {manifest.name} ({agent.id})")
@@ -124,5 +125,6 @@ def seed_marketplace(svc: AgentMarketplaceService | None = None) -> list[str]:
 
 if __name__ == "__main__":
     from codeverify_core.agent_marketplace import get_agent_marketplace_service
+
     svc = get_agent_marketplace_service()
     seed_marketplace(svc)

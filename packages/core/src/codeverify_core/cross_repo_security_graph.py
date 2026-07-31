@@ -15,12 +15,10 @@ Features:
 from __future__ import annotations
 
 import hashlib
-import math
-import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -127,7 +125,7 @@ class VulnerabilityRecord:
     fix_available: bool = False
     fix_version: str | None = None
     discovered_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -219,7 +217,10 @@ class SecurityKnowledgeGraph:
         return node
 
     def add_dependency(
-        self, repo_id: str, package_name: str, version: str = "",
+        self,
+        repo_id: str,
+        package_name: str,
+        version: str = "",
     ) -> SecurityNode:
         """Add a dependency (package) and link it to a repo."""
         pkg_id = f"pkg:{package_name}@{version}" if version else f"pkg:{package_name}"
@@ -231,11 +232,13 @@ class SecurityKnowledgeGraph:
                 metadata={"version": version},
             )
             self.add_node(node)
-        self.add_edge(SecurityEdge(
-            source_id=repo_id,
-            target_id=pkg_id,
-            edge_type=SecurityEdgeType.DEPENDS_ON,
-        ))
+        self.add_edge(
+            SecurityEdge(
+                source_id=repo_id,
+                target_id=pkg_id,
+                edge_type=SecurityEdgeType.DEPENDS_ON,
+            )
+        )
         return self._nodes[pkg_id]
 
     def register_vulnerability(self, vuln: VulnerabilityRecord) -> None:
@@ -253,22 +256,29 @@ class SecurityKnowledgeGraph:
         for pkg in vuln.affected_packages:
             for nid, node in self._nodes.items():
                 if node.node_type == SecurityNodeType.PACKAGE and node.name == pkg:
-                    self.add_edge(SecurityEdge(
-                        source_id=nid,
-                        target_id=vuln.id,
-                        edge_type=SecurityEdgeType.AFFECTED_BY,
-                        weight=vuln.cvss_score,
-                    ))
+                    self.add_edge(
+                        SecurityEdge(
+                            source_id=nid,
+                            target_id=vuln.id,
+                            edge_type=SecurityEdgeType.AFFECTED_BY,
+                            weight=vuln.cvss_score,
+                        )
+                    )
 
     def compute_blast_radius(
-        self, vulnerability_id: str, max_depth: int = 10,
+        self,
+        vulnerability_id: str,
+        max_depth: int = 10,
     ) -> BlastRadiusResult:
         """Compute blast radius for a vulnerability."""
         result = BlastRadiusResult(source_vulnerability=vulnerability_id)
 
         affected_pkg_ids: set[str] = set()
         for edge in self._edges:
-            if edge.target_id == vulnerability_id and edge.edge_type == SecurityEdgeType.AFFECTED_BY:
+            if (
+                edge.target_id == vulnerability_id
+                and edge.edge_type == SecurityEdgeType.AFFECTED_BY
+            ):
                 affected_pkg_ids.add(edge.source_id)
 
         visited: set[str] = set()
@@ -293,11 +303,15 @@ class SecurityKnowledgeGraph:
                 if dep_id not in visited:
                     queue.append((dep_id, path + [dep_id]))
 
-        result.risk_score = min(1.0, len(result.affected_repos) * 0.1 + len(result.affected_packages) * 0.05)
+        result.risk_score = min(
+            1.0, len(result.affected_repos) * 0.1 + len(result.affected_packages) * 0.05
+        )
         return result
 
     def find_similar_vulnerabilities(
-        self, code_hash: str, threshold: float = 0.6,
+        self,
+        code_hash: str,
+        threshold: float = 0.6,
     ) -> list[SimilarityMatch]:
         """Find vulnerabilities with similar code patterns (simplified similarity)."""
         matches: list[SimilarityMatch] = []
@@ -309,13 +323,15 @@ class SecurityKnowledgeGraph:
             max_val = max(code_val, vuln_val, 1)
             similarity = 1.0 - abs(code_val - vuln_val) / max_val
             if similarity >= threshold:
-                matches.append(SimilarityMatch(
-                    source_file=code_hash,
-                    matched_vulnerability=vuln.id,
-                    similarity_score=similarity,
-                    confidence=similarity * 0.8,
-                    matched_pattern=vuln.title,
-                ))
+                matches.append(
+                    SimilarityMatch(
+                        source_file=code_hash,
+                        matched_vulnerability=vuln.id,
+                        similarity_score=similarity,
+                        confidence=similarity * 0.8,
+                        matched_pattern=vuln.title,
+                    )
+                )
 
         matches.sort(key=lambda m: m.similarity_score, reverse=True)
         return matches
@@ -329,10 +345,9 @@ class SecurityKnowledgeGraph:
 
         return {
             "total_repos": len(repos),
-            "total_packages": len([
-                n for n in self._nodes.values()
-                if n.node_type == SecurityNodeType.PACKAGE
-            ]),
+            "total_packages": len(
+                [n for n in self._nodes.values() if n.node_type == SecurityNodeType.PACKAGE]
+            ),
             "total_vulnerabilities": len(vulns),
             "critical_vulnerabilities": len(critical),
             "high_vulnerabilities": len(high),

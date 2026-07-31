@@ -32,7 +32,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 # =============================================================================
 # Core Types
@@ -120,6 +120,7 @@ class VerificationRuleFunc(Protocol):
     """Protocol for verification rule functions."""
 
     __rule_metadata__: RuleMetadata
+    __name__: str
 
     def __call__(self, ctx: RuleContext) -> RuleResult: ...
 
@@ -137,7 +138,7 @@ def verification_rule(
     tags: list[str] | None = None,
     description: str = "",
     author: str = "",
-) -> Callable:
+) -> Callable[[Callable[[RuleContext], RuleResult]], VerificationRuleFunc]:
     """Decorator to mark a function as a verification rule.
 
     Usage:
@@ -146,7 +147,7 @@ def verification_rule(
             ...
     """
 
-    def decorator(func: Callable[[RuleContext], RuleResult]) -> Callable:
+    def decorator(func: Callable[[RuleContext], RuleResult]) -> VerificationRuleFunc:
         func.__rule_metadata__ = RuleMetadata(  # type: ignore[attr-defined]
             id=id,
             name=func.__name__,
@@ -157,7 +158,9 @@ def verification_rule(
             tags=tags or [],
             author=author,
         )
-        return func
+        # func has been given __rule_metadata__ above, satisfying VerificationRuleFunc
+        # at runtime; Callable has no static attribute for it, so a cast documents this.
+        return cast(VerificationRuleFunc, func)
 
     return decorator
 
@@ -166,7 +169,7 @@ def check(
     category: str = "general",
     severity: str = "medium",
     languages: list[str] | None = None,
-) -> Callable:
+) -> Callable[[Callable[[RuleContext], RuleResult]], VerificationRuleFunc]:
     """Simplified decorator for quick checks.
 
     Usage:
@@ -175,7 +178,7 @@ def check(
             ...
     """
 
-    def decorator(func: Callable[[RuleContext], RuleResult]) -> Callable:
+    def decorator(func: Callable[[RuleContext], RuleResult]) -> VerificationRuleFunc:
         func.__rule_metadata__ = RuleMetadata(  # type: ignore[attr-defined]
             id=func.__name__,
             name=func.__name__,
@@ -184,7 +187,8 @@ def check(
             category=category,
             languages=languages or [],
         )
-        return func
+        # See comment in verification_rule() above regarding this cast.
+        return cast(VerificationRuleFunc, func)
 
     return decorator
 
@@ -231,7 +235,7 @@ class VerificationPipeline:
 
     def __init__(self, name: str, fail_fast: bool = False) -> None:
         self._name = name
-        self._rules: list[Callable] = []
+        self._rules: list[VerificationRuleFunc] = []
         self._fail_fast = fail_fast
 
     @property
@@ -242,7 +246,7 @@ class VerificationPipeline:
     def rule_count(self) -> int:
         return len(self._rules)
 
-    def add(self, rule: Callable) -> VerificationPipeline:
+    def add(self, rule: VerificationRuleFunc) -> VerificationPipeline:
         """Add a rule to the pipeline. Returns self for chaining."""
         self._rules.append(rule)
         return self
@@ -340,9 +344,9 @@ class RuleRegistry:
     """
 
     def __init__(self) -> None:
-        self._rules: dict[str, Callable] = {}
+        self._rules: dict[str, VerificationRuleFunc] = {}
 
-    def register(self, rule: Callable) -> None:
+    def register(self, rule: VerificationRuleFunc) -> None:
         """Register a rule in the registry."""
         meta: RuleMetadata | None = getattr(rule, "__rule_metadata__", None)
         if meta is None:
@@ -351,14 +355,14 @@ class RuleRegistry:
             )
         self._rules[meta.id] = rule
 
-    def get(self, rule_id: str) -> Callable | None:
+    def get(self, rule_id: str) -> VerificationRuleFunc | None:
         """Get a rule by ID."""
         return self._rules.get(rule_id)
 
     def list_rules(self) -> list[dict[str, Any]]:
         """List all registered rules with their metadata."""
         result = []
-        for rule_id, rule in self._rules.items():
+        for _rule_id, rule in self._rules.items():
             meta: RuleMetadata = rule.__rule_metadata__
             result.append(
                 {
@@ -373,13 +377,13 @@ class RuleRegistry:
             )
         return result
 
-    def get_by_category(self, category: str) -> list[Callable]:
+    def get_by_category(self, category: str) -> list[VerificationRuleFunc]:
         """Get all rules in a category."""
         return [
             rule for rule in self._rules.values() if rule.__rule_metadata__.category == category
         ]
 
-    def get_by_language(self, language: str) -> list[Callable]:
+    def get_by_language(self, language: str) -> list[VerificationRuleFunc]:
         """Get all rules applicable to a language."""
         return [
             rule

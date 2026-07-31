@@ -182,7 +182,7 @@ class UserPreferences:
     suppressed_rules: list[str] = field(default_factory=list)
     min_priority: SuggestionPriority = SuggestionPriority.LOW
     preferred_fix_style: str = "minimal"
-    feedback_history: list[dict] = field(default_factory=list)
+    feedback_history: list[dict[str, Any]] = field(default_factory=list)
     learning_rate: float = 0.1
 
     def to_dict(self) -> dict[str, Any]:
@@ -253,7 +253,7 @@ class SessionMetrics:
 # =============================================================================
 
 
-_FUNCTION_PATTERNS: dict[str, re.Pattern] = {
+_FUNCTION_PATTERNS: dict[str, re.Pattern[str]] = {
     "python": re.compile(r"^[ \t]*(async\s+)?def\s+(\w+)\s*\(", re.MULTILINE),
     "javascript": re.compile(
         r"(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\()",
@@ -267,34 +267,55 @@ _FUNCTION_PATTERNS: dict[str, re.Pattern] = {
 
 _ISSUE_PATTERNS: dict[str, list[dict[str, Any]]] = {
     "python": [
-        {"pattern": re.compile(r"\bexcept\s*:"), "type": SuggestionType.BUG_FIX,
-         "priority": SuggestionPriority.HIGH,
-         "message": "Bare except catches SystemExit/KeyboardInterrupt",
-         "fix_hint": "Use 'except Exception:' instead"},
-        {"pattern": re.compile(r"==\s*None\b"), "type": SuggestionType.STYLE,
-         "priority": SuggestionPriority.LOW,
-         "message": "Use 'is None' for identity comparison",
-         "fix_hint": "Replace '== None' with 'is None'"},
-        {"pattern": re.compile(r"\beval\s*\("), "type": SuggestionType.SECURITY,
-         "priority": SuggestionPriority.CRITICAL,
-         "message": "Use of eval() is a security risk — arbitrary code execution",
-         "fix_hint": "Use ast.literal_eval() for safe evaluation of literals"},
-        {"pattern": re.compile(r"\bexec\s*\("), "type": SuggestionType.SECURITY,
-         "priority": SuggestionPriority.CRITICAL,
-         "message": "Use of exec() is a security risk — arbitrary code execution",
-         "fix_hint": "Refactor to avoid dynamic code execution"},
-        {"pattern": re.compile(r"def\s+\w+\((?:[^)]*,){7,}"), "type": SuggestionType.REFACTORING,
-         "priority": SuggestionPriority.MEDIUM,
-         "message": "Function has too many parameters (>7)",
-         "fix_hint": "Group related parameters into a dataclass or dict"},
-        {"pattern": re.compile(r"#\s*TODO\b", re.IGNORECASE), "type": SuggestionType.DOCUMENTATION,
-         "priority": SuggestionPriority.INFO,
-         "message": "Unresolved TODO comment found",
-         "fix_hint": "Address or file an issue for the TODO item"},
-        {"pattern": re.compile(r"time\.sleep\("), "type": SuggestionType.PERFORMANCE,
-         "priority": SuggestionPriority.MEDIUM,
-         "message": "Blocking sleep in potentially async context",
-         "fix_hint": "Use asyncio.sleep() in async code"},
+        {
+            "pattern": re.compile(r"\bexcept\s*:"),
+            "type": SuggestionType.BUG_FIX,
+            "priority": SuggestionPriority.HIGH,
+            "message": "Bare except catches SystemExit/KeyboardInterrupt",
+            "fix_hint": "Use 'except Exception:' instead",
+        },
+        {
+            "pattern": re.compile(r"==\s*None\b"),
+            "type": SuggestionType.STYLE,
+            "priority": SuggestionPriority.LOW,
+            "message": "Use 'is None' for identity comparison",
+            "fix_hint": "Replace '== None' with 'is None'",
+        },
+        {
+            "pattern": re.compile(r"\beval\s*\("),
+            "type": SuggestionType.SECURITY,
+            "priority": SuggestionPriority.CRITICAL,
+            "message": "Use of eval() is a security risk — arbitrary code execution",
+            "fix_hint": "Use ast.literal_eval() for safe evaluation of literals",
+        },
+        {
+            "pattern": re.compile(r"\bexec\s*\("),
+            "type": SuggestionType.SECURITY,
+            "priority": SuggestionPriority.CRITICAL,
+            "message": "Use of exec() is a security risk — arbitrary code execution",
+            "fix_hint": "Refactor to avoid dynamic code execution",
+        },
+        {
+            "pattern": re.compile(r"def\s+\w+\((?:[^)]*,){7,}"),
+            "type": SuggestionType.REFACTORING,
+            "priority": SuggestionPriority.MEDIUM,
+            "message": "Function has too many parameters (>7)",
+            "fix_hint": "Group related parameters into a dataclass or dict",
+        },
+        {
+            "pattern": re.compile(r"#\s*TODO\b", re.IGNORECASE),
+            "type": SuggestionType.DOCUMENTATION,
+            "priority": SuggestionPriority.INFO,
+            "message": "Unresolved TODO comment found",
+            "fix_hint": "Address or file an issue for the TODO item",
+        },
+        {
+            "pattern": re.compile(r"time\.sleep\("),
+            "type": SuggestionType.PERFORMANCE,
+            "priority": SuggestionPriority.MEDIUM,
+            "message": "Blocking sleep in potentially async context",
+            "fix_hint": "Use asyncio.sleep() in async code",
+        },
     ],
 }
 
@@ -314,7 +335,7 @@ class IncrementalAnalyzer:
     def analyze_change(
         self,
         event: CodeChangeEvent,
-        previous_content: str | None = None,
+        _previous_content: str | None = None,
     ) -> IncrementalAnalysisResult:
         """Analyze a code change event and return findings for affected functions."""
         start_time = time.monotonic()
@@ -328,9 +349,7 @@ class IncrementalAnalyzer:
         cache_hit = True
 
         for func_name in changed_functions:
-            func_body = self._extract_function_body(
-                event.content, func_name, event.language
-            )
+            func_body = self._extract_function_body(event.content, func_name, event.language)
             if func_body is None:
                 continue
 
@@ -375,7 +394,10 @@ class IncrementalAnalyzer:
         )
 
     def _detect_changed_functions(
-        self, content: str, changed_lines: list[int], language: str,
+        self,
+        content: str,
+        changed_lines: list[int],
+        language: str,
     ) -> list[str]:
         """Detect which functions overlap with the changed lines."""
         pattern = _FUNCTION_PATTERNS.get(language)
@@ -394,10 +416,7 @@ class IncrementalAnalyzer:
             functions.append((func_name, start_line, end_line))
 
         changed_set = set(changed_lines)
-        return [
-            name for name, start, end in functions
-            if changed_set & set(range(start, end + 1))
-        ]
+        return [name for name, start, end in functions if changed_set & set(range(start, end + 1))]
 
     def _find_function_end(self, lines: list[str], start_idx: int, language: str) -> int:
         """Find the ending line number of a function definition."""
@@ -448,7 +467,9 @@ class IncrementalAnalyzer:
             return "\n".join(lines[start_idx:end_idx])
         return None
 
-    def _analyze_function(self, func_body: str, func_name: str, language: str) -> list[dict[str, Any]]:
+    def _analyze_function(
+        self, func_body: str, func_name: str, language: str
+    ) -> list[dict[str, Any]]:
         """Run static checks on a single function body."""
         findings: list[dict[str, Any]] = []
         issue_patterns = _ISSUE_PATTERNS.get(language, [])
@@ -456,30 +477,38 @@ class IncrementalAnalyzer:
         for line_offset, line_text in enumerate(func_body.split("\n"), start=1):
             for rule in issue_patterns:
                 if rule["pattern"].search(line_text):
-                    findings.append({
-                        "function": func_name,
-                        "line_offset": line_offset,
-                        "type": rule["type"].value,
-                        "priority": rule["priority"].value,
-                        "message": rule["message"],
-                        "fix_hint": rule.get("fix_hint", ""),
-                        "matched_text": line_text.strip(),
-                    })
+                    findings.append(
+                        {
+                            "function": func_name,
+                            "line_offset": line_offset,
+                            "type": rule["type"].value,
+                            "priority": rule["priority"].value,
+                            "message": rule["message"],
+                            "fix_hint": rule.get("fix_hint", ""),
+                            "matched_text": line_text.strip(),
+                        }
+                    )
 
         complexity = self._estimate_complexity(func_body)
         if complexity > 10:
-            findings.append({
-                "function": func_name, "line_offset": 1,
-                "type": SuggestionType.REFACTORING.value,
-                "priority": SuggestionPriority.MEDIUM.value,
-                "message": f"High cyclomatic complexity (~{complexity}) — consider splitting",
-                "fix_hint": "Extract helper functions for complex branches",
-                "matched_text": "",
-            })
+            findings.append(
+                {
+                    "function": func_name,
+                    "line_offset": 1,
+                    "type": SuggestionType.REFACTORING.value,
+                    "priority": SuggestionPriority.MEDIUM.value,
+                    "message": f"High cyclomatic complexity (~{complexity}) — consider splitting",
+                    "fix_hint": "Extract helper functions for complex branches",
+                    "matched_text": "",
+                }
+            )
         return findings
 
     def _analyze_changed_region(
-        self, content: str, changed_lines: list[int], language: str,
+        self,
+        content: str,
+        changed_lines: list[int],
+        language: str,
     ) -> list[dict[str, Any]]:
         """Analyze individual changed lines when no function scope is found."""
         findings: list[dict[str, Any]] = []
@@ -492,23 +521,31 @@ class IncrementalAnalyzer:
             line_text = lines[line_num - 1]
             for rule in issue_patterns:
                 if rule["pattern"].search(line_text):
-                    findings.append({
-                        "function": "<file-level>", "line_offset": line_num,
-                        "type": rule["type"].value, "priority": rule["priority"].value,
-                        "message": rule["message"], "fix_hint": rule.get("fix_hint", ""),
-                        "matched_text": line_text.strip(),
-                    })
+                    findings.append(
+                        {
+                            "function": "<file-level>",
+                            "line_offset": line_num,
+                            "type": rule["type"].value,
+                            "priority": rule["priority"].value,
+                            "message": rule["message"],
+                            "fix_hint": rule.get("fix_hint", ""),
+                            "matched_text": line_text.strip(),
+                        }
+                    )
         return findings
 
     @staticmethod
     def _estimate_complexity(func_body: str) -> int:
         """Estimate cyclomatic complexity via branch-keyword counting."""
         keywords = re.findall(
-            r"\b(?:if|elif|else|for|while|except|and|or|case)\b", func_body,
+            r"\b(?:if|elif|else|for|while|except|and|or|case)\b",
+            func_body,
         )
         return 1 + len(keywords)
 
-    def _determine_scope(self, changed_functions: list[str], event: CodeChangeEvent) -> AnalysisScope:
+    def _determine_scope(
+        self, changed_functions: list[str], event: CodeChangeEvent
+    ) -> AnalysisScope:
         """Determine the appropriate analysis scope."""
         if not changed_functions:
             total_lines = event.content.count("\n") + 1
@@ -534,18 +571,24 @@ class IncrementalAnalyzer:
 
 
 # Patterns indicating an incomplete syntactic construct
-_INCOMPLETE_SYNTAX: dict[str, list[re.Pattern]] = {
+_INCOMPLETE_SYNTAX: dict[str, list[re.Pattern[str]]] = {
     "python": [
-        re.compile(r":\s*$"), re.compile(r",\s*$"),
-        re.compile(r"\\\s*$"), re.compile(r"\(\s*$"),
+        re.compile(r":\s*$"),
+        re.compile(r",\s*$"),
+        re.compile(r"\\\s*$"),
+        re.compile(r"\(\s*$"),
     ],
     "javascript": [
-        re.compile(r"{\s*$"), re.compile(r"\(\s*$"),
-        re.compile(r",\s*$"), re.compile(r"=>\s*$"),
+        re.compile(r"{\s*$"),
+        re.compile(r"\(\s*$"),
+        re.compile(r",\s*$"),
+        re.compile(r"=>\s*$"),
     ],
     "typescript": [
-        re.compile(r"{\s*$"), re.compile(r"\(\s*$"),
-        re.compile(r",\s*$"), re.compile(r"=>\s*$"),
+        re.compile(r"{\s*$"),
+        re.compile(r"\(\s*$"),
+        re.compile(r",\s*$"),
+        re.compile(r"=>\s*$"),
     ],
 }
 
@@ -566,7 +609,9 @@ class SmartDebouncer:
     def should_trigger(self, event: CodeChangeEvent) -> bool:
         """Decide whether to trigger analysis for the given event."""
         now = event.timestamp
-        time_since_last = (now - self._last_event_time) * 1000 if self._last_event_time else float("inf")
+        time_since_last = (
+            (now - self._last_event_time) * 1000 if self._last_event_time else float("inf")
+        )
 
         if self._last_event_time > 0 and time_since_last > 0:
             self._typing_velocities.append(1000.0 / time_since_last)
@@ -585,11 +630,12 @@ class SmartDebouncer:
         if time_since_last < required_delay:
             return False
 
-        if self.config.syntax_aware and not self._is_syntax_complete(
-            event.content, event.cursor_position, event.language
+        if (
+            self.config.syntax_aware
+            and not self._is_syntax_complete(event.content, event.cursor_position, event.language)
+            and time_since_last < self.config.max_delay_ms
         ):
-            if time_since_last < self.config.max_delay_ms:
-                return False
+            return False
 
         self._pending_events.clear()
         return True
@@ -608,9 +654,7 @@ class SmartDebouncer:
 
         open_count = content.count("(") + content.count("[") + content.count("{")
         close_count = content.count(")") + content.count("]") + content.count("}")
-        if open_count > close_count:
-            return False
-        return True
+        return open_count <= close_count
 
     def _calculate_delay(self, event: CodeChangeEvent) -> float:
         """Calculate the required pause length before triggering analysis."""
@@ -645,32 +689,41 @@ class SuggestionEngine:
         self._suggestion_counter: int = 0
 
     def generate_suggestions(
-        self, analysis: IncrementalAnalysisResult, preferences: UserPreferences,
+        self,
+        analysis: IncrementalAnalysisResult,
+        preferences: UserPreferences,
     ) -> list[InlineSuggestion]:
         """Generate inline suggestions from an analysis result."""
         raw: list[InlineSuggestion] = []
         for finding in analysis.findings:
             self._suggestion_counter += 1
-            raw.append(InlineSuggestion(
-                id=f"sug-{uuid4().hex[:12]}",
-                suggestion_type=self._map_suggestion_type(finding.get("type", "")),
-                priority=self._map_priority(finding.get("priority", "info")),
-                message=finding.get("message", ""),
-                line=finding.get("line_offset", 1),
-                column=0,
-                file_path=analysis.file_path,
-                fix_code=finding.get("fix_hint"),
-                explanation=finding.get("matched_text"),
-                confidence=0.85,
-            ))
+            raw.append(
+                InlineSuggestion(
+                    id=f"sug-{uuid4().hex[:12]}",
+                    suggestion_type=self._map_suggestion_type(finding.get("type", "")),
+                    priority=self._map_priority(finding.get("priority", "info")),
+                    message=finding.get("message", ""),
+                    line=finding.get("line_offset", 1),
+                    column=0,
+                    file_path=analysis.file_path,
+                    fix_code=finding.get("fix_hint"),
+                    explanation=finding.get("matched_text"),
+                    confidence=0.85,
+                )
+            )
 
         filtered = self._filter_by_preferences(raw, preferences)
         ranked = self._rank_suggestions(filtered)
 
-        logger.debug("Suggestions generated", total=len(raw), after_filter=len(filtered), file=analysis.file_path)
+        logger.debug(
+            "Suggestions generated",
+            total=len(raw),
+            after_filter=len(filtered),
+            file=analysis.file_path,
+        )
         return ranked
 
-    def generate_code_lens(self, file_path: str, content: str) -> list[CodeLensAnnotation]:
+    def generate_code_lens(self, _file_path: str, content: str) -> list[CodeLensAnnotation]:
         """Generate CodeLens annotations for function and class definitions."""
         annotations: list[CodeLensAnnotation] = []
         for idx, line in enumerate(content.split("\n")):
@@ -678,23 +731,31 @@ class SuggestionEngine:
             if stripped.startswith(("def ", "async def ")):
                 match = re.match(r"^\s*(?:async\s+)?def\s+(\w+)", line)
                 name = match.group(1) if match else "unknown"
-                annotations.append(CodeLensAnnotation(
-                    line=idx + 1, label=f"▶ Verify {name}",
-                    tooltip=f"Run incremental verification on {name}",
-                    command=f"codeverify.verifyFunction:{name}",
-                ))
+                annotations.append(
+                    CodeLensAnnotation(
+                        line=idx + 1,
+                        label=f"▶ Verify {name}",
+                        tooltip=f"Run incremental verification on {name}",
+                        command=f"codeverify.verifyFunction:{name}",
+                    )
+                )
             elif stripped.startswith("class "):
                 match = re.match(r"^\s*class\s+(\w+)", line)
                 name = match.group(1) if match else "unknown"
-                annotations.append(CodeLensAnnotation(
-                    line=idx + 1, label=f"◆ Verify class {name}",
-                    tooltip=f"Run verification on class {name}",
-                    command=f"codeverify.verifyClass:{name}",
-                ))
+                annotations.append(
+                    CodeLensAnnotation(
+                        line=idx + 1,
+                        label=f"◆ Verify class {name}",
+                        tooltip=f"Run verification on class {name}",
+                        command=f"codeverify.verifyClass:{name}",
+                    )
+                )
         return annotations
 
     def _filter_by_preferences(
-        self, suggestions: list[InlineSuggestion], preferences: UserPreferences,
+        self,
+        suggestions: list[InlineSuggestion],
+        preferences: UserPreferences,
     ) -> list[InlineSuggestion]:
         """Remove suggestions suppressed or below the user's priority threshold."""
         min_idx = _PRIORITY_ORDER.index(preferences.min_priority)
@@ -713,12 +774,14 @@ class SuggestionEngine:
 
     def _rank_suggestions(self, suggestions: list[InlineSuggestion]) -> list[InlineSuggestion]:
         """Rank suggestions by priority (critical first) then confidence."""
+
         def sort_key(s: InlineSuggestion) -> tuple[int, float, int]:
             try:
                 idx = _PRIORITY_ORDER.index(s.priority)
             except ValueError:
                 idx = len(_PRIORITY_ORDER)
             return (idx, -s.confidence, s.line)
+
         return sorted(suggestions, key=sort_key)
 
     @staticmethod
@@ -748,7 +811,9 @@ class PersonalizationEngine:
         self._user_prefs: dict[str, UserPreferences] = {}
         self._feedback_log: dict[str, list[dict[str, Any]]] = defaultdict(list)
         self._type_stats: dict[str, dict[str, dict[str, int]]] = defaultdict(
-            lambda: defaultdict(lambda: {"accepted": 0, "dismissed": 0, "deferred": 0, "never_show": 0})
+            lambda: defaultdict(
+                lambda: {"accepted": 0, "dismissed": 0, "deferred": 0, "never_show": 0}
+            )
         )
 
     def record_feedback(self, user_id: str, suggestion_id: str, action: FeedbackAction) -> None:
@@ -757,7 +822,9 @@ class PersonalizationEngine:
         self._feedback_log[user_id].append(entry)
         prefs = self.get_preferences(user_id)
         prefs.feedback_history.append(entry)
-        logger.info("Feedback recorded", user=user_id, suggestion=suggestion_id, action=action.value)
+        logger.info(
+            "Feedback recorded", user=user_id, suggestion=suggestion_id, action=action.value
+        )
 
     def get_preferences(self, user_id: str) -> UserPreferences:
         """Get or create preferences for a user."""
@@ -766,7 +833,10 @@ class PersonalizationEngine:
         return self._user_prefs[user_id]
 
     def update_preferences(
-        self, user_id: str, feedback_action: FeedbackAction, suggestion_type: SuggestionType,
+        self,
+        user_id: str,
+        feedback_action: FeedbackAction,
+        suggestion_type: SuggestionType,
     ) -> None:
         """Update user preferences based on a feedback action."""
         stats = self._type_stats[user_id][suggestion_type.value]
@@ -789,7 +859,9 @@ class PersonalizationEngine:
                 current_idx = _PRIORITY_ORDER.index(prefs.min_priority)
                 if current_idx > 0:
                     prefs.min_priority = _PRIORITY_ORDER[current_idx - 1]
-                    logger.info("Min priority raised", user=user_id, new_min=prefs.min_priority.value)
+                    logger.info(
+                        "Min priority raised", user=user_id, new_min=prefs.min_priority.value
+                    )
 
     def _calculate_rule_suppression(self, user_id: str) -> list[str]:
         """Calculate which rules should be auto-suppressed for a user."""
@@ -864,7 +936,9 @@ class RealTimePairSession:
 
         suggestion = self._active_suggestions.get(suggestion_id)
         if suggestion is not None:
-            self._personalization.update_preferences(self.user_id, action, suggestion.suggestion_type)
+            self._personalization.update_preferences(
+                self.user_id, action, suggestion.suggestion_type
+            )
 
         if action == FeedbackAction.ACCEPTED:
             self._metrics.suggestions_accepted += 1
@@ -891,7 +965,8 @@ class RealTimePairSession:
         self._debouncer.reset()
         metrics = self.get_metrics()
         logger.info(
-            "Pair session closed", session=self.session_id,
+            "Pair session closed",
+            session=self.session_id,
             total_analyses=metrics.total_analyses,
             suggestions_shown=metrics.suggestions_shown,
             acceptance_rate=metrics._acceptance_rate,

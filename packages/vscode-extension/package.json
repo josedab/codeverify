@@ -443,7 +443,8 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
+    "compile-tests": "tsc -p ./tsconfig.test.json",
+    "test": "npm run compile-tests && cd out-test && node --test --test-reporter=spec",
     "package": "vsce package"
   },
   "devDependencies": {

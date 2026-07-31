@@ -14,11 +14,9 @@ Features:
 
 from __future__ import annotations
 
-import math
-import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -195,7 +193,7 @@ class FairnessReport:
     overall_compliance: ComplianceStatus = ComplianceStatus.NOT_ASSESSED
     regulation: str = ""
     generated_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     @property
@@ -333,33 +331,41 @@ class RemediationAdvisor:
         suggestions: list[RemediationSuggestion] = []
 
         if result.bias_level in (BiasLevel.HIGH, BiasLevel.SEVERE):
-            suggestions.append(RemediationSuggestion(
-                type=RemediationType.REWEIGHTING,
-                description="Apply sample reweighting to equalize group representation.",
-                expected_improvement=0.15,
-                complexity="low",
-            ))
-            suggestions.append(RemediationSuggestion(
-                type=RemediationType.ADVERSARIAL_DEBIASING,
-                description="Train an adversarial network to remove protected attribute signal.",
-                expected_improvement=0.25,
-                complexity="high",
-            ))
+            suggestions.append(
+                RemediationSuggestion(
+                    type=RemediationType.REWEIGHTING,
+                    description="Apply sample reweighting to equalize group representation.",
+                    expected_improvement=0.15,
+                    complexity="low",
+                )
+            )
+            suggestions.append(
+                RemediationSuggestion(
+                    type=RemediationType.ADVERSARIAL_DEBIASING,
+                    description="Train an adversarial network to remove protected attribute signal.",
+                    expected_improvement=0.25,
+                    complexity="high",
+                )
+            )
 
         if result.bias_level in (BiasLevel.MODERATE, BiasLevel.LOW):
-            suggestions.append(RemediationSuggestion(
-                type=RemediationType.THRESHOLD_ADJUSTMENT,
-                description="Adjust decision thresholds per group to equalize outcomes.",
-                expected_improvement=0.10,
-                complexity="low",
-            ))
+            suggestions.append(
+                RemediationSuggestion(
+                    type=RemediationType.THRESHOLD_ADJUSTMENT,
+                    description="Adjust decision thresholds per group to equalize outcomes.",
+                    expected_improvement=0.10,
+                    complexity="low",
+                )
+            )
 
-        suggestions.append(RemediationSuggestion(
-            type=RemediationType.CONSTRAINT_UPDATE,
-            description="Add fairness constraints to Z3 verification spec.",
-            expected_improvement=0.20,
-            complexity="medium",
-        ))
+        suggestions.append(
+            RemediationSuggestion(
+                type=RemediationType.CONSTRAINT_UPDATE,
+                description="Add fairness constraints to Z3 verification spec.",
+                expected_improvement=0.20,
+                complexity="medium",
+            )
+        )
 
         return suggestions
 

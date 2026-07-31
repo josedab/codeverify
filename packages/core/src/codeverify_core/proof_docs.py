@@ -16,7 +16,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -41,6 +41,7 @@ class FreshnessStatus(str, Enum):
 @dataclass
 class VerifiedProperty:
     """A verified property to document."""
+
     function_name: str = ""
     property_type: str = ""  # precondition, postcondition, invariant
     description: str = ""
@@ -52,6 +53,7 @@ class VerifiedProperty:
 @dataclass
 class DocSection:
     """A generated documentation section."""
+
     function_name: str = ""
     signature: str = ""
     description: str = ""
@@ -65,13 +67,14 @@ class DocSection:
 @dataclass
 class GeneratedDoc:
     """A complete generated documentation file."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     title: str = ""
     sections: list[DocSection] = field(default_factory=list)
     format: DocFormat = DocFormat.MARKDOWN
     content: str = ""
     content_hash: str = ""
-    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     source_hash: str = ""
     freshness: FreshnessStatus = FreshnessStatus.FRESH
 
@@ -79,7 +82,9 @@ class GeneratedDoc:
 class PropertyExtractor:
     """Extracts verified properties from code and specs."""
 
-    def extract(self, function_name: str, code: str, specs: list[dict[str, str]] | None = None) -> DocSection:
+    def extract(
+        self, function_name: str, code: str, specs: list[dict[str, str]] | None = None
+    ) -> DocSection:
         lines = code.split("\n")
         signature = ""
         params: list[dict[str, str]] = []
@@ -103,33 +108,41 @@ class PropertyExtractor:
 
         if specs:
             for spec in specs:
-                properties.append(VerifiedProperty(
-                    function_name=function_name,
-                    property_type=spec.get("type", "invariant"),
-                    description=spec.get("description", ""),
-                    proof_id=spec.get("proof_id", ""),
-                    verified=spec.get("verified", True),
-                ))
+                properties.append(
+                    VerifiedProperty(
+                        function_name=function_name,
+                        property_type=spec.get("type", "invariant"),
+                        description=spec.get("description", ""),
+                        proof_id=spec.get("proof_id", ""),
+                        verified=spec.get("verified", "true").strip().lower() != "false",
+                    )
+                )
 
         # Infer from code
         if "is not None" in code or "!= None" in code:
-            properties.append(VerifiedProperty(
-                function_name=function_name,
-                property_type="precondition",
-                description="Input parameters are validated for null safety",
-                verified=True,
-            ))
+            properties.append(
+                VerifiedProperty(
+                    function_name=function_name,
+                    property_type="precondition",
+                    description="Input parameters are validated for null safety",
+                    verified=True,
+                )
+            )
         if "return " in code:
-            properties.append(VerifiedProperty(
-                function_name=function_name,
-                property_type="postcondition",
-                description="Function returns a value",
-                verified=True,
-            ))
+            properties.append(
+                VerifiedProperty(
+                    function_name=function_name,
+                    property_type="postcondition",
+                    description="Function returns a value",
+                    verified=True,
+                )
+            )
 
         return DocSection(
-            function_name=function_name, signature=signature,
-            parameters=params, returns=returns,
+            function_name=function_name,
+            signature=signature,
+            parameters=params,
+            returns=returns,
             verified_properties=properties,
             proof_references=[p.proof_id for p in properties if p.proof_id],
         )
@@ -183,6 +196,7 @@ class DocRenderer:
 
     def _render_openapi(self, sections: list[DocSection]) -> str:
         import json
+
         paths: dict[str, Any] = {}
         for s in sections:
             desc = "; ".join(vp.description for vp in s.verified_properties)
@@ -191,7 +205,11 @@ class DocRenderer:
                     "summary": s.function_name,
                     "description": desc or f"Function {s.function_name}",
                     "x-verified-properties": [
-                        {"type": vp.property_type, "description": vp.description, "proof_id": vp.proof_id}
+                        {
+                            "type": vp.property_type,
+                            "description": vp.description,
+                            "proof_id": vp.proof_id,
+                        }
                         for vp in s.verified_properties
                     ],
                 }
@@ -216,7 +234,9 @@ class ProofBasedDocService:
         self._docs: dict[str, GeneratedDoc] = {}
 
     def generate(
-        self, title: str, functions: list[tuple[str, str]],
+        self,
+        title: str,
+        functions: list[tuple[str, str]],
         specs: dict[str, list[dict[str, str]]] | None = None,
         fmt: DocFormat = DocFormat.MARKDOWN,
     ) -> GeneratedDoc:
@@ -231,7 +251,9 @@ class ProofBasedDocService:
         source_hash = hashlib.sha256("".join(c for _, c in functions).encode()).hexdigest()[:12]
 
         doc = GeneratedDoc(
-            title=title, sections=sections, format=fmt,
+            title=title,
+            sections=sections,
+            format=fmt,
             content=content,
             content_hash=hashlib.sha256(content.encode()).hexdigest()[:12],
             source_hash=source_hash,
@@ -261,11 +283,13 @@ class ProofBasedDocService:
 
 _proof_docs_instance: ProofBasedDocService | None = None
 
+
 def get_proof_docs_service() -> ProofBasedDocService:
     global _proof_docs_instance
     if _proof_docs_instance is None:
         _proof_docs_instance = ProofBasedDocService()
     return _proof_docs_instance
+
 
 def reset_proof_docs_service() -> None:
     global _proof_docs_instance

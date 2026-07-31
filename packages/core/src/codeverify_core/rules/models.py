@@ -202,7 +202,7 @@ class CustomRule:
         """Convert to YAML format for .codeverify.yml."""
         import yaml
 
-        rule_dict = {
+        rule_dict: dict[str, Any] = {
             "id": str(self.id),
             "name": self.name,
             "description": self.description,

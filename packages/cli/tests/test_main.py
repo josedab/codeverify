@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
-
 from codeverify_cli.main import (
     _sarif_level,
     apply_fix,
@@ -223,7 +221,7 @@ class TestAnalyzeCommand:
 
         with (
             runner.isolated_filesystem(temp_dir=tmp_path),
-            patch("codeverify_cli.main.LocalAnalyzer") as MockAnalyzer,
+            patch("codeverify_cli.main.LocalAnalyzer") as _mock_analyzer,
             patch("codeverify_cli.main.asyncio") as mock_asyncio,
         ):
             Path(".codeverify.yml").write_text("version: 1")
@@ -239,7 +237,7 @@ class TestAnalyzeCommand:
 
         with (
             runner.isolated_filesystem(temp_dir=tmp_path),
-            patch("codeverify_cli.main.LocalAnalyzer") as MockAnalyzer,
+            patch("codeverify_cli.main.LocalAnalyzer") as _mock_analyzer,
             patch("codeverify_cli.main.asyncio") as mock_asyncio,
         ):
             Path(".codeverify.yml").write_text("version: 1")

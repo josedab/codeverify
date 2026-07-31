@@ -1,121 +1,31 @@
 /**
  * Tests for FormalSpecAssistantProvider
+ *
+ * `../formalSpecAssistantProvider` imports `vscode` and creates a
+ * `vscode.OutputChannel`/code lens provider in its constructor, so the class
+ * itself can only be exercised inside the VS Code extension host. All of its
+ * actual conversion/suggestion/template algorithms, however, live in the
+ * pure, `vscode`-free `../../localAnalysis` and `../../collections` modules
+ * (moved there verbatim so they can be unit tested directly), and the
+ * provider delegates to them (see `convertToZ3`, `suggestSpecsForCurrentFunction`,
+ * `showTemplateLibrary`/`useTemplate` in formalSpecAssistantProvider.ts). This
+ * file imports and exercises those real functions instead of hand-copied
+ * simulations of them.
  */
 
 import * as assert from 'assert';
-
-// Mock types
-interface NLToZ3Result {
-    success: boolean;
-    z3_expr?: string;
-    smtlib?: string;
-    python_assert?: string;
-    explanation: string;
-    confidence: number;
-    variables: Record<string, string>;
-    ambiguities: string[];
-    clarification_questions: string[];
-    processing_time_ms: number;
-}
+import { describe, it } from 'node:test';
+import type { NLToZ3Result } from '../../client';
+import {
+    localNLToZ3,
+    localSuggestSpecs,
+    getLocalTemplates,
+    fillTemplate,
+} from '../../localAnalysis';
+import { pushBounded } from '../../collections';
 
 describe('FormalSpecAssistantProvider', () => {
-    describe('NL Pattern Matching', () => {
-        // Simulated local NL-to-Z3 conversion
-        function localNLToZ3(specification: string): NLToZ3Result {
-            const normalized = specification.toLowerCase().trim();
-            let z3_expr: string | undefined;
-            let python_assert: string | undefined;
-            let explanation = '';
-            let confidence = 0;
-            const variables: Record<string, string> = {};
-
-            const patterns: Array<{
-                pattern: RegExp;
-                template: (m: RegExpMatchArray) => { z3: string; py: string; vars: Record<string, string> };
-                name: string;
-            }> = [
-                {
-                    pattern: /(\w+)\s+(?:must be |is |should be )?positive/,
-                    template: (m) => ({
-                        z3: `${m[1]} > 0`,
-                        py: `assert ${m[1]} > 0`,
-                        vars: { [m[1]]: 'Int' },
-                    }),
-                    name: 'Positive constraint',
-                },
-                {
-                    pattern: /(\w+)\s+(?:must be |is |should be )?non-negative/,
-                    template: (m) => ({
-                        z3: `${m[1]} >= 0`,
-                        py: `assert ${m[1]} >= 0`,
-                        vars: { [m[1]]: 'Int' },
-                    }),
-                    name: 'Non-negative constraint',
-                },
-                {
-                    pattern: /(\w+)\s+(?:must be |is |should be )?(?:between|in range)\s+(\d+)\s+(?:and|to)\s+(\d+)/,
-                    template: (m) => ({
-                        z3: `And(${m[1]} >= ${m[2]}, ${m[1]} <= ${m[3]})`,
-                        py: `assert ${m[2]} <= ${m[1]} <= ${m[3]}`,
-                        vars: { [m[1]]: 'Int' },
-                    }),
-                    name: 'Range constraint',
-                },
-                {
-                    pattern: /(\w+)\s+(?:must be |is |should be )?less than\s+(\w+)/,
-                    template: (m) => ({
-                        z3: `${m[1]} < ${m[2]}`,
-                        py: `assert ${m[1]} < ${m[2]}`,
-                        vars: { [m[1]]: 'Int', [m[2]]: 'Int' },
-                    }),
-                    name: 'Less than constraint',
-                },
-                {
-                    pattern: /(\w+)\s+(?:must |should )?not (?:be )?(?:null|none)/,
-                    template: (m) => ({
-                        z3: `${m[1]} != None`,
-                        py: `assert ${m[1]} is not None`,
-                        vars: { [m[1]]: 'Any' },
-                    }),
-                    name: 'Not null constraint',
-                },
-                {
-                    pattern: /(\w+)\s+(?:must |should )?not (?:be )?empty/,
-                    template: (m) => ({
-                        z3: `Length(${m[1]}) > 0`,
-                        py: `assert len(${m[1]}) > 0`,
-                        vars: { [m[1]]: 'Seq' },
-                    }),
-                    name: 'Not empty constraint',
-                },
-            ];
-
-            for (const { pattern, template, name } of patterns) {
-                const match = normalized.match(pattern);
-                if (match) {
-                    const result = template(match);
-                    z3_expr = result.z3;
-                    python_assert = result.py;
-                    Object.assign(variables, result.vars);
-                    explanation = `Matched template: ${name}`;
-                    confidence = 0.85;
-                    break;
-                }
-            }
-
-            return {
-                success: !!z3_expr,
-                z3_expr,
-                python_assert,
-                explanation: explanation || 'Could not match specification pattern',
-                confidence,
-                variables,
-                ambiguities: !z3_expr ? ['Could not parse specification'] : [],
-                clarification_questions: !z3_expr ? ['Which variable should this constraint apply to?'] : [],
-                processing_time_ms: 0,
-            };
-        }
-
+    describe('NL Pattern Matching (localNLToZ3)', () => {
         it('should convert positive constraint', () => {
             const result = localNLToZ3('x must be positive');
             assert.strictEqual(result.success, true);
@@ -188,105 +98,34 @@ describe('FormalSpecAssistantProvider', () => {
         });
     });
 
-    describe('Spec Suggestions', () => {
-        function suggestSpecs(signature: string): { suggestions: string[]; count: number } {
-            const suggestions: string[] = [];
-            const paramPattern = /(\w+)\s*:\s*(\w+)/g;
-            let match;
-
-            while ((match = paramPattern.exec(signature)) !== null) {
-                const [, paramName, paramType] = match;
-                const typeLower = paramType.toLowerCase();
-
-                if (typeLower === 'int' || typeLower === 'integer') {
-                    suggestions.push(`${paramName} must be positive`);
-                    suggestions.push(`${paramName} must be non-negative`);
-                } else if (typeLower === 'str' || typeLower === 'string') {
-                    suggestions.push(`${paramName} must not be empty`);
-                } else if (typeLower.includes('list') || typeLower.includes('array')) {
-                    suggestions.push(`${paramName} must not be empty`);
-                }
-            }
-
-            if (signature.includes('-> int') || signature.includes('-> Int')) {
-                suggestions.push('the function returns a positive value');
-            }
-
-            return { suggestions, count: suggestions.length };
-        }
-
+    describe('Spec Suggestions (localSuggestSpecs)', () => {
         it('should suggest specs for int parameters', () => {
-            const result = suggestSpecs('def process(count: int) -> int:');
+            const result = localSuggestSpecs('def process(count: int) -> int:');
             assert.ok(result.count > 0);
             assert.ok(result.suggestions.some(s => s.includes('count')));
             assert.ok(result.suggestions.some(s => s.includes('positive')));
         });
 
         it('should suggest specs for string parameters', () => {
-            const result = suggestSpecs('def greet(name: str) -> str:');
+            const result = localSuggestSpecs('def greet(name: str) -> str:');
             assert.ok(result.count > 0);
             assert.ok(result.suggestions.some(s => s.includes('name')));
             assert.ok(result.suggestions.some(s => s.includes('empty')));
         });
 
         it('should suggest return value specs', () => {
-            const result = suggestSpecs('def calculate(x: int) -> int:');
+            const result = localSuggestSpecs('def calculate(x: int) -> int:');
             assert.ok(result.suggestions.some(s => s.includes('returns')));
         });
 
         it('should handle multiple parameters', () => {
-            const result = suggestSpecs('def add(a: int, b: int) -> int:');
+            const result = localSuggestSpecs('def add(a: int, b: int) -> int:');
             assert.ok(result.suggestions.some(s => s.includes('a')));
             assert.ok(result.suggestions.some(s => s.includes('b')));
         });
     });
 
-    describe('Template Library', () => {
-        function getLocalTemplates() {
-            return [
-                {
-                    id: 'positive',
-                    name: 'Positive Number',
-                    domain: 'numeric',
-                    complexity: 'simple',
-                    nl_pattern: '{var} must be positive',
-                    z3_template: '{var} > 0',
-                },
-                {
-                    id: 'non_negative',
-                    name: 'Non-negative Number',
-                    domain: 'numeric',
-                    complexity: 'simple',
-                    nl_pattern: '{var} must be non-negative',
-                    z3_template: '{var} >= 0',
-                },
-                {
-                    id: 'range',
-                    name: 'Value in Range',
-                    domain: 'numeric',
-                    complexity: 'simple',
-                    nl_pattern: '{var} must be between {min} and {max}',
-                    z3_template: 'And({var} >= {min}, {var} <= {max})',
-                },
-                {
-                    id: 'not_null',
-                    name: 'Not Null',
-                    domain: 'general',
-                    complexity: 'simple',
-                    nl_pattern: '{var} must not be null',
-                    z3_template: '{var} != None',
-                },
-                {
-                    id: 'not_empty',
-                    name: 'Not Empty',
-                    domain: 'collection',
-                    complexity: 'simple',
-                    nl_pattern: '{var} must not be empty',
-                    z3_template: 'Length({var}) > 0',
-                },
-            ];
-        }
-
+    describe('Template Library (getLocalTemplates)', () => {
         it('should have numeric templates', () => {
             const templates = getLocalTemplates();
             const numeric = templates.filter(t => t.domain === 'numeric');
@@ -313,172 +152,115 @@ describe('FormalSpecAssistantProvider', () => {
                 assert.ok(t.domain, 'Template missing domain');
                 assert.ok(t.nl_pattern, 'Template missing nl_pattern');
                 assert.ok(t.z3_template, 'Template missing z3_template');
+                assert.ok(t.smtlib_template, 'Template missing smtlib_template');
+                assert.ok(t.python_template, 'Template missing python_template');
+                assert.ok(t.examples.length > 0, 'Template missing examples');
             }
         });
     });
 
-    describe('Template Variable Filling', () => {
-        function fillTemplate(template: string, values: Record<string, string>): string {
-            let result = template;
-            for (const [key, value] of Object.entries(values)) {
-                result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
-            }
-            return result;
-        }
-
+    describe('Template Variable Filling (fillTemplate)', () => {
         it('should fill single variable template', () => {
-            const template = '{var} > 0';
-            const result = fillTemplate(template, { var: 'x' });
+            const result = fillTemplate('{var} > 0', { var: 'x' });
             assert.strictEqual(result, 'x > 0');
         });
 
         it('should fill multiple variable template', () => {
-            const template = 'And({var} >= {min}, {var} <= {max})';
-            const result = fillTemplate(template, { var: 'age', min: '0', max: '150' });
+            const result = fillTemplate('And({var} >= {min}, {var} <= {max})', {
+                var: 'age',
+                min: '0',
+                max: '150',
+            });
             assert.strictEqual(result, 'And(age >= 0, age <= 150)');
         });
 
         it('should handle repeated variables', () => {
-            const template = '{var} >= 0 and {var} <= 100';
-            const result = fillTemplate(template, { var: 'score' });
+            const result = fillTemplate('{var} >= 0 and {var} <= 100', { var: 'score' });
             assert.strictEqual(result, 'score >= 0 and score <= 100');
         });
     });
 
-    describe('History Management', () => {
+    describe('History Management (pushBounded)', () => {
+        // Mirrors the SpecHistoryEntry shape and maxHistorySize=50 default
+        // used by FormalSpecAssistantProvider.convertToZ3.
         interface SpecHistoryEntry {
             naturalLanguage: string;
             result: NLToZ3Result;
             timestamp: number;
         }
 
-        function createHistory(maxSize: number) {
-            const history: SpecHistoryEntry[] = [];
-
+        function makeResult(z3Expr: string): NLToZ3Result {
             return {
-                add(nl: string, result: NLToZ3Result) {
-                    history.unshift({
-                        naturalLanguage: nl,
-                        result,
-                        timestamp: Date.now(),
-                    });
-                    if (history.length > maxSize) {
-                        history.pop();
-                    }
-                },
-                get() {
-                    return history;
-                },
-                clear() {
-                    history.length = 0;
-                },
+                success: true,
+                z3_expr: z3Expr,
+                explanation: '',
+                confidence: 0.9,
+                variables: {},
+                ambiguities: [],
+                clarification_questions: [],
+                processing_time_ms: 0,
             };
         }
 
         it('should add entries to history', () => {
-            const history = createHistory(10);
-            history.add('x must be positive', {
-                success: true,
-                z3_expr: 'x > 0',
-                explanation: '',
-                confidence: 0.9,
-                variables: {},
-                ambiguities: [],
-                clarification_questions: [],
-                processing_time_ms: 0,
-            });
+            const history: SpecHistoryEntry[] = [];
+            pushBounded(
+                history,
+                { naturalLanguage: 'x must be positive', result: makeResult('x > 0'), timestamp: Date.now() },
+                10
+            );
 
-            assert.strictEqual(history.get().length, 1);
-            assert.strictEqual(history.get()[0].naturalLanguage, 'x must be positive');
+            assert.strictEqual(history.length, 1);
+            assert.strictEqual(history[0].naturalLanguage, 'x must be positive');
         });
 
         it('should limit history size', () => {
-            const history = createHistory(3);
+            const history: SpecHistoryEntry[] = [];
 
             for (let i = 0; i < 5; i++) {
-                history.add(`spec ${i}`, {
-                    success: true,
-                    z3_expr: `z3_${i}`,
-                    explanation: '',
-                    confidence: 0.9,
-                    variables: {},
-                    ambiguities: [],
-                    clarification_questions: [],
-                    processing_time_ms: 0,
-                });
+                pushBounded(
+                    history,
+                    { naturalLanguage: `spec ${i}`, result: makeResult(`z3_${i}`), timestamp: Date.now() },
+                    3
+                );
             }
 
-            assert.strictEqual(history.get().length, 3);
+            assert.strictEqual(history.length, 3);
             // Most recent should be first
-            assert.strictEqual(history.get()[0].naturalLanguage, 'spec 4');
+            assert.strictEqual(history[0].naturalLanguage, 'spec 4');
         });
 
         it('should clear history', () => {
-            const history = createHistory(10);
-            history.add('x must be positive', {
-                success: true,
-                z3_expr: 'x > 0',
-                explanation: '',
-                confidence: 0.9,
-                variables: {},
-                ambiguities: [],
-                clarification_questions: [],
-                processing_time_ms: 0,
-            });
+            const history: SpecHistoryEntry[] = [];
+            pushBounded(
+                history,
+                { naturalLanguage: 'x must be positive', result: makeResult('x > 0'), timestamp: Date.now() },
+                10
+            );
 
-            history.clear();
-            assert.strictEqual(history.get().length, 0);
+            history.length = 0;
+            assert.strictEqual(history.length, 0);
         });
     });
 
-    describe('Function Signature Parsing', () => {
-        function extractParams(signature: string, language: string): Array<{ name: string; type: string }> {
-            const params: Array<{ name: string; type: string }> = [];
-
-            if (language === 'python') {
-                const match = signature.match(/def\s+\w+\s*\(([^)]*)\)/);
-                if (match) {
-                    const paramsStr = match[1];
-                    const paramPattern = /(\w+)\s*:\s*(\w+)/g;
-                    let m;
-                    while ((m = paramPattern.exec(paramsStr)) !== null) {
-                        params.push({ name: m[1], type: m[2] });
-                    }
-                }
-            } else if (language === 'typescript') {
-                const match = signature.match(/function\s+\w+\s*\(([^)]*)\)/);
-                if (match) {
-                    const paramsStr = match[1];
-                    const paramPattern = /(\w+)\s*:\s*(\w+)/g;
-                    let m;
-                    while ((m = paramPattern.exec(paramsStr)) !== null) {
-                        params.push({ name: m[1], type: m[2] });
-                    }
-                }
-            }
-
-            return params;
-        }
-
-        it('should parse Python function signature', () => {
-            const params = extractParams('def add(x: int, y: int) -> int:', 'python');
-            assert.strictEqual(params.length, 2);
-            assert.strictEqual(params[0].name, 'x');
-            assert.strictEqual(params[0].type, 'int');
-            assert.strictEqual(params[1].name, 'y');
-            assert.strictEqual(params[1].type, 'int');
+    describe('Spec Suggestion Parsing Edge Cases (localSuggestSpecs)', () => {
+        it('should recognize typed parameters in a Python-style signature', () => {
+            const result = localSuggestSpecs('def add(x: int, y: int) -> int:');
+            assert.ok(result.suggestions.some(s => s.startsWith('x ')));
+            assert.ok(result.suggestions.some(s => s.startsWith('y ')));
         });
 
-        it('should parse TypeScript function signature', () => {
-            const params = extractParams('function add(x: number, y: number): number', 'typescript');
-            assert.strictEqual(params.length, 2);
-            assert.strictEqual(params[0].name, 'x');
-            assert.strictEqual(params[0].type, 'number');
+        it('should not recognize TypeScript primitive type names like "number"', () => {
+            // Documents actual current behavior: the heuristic only matches
+            // int/integer/str/string/list/array (see localSuggestSpecs), so
+            // TypeScript's `number` annotation produces no suggestions.
+            const result = localSuggestSpecs('function add(x: number, y: number): number');
+            assert.strictEqual(result.count, 0);
         });
 
-        it('should handle empty parameters', () => {
-            const params = extractParams('def foo() -> None:', 'python');
-            assert.strictEqual(params.length, 0);
+        it('should return no suggestions when there are no parameters or recognized return type', () => {
+            const result = localSuggestSpecs('def foo() -> None:');
+            assert.strictEqual(result.count, 0);
         });
     });
 });

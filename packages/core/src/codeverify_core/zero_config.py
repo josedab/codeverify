@@ -15,11 +15,9 @@ Features:
 
 from __future__ import annotations
 
-import os
-import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -147,11 +145,15 @@ class GeneratedConfig:
         for check in self.verification_checks:
             lines.append(f"    - {check}")
 
-        lines.extend([
-            "", "ai:", f"  enabled: {str(self.ai_enabled).lower()}",
-            "  semantic: true",
-            f"  security: {str(self.security_enabled).lower()}",
-        ])
+        lines.extend(
+            [
+                "",
+                "ai:",
+                f"  enabled: {str(self.ai_enabled).lower()}",
+                "  semantic: true",
+                f"  security: {str(self.security_enabled).lower()}",
+            ]
+        )
 
         lines.extend(["", "thresholds:"])
         for key, val in self.thresholds.items():
@@ -199,7 +201,7 @@ class OnboardingResult:
     workflow: GeneratedWorkflow | None = None
     baseline: BaselineScanResult | None = None
     steps_completed: list[OnboardingStep] = field(default_factory=list)
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
     success: bool = False
     error: str | None = None
@@ -236,9 +238,20 @@ class ProjectDetector:
     }
 
     EXCLUDE_DIRS = {
-        "node_modules", ".venv", "venv", "__pycache__", ".git",
-        "dist", "build", ".next", "target", ".mypy_cache",
-        ".ruff_cache", ".pytest_cache", "vendor", ".tox",
+        "node_modules",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".git",
+        "dist",
+        "build",
+        ".next",
+        "target",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".pytest_cache",
+        "vendor",
+        ".tox",
     }
 
     def detect_languages(self, project_path: str) -> LanguageDetectionResult:
@@ -284,11 +297,13 @@ class ProjectDetector:
                 content = pkg_json.read_text()
                 for framework_name, (framework_enum, _) in self.FRAMEWORK_INDICATORS.items():
                     if f'"{framework_name}' in content.lower():
-                        results.append(FrameworkDetectionResult(
-                            framework=framework_enum,
-                            config_file="package.json",
-                            confidence=0.9,
-                        ))
+                        results.append(
+                            FrameworkDetectionResult(
+                                framework=framework_enum,
+                                config_file="package.json",
+                                confidence=0.9,
+                            )
+                        )
             except OSError:
                 pass
 
@@ -299,22 +314,27 @@ class ProjectDetector:
                 content = pyproject.read_text().lower()
                 for fw in ["fastapi", "django", "flask"]:
                     if fw in content:
-                        results.append(FrameworkDetectionResult(
-                            framework=self.FRAMEWORK_INDICATORS[fw][0],
-                            config_file="pyproject.toml",
-                            confidence=0.85,
-                        ))
+                        results.append(
+                            FrameworkDetectionResult(
+                                framework=self.FRAMEWORK_INDICATORS[fw][0],
+                                config_file="pyproject.toml",
+                                confidence=0.85,
+                            )
+                        )
             except OSError:
                 pass
 
         # Check for Next.js
-        if (path / "next.config.js").exists() or (path / "next.config.ts").exists():
-            if not any(r.framework == DetectedFramework.NEXTJS for r in results):
-                results.append(FrameworkDetectionResult(
+        if ((path / "next.config.js").exists() or (path / "next.config.ts").exists()) and not any(
+            r.framework == DetectedFramework.NEXTJS for r in results
+        ):
+            results.append(
+                FrameworkDetectionResult(
                     framework=DetectedFramework.NEXTJS,
                     config_file="next.config.js",
                     confidence=0.95,
-                ))
+                )
+            )
 
         return results
 
@@ -386,10 +406,7 @@ class ProjectDetector:
         has_tests, test_framework = self.detect_tests(project_path)
         has_docker = (path / "Dockerfile").exists() or (path / "docker-compose.yml").exists()
 
-        exclude_patterns = [
-            f"{d}/**" for d in self.EXCLUDE_DIRS
-            if (path / d).exists()
-        ]
+        exclude_patterns = [f"{d}/**" for d in self.EXCLUDE_DIRS if (path / d).exists()]
         exclude_patterns.extend(["*.pyc", "*.pyo", "*.class"])
 
         total_files = sum(1 for _ in self._walk_files(path))
@@ -472,7 +489,7 @@ class ConfigGenerator:
 class WorkflowGenerator:
     """Generates CI workflow files for codeverify integration."""
 
-    def generate_github_actions(self, analysis: ProjectAnalysis) -> GeneratedWorkflow:
+    def generate_github_actions(self, _analysis: ProjectAnalysis) -> GeneratedWorkflow:
         """Generate GitHub Actions workflow."""
         python_version = "3.12"
         content = f"""name: CodeVerify
@@ -591,7 +608,7 @@ class ZeroConfigOnboarder:
 
             result.steps_completed.append(OnboardingStep.COMPLETE)
             result.success = True
-            result.completed_at = datetime.now(timezone.utc)
+            result.completed_at = datetime.now(UTC)
 
         except Exception as e:
             result.error = str(e)
@@ -602,6 +619,7 @@ class ZeroConfigOnboarder:
     def _run_baseline_scan(self, analysis: ProjectAnalysis) -> BaselineScanResult:
         """Run a lightweight baseline scan for first findings."""
         import time
+
         start = time.monotonic()
 
         # Simulated baseline — in production this calls the verification engine

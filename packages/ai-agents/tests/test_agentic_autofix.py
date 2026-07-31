@@ -111,7 +111,7 @@ class TestFixGenerator:
         assert "+y = 3" in diff or "+ y = 3" in diff
 
     @pytest.mark.asyncio
-    async def test_rank_and_deduplicate(self, generator, null_safety_finding):
+    async def test_rank_and_deduplicate(self, generator):
         from codeverify_agents.agentic_autofix import GeneratedFix
 
         fix1 = GeneratedFix(
@@ -214,26 +214,35 @@ class TestFixVerifier:
         assert result.status == FixStatus.VERIFICATION_FAILED
 
     def test_verify_syntax(self, verifier):
-        result = verifier._verify_syntax_fix_code("x = 1")
-
-        # Should handle code verification
-        assert isinstance(result, dict)
-
-    def _verify_syntax_fix_code(self, code):
-        """Helper to test syntax verification."""
         from codeverify_agents.agentic_autofix import GeneratedFix
 
         fix = GeneratedFix(
-            id="test",
-            finding_id="test",
+            id="syntax-fix",
+            finding_id="syntax-finding",
             status=FixStatus.PENDING,
             original_code="",
-            fixed_code=code,
+            fixed_code="x = 1",
             diff="",
-            explanation="",
+            explanation="Use valid Python syntax",
             confidence=0.5,
         )
-        return self.verifier._verify_syntax(fix)
+        finding = Finding(
+            id="syntax-finding",
+            title="Type error",
+            description="Replacement must remain valid Python",
+            category=FixCategory.TYPE_ERROR,
+            severity="medium",
+            file_path="test.py",
+            line_start=1,
+            line_end=1,
+            code_snippet="",
+        )
+
+        result = verifier.verify(fix, finding)
+
+        assert result.status == FixStatus.VERIFIED
+        assert result.verification_result["verified"] is True
+        assert result.verification_result["details"] == "Syntax is valid"
 
 
 class TestTestGenerator:
@@ -384,7 +393,7 @@ class TestAgenticAutoFix:
     @pytest.mark.asyncio
     async def test_fix_single_finding(self, agent):
         code = """def process(x):
-    return x.value
+    x.process()
 """
         finding = Finding(
             id="single-finding",
@@ -395,13 +404,15 @@ class TestAgenticAutoFix:
             file_path="test.py",
             line_start=2,
             line_end=2,
-            code_snippet="return x.value",
+            code_snippet="x.process()",
         )
 
         fix = await agent.fix_single_finding(code, finding, "python")
 
-        # May or may not generate a fix depending on pattern matching
-        # The important thing is it doesn't raise an exception
+        assert fix.status == FixStatus.READY_FOR_PR
+        assert "if x is None:" in fix.fixed_code
+        assert fix.verification_result["verified"] is True
+        assert len(fix.generated_tests) == 2
 
 
 class TestGeneratedFix:

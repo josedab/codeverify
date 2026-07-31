@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -60,9 +61,9 @@ class SessionState(str, Enum):
 class AgentMode(str, Enum):
     """Copilot agent operation modes."""
 
-    PASSIVE = "passive"       # Only responds to commands
-    PROACTIVE = "proactive"   # Suggests verifications automatically
-    GUARDIAN = "guardian"      # Blocks on critical findings
+    PASSIVE = "passive"  # Only responds to commands
+    PROACTIVE = "proactive"  # Suggests verifications automatically
+    GUARDIAN = "guardian"  # Blocks on critical findings
 
 
 @dataclass
@@ -87,9 +88,7 @@ class ChatMessage:
     content: str = ""
     command: CopilotCommand | None = None
     context: ChatContext | None = None
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -125,12 +124,8 @@ class ChatSession:
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     state: SessionState = SessionState.ACTIVE
     messages: list[ChatMessage] = field(default_factory=list)
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    last_activity_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_activity_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     agent_mode: AgentMode = AgentMode.PASSIVE
     verification_results: dict[str, Any] = field(default_factory=dict)
 
@@ -153,7 +148,7 @@ class CommandRouter:
         stripped = message.strip()
         for prefix, command in self.COMMAND_PREFIXES.items():
             if stripped.lower().startswith(prefix):
-                remaining = stripped[len(prefix):].strip()
+                remaining = stripped[len(prefix) :].strip()
                 return command, remaining
         return None, stripped
 
@@ -173,9 +168,7 @@ class CommandRouter:
 class CommandHandler:
     """Handles individual copilot commands."""
 
-    def handle_verify(
-        self, context: ChatContext, args: str
-    ) -> ChatResponse:
+    def handle_verify(self, context: ChatContext, _args: str) -> ChatResponse:
         """Handle /verify command."""
         start = time.time()
         code = context.selected_code or context.file_content
@@ -217,9 +210,7 @@ class CommandHandler:
             metadata={"issues_found": len(issues)},
         )
 
-    def handle_explain(
-        self, context: ChatContext, args: str
-    ) -> ChatResponse:
+    def handle_explain(self, context: ChatContext, args: str) -> ChatResponse:
         """Handle /explain command."""
         code = context.selected_code or args
         if not code:
@@ -229,25 +220,23 @@ class CommandHandler:
             )
 
         content = (
-            f"📖 **Explanation**\n\n"
-            f"The selected code performs the following:\n"
-            f"- Defines logic that should be verified for null safety, "
-            f"bounds checking, and potential overflow\n"
-            f"- CodeVerify uses Z3 SMT solver to mathematically prove "
-            f"correctness properties\n\n"
-            f"**Verification approach:**\n"
-            f"1. Extract preconditions and postconditions\n"
-            f"2. Encode as Z3 constraints\n"
-            f"3. Check satisfiability of negation (counterexample search)\n"
+            "📖 **Explanation**\n\n"
+            "The selected code performs the following:\n"
+            "- Defines logic that should be verified for null safety, "
+            "bounds checking, and potential overflow\n"
+            "- CodeVerify uses Z3 SMT solver to mathematically prove "
+            "correctness properties\n\n"
+            "**Verification approach:**\n"
+            "1. Extract preconditions and postconditions\n"
+            "2. Encode as Z3 constraints\n"
+            "3. Check satisfiability of negation (counterexample search)\n"
         )
         return ChatResponse(
             content=content,
             follow_up_commands=["/verify", "/fix"],
         )
 
-    def handle_fix(
-        self, context: ChatContext, args: str
-    ) -> ChatResponse:
+    def handle_fix(self, context: ChatContext, _args: str) -> ChatResponse:
         """Handle /fix command."""
         code = context.selected_code
         if not code:
@@ -258,14 +247,16 @@ class CommandHandler:
 
         actions: list[CodeAction] = []
         if "eval(" in code:
-            actions.append(CodeAction(
-                title="Replace eval() with ast.literal_eval()",
-                file_path=context.file_path,
-                start_line=context.cursor_line,
-                end_line=context.cursor_line,
-                new_text=code.replace("eval(", "ast.literal_eval("),
-                is_preferred=True,
-            ))
+            actions.append(
+                CodeAction(
+                    title="Replace eval() with ast.literal_eval()",
+                    file_path=context.file_path,
+                    start_line=context.cursor_line,
+                    end_line=context.cursor_line,
+                    new_text=code.replace("eval(", "ast.literal_eval("),
+                    is_preferred=True,
+                )
+            )
 
         if actions:
             content = (
@@ -283,9 +274,7 @@ class CommandHandler:
             follow_up_commands=["/verify"],
         )
 
-    def handle_trust_score(
-        self, context: ChatContext, args: str
-    ) -> ChatResponse:
+    def handle_trust_score(self, context: ChatContext, _args: str) -> ChatResponse:
         """Handle /trust-score command."""
         code = context.selected_code or context.file_content
         if not code:
@@ -309,9 +298,7 @@ class CommandHandler:
             metadata={"score": score, "risk": risk},
         )
 
-    def handle_scan(
-        self, context: ChatContext, args: str
-    ) -> ChatResponse:
+    def handle_scan(self, context: ChatContext, args: str) -> ChatResponse:
         """Handle /scan command."""
         target = args or context.file_path or "workspace"
         content = (
@@ -328,9 +315,7 @@ class CommandHandler:
             follow_up_commands=["/status"],
         )
 
-    def handle_status(
-        self, context: ChatContext, args: str
-    ) -> ChatResponse:
+    def handle_status(self, _context: ChatContext, _args: str) -> ChatResponse:
         """Handle /status command."""
         return ChatResponse(
             content=(
@@ -353,9 +338,7 @@ class CopilotExtensionService:
         self._sessions: dict[str, ChatSession] = {}
         self._agent_mode = agent_mode
 
-    def create_session(
-        self, agent_mode: AgentMode | None = None
-    ) -> ChatSession:
+    def create_session(self, agent_mode: AgentMode | None = None) -> ChatSession:
         """Create a new chat session."""
         session = ChatSession(
             agent_mode=agent_mode or self._agent_mode,
@@ -384,7 +367,7 @@ class CopilotExtensionService:
             context=ctx,
         )
         session.messages.append(chat_msg)
-        session.last_activity_at = datetime.now(timezone.utc)
+        session.last_activity_at = datetime.now(UTC)
 
         response = self._dispatch(command, ctx, args)
 
@@ -396,22 +379,24 @@ class CopilotExtensionService:
 
         return response
 
+    def _handle_help(self, _context: ChatContext, _args: str) -> ChatResponse:
+        """Handle /help command."""
+        return ChatResponse(content=self._router.get_help_text())
+
     def _dispatch(
         self,
         command: CopilotCommand | None,
         context: ChatContext,
         args: str,
     ) -> ChatResponse:
-        handlers = {
+        handlers: dict[CopilotCommand, Callable[[ChatContext, str], ChatResponse]] = {
             CopilotCommand.VERIFY: self._handler.handle_verify,
             CopilotCommand.EXPLAIN: self._handler.handle_explain,
             CopilotCommand.FIX: self._handler.handle_fix,
             CopilotCommand.TRUST_SCORE: self._handler.handle_trust_score,
             CopilotCommand.SCAN: self._handler.handle_scan,
             CopilotCommand.STATUS: self._handler.handle_status,
-            CopilotCommand.HELP: lambda ctx, args: ChatResponse(
-                content=self._router.get_help_text()
-            ),
+            CopilotCommand.HELP: self._handle_help,
         }
 
         if command and command in handlers:
@@ -436,10 +421,7 @@ class CopilotExtensionService:
         return False
 
     def get_active_sessions(self) -> list[ChatSession]:
-        return [
-            s for s in self._sessions.values()
-            if s.state == SessionState.ACTIVE
-        ]
+        return [s for s in self._sessions.values() if s.state == SessionState.ACTIVE]
 
 
 # ─── Singleton Access ──────────────────────────────────────────────────

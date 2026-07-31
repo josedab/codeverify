@@ -13,12 +13,9 @@ Features:
 from __future__ import annotations
 
 import json
-import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -44,6 +41,7 @@ class ModalSeverity(str, Enum):
 @dataclass
 class ModalFinding:
     """A finding from multi-modal verification."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     modal_type: ModalType = ModalType.CONFIG
     severity: ModalSeverity = ModalSeverity.MEDIUM
@@ -56,6 +54,7 @@ class ModalFinding:
 @dataclass
 class ModalVerificationResult:
     """Result of verifying a non-code artifact."""
+
     modal_type: ModalType = ModalType.CONFIG
     file_path: str = ""
     findings: list[ModalFinding] = field(default_factory=list)
@@ -79,17 +78,42 @@ class TerraformVerifier:
         for i, line in enumerate(lines, 1):
             lower = line.lower()
             if "0.0.0.0/0" in line:
-                findings.append(ModalFinding(modal_type=ModalType.IAC_TERRAFORM, severity=ModalSeverity.CRITICAL,
-                    file_path=file_path, line=i, message="Open CIDR 0.0.0.0/0 — allows access from anywhere"))
+                findings.append(
+                    ModalFinding(
+                        modal_type=ModalType.IAC_TERRAFORM,
+                        severity=ModalSeverity.CRITICAL,
+                        file_path=file_path,
+                        line=i,
+                        message="Open CIDR 0.0.0.0/0 — allows access from anywhere",
+                    )
+                )
             if "public" in lower and ("true" in lower or "yes" in lower):
-                findings.append(ModalFinding(modal_type=ModalType.IAC_TERRAFORM, severity=ModalSeverity.HIGH,
-                    file_path=file_path, line=i, message="Resource is publicly accessible"))
+                findings.append(
+                    ModalFinding(
+                        modal_type=ModalType.IAC_TERRAFORM,
+                        severity=ModalSeverity.HIGH,
+                        file_path=file_path,
+                        line=i,
+                        message="Resource is publicly accessible",
+                    )
+                )
             if "encrypted" in lower and "false" in lower:
-                findings.append(ModalFinding(modal_type=ModalType.IAC_TERRAFORM, severity=ModalSeverity.HIGH,
-                    file_path=file_path, line=i, message="Encryption is disabled"))
-        return ModalVerificationResult(modal_type=ModalType.IAC_TERRAFORM, file_path=file_path,
-            findings=findings, passed=len(findings) == 0,
-            summary=f"Terraform: {len(findings)} findings in {file_path}")
+                findings.append(
+                    ModalFinding(
+                        modal_type=ModalType.IAC_TERRAFORM,
+                        severity=ModalSeverity.HIGH,
+                        file_path=file_path,
+                        line=i,
+                        message="Encryption is disabled",
+                    )
+                )
+        return ModalVerificationResult(
+            modal_type=ModalType.IAC_TERRAFORM,
+            file_path=file_path,
+            findings=findings,
+            passed=len(findings) == 0,
+            summary=f"Terraform: {len(findings)} findings in {file_path}",
+        )
 
 
 class MigrationVerifier:
@@ -99,16 +123,26 @@ class MigrationVerifier:
 
     def verify(self, file_path: str, content: str) -> ModalVerificationResult:
         findings: list[ModalFinding] = []
-        upper = content.upper()
         for i, line in enumerate(content.split("\n"), 1):
             for op in self.DESTRUCTIVE_OPS:
                 if op in line.upper():
-                    findings.append(ModalFinding(modal_type=ModalType.DB_MIGRATION, severity=ModalSeverity.HIGH,
-                        file_path=file_path, line=i, message=f"Destructive operation: {op}",
-                        fix_suggestion="Consider a reversible migration or add a safety check"))
-        return ModalVerificationResult(modal_type=ModalType.DB_MIGRATION, file_path=file_path,
-            findings=findings, passed=len(findings) == 0,
-            summary=f"Migration: {len(findings)} destructive operations")
+                    findings.append(
+                        ModalFinding(
+                            modal_type=ModalType.DB_MIGRATION,
+                            severity=ModalSeverity.HIGH,
+                            file_path=file_path,
+                            line=i,
+                            message=f"Destructive operation: {op}",
+                            fix_suggestion="Consider a reversible migration or add a safety check",
+                        )
+                    )
+        return ModalVerificationResult(
+            modal_type=ModalType.DB_MIGRATION,
+            file_path=file_path,
+            findings=findings,
+            passed=len(findings) == 0,
+            summary=f"Migration: {len(findings)} destructive operations",
+        )
 
 
 class APIContractVerifier:
@@ -119,28 +153,60 @@ class APIContractVerifier:
         try:
             spec = json.loads(content)
         except (json.JSONDecodeError, Exception):
-            findings.append(ModalFinding(modal_type=ModalType.API_CONTRACT, severity=ModalSeverity.HIGH,
-                file_path=file_path, message="Invalid JSON in API contract"))
-            return ModalVerificationResult(modal_type=ModalType.API_CONTRACT, file_path=file_path,
-                findings=findings, passed=False)
+            findings.append(
+                ModalFinding(
+                    modal_type=ModalType.API_CONTRACT,
+                    severity=ModalSeverity.HIGH,
+                    file_path=file_path,
+                    message="Invalid JSON in API contract",
+                )
+            )
+            return ModalVerificationResult(
+                modal_type=ModalType.API_CONTRACT,
+                file_path=file_path,
+                findings=findings,
+                passed=False,
+            )
 
         if "openapi" not in spec and "swagger" not in spec:
-            findings.append(ModalFinding(modal_type=ModalType.API_CONTRACT, severity=ModalSeverity.MEDIUM,
-                file_path=file_path, message="Missing OpenAPI version field"))
+            findings.append(
+                ModalFinding(
+                    modal_type=ModalType.API_CONTRACT,
+                    severity=ModalSeverity.MEDIUM,
+                    file_path=file_path,
+                    message="Missing OpenAPI version field",
+                )
+            )
 
         paths = spec.get("paths", {})
         for path, methods in paths.items():
             for method, details in methods.items():
                 if method in ("get", "post", "put", "delete", "patch"):
                     if "responses" not in details:
-                        findings.append(ModalFinding(modal_type=ModalType.API_CONTRACT, severity=ModalSeverity.MEDIUM,
-                            file_path=file_path, message=f"{method.upper()} {path}: missing responses definition"))
+                        findings.append(
+                            ModalFinding(
+                                modal_type=ModalType.API_CONTRACT,
+                                severity=ModalSeverity.MEDIUM,
+                                file_path=file_path,
+                                message=f"{method.upper()} {path}: missing responses definition",
+                            )
+                        )
                     if method in ("post", "put", "patch") and "requestBody" not in details:
-                        findings.append(ModalFinding(modal_type=ModalType.API_CONTRACT, severity=ModalSeverity.LOW,
-                            file_path=file_path, message=f"{method.upper()} {path}: missing requestBody"))
+                        findings.append(
+                            ModalFinding(
+                                modal_type=ModalType.API_CONTRACT,
+                                severity=ModalSeverity.LOW,
+                                file_path=file_path,
+                                message=f"{method.upper()} {path}: missing requestBody",
+                            )
+                        )
 
-        return ModalVerificationResult(modal_type=ModalType.API_CONTRACT, file_path=file_path,
-            findings=findings, passed=len(findings) == 0)
+        return ModalVerificationResult(
+            modal_type=ModalType.API_CONTRACT,
+            file_path=file_path,
+            findings=findings,
+            passed=len(findings) == 0,
+        )
 
 
 class ConfigVerifier:
@@ -156,11 +222,22 @@ class ConfigVerifier:
                 if key in lower and ("=" in line or ":" in line):
                     val_part = line.split("=", 1)[-1].split(":", 1)[-1].strip()
                     if val_part and val_part not in ('""', "''", "", "${", "$(", "env."):
-                        findings.append(ModalFinding(modal_type=ModalType.CONFIG, severity=ModalSeverity.CRITICAL,
-                            file_path=file_path, line=i, message=f"Potential hardcoded secret: {key}",
-                            fix_suggestion="Use environment variables or a secret manager"))
-        return ModalVerificationResult(modal_type=ModalType.CONFIG, file_path=file_path,
-            findings=findings, passed=len(findings) == 0)
+                        findings.append(
+                            ModalFinding(
+                                modal_type=ModalType.CONFIG,
+                                severity=ModalSeverity.CRITICAL,
+                                file_path=file_path,
+                                line=i,
+                                message=f"Potential hardcoded secret: {key}",
+                                fix_suggestion="Use environment variables or a secret manager",
+                            )
+                        )
+        return ModalVerificationResult(
+            modal_type=ModalType.CONFIG,
+            file_path=file_path,
+            findings=findings,
+            passed=len(findings) == 0,
+        )
 
 
 class MultiModalVerificationService:
@@ -178,7 +255,9 @@ class MultiModalVerificationService:
             result = self._terraform.verify(file_path, content)
         elif "migration" in file_path.lower() or file_path.endswith(".sql"):
             result = self._migration.verify(file_path, content)
-        elif file_path.endswith(".json") and ("openapi" in content.lower() or "swagger" in content.lower()):
+        elif file_path.endswith(".json") and (
+            "openapi" in content.lower() or "swagger" in content.lower()
+        ):
             result = self._api.verify(file_path, content)
         elif file_path.endswith((".yml", ".yaml", ".env", ".ini", ".toml", ".conf")):
             result = self._config.verify(file_path, content)
@@ -195,10 +274,15 @@ class MultiModalVerificationService:
 
 
 _multimodal_instance: MultiModalVerificationService | None = None
+
+
 def get_multimodal_service() -> MultiModalVerificationService:
     global _multimodal_instance
-    if _multimodal_instance is None: _multimodal_instance = MultiModalVerificationService()
+    if _multimodal_instance is None:
+        _multimodal_instance = MultiModalVerificationService()
     return _multimodal_instance
+
+
 def reset_multimodal_service() -> None:
     global _multimodal_instance
     _multimodal_instance = None

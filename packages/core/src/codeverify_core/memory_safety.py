@@ -16,12 +16,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import re
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -201,18 +199,13 @@ class MemorySafetyReport:
 
     @property
     def critical_count(self) -> int:
-        return sum(
-            1 for v in self.violations if v.severity == MemoryCheckSeverity.CRITICAL
-        )
+        return sum(1 for v in self.violations if v.severity == MemoryCheckSeverity.CRITICAL)
 
     @property
     def summary(self) -> str:
         if self.is_safe:
             return f"Memory safe: {len(self.verified_properties)} properties verified"
-        return (
-            f"{len(self.violations)} violations found "
-            f"({self.critical_count} critical)"
-        )
+        return f"{len(self.violations)} violations found ({self.critical_count} critical)"
 
 
 # ─── Rust Ownership Analyzer ───────────────────────────────────────────
@@ -276,19 +269,13 @@ class RustOwnershipAnalyzer:
             )
 
         # Borrow: &var or &mut var
-        borrow_match = re.match(
-            r"let\s+(mut\s+)?(\w+)\s*=\s*&(mut\s+)?(\w+)", line
-        )
+        borrow_match = re.match(r"let\s+(mut\s+)?(\w+)\s*=\s*&(mut\s+)?(\w+)", line)
         if borrow_match:
             borrower = borrow_match.group(2)
             is_mut = borrow_match.group(3) is not None
             source = borrow_match.group(4)
 
-            state = (
-                OwnershipState.BORROWED_MUT
-                if is_mut
-                else OwnershipState.BORROWED_SHARED
-            )
+            state = OwnershipState.BORROWED_MUT if is_mut else OwnershipState.BORROWED_SHARED
             self.ownership_map[borrower] = OwnershipConstraint(
                 variable=borrower,
                 state=state,
@@ -338,10 +325,7 @@ class RustOwnershipAnalyzer:
                         file_path=file_path,
                         line=mut_borrows[0][2],
                         variable=source,
-                        message=(
-                            f"Cannot borrow `{source}` as mutable while "
-                            f"shared borrows exist"
-                        ),
+                        message=(f"Cannot borrow `{source}` as mutable while shared borrows exist"),
                         fix_suggestion=(
                             f"Ensure shared references to `{source}` are dropped "
                             f"before creating a mutable reference"
@@ -373,9 +357,7 @@ class RustOwnershipAnalyzer:
             if constraint.state == OwnershipState.MOVED:
                 lines = code.split("\n")
                 for i, line in enumerate(lines, 1):
-                    if i > constraint.line and re.search(
-                        rf"\b{re.escape(var)}\b", line
-                    ):
+                    if i > constraint.line and re.search(rf"\b{re.escape(var)}\b", line):
                         stripped = line.strip()
                         # Skip if this line is the move itself or a re-assignment
                         if stripped.startswith("let ") or stripped.startswith(f"{var} ="):
@@ -462,12 +444,9 @@ class CPointerAnalyzer:
             return
 
         # C++ new/new[]
-        new_match = re.match(
-            r"(?:\w[\w\s]*\*\s*)?(\w+)\s*=\s*new\s+(\w+)(?:\[(\d+)\])?", line
-        )
+        new_match = re.match(r"(?:\w[\w\s]*\*\s*)?(\w+)\s*=\s*new\s+(\w+)(?:\[(\d+)\])?", line)
         if new_match:
             var = new_match.group(1)
-            type_name = new_match.group(2)
             count = int(new_match.group(3)) if new_match.group(3) else 1
             size = count * 8  # approximate
 
@@ -596,7 +575,7 @@ class CPointerAnalyzer:
             pass
         return 0
 
-    def _check_memory_leaks(self, file_path: str, total_lines: int) -> None:
+    def _check_memory_leaks(self, file_path: str, _total_lines: int) -> None:
         """Check for allocations that were never freed."""
         for var, loc in self.allocations.items():
             if loc.is_valid and loc.freed_at_line is None:
@@ -658,17 +637,17 @@ class DataRaceDetector:
             if write_match and not stripped.startswith("//"):
                 var = write_match.group(1)
                 if var not in ("let", "int", "char", "void", "auto", "return"):
-                    self.shared_accesses[var].append({
-                        "line": i,
-                        "type": "write",
-                        "thread": current_thread,
-                    })
+                    self.shared_accesses[var].append(
+                        {
+                            "line": i,
+                            "type": "write",
+                            "thread": current_thread,
+                        }
+                    )
 
         return self._find_races(file_path, language)
 
-    def _find_races(
-        self, file_path: str, language: MemoryLanguage
-    ) -> list[MemoryViolation]:
+    def _find_races(self, file_path: str, language: MemoryLanguage) -> list[MemoryViolation]:
         """Identify data races from collected accesses."""
         violations = []
 
@@ -754,44 +733,48 @@ class MemorySafetyVerifier:
 
         if language == MemoryLanguage.RUST:
             violations.extend(self.rust_analyzer.analyze(code, file_path))
-            verified_props.extend([
-                "ownership_rules",
-                "borrow_rules",
-                "lifetime_rules",
-                "move_semantics",
-            ])
+            verified_props.extend(
+                [
+                    "ownership_rules",
+                    "borrow_rules",
+                    "lifetime_rules",
+                    "move_semantics",
+                ]
+            )
         else:
             violations.extend(self.c_analyzer.analyze(code, file_path))
-            verified_props.extend([
-                "null_safety",
-                "use_after_free",
-                "double_free",
-                "buffer_bounds",
-                "memory_leaks",
-            ])
+            verified_props.extend(
+                [
+                    "null_safety",
+                    "use_after_free",
+                    "double_free",
+                    "buffer_bounds",
+                    "memory_leaks",
+                ]
+            )
 
         if check_data_races:
-            violations.extend(
-                self.race_detector.analyze(code, language, file_path)
-            )
+            violations.extend(self.race_detector.analyze(code, language, file_path))
             verified_props.append("data_race_freedom")
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
         # Count allocations and frees
         alloc_count = len(self.c_analyzer.allocations) if language != MemoryLanguage.RUST else 0
-        free_count = sum(
-            1
-            for loc in self.c_analyzer.allocations.values()
-            if loc.freed_at_line is not None
-        ) if language != MemoryLanguage.RUST else 0
+        free_count = (
+            sum(1 for loc in self.c_analyzer.allocations.values() if loc.freed_at_line is not None)
+            if language != MemoryLanguage.RUST
+            else 0
+        )
 
         return MemorySafetyReport(
             language=language,
             file_path=file_path,
             violations=violations,
             verified_properties=verified_props,
-            total_pointers_tracked=len(self.c_analyzer.pointers) if language != MemoryLanguage.RUST else len(self.rust_analyzer.ownership_map),
+            total_pointers_tracked=len(self.c_analyzer.pointers)
+            if language != MemoryLanguage.RUST
+            else len(self.rust_analyzer.ownership_map),
             total_allocations=alloc_count,
             total_frees=free_count,
             data_races_checked=len(self.race_detector.shared_accesses),

@@ -17,11 +17,9 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -82,7 +80,7 @@ class GraphQLApiKey:
     owner_id: str = ""
     scopes: list[ApiKeyScope] = field(default_factory=lambda: [ApiKeyScope.READ])
     rate_limit_tier: RateLimitTier = RateLimitTier.FREE
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     last_used_at: datetime | None = None
     is_active: bool = True
     request_count: int = 0
@@ -142,12 +140,8 @@ class RateLimitState:
     key_id: str = ""
     minute_count: int = 0
     hour_count: int = 0
-    minute_reset_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    hour_reset_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    minute_reset_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    hour_reset_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -160,7 +154,7 @@ class WebhookSubscription:
     events: list[WebhookEvent] = field(default_factory=list)
     secret: str = field(default_factory=lambda: secrets.token_urlsafe(32))
     is_active: bool = True
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     failure_count: int = 0
     last_delivery_at: datetime | None = None
 
@@ -175,9 +169,7 @@ class WebhookDelivery:
     payload: dict[str, Any] = field(default_factory=dict)
     response_status: int = 0
     delivered: bool = False
-    attempted_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    attempted_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -226,7 +218,12 @@ class QueryAnalyzer:
         field_count = 0
         for line in query.split("\n"):
             stripped = line.strip()
-            if stripped and not stripped.startswith("#") and "{" not in stripped and "}" not in stripped:
+            if (
+                stripped
+                and not stripped.startswith("#")
+                and "{" not in stripped
+                and "}" not in stripped
+            ):
                 field_count += 1
 
         query_type = None
@@ -244,15 +241,11 @@ class QueryAnalyzer:
             fields=[],
         )
 
-    def validate(
-        self, query: GraphQLQuery, limits: RateLimitConfig
-    ) -> list[str]:
+    def validate(self, query: GraphQLQuery, limits: RateLimitConfig) -> list[str]:
         """Validate query against rate limit config. Returns error messages."""
         errors: list[str] = []
         if query.depth > limits.max_query_depth:
-            errors.append(
-                f"Query depth {query.depth} exceeds limit {limits.max_query_depth}"
-            )
+            errors.append(f"Query depth {query.depth} exceeds limit {limits.max_query_depth}")
         if query.complexity > limits.max_query_complexity:
             errors.append(
                 f"Query complexity {query.complexity} exceeds limit {limits.max_query_complexity}"
@@ -266,15 +259,13 @@ class RateLimiter:
     def __init__(self) -> None:
         self._states: dict[str, RateLimitState] = {}
 
-    def check_and_consume(
-        self, key_id: str, config: RateLimitConfig
-    ) -> tuple[bool, str]:
+    def check_and_consume(self, key_id: str, config: RateLimitConfig) -> tuple[bool, str]:
         """Check rate limit and consume a request. Returns (allowed, reason)."""
         if config.requests_per_minute == -1:
             return True, ""
 
         state = self._states.get(key_id)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if state is None:
             state = RateLimitState(key_id=key_id)
@@ -299,9 +290,7 @@ class RateLimiter:
         state.hour_count += 1
         return True, ""
 
-    def get_remaining(
-        self, key_id: str, config: RateLimitConfig
-    ) -> dict[str, int]:
+    def get_remaining(self, key_id: str, config: RateLimitConfig) -> dict[str, int]:
         state = self._states.get(key_id, RateLimitState(key_id=key_id))
         return {
             "minute_remaining": max(0, config.requests_per_minute - state.minute_count),
@@ -312,7 +301,7 @@ class RateLimiter:
 class GraphQLInsightsService:
     """Main service for the Verification Insights GraphQL API."""
 
-    SCHEMA = '''
+    SCHEMA = """
     type Query {
       analysis(id: ID!): Analysis
       analyses(repoId: ID!, first: Int, after: String): AnalysisConnection!
@@ -366,7 +355,7 @@ class GraphQLInsightsService:
       trustScoreTrend: [TrendPoint!]!
       verificationCoverage: [TrendPoint!]!
     }
-    '''
+    """
 
     def __init__(self) -> None:
         self._api_keys: dict[str, GraphQLApiKey] = {}
@@ -409,7 +398,7 @@ class GraphQLInsightsService:
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
         for key in self._api_keys.values():
             if key.key_hash == key_hash and key.is_active:
-                key.last_used_at = datetime.now(timezone.utc)
+                key.last_used_at = datetime.now(UTC)
                 key.request_count += 1
                 return key
         return None
@@ -423,10 +412,14 @@ class GraphQLInsightsService:
         """Execute a GraphQL query with auth, rate limiting, and validation."""
         api_key = self.authenticate(raw_key)
         if not api_key:
-            return GraphQLResponse(errors=[{
-                "message": "Invalid or revoked API key",
-                "extensions": {"code": "UNAUTHENTICATED"},
-            }])
+            return GraphQLResponse(
+                errors=[
+                    {
+                        "message": "Invalid or revoked API key",
+                        "extensions": {"code": "UNAUTHENTICATED"},
+                    }
+                ]
+            )
 
         config = RateLimitConfig.for_tier(api_key.rate_limit_tier)
         allowed, reason = self._rate_limiter.check_and_consume(api_key.id, config)
@@ -440,16 +433,22 @@ class GraphQLInsightsService:
         parsed = self._query_analyzer.analyze(query)
         validation_errors = self._query_analyzer.validate(parsed, config)
         if validation_errors:
-            return GraphQLResponse(errors=[
-                {"message": err, "extensions": {"code": "QUERY_TOO_COMPLEX"}}
-                for err in validation_errors
-            ])
+            return GraphQLResponse(
+                errors=[
+                    {"message": err, "extensions": {"code": "QUERY_TOO_COMPLEX"}}
+                    for err in validation_errors
+                ]
+            )
 
         if ApiKeyScope.READ not in api_key.scopes:
-            return GraphQLResponse(errors=[{
-                "message": "Insufficient permissions",
-                "extensions": {"code": "FORBIDDEN"},
-            }])
+            return GraphQLResponse(
+                errors=[
+                    {
+                        "message": "Insufficient permissions",
+                        "extensions": {"code": "FORBIDDEN"},
+                    }
+                ]
+            )
 
         result = self._resolve_query(parsed, variables or {})
         return GraphQLResponse(
@@ -500,7 +499,7 @@ class GraphQLInsightsService:
                 )
                 deliveries.append(delivery)
                 self._deliveries.append(delivery)
-                webhook.last_delivery_at = datetime.now(timezone.utc)
+                webhook.last_delivery_at = datetime.now(UTC)
         return deliveries
 
     def list_webhooks(self, owner_id: str) -> list[WebhookSubscription]:

@@ -15,9 +15,8 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -47,6 +46,7 @@ class VerificationStatus(str, Enum):
 @dataclass
 class CodeEntity:
     """An indexed code entity (file or function)."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     file_path: str = ""
     function_name: str = ""
@@ -65,6 +65,7 @@ class CodeEntity:
 @dataclass
 class SearchQuery:
     """A structured search query."""
+
     raw_query: str = ""
     filters: dict[str, Any] = field(default_factory=dict)
     sort_by: str = "relevance"
@@ -75,6 +76,7 @@ class SearchQuery:
 @dataclass
 class SearchHit:
     """A search result."""
+
     entity: CodeEntity | None = None
     relevance: float = 0.0
     matched_fields: list[str] = field(default_factory=list)
@@ -84,6 +86,7 @@ class SearchHit:
 @dataclass
 class SearchResults:
     """Complete search results."""
+
     query: str = ""
     hits: list[SearchHit] = field(default_factory=list)
     total_count: int = 0
@@ -93,12 +96,21 @@ class SearchResults:
 class QueryParser:
     """Parses natural language and structured queries."""
 
-    NL_PATTERNS = [
-        (r"unverified (?:functions?|code) in (.+)", {"verification_status": "unverified", "file_path_contains": 1}),
+    NL_PATTERNS: list[tuple[str, dict[str, str | int | float]]] = [
+        (
+            r"unverified (?:functions?|code) in (.+)",
+            {"verification_status": "unverified", "file_path_contains": 1},
+        ),
         (r"functions? with (?:low|declining) trust", {"trust_score_max": 0.5}),
         (r"critical findings? in (.+)", {"severity": "critical", "file_path_contains": 1}),
-        (r"verified functions? in (.+)", {"verification_status": "verified", "file_path_contains": 1}),
-        (r"(?:no|without) (?:null safety|null) proofs?", {"finding_category": "null_safety", "verification_status": "unverified"}),
+        (
+            r"verified functions? in (.+)",
+            {"verification_status": "verified", "file_path_contains": 1},
+        ),
+        (
+            r"(?:no|without) (?:null safety|null) proofs?",
+            {"finding_category": "null_safety", "verification_status": "unverified"},
+        ),
         (r"high coverage", {"proof_coverage_min": 0.8}),
         (r"(?:recently|last) modified", {"sort_by": "last_modified"}),
     ]
@@ -112,7 +124,7 @@ class QueryParser:
             match = re.search(pattern, q_lower)
             if match:
                 for key, value in template.items():
-                    if key == "sort_by":
+                    if key == "sort_by" and isinstance(value, str):
                         sort_by = value
                     elif isinstance(value, int):
                         filters[key] = match.group(value)
@@ -133,7 +145,11 @@ class SearchIndex:
         self._entities: dict[str, CodeEntity] = {}
 
     def index(self, entity: CodeEntity) -> None:
-        key = f"{entity.file_path}:{entity.function_name}" if entity.function_name else entity.file_path
+        key = (
+            f"{entity.file_path}:{entity.function_name}"
+            if entity.function_name
+            else entity.file_path
+        )
         self._entities[key] = entity
 
     def index_batch(self, entities: list[CodeEntity]) -> int:
@@ -143,6 +159,7 @@ class SearchIndex:
 
     def search(self, query: SearchQuery) -> SearchResults:
         import time
+
         start = time.time()
         candidates = list(self._entities.values())
         matched: list[SearchHit] = []
@@ -173,10 +190,9 @@ class SearchIndex:
                 else:
                     continue
 
-            if "finding_category" in f:
-                if f["finding_category"] in entity.categories:
-                    relevance += 0.3
-                    fields.append("finding_category")
+            if "finding_category" in f and f["finding_category"] in entity.categories:
+                relevance += 0.3
+                fields.append("finding_category")
 
             if "trust_score_max" in f:
                 if entity.trust_score <= f["trust_score_max"]:
@@ -203,21 +219,32 @@ class SearchIndex:
                 if not fields:
                     relevance = 0.1
                     fields = ["default"]
-                matched.append(SearchHit(entity=entity, relevance=round(relevance, 3), matched_fields=fields))
+                matched.append(
+                    SearchHit(entity=entity, relevance=round(relevance, 3), matched_fields=fields)
+                )
 
         if query.sort_by == "trust_score":
             matched.sort(key=lambda h: h.entity.trust_score if h.entity else 0, reverse=True)
         elif query.sort_by == "last_modified":
-            matched.sort(key=lambda h: h.entity.last_modified or datetime.min.replace(tzinfo=timezone.utc) if h.entity else datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+            matched.sort(
+                key=lambda h: (
+                    h.entity.last_modified or datetime.min.replace(tzinfo=UTC)
+                    if h.entity
+                    else datetime.min.replace(tzinfo=UTC)
+                ),
+                reverse=True,
+            )
         else:
             matched.sort(key=lambda h: h.relevance, reverse=True)
 
         offset = query.offset
         limit = query.limit
-        page = matched[offset:offset + limit]
+        page = matched[offset : offset + limit]
 
         elapsed = int((time.time() - start) * 1000)
-        return SearchResults(query=query.raw_query, hits=page, total_count=len(matched), elapsed_ms=elapsed)
+        return SearchResults(
+            query=query.raw_query, hits=page, total_count=len(matched), elapsed_ms=elapsed
+        )
 
     def count(self) -> int:
         return len(self._entities)
@@ -250,10 +277,15 @@ class VerificationSearchService:
 
 
 _search_instance: VerificationSearchService | None = None
+
+
 def get_verification_search_service() -> VerificationSearchService:
     global _search_instance
-    if _search_instance is None: _search_instance = VerificationSearchService()
+    if _search_instance is None:
+        _search_instance = VerificationSearchService()
     return _search_instance
+
+
 def reset_verification_search_service() -> None:
     global _search_instance
     _search_instance = None

@@ -14,11 +14,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -153,7 +152,7 @@ class GenerationResult:
     best_candidate_id: str | None = None
     total_time_ms: int = 0
     generated_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     @property
@@ -192,7 +191,10 @@ class ConstraintChecker:
     }
 
     def check(
-        self, code: str, constraints: list[FormalConstraint], language: SpecLanguage,
+        self,
+        code: str,
+        constraints: list[FormalConstraint],
+        language: SpecLanguage,
     ) -> tuple[int, int, list[str]]:
         """Check code against constraints. Returns (passed, total, counterexamples)."""
         passed = 0
@@ -203,9 +205,7 @@ class ConstraintChecker:
             if self._check_single(code, constraint, lang):
                 passed += 1
             else:
-                counterexamples.append(
-                    f"Constraint '{constraint.description}' not satisfied."
-                )
+                counterexamples.append(f"Constraint '{constraint.description}' not satisfied.")
 
         return passed, len(constraints), counterexamples
 
@@ -251,17 +251,21 @@ class CodeGenerator:
     }
 
     def generate_candidates(
-        self, spec: CodeSpec, count: int = 3,
+        self,
+        spec: CodeSpec,
+        count: int = 3,
     ) -> list[GeneratedCandidate]:
         """Generate multiple code candidates from spec."""
         candidates: list[GeneratedCandidate] = []
         for i in range(count):
             code = self._generate_single(spec, variant=i)
-            candidates.append(GeneratedCandidate(
-                code=code,
-                language=spec.target_language,
-                constraints_total=len(spec.constraints),
-            ))
+            candidates.append(
+                GeneratedCandidate(
+                    code=code,
+                    language=spec.target_language,
+                    constraints_total=len(spec.constraints),
+                )
+            )
         return candidates
 
     def _generate_single(self, spec: CodeSpec, variant: int = 0) -> str:
@@ -273,20 +277,21 @@ class CodeGenerator:
         words = nl.lower().split()
         name = "generated_function"
         for i, w in enumerate(words):
-            if w in ("create", "build", "make", "implement", "write"):
-                if i + 1 < len(words):
-                    name = words[i + 1].replace(",", "").replace(".", "")
-                    break
+            if w in ("create", "build", "make", "implement", "write") and i + 1 < len(words):
+                name = words[i + 1].replace(",", "").replace(".", "")
+                break
 
         # Build constraint-aware body
         body_parts: list[str] = []
         for constraint in spec.constraints:
-            if constraint.constraint_type == ConstraintType.PRECONDITION:
-                if lang == "python":
-                    body_parts.append(f'    if not ({constraint.description}):\n        raise ValueError("{constraint.description}")')
-            elif constraint.constraint_type == ConstraintType.NULL_SAFETY:
-                if lang == "python":
-                    body_parts.append(f"    if {name}_input is None:\n        raise TypeError('Input cannot be None')")
+            if constraint.constraint_type == ConstraintType.PRECONDITION and lang == "python":
+                body_parts.append(
+                    f'    if not ({constraint.description}):\n        raise ValueError("{constraint.description}")'
+                )
+            if constraint.constraint_type == ConstraintType.NULL_SAFETY and lang == "python":
+                body_parts.append(
+                    f"    if {name}_input is None:\n        raise TypeError('Input cannot be None')"
+                )
 
         if variant == 0:
             body_parts.append(f"    # Implementation for: {nl}")
@@ -309,7 +314,9 @@ class CodeGenerator:
         return f"// {nl}\nfunction {name}() {{\n" + "\n".join(body_parts) + "\n}\n"
 
     def refine_candidate(
-        self, candidate: GeneratedCandidate, counterexamples: list[str],
+        self,
+        candidate: GeneratedCandidate,
+        counterexamples: list[str],
     ) -> GeneratedCandidate:
         """Refine a candidate based on counterexamples."""
         refined_code = candidate.code
@@ -345,7 +352,9 @@ class VerifiedCodeGenerator:
         result.status = GenerationStatus.VERIFYING
         for candidate in candidates:
             passed, total, counterexamples = self._checker.check(
-                candidate.code, spec.constraints, spec.target_language,
+                candidate.code,
+                spec.constraints,
+                spec.target_language,
             )
             candidate.constraints_passed = passed
             candidate.counterexamples = counterexamples
@@ -364,7 +373,9 @@ class VerifiedCodeGenerator:
                     result.status = GenerationStatus.REFINING
                     refined = self._generator.refine_candidate(candidate, counterexamples)
                     p, t, ce = self._checker.check(
-                        refined.code, spec.constraints, spec.target_language,
+                        refined.code,
+                        spec.constraints,
+                        spec.target_language,
                     )
                     refined.constraints_passed = p
                     refined.counterexamples = ce
@@ -396,7 +407,9 @@ class VerifiedCodeGenerator:
             "code_generated",
             spec_id=spec.id,
             candidates=len(candidates),
-            best_score=round(result.best_candidate.quality_score if result.best_candidate else 0, 4),
+            best_score=round(
+                result.best_candidate.quality_score if result.best_candidate else 0, 4
+            ),
         )
         return result
 

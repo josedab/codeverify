@@ -13,7 +13,7 @@ from codeverify_core import RuleEvaluator, get_builtin_rules
 
 builtin = get_builtin_rules()
 print(f"📋 {len(builtin)} built-in rules available:\n")
-for name, rule in builtin.items():
+for _name, rule in builtin.items():
     print(f"  [{rule.severity.value:>8}] {rule.name}")
     print(f"             {rule.description}")
 

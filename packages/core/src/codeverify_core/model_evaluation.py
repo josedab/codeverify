@@ -302,9 +302,12 @@ class ModelVersionManager:
         for v in reversed(versions):
             if v.status == ModelVersion.PRODUCTION:
                 current_prod = v
-            elif v.status in (ModelVersion.DEPRECATED, ModelVersion.CANDIDATE):
-                if current_prod and not previous:
-                    previous = v
+            if (
+                v.status in (ModelVersion.DEPRECATED, ModelVersion.CANDIDATE)
+                and current_prod
+                and not previous
+            ):
+                previous = v
 
         if current_prod and previous:
             current_prod.status = ModelVersion.ROLLED_BACK
@@ -344,7 +347,7 @@ class ModelVersionManager:
         if not va or not vb:
             return {"error": "Version not found"}
 
-        result = {
+        result: dict[str, Any] = {
             "version_a": version_a,
             "version_b": version_b,
         }

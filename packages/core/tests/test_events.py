@@ -84,13 +84,13 @@ class TestEventBus:
         bus = EventBus()
         call_order = []
 
-        async def low_handler(event):
+        async def low_handler(_event):
             call_order.append("low")
 
-        async def high_handler(event):
+        async def high_handler(_event):
             call_order.append("high")
 
-        async def normal_handler(event):
+        async def normal_handler(_event):
             call_order.append("normal")
 
         # Subscribe in non-priority order
@@ -150,7 +150,7 @@ class TestEventBus:
         bus = EventBus()
         successful_calls = []
 
-        async def failing_handler(event):
+        async def failing_handler(_event):
             raise ValueError("Handler error")
 
         async def successful_handler(event):

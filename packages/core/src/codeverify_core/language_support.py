@@ -282,7 +282,7 @@ def get_language_features(language: SupportedLanguage) -> LanguageConfig:
     if language not in LANGUAGE_REGISTRY:
         raise KeyError(
             f"Language {language.value!r} is not in the registry. "
-            f"Available: {[l.value for l in LANGUAGE_REGISTRY]}"
+            f"Available: {[lang.value for lang in LANGUAGE_REGISTRY]}"
         )
     return LANGUAGE_REGISTRY[language]
 
@@ -610,7 +610,7 @@ class LanguageRuleRegistry:
         self._rules: dict[SupportedLanguage, list[LanguageRule]] = {}
 
         # Pre-register all languages from the global registry
-        for lang, cfg in LANGUAGE_REGISTRY.items():
+        for _lang, cfg in LANGUAGE_REGISTRY.items():
             self.register_language(cfg)
 
         # Pre-register rules
@@ -914,7 +914,7 @@ class AdvancedLanguageAnalyzer:
         return constraints
 
 
-def _bit_width_for_type(type_name: str, language: SupportedLanguage) -> int:
+def _bit_width_for_type(type_name: str, _language: SupportedLanguage) -> int:
     """Return the bit width for a given integer type."""
     widths = {
         "int8": 8,

@@ -20,9 +20,8 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from pathlib import Path
 from typing import Any
 
 import structlog
@@ -101,7 +100,7 @@ class TrainingDataset:
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     name: str = ""
     samples: list[TrainingSample] = field(default_factory=list)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: str = "1.0"
 
     @property
@@ -238,7 +237,7 @@ class AirGapPackage:
     inference_config: InferenceConfig = field(default_factory=InferenceConfig)
     included_tools: list[str] = field(default_factory=list)
     checksum: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     readme_content: str = ""
 
     @property
@@ -339,7 +338,7 @@ class LocalInferenceEngine:
         self,
         prompt: str,
         task_type: TaskType = TaskType.VULNERABILITY_DETECTION,
-        max_tokens: int | None = None,
+        _max_tokens: int | None = None,
     ) -> InferenceResult:
         """Run inference on the local model."""
         if not self.is_loaded:
@@ -363,7 +362,7 @@ class LocalInferenceEngine:
             task_type=task_type,
         )
 
-    def _simulate_inference(self, prompt: str, task_type: TaskType) -> str:
+    def _simulate_inference(self, _prompt: str, task_type: TaskType) -> str:
         """Simulate model inference for testing."""
         responses = {
             TaskType.VULNERABILITY_DETECTION: '{"findings": [], "confidence": 0.85}',
@@ -384,7 +383,9 @@ class LocalInferenceEngine:
     ) -> CostComparison:
         """Compare cost of local vs cloud inference."""
         cloud_cost = cloud_cost_per_token * avg_tokens_per_verification
-        local_cost = hardware_monthly_cost / monthly_verifications if monthly_verifications > 0 else 0
+        local_cost = (
+            hardware_monthly_cost / monthly_verifications if monthly_verifications > 0 else 0
+        )
 
         savings = ((cloud_cost - local_cost) / cloud_cost * 100) if cloud_cost > 0 else 0
         break_even = int(hardware_monthly_cost / cloud_cost) if cloud_cost > 0 else 0
@@ -443,7 +444,7 @@ class AirGapPackager:
 
 ## Contents
 - Model format: {fmt.value}
-- Tools: {', '.join(tools)}
+- Tools: {", ".join(tools)}
 
 ## Setup
 1. Copy this package to the air-gapped machine
@@ -490,7 +491,7 @@ class FineTunedVerificationLLM:
             raise ValueError(f"Job {job_id} not found")
 
         job.status = TrainingStatus.TRAINING
-        job.started_at = datetime.now(timezone.utc)
+        job.started_at = datetime.now(UTC)
 
         # Simulated training completion
         job.metrics = TrainingMetrics(
@@ -502,7 +503,7 @@ class FineTunedVerificationLLM:
             epochs_completed=job.config.num_epochs,
         )
         job.status = TrainingStatus.COMPLETED
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.now(UTC)
         job.output_path = f"models/codeverify-v{job.id}.{job.config.output_format.value}"
 
         return job

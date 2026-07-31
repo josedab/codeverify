@@ -19,7 +19,7 @@ from codeverify_core.models import Finding, FindingCategory, FindingSeverity
 logger = structlog.get_logger()
 
 
-class TrendDirection(str, Enum):
+class TrendDirection(str, Enum):  # noqa: UP042
     """Direction of a trend."""
 
     IMPROVING = "improving"
@@ -153,7 +153,11 @@ class PatternDetector:
 
     def detect_pattern(self, finding: Finding) -> str | None:
         """Detect which pattern a finding matches."""
-        text = f"{finding.message} {finding.description or ''}".lower()
+        return self.detect_text(f"{finding.title} {finding.description}")
+
+    def detect_text(self, text: str) -> str | None:
+        """Detect which known pattern matches descriptive finding text."""
+        text = text.lower()
 
         for pattern_id, pattern_info in self.KNOWN_PATTERNS.items():
             for keyword in pattern_info["keywords"]:
@@ -229,7 +233,7 @@ class FindingsAggregator:
         team = self._team_mapping.get(author, "unknown")
 
         occurrence = PatternOccurrence(
-            finding_id=finding.id,
+            finding_id=str(finding.id or ""),
             file_path=file_path,
             repository=repository,
             author=author,
@@ -237,7 +241,7 @@ class FindingsAggregator:
             timestamp=datetime.utcnow(),
             category=finding.category,
             severity=finding.severity,
-            message=finding.message,
+            message=f"{finding.title} {finding.description}".strip(),
         )
 
         self._occurrences.append(occurrence)
@@ -255,7 +259,8 @@ class FindingsAggregator:
     ) -> None:
         """Add multiple findings."""
         for finding in findings:
-            file_path = file_paths.get(finding.id, "unknown")
+            finding_id = str(finding.id or "")
+            file_path = file_paths.get(finding_id, finding.location.file_path)
             self.add_finding(finding, repository, author, file_path)
 
 
@@ -301,17 +306,7 @@ class TeamLearningAgent:
         pattern_groups: dict[str, list[PatternOccurrence]] = defaultdict(list)
 
         for occ in occurrences:
-            # Create a pseudo-finding for pattern detection
-            finding = Finding(
-                id=occ.finding_id,
-                message=occ.message,
-                category=occ.category,
-                severity=occ.severity,
-                file_path=occ.file_path,
-                line_number=0,
-            )
-
-            pattern_id = self.pattern_detector.detect_pattern(finding)
+            pattern_id = self.pattern_detector.detect_text(occ.message)
             if pattern_id:
                 pattern_groups[pattern_id].append(occ)
 
@@ -377,15 +372,7 @@ class TeamLearningAgent:
         # Find common patterns
         pattern_counts: Counter[str] = Counter()
         for occ in team_occurrences:
-            finding = Finding(
-                id=occ.finding_id,
-                message=occ.message,
-                category=occ.category,
-                severity=occ.severity,
-                file_path=occ.file_path,
-                line_number=0,
-            )
-            pattern = self.pattern_detector.detect_pattern(finding)
+            pattern = self.pattern_detector.detect_text(occ.message)
             if pattern:
                 pattern_counts[pattern] += 1
 
@@ -393,7 +380,7 @@ class TeamLearningAgent:
 
         # Determine improvement areas
         improvement_areas = []
-        for pattern_id, count in pattern_counts.most_common(3):
+        for pattern_id, _count in pattern_counts.most_common(3):
             pattern_info = self.pattern_detector.get_pattern_info(pattern_id)
             if pattern_info:
                 improvement_areas.append(pattern_info["name"])
@@ -413,7 +400,7 @@ class TeamLearningAgent:
             total_findings=total,
             findings_by_category=dict(by_category),
             findings_by_severity=dict(by_severity),
-            avg_findings_per_pr=total / max(len(set(o.finding_id for o in team_occurrences)), 1),
+            avg_findings_per_pr=total / max(len({o.finding_id for o in team_occurrences}), 1),
             common_patterns=common_patterns,
             trend=trend,
             improvement_areas=improvement_areas,
@@ -501,10 +488,10 @@ class TeamLearningAgent:
         by_severity = Counter(o.severity.value for o in occurrences)
 
         # Unique PRs (approximation)
-        unique_prs = len(set((o.repository, o.author, o.timestamp.date()) for o in occurrences))
+        unique_prs = len({(o.repository, o.author, o.timestamp.date()) for o in occurrences})
 
         # Get all teams
-        teams = list(set(o.team for o in occurrences))
+        teams = list({o.team for o in occurrences})
         team_metrics = []
         improving_teams = []
         attention_teams = []

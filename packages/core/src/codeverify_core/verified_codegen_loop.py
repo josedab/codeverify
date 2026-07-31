@@ -20,7 +20,7 @@ import hashlib
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -118,7 +118,7 @@ class ProofCertificate:
     constraints_verified: list[str] = field(default_factory=list)
     solver_output: str = ""
     content_hash: str = ""
-    issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    issued_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def compute_hash(self, fix_code: str) -> str:
         content = f"{fix_code}:{':'.join(self.constraints_verified)}"
@@ -147,16 +147,23 @@ class ConstraintTranslator:
     """Translates Z3 counterexamples to LLM-friendly constraints."""
 
     CONSTRAINT_TEMPLATES: dict[str, tuple[ConstraintType, str]] = {
-        "null_safety": (ConstraintType.NULL_CHECK,
-                        "The variable '{var}' must not be None/null before use"),
-        "division_by_zero": (ConstraintType.ZERO_DIVISION,
-                             "The divisor '{var}' must not be zero"),
-        "array_bounds": (ConstraintType.BOUNDS_CHECK,
-                         "The index '{var}' must satisfy 0 <= {var} < len(array)"),
-        "integer_overflow": (ConstraintType.OVERFLOW,
-                             "The result must not overflow the integer range"),
-        "type_safety": (ConstraintType.TYPE_SAFETY,
-                        "The value '{var}' must be of the expected type"),
+        "null_safety": (
+            ConstraintType.NULL_CHECK,
+            "The variable '{var}' must not be None/null before use",
+        ),
+        "division_by_zero": (ConstraintType.ZERO_DIVISION, "The divisor '{var}' must not be zero"),
+        "array_bounds": (
+            ConstraintType.BOUNDS_CHECK,
+            "The index '{var}' must satisfy 0 <= {var} < len(array)",
+        ),
+        "integer_overflow": (
+            ConstraintType.OVERFLOW,
+            "The result must not overflow the integer range",
+        ),
+        "type_safety": (
+            ConstraintType.TYPE_SAFETY,
+            "The value '{var}' must be of the expected type",
+        ),
     }
 
     def translate(self, counterexample: Counterexample) -> list[DerivedConstraint]:
@@ -167,20 +174,24 @@ class ConstraintTranslator:
         if template:
             ct, nl_template = template
             for var, val in counterexample.variable_assignments.items():
-                constraints.append(DerivedConstraint(
-                    constraint_type=ct,
-                    natural_language=nl_template.format(var=var),
-                    z3_assertion=f"(assert (not (= {var} {val})))",
-                    variables=[var],
-                ))
+                constraints.append(
+                    DerivedConstraint(
+                        constraint_type=ct,
+                        natural_language=nl_template.format(var=var),
+                        z3_assertion=f"(assert (not (= {var} {val})))",
+                        variables=[var],
+                    )
+                )
         else:
-            constraints.append(DerivedConstraint(
-                constraint_type=ConstraintType.INVARIANT,
-                natural_language=f"Fix the {counterexample.check_type} violation: "
-                                 f"{counterexample.constraint_violated}",
-                z3_assertion=counterexample.raw_smt,
-                variables=list(counterexample.variable_assignments.keys()),
-            ))
+            constraints.append(
+                DerivedConstraint(
+                    constraint_type=ConstraintType.INVARIANT,
+                    natural_language=f"Fix the {counterexample.check_type} violation: "
+                    f"{counterexample.constraint_violated}",
+                    z3_assertion=counterexample.raw_smt,
+                    variables=list(counterexample.variable_assignments.keys()),
+                )
+            )
 
         return constraints
 
@@ -200,7 +211,7 @@ class FixGenerator:
         original_code: str,
         constraints: list[DerivedConstraint],
         iteration: int = 0,
-        previous_counterexample: Counterexample | None = None,
+        _previous_counterexample: Counterexample | None = None,
     ) -> FixCandidate:
         """Generate a fix candidate addressing the given constraints."""
         start = time.time()
@@ -307,9 +318,7 @@ class VerificationAwareCodeGenService:
         total_tokens = 0
 
         for iteration in range(self._max_iterations):
-            candidate = self._generator.generate(
-                original_code, constraints, iteration, current_ce
-            )
+            candidate = self._generator.generate(original_code, constraints, iteration, current_ce)
             tokens_est = len(candidate.fixed_code.split()) * 2
             candidate.tokens_used = tokens_est
             total_tokens += tokens_est
@@ -355,7 +364,9 @@ class VerificationAwareCodeGenService:
 
         # Exhausted iterations — fallback
         elapsed = int((time.time() - start) * 1000)
-        best = max(all_attempts, key=lambda c: len(c.constraints_addressed)) if all_attempts else None
+        best = (
+            max(all_attempts, key=lambda c: len(c.constraints_addressed)) if all_attempts else None
+        )
 
         result = GenerationResult(
             counterexample_id=counterexample.id,

@@ -243,10 +243,7 @@ class TestGitHubClient:
         import hashlib
         import hmac
 
-        expected_sig = (
-            "sha256="
-            + hmac.new(b"webhook-secret", payload, hashlib.sha256).hexdigest()
-        )
+        expected_sig = "sha256=" + hmac.new(b"webhook-secret", payload, hashlib.sha256).hexdigest()
 
         assert client.verify_webhook_signature(payload, expected_sig)
         assert not client.verify_webhook_signature(payload, "sha256=invalid")

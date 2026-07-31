@@ -14,11 +14,9 @@ Features:
 from __future__ import annotations
 
 import hashlib
-import time
-import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -77,14 +75,14 @@ class CachedResult:
     content_hash: str = ""
     status: VerificationStatus = VerificationStatus.UNKNOWN
     findings: list[dict[str, Any]] = field(default_factory=list)
-    cached_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    cached_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     ttl_seconds: int = 86400  # 24 hours
     verification_time_ms: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_expired(self) -> bool:
-        elapsed = (datetime.now(timezone.utc) - self.cached_at).total_seconds()
+        elapsed = (datetime.now(UTC) - self.cached_at).total_seconds()
         return elapsed > self.ttl_seconds
 
     @property

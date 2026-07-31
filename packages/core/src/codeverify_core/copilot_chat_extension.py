@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -85,7 +85,7 @@ class ChatMessage:
     command: CopilotCommand | None = None
     context: ChatContext | None = None
     format: ResponseFormat = ResponseFormat.MARKDOWN
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -121,12 +121,12 @@ class CopilotSession:
     user_id: str = ""
     messages: list[ChatMessage] = field(default_factory=list)
     status: SessionStatus = SessionStatus.ACTIVE
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_active: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_active: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def add_message(self, message: ChatMessage) -> None:
         self.messages.append(message)
-        self.last_active = datetime.now(timezone.utc)
+        self.last_active = datetime.now(UTC)
 
     @property
     def message_count(self) -> int:
@@ -148,13 +148,13 @@ class CommandRouter:
         text = user_input.strip()
         # Remove @codeverify prefix if present
         if text.lower().startswith("@codeverify"):
-            text = text[len("@codeverify"):].strip()
+            text = text[len("@codeverify") :].strip()
 
         for cmd in CopilotCommand:
             if text.lower().startswith(cmd.value):
-                args = text[len(cmd.value):].strip()
+                args = text[len(cmd.value) :].strip()
                 return cmd, args
-                
+
         # Default to verify if no command matched
         return CopilotCommand.VERIFY, text
 
@@ -176,9 +176,14 @@ class CopilotExtensionHandler:
         command, args = self._router.parse_command(user_input)
 
         session = self._get_or_create_session(session_id, context)
-        session.add_message(ChatMessage(
-            role="user", content=user_input, command=command, context=context,
-        ))
+        session.add_message(
+            ChatMessage(
+                role="user",
+                content=user_input,
+                command=command,
+                context=context,
+            )
+        )
 
         handlers = {
             CopilotCommand.VERIFY: self._handle_verify,
@@ -211,31 +216,43 @@ class CopilotExtensionHandler:
             response.add_text("✅ Verification complete.")
         else:
             response.add_text("⚠️ Please select code or provide a file path to verify.")
-            response.add_text("**Usage:** `@codeverify verify` (with code selected) or `@codeverify verify path/to/file.py`")
+            response.add_text(
+                "**Usage:** `@codeverify verify` (with code selected) or `@codeverify verify path/to/file.py`"
+            )
         return response
 
-    def _handle_explain(self, args: str, context: ChatContext | None) -> ChatResponse:
+    def _handle_explain(self, _args: str, context: ChatContext | None) -> ChatResponse:
         response = ChatResponse()
         if context and context.has_selection:
             response.add_text("📖 **Explanation of verification results:**")
             response.add_text("The selected code has been analyzed for common safety properties.")
-            response.add_text("**Null Safety:** Variables are checked for null/None before dereference.")
+            response.add_text(
+                "**Null Safety:** Variables are checked for null/None before dereference."
+            )
             response.add_text("**Bounds:** Array indices are verified within valid range.")
-            response.add_text("Z3 SMT solver provides mathematical proof of correctness, not just heuristic checking.")
+            response.add_text(
+                "Z3 SMT solver provides mathematical proof of correctness, not just heuristic checking."
+            )
             response.follow_up_commands = [CopilotCommand.FIX, CopilotCommand.VERIFY]
         else:
-            response.add_text("📖 Select code and use `@codeverify explain` to get an explanation of verification results.")
+            response.add_text(
+                "📖 Select code and use `@codeverify explain` to get an explanation of verification results."
+            )
         return response
 
-    def _handle_fix(self, args: str, context: ChatContext | None) -> ChatResponse:
+    def _handle_fix(self, _args: str, context: ChatContext | None) -> ChatResponse:
         response = ChatResponse()
         if context and context.has_selection:
             response.add_text("🔧 **Generating fix for selected code...**")
-            response.add_text("No issues found that require fixing. The code passes all verification checks.")
+            response.add_text(
+                "No issues found that require fixing. The code passes all verification checks."
+            )
             response.add_action("Apply Fix", "codeverify.applyFix")
             response.follow_up_commands = [CopilotCommand.VERIFY]
         else:
-            response.add_text("🔧 Select code with a verification finding and use `@codeverify fix` to generate a fix.")
+            response.add_text(
+                "🔧 Select code with a verification finding and use `@codeverify fix` to generate a fix."
+            )
         return response
 
     def _handle_scan(self, args: str, context: ChatContext | None) -> ChatResponse:
@@ -247,7 +264,7 @@ class CopilotExtensionHandler:
         response.follow_up_commands = [CopilotCommand.EXPLAIN, CopilotCommand.STATUS]
         return response
 
-    def _handle_status(self, args: str, context: ChatContext | None) -> ChatResponse:
+    def _handle_status(self, _args: str, _context: ChatContext | None) -> ChatResponse:
         response = ChatResponse()
         response.add_text("📊 **CodeVerify Status**")
         response.add_text(f"- **Active sessions:** {len(self._sessions)}")
@@ -256,7 +273,7 @@ class CopilotExtensionHandler:
         response.add_text("- **Status:** ✅ Ready")
         return response
 
-    def _handle_help(self, args: str, context: ChatContext | None) -> ChatResponse:
+    def _handle_help(self, _args: str, _context: ChatContext | None) -> ChatResponse:
         response = ChatResponse()
         response.add_text("🤖 **CodeVerify Copilot Commands**")
         response.add_text("- `@codeverify verify` — Verify selected code or file")
@@ -267,7 +284,9 @@ class CopilotExtensionHandler:
         response.add_text("- `@codeverify help` — Show this help message")
         return response
 
-    def _get_or_create_session(self, session_id: str | None, context: ChatContext | None) -> CopilotSession:
+    def _get_or_create_session(
+        self, session_id: str | None, context: ChatContext | None
+    ) -> CopilotSession:
         if session_id and session_id in self._sessions:
             return self._sessions[session_id]
         session = CopilotSession(user_id=context.user_id if context else "")

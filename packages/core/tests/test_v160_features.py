@@ -5,7 +5,12 @@ import json
 
 class TestAgentMarketplace:
     def test_submit_and_publish(self):
-        from codeverify_core.agent_marketplace import AgentManifest, AgentMarketplaceService, PublishStatus
+        from codeverify_core.agent_marketplace import (
+            AgentManifest,
+            AgentMarketplaceService,
+            PublishStatus,
+        )
+
         svc = AgentMarketplaceService()
         manifest = AgentManifest(name="SQL Injection Scanner", author="alice", author_id="a1")
         agent = svc.submit_agent(manifest)
@@ -16,6 +21,7 @@ class TestAgentMarketplace:
 
     def test_install_and_usage(self):
         from codeverify_core.agent_marketplace import AgentManifest, AgentMarketplaceService
+
         svc = AgentMarketplaceService()
         m = AgentManifest(name="Test Agent")
         a = svc.submit_agent(m)
@@ -27,7 +33,12 @@ class TestAgentMarketplace:
         assert svc.get_agent(a.id).usage_count == 1
 
     def test_search_and_rating(self):
-        from codeverify_core.agent_marketplace import AgentCategory, AgentManifest, AgentMarketplaceService
+        from codeverify_core.agent_marketplace import (
+            AgentCategory,
+            AgentManifest,
+            AgentMarketplaceService,
+        )
+
         svc = AgentMarketplaceService()
         m = AgentManifest(name="Security Scanner", category=AgentCategory.SECURITY, tags=["owasp"])
         a = svc.submit_agent(m)
@@ -39,9 +50,16 @@ class TestAgentMarketplace:
         assert results[0].rating == 4.5
 
     def test_revenue_share(self):
-        from codeverify_core.agent_marketplace import AgentManifest, AgentMarketplaceService, PricingModel
+        from codeverify_core.agent_marketplace import (
+            AgentManifest,
+            AgentMarketplaceService,
+            PricingModel,
+        )
+
         svc = AgentMarketplaceService()
-        m = AgentManifest(name="Paid Agent", pricing=PricingModel.PAID, price_cents_per_use=10, author_id="a1")
+        m = AgentManifest(
+            name="Paid Agent", pricing=PricingModel.PAID, price_cents_per_use=10, author_id="a1"
+        )
         a = svc.submit_agent(m)
         svc.review_agent(a.id, "r", True)
         svc.publish_agent(a.id)
@@ -56,15 +74,19 @@ class TestAgentMarketplace:
 class TestVerificationTelemetry:
     def test_submit_and_benchmark(self):
         from codeverify_core.verification_telemetry import VerificationTelemetryService
+
         svc = VerificationTelemetryService()
         for i in range(6):
-            svc.submit_telemetry(f"org{i}", {"false_positive_rate": 0.1 + i * 0.05, "detection_rate": 0.8 - i * 0.05})
+            svc.submit_telemetry(
+                f"org{i}", {"false_positive_rate": 0.1 + i * 0.05, "detection_rate": 0.8 - i * 0.05}
+            )
         results = svc.benchmark("org0")
         assert len(results) >= 1
         assert results[0].percentile > 0
 
     def test_quarterly_report(self):
         from codeverify_core.verification_telemetry import VerificationTelemetryService
+
         svc = VerificationTelemetryService()
         for i in range(6):
             svc.submit_telemetry(f"org{i}", {"detection_rate": 0.8, "total_verifications": 100})
@@ -75,22 +97,35 @@ class TestVerificationTelemetry:
 class TestVerificationProtocol:
     def test_capabilities(self):
         from codeverify_core.verification_protocol import VerificationProtocolServer
+
         server = VerificationProtocolServer()
         caps = server.get_capabilities()
         assert "python" in caps.supported_languages
         assert caps.supports_proofs is True
 
     def test_verify_clean_code(self):
-        from codeverify_core.verification_protocol import VerificationProtocolServer, VerifyRequest, VerifyStatus
+        from codeverify_core.verification_protocol import (
+            VerificationProtocolServer,
+            VerifyRequest,
+            VerifyStatus,
+        )
+
         server = VerificationProtocolServer()
         req = VerifyRequest(files=[{"path": "app.py", "content": "def add(a, b): return a + b"}])
         resp = server.verify(req)
         assert resp.status == VerifyStatus.VERIFIED
 
     def test_verify_buggy_code(self):
-        from codeverify_core.verification_protocol import VerificationProtocolServer, VerifyRequest, VerifyStatus
+        from codeverify_core.verification_protocol import (
+            VerificationProtocolServer,
+            VerifyRequest,
+            VerifyStatus,
+        )
+
         server = VerificationProtocolServer()
-        req = VerifyRequest(files=[{"path": "app.py", "content": "x = eval(input())"}], include_proofs=True)
+        req = VerifyRequest(
+            files=[{"path": "app.py", "content": "x = eval(input())"}], include_proofs=True
+        )
         resp = server.verify(req)
         assert resp.status == VerifyStatus.FAILED
         assert len(resp.findings) >= 1
@@ -99,6 +134,7 @@ class TestVerificationProtocol:
 
     def test_proof_signing(self):
         from codeverify_core.verification_protocol import ProofCert, VerifyStatus
+
         cert = ProofCert(status=VerifyStatus.VERIFIED, content_hash="abc123")
         sig = cert.sign("secret-key")
         assert len(sig) == 16
@@ -107,10 +143,24 @@ class TestVerificationProtocol:
 class TestDefectHeatmap:
     def test_prediction(self):
         from codeverify_core.defect_heatmap import DefectHeatmapService, FileHistory, HeatmapLevel
+
         svc = DefectHeatmapService()
         histories = [
-            FileHistory(file_path="auth.py", total_findings=20, critical_findings=5, churn_rate=0.8, complexity=25.0),
-            FileHistory(file_path="utils.py", total_findings=1, critical_findings=0, churn_rate=0.05, complexity=3.0, last_finding_days_ago=90),
+            FileHistory(
+                file_path="auth.py",
+                total_findings=20,
+                critical_findings=5,
+                churn_rate=0.8,
+                complexity=25.0,
+            ),
+            FileHistory(
+                file_path="utils.py",
+                total_findings=1,
+                critical_findings=0,
+                churn_rate=0.05,
+                complexity=3.0,
+                last_finding_days_ago=90,
+            ),
         ]
         heatmap = svc.generate_heatmap("repo", histories)
         assert heatmap.total_files == 2
@@ -119,8 +169,20 @@ class TestDefectHeatmap:
 
     def test_ticket_suggestions(self):
         from codeverify_core.defect_heatmap import DefectHeatmapService, FileHistory
+
         svc = DefectHeatmapService()
-        heatmap = svc.generate_heatmap("r", [FileHistory(file_path="danger.py", total_findings=30, critical_findings=10, churn_rate=0.9, complexity=30.0)])
+        heatmap = svc.generate_heatmap(
+            "r",
+            [
+                FileHistory(
+                    file_path="danger.py",
+                    total_findings=30,
+                    critical_findings=10,
+                    churn_rate=0.9,
+                    complexity=30.0,
+                )
+            ],
+        )
         tickets = svc.suggest_tickets(heatmap)
         assert len(tickets) >= 1
         assert "danger.py" in tickets[0].file_path
@@ -129,23 +191,46 @@ class TestDefectHeatmap:
 class TestSelfHealing:
     def test_incident_diagnosis_and_fix(self):
         from codeverify_core.self_healing import HealingStatus, RuntimeIncident, SelfHealingService
+
         svc = SelfHealingService()
-        incident = RuntimeIncident(function_name="get_user", file_path="api.py", error_type="TypeError", error_message="NoneType", variable_state={"user": None})
+        incident = RuntimeIncident(
+            function_name="get_user",
+            file_path="api.py",
+            error_type="TypeError",
+            error_message="NoneType",
+            variable_state={"user": None},
+        )
         action = svc.report_incident(incident)
-        assert action.status in (HealingStatus.PR_CREATED, HealingStatus.GENERATING_FIX, HealingStatus.VERIFYING_FIX)
+        assert action.status in (
+            HealingStatus.PR_CREATED,
+            HealingStatus.GENERATING_FIX,
+            HealingStatus.VERIFYING_FIX,
+        )
         assert action.diagnosis is not None
         assert action.fixed_code != ""
 
     def test_auto_fix_mode(self):
-        from codeverify_core.self_healing import AutonomyLevel, HealingConfig, HealingStatus, RuntimeIncident, SelfHealingService
-        config = HealingConfig(autonomy=AutonomyLevel.AUTO_FIX, min_confidence=0.5, auto_merge_confidence=0.5)
+        from codeverify_core.self_healing import (
+            AutonomyLevel,
+            HealingConfig,
+            HealingStatus,
+            RuntimeIncident,
+            SelfHealingService,
+        )
+
+        config = HealingConfig(
+            autonomy=AutonomyLevel.AUTO_FIX, min_confidence=0.5, auto_merge_confidence=0.5
+        )
         svc = SelfHealingService(config=config)
-        incident = RuntimeIncident(function_name="div", error_type="ZeroDivisionError", variable_state={"b": 0})
+        incident = RuntimeIncident(
+            function_name="div", error_type="ZeroDivisionError", variable_state={"b": 0}
+        )
         action = svc.report_incident(incident)
         assert action.status in (HealingStatus.APPLIED, HealingStatus.PR_CREATED)
 
     def test_stats(self):
         from codeverify_core.self_healing import RuntimeIncident, SelfHealingService
+
         svc = SelfHealingService()
         svc.report_incident(RuntimeIncident(error_type="TypeError", variable_state={"x": None}))
         stats = svc.get_stats()
@@ -155,6 +240,7 @@ class TestSelfHealing:
 class TestVerificationCICD:
     def test_pipeline_creation(self):
         from codeverify_core.verification_cicd import VerificationCICDService
+
         svc = VerificationCICDService()
         yml = "name: My Pipeline\npolicy: strict\nmin_coverage: 0.9"
         pipeline = svc.create_pipeline(yml, repo="org/repo", commit_sha="abc")
@@ -163,6 +249,7 @@ class TestVerificationCICD:
 
     def test_pipeline_execution_clean(self):
         from codeverify_core.verification_cicd import PipelineStatus, VerificationCICDService
+
         svc = VerificationCICDService()
         pipeline = svc.create_pipeline("name: Test")
         result = svc.run_pipeline(pipeline, {"app.py": "def safe(): return 1"})
@@ -170,6 +257,7 @@ class TestVerificationCICD:
 
     def test_pipeline_execution_fails(self):
         from codeverify_core.verification_cicd import PipelineStatus, VerificationCICDService
+
         svc = VerificationCICDService()
         pipeline = svc.create_pipeline("name: Test")
         result = svc.run_pipeline(pipeline, {"app.py": "x = eval('bad')"})
@@ -179,6 +267,7 @@ class TestVerificationCICD:
 class TestCodeEvolution:
     def test_timeline_building(self):
         from codeverify_core.evolution_timeline import CodeEvolutionService
+
         svc = CodeEvolutionService()
         events = [
             {"type": "created", "commit": "aaa", "author": "alice", "message": "initial"},
@@ -191,6 +280,7 @@ class TestCodeEvolution:
 
     def test_mermaid_rendering(self):
         from codeverify_core.evolution_timeline import CodeEvolutionService
+
         svc = CodeEvolutionService()
         svc.record_events("fn", "f.py", [{"type": "created"}, {"type": "proof_passed"}])
         mermaid = svc.render_mermaid("fn", "f.py")
@@ -198,8 +288,11 @@ class TestCodeEvolution:
 
     def test_repo_evolution(self):
         from codeverify_core.evolution_timeline import CodeEvolutionService
+
         svc = CodeEvolutionService()
-        svc.record_events("f1", "a.py", [{"type": "modified"}, {"type": "modified"}, {"type": "modified"}])
+        svc.record_events(
+            "f1", "a.py", [{"type": "modified"}, {"type": "modified"}, {"type": "modified"}]
+        )
         svc.record_events("f2", "b.py", [{"type": "proof_passed"}])
         evo = svc.get_repo_evolution("repo")
         assert evo.most_modified == "f1"
@@ -208,6 +301,7 @@ class TestCodeEvolution:
 class TestCreditSystem:
     def test_award_and_balance(self):
         from codeverify_core.credit_system import CreditSource, VerificationCreditService
+
         svc = VerificationCreditService()
         svc.register_org("org1", "Test Org")
         svc.award_credits("org1", CreditSource.VERIFICATION_COVERAGE, 100)
@@ -215,13 +309,19 @@ class TestCreditSystem:
 
     def test_rule_evaluation(self):
         from codeverify_core.credit_system import VerificationCreditService
+
         svc = VerificationCreditService()
         svc.register_org("org1")
         awarded = svc.evaluate_rules("org1", {"verification_coverage": 0.95, "fix_rate": 0.92})
         assert len(awarded) >= 2  # 80%+ and 95%+ coverage + fix rate
 
     def test_redemption(self):
-        from codeverify_core.credit_system import CreditSource, RedemptionType, VerificationCreditService
+        from codeverify_core.credit_system import (
+            CreditSource,
+            RedemptionType,
+            VerificationCreditService,
+        )
+
         svc = VerificationCreditService()
         svc.register_org("org1")
         svc.award_credits("org1", CreditSource.VERIFICATION_COVERAGE, 600)
@@ -231,6 +331,7 @@ class TestCreditSystem:
 
     def test_leaderboard(self):
         from codeverify_core.credit_system import CreditSource, VerificationCreditService
+
         svc = VerificationCreditService()
         for name in ["org_a", "org_b", "org_c"]:
             svc.register_org(name, name)
@@ -244,13 +345,18 @@ class TestCreditSystem:
 class TestMultiModal:
     def test_terraform_verification(self):
         from codeverify_core.multimodal_verify import MultiModalVerificationService
+
         svc = MultiModalVerificationService()
-        result = svc.verify_file("main.tf", 'resource "aws_security_group" {\n  ingress {\n    cidr_blocks = ["0.0.0.0/0"]\n  }\n}')
+        result = svc.verify_file(
+            "main.tf",
+            'resource "aws_security_group" {\n  ingress {\n    cidr_blocks = ["0.0.0.0/0"]\n  }\n}',
+        )
         assert not result.passed
         assert any("0.0.0.0/0" in f.message for f in result.findings)
 
     def test_migration_verification(self):
         from codeverify_core.multimodal_verify import MultiModalVerificationService
+
         svc = MultiModalVerificationService()
         result = svc.verify_file("migration_001.sql", "ALTER TABLE users DROP COLUMN email;")
         assert not result.passed
@@ -258,6 +364,7 @@ class TestMultiModal:
 
     def test_api_contract_verification(self):
         from codeverify_core.multimodal_verify import MultiModalVerificationService
+
         svc = MultiModalVerificationService()
         spec = json.dumps({"openapi": "3.0.0", "paths": {"/users": {"get": {}}}})
         result = svc.verify_file("openapi.json", spec)
@@ -265,32 +372,67 @@ class TestMultiModal:
 
     def test_config_secrets(self):
         from codeverify_core.multimodal_verify import MultiModalVerificationService
+
         svc = MultiModalVerificationService()
-        result = svc.verify_file("app.env", 'password=hunter2\napi_key=sk-abc123')
+        result = svc.verify_file("app.env", "password=hunter2\napi_key=sk-abc123")
         assert not result.passed
         assert len(result.findings) >= 2
 
 
 class TestVerificationSearch:
     def test_index_and_search(self):
-        from codeverify_core.verification_search import CodeEntity, VerificationSearchService, VerificationStatus
+        from codeverify_core.verification_search import (
+            CodeEntity,
+            VerificationSearchService,
+            VerificationStatus,
+        )
+
         svc = VerificationSearchService()
-        svc.index_entity(CodeEntity(file_path="auth/login.py", function_name="login", verification_status=VerificationStatus.UNVERIFIED, trust_score=0.3, categories=["null_safety"]))
-        svc.index_entity(CodeEntity(file_path="utils/helpers.py", function_name="add", verification_status=VerificationStatus.VERIFIED, trust_score=0.95))
+        svc.index_entity(
+            CodeEntity(
+                file_path="auth/login.py",
+                function_name="login",
+                verification_status=VerificationStatus.UNVERIFIED,
+                trust_score=0.3,
+                categories=["null_safety"],
+            )
+        )
+        svc.index_entity(
+            CodeEntity(
+                file_path="utils/helpers.py",
+                function_name="add",
+                verification_status=VerificationStatus.VERIFIED,
+                trust_score=0.95,
+            )
+        )
         results = svc.search("unverified functions in auth")
         assert results.total_count >= 1
         assert results.hits[0].entity.function_name == "login"
 
     def test_structured_search(self):
-        from codeverify_core.verification_search import CodeEntity, VerificationSearchService, VerificationStatus
+        from codeverify_core.verification_search import (
+            CodeEntity,
+            VerificationSearchService,
+            VerificationStatus,
+        )
+
         svc = VerificationSearchService()
-        svc.index_entity(CodeEntity(file_path="a.py", verification_status=VerificationStatus.FAILING, critical_findings=3))
-        svc.index_entity(CodeEntity(file_path="b.py", verification_status=VerificationStatus.VERIFIED))
+        svc.index_entity(
+            CodeEntity(
+                file_path="a.py",
+                verification_status=VerificationStatus.FAILING,
+                critical_findings=3,
+            )
+        )
+        svc.index_entity(
+            CodeEntity(file_path="b.py", verification_status=VerificationStatus.VERIFIED)
+        )
         results = svc.search_structured({"verification_status": "failing", "severity": "critical"})
         assert results.total_count == 1
 
     def test_nl_query_parsing(self):
         from codeverify_core.verification_search import QueryParser
+
         parser = QueryParser()
         q = parser.parse("unverified functions in auth/")
         assert q.filters.get("verification_status") == "unverified"

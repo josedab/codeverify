@@ -105,7 +105,7 @@ class CopilotResponse:
 
     content: str
     code_suggestions: list[CodeSuggestion] = field(default_factory=list)
-    diagnostics: list[dict] = field(default_factory=list)
+    diagnostics: list[dict[str, Any]] = field(default_factory=list)
     follow_up_actions: list[str] = field(default_factory=list)
     processing_time_ms: float = 0.0
 
@@ -412,7 +412,7 @@ class CopilotChatParticipant:
     async def _handle_trust_score(
         self,
         code: str,
-        context: CopilotContext,
+        _context: CopilotContext,
     ) -> CopilotResponse:
         """Compute and display a trust score for the supplied code.
 

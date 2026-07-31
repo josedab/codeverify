@@ -270,7 +270,7 @@ async def adjust_severity(request: AdjustSeverityRequest) -> dict[str, Any]:
         finding_type=request.finding_type,
         original_severity=request.original_severity,
         context_id=request.context_id,
-        code_snippet=request.code_snippet,
+        _code_snippet=request.code_snippet,
     )
 
     return result.to_dict()
@@ -301,7 +301,7 @@ async def batch_adjust_severity(request: BatchAdjustRequest) -> dict[str, Any]:
             finding_type=finding.get("finding_type", ""),
             original_severity=finding.get("original_severity", "medium"),
             context_id=request.context_id,
-            code_snippet=finding.get("code_snippet"),
+            _code_snippet=finding.get("code_snippet"),
         )
         results.append(result.to_dict())
 

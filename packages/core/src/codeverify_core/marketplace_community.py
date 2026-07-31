@@ -141,7 +141,7 @@ class ProofSubmission:
     upvotes: int = 0
     downvotes: int = 0
     view_count: int = 0
-    review_comments: list[dict] = field(default_factory=list)
+    review_comments: list[dict[str, Any]] = field(default_factory=list)
     assigned_reviewers: list[str] = field(default_factory=list)
 
     @property
@@ -362,13 +362,15 @@ class ReputationEngine:
         member.tier = self.calculate_tier(member.reputation_score)
         member.last_active = datetime.now(UTC)
 
-        self._action_log.append({
-            "member_id": member_id,
-            "action": action,
-            "amount": amount,
-            "new_total": member.reputation_score,
-            "timestamp": datetime.now(UTC).isoformat(),
-        })
+        self._action_log.append(
+            {
+                "member_id": member_id,
+                "action": action,
+                "amount": amount,
+                "new_total": member.reputation_score,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
 
         logger.info(
             "reputation_points_awarded",
@@ -399,16 +401,18 @@ class ReputationEngine:
 
         entries: list[LeaderboardEntry] = []
         for rank, member in enumerate(sorted_members, start=1):
-            entries.append(LeaderboardEntry(
-                rank=rank,
-                member_id=member.id,
-                username=member.username,
-                tier=member.tier,
-                score=member.reputation_score,
-                proofs_count=member.proofs_submitted,
-                reviews_count=member.reviews_given,
-                awards_count=len(member.awards),
-            ))
+            entries.append(
+                LeaderboardEntry(
+                    rank=rank,
+                    member_id=member.id,
+                    username=member.username,
+                    tier=member.tier,
+                    score=member.reputation_score,
+                    proofs_count=member.proofs_submitted,
+                    reviews_count=member.reviews_given,
+                    awards_count=len(member.awards),
+                )
+            )
         return entries
 
     def decay_inactive(self, days_inactive: int = 90) -> int:
@@ -480,7 +484,9 @@ class ReviewWorkflow:
             author.proofs_submitted += 1
         if self._reputation:
             self._reputation.award_points(
-                submission.author_id, "proof_submitted", ReputationEngine.POINTS_SUBMIT,
+                submission.author_id,
+                "proof_submitted",
+                ReputationEngine.POINTS_SUBMIT,
             )
 
         logger.info(
@@ -537,7 +543,9 @@ class ReviewWorkflow:
 
         if self._reputation:
             self._reputation.award_points(
-                reviewer_id, "review_given", ReputationEngine.POINTS_REVIEW,
+                reviewer_id,
+                "review_given",
+                ReputationEngine.POINTS_REVIEW,
             )
 
         if approve:
@@ -565,7 +573,9 @@ class ReviewWorkflow:
             author.proofs_approved += 1
         if self._reputation:
             self._reputation.award_points(
-                submission.author_id, "proof_approved", ReputationEngine.POINTS_APPROVE,
+                submission.author_id,
+                "proof_approved",
+                ReputationEngine.POINTS_APPROVE,
             )
 
         logger.info(
@@ -576,7 +586,10 @@ class ReviewWorkflow:
         return submission
 
     def reject(
-        self, submission_id: str, reviewer_id: str, reason: str,
+        self,
+        submission_id: str,
+        reviewer_id: str,
+        reason: str,
     ) -> ProofSubmission | None:
         """Reject a submission with a reason."""
         submission = self._submissions.get(submission_id)
@@ -584,11 +597,13 @@ class ReviewWorkflow:
             return None
 
         submission.status = ReviewStatus.REJECTED
-        submission.review_comments.append({
-            "reviewer_id": reviewer_id,
-            "comment": f"Rejected: {reason}",
-            "created_at": datetime.now(UTC).isoformat(),
-        })
+        submission.review_comments.append(
+            {
+                "reviewer_id": reviewer_id,
+                "comment": f"Rejected: {reason}",
+                "created_at": datetime.now(UTC).isoformat(),
+            }
+        )
         logger.info(
             "submission_rejected",
             submission_id=submission_id,
@@ -598,7 +613,10 @@ class ReviewWorkflow:
         return submission
 
     def request_revision(
-        self, submission_id: str, reviewer_id: str, comments: str,
+        self,
+        submission_id: str,
+        reviewer_id: str,
+        comments: str,
     ) -> ProofSubmission | None:
         """Request revisions on a submission."""
         submission = self._submissions.get(submission_id)
@@ -606,11 +624,13 @@ class ReviewWorkflow:
             return None
 
         submission.status = ReviewStatus.NEEDS_REVISION
-        submission.review_comments.append({
-            "reviewer_id": reviewer_id,
-            "comment": f"Revision requested: {comments}",
-            "created_at": datetime.now(UTC).isoformat(),
-        })
+        submission.review_comments.append(
+            {
+                "reviewer_id": reviewer_id,
+                "comment": f"Revision requested: {comments}",
+                "created_at": datetime.now(UTC).isoformat(),
+            }
+        )
         logger.info(
             "revision_requested",
             submission_id=submission_id,
@@ -726,11 +746,15 @@ class VotingSystem:
 
         if vote_type in (VoteType.UPVOTE, VoteType.HELPFUL):
             self._reputation.award_points(
-                author_id, "upvote_received", ReputationEngine.POINTS_UPVOTE_RECEIVED,
+                author_id,
+                "upvote_received",
+                ReputationEngine.POINTS_UPVOTE_RECEIVED,
             )
         elif vote_type in (VoteType.DOWNVOTE, VoteType.NOT_HELPFUL):
             self._reputation.award_points(
-                author_id, "downvote_received", ReputationEngine.POINTS_DOWNVOTE_RECEIVED,
+                author_id,
+                "downvote_received",
+                ReputationEngine.POINTS_DOWNVOTE_RECEIVED,
             )
 
 
@@ -789,7 +813,10 @@ class ChallengeManager:
         return True
 
     def submit_entry(
-        self, challenge_id: str, member_id: str, submission_id: str,
+        self,
+        challenge_id: str,
+        member_id: str,
+        submission_id: str,
     ) -> bool:
         """Record a submission for a challenge."""
         challenge = self._challenges.get(challenge_id)
@@ -849,25 +876,39 @@ class ChallengeManager:
 _AWARD_DESCRIPTIONS: dict[AwardType, tuple[str, str, int]] = {
     # (title, description, bonus_points)
     AwardType.FIRST_PROOF: (
-        "First Proof", "Submitted your very first proof", 10,
+        "First Proof",
+        "Submitted your very first proof",
+        10,
     ),
     AwardType.HELPFUL_REVIEWER: (
-        "Helpful Reviewer", "Received 10+ helpful votes on reviews", 20,
+        "Helpful Reviewer",
+        "Received 10+ helpful votes on reviews",
+        20,
     ),
     AwardType.TOP_CONTRIBUTOR: (
-        "Top Contributor", "Reached 50 approved proofs", 50,
+        "Top Contributor",
+        "Reached 50 approved proofs",
+        50,
     ),
     AwardType.BUG_HUNTER: (
-        "Bug Hunter", "Found and reported 10+ bugs in proofs", 30,
+        "Bug Hunter",
+        "Found and reported 10+ bugs in proofs",
+        30,
     ),
     AwardType.MENTOR: (
-        "Mentor", "Helped 5+ newcomers get their first proof approved", 40,
+        "Mentor",
+        "Helped 5+ newcomers get their first proof approved",
+        40,
     ),
     AwardType.STREAK_7: (
-        "Week Warrior", "Active for 7 consecutive days", 15,
+        "Week Warrior",
+        "Active for 7 consecutive days",
+        15,
     ),
     AwardType.STREAK_30: (
-        "Monthly Maven", "Active for 30 consecutive days", 50,
+        "Monthly Maven",
+        "Active for 30 consecutive days",
+        50,
     ),
 }
 
@@ -1055,7 +1096,10 @@ class MarketplaceCommunity:
             self._workflow.assign_reviewer(submission_id, reviewer_id)
 
         review_comment = self._workflow.add_review(
-            submission_id, reviewer_id, comment, approve=approve,
+            submission_id,
+            reviewer_id,
+            comment,
+            approve=approve,
         )
 
         if review_comment is not None:
@@ -1088,15 +1132,11 @@ class MarketplaceCommunity:
     def get_community_stats(self) -> CommunityStats:
         """Aggregate community statistics."""
         cutoff_30d = datetime.now(UTC) - timedelta(days=30)
-        active_30d = sum(
-            1 for m in self._members.values() if m.last_active >= cutoff_30d
-        )
-        approved = sum(
-            1 for s in self._submissions.values()
-            if s.status == ReviewStatus.APPROVED
-        )
+        active_30d = sum(1 for m in self._members.values() if m.last_active >= cutoff_30d)
+        approved = sum(1 for s in self._submissions.values() if s.status == ReviewStatus.APPROVED)
         pending = sum(
-            1 for s in self._submissions.values()
+            1
+            for s in self._submissions.values()
             if s.status in (ReviewStatus.PENDING, ReviewStatus.IN_REVIEW)
         )
         active_challenges = len(self._challenges.get_active_challenges())
@@ -1137,17 +1177,12 @@ class MarketplaceCommunity:
             return {}
 
         awards = self._awards.get_member_awards(member_id)
-        submissions = [
-            s.to_dict() for s in self._submissions.values()
-            if s.author_id == member_id
-        ]
+        submissions = [s.to_dict() for s in self._submissions.values() if s.author_id == member_id]
 
         profile = member.to_dict()
         profile["awards_detail"] = [a.to_dict() for a in awards]
         profile["submissions"] = submissions
-        profile["vote_score"] = sum(
-            self._voting.get_score(s["id"]) for s in submissions
-        )
+        profile["vote_score"] = sum(self._voting.get_score(s["id"]) for s in submissions)
         return profile
 
     # -- private helpers -----------------------------------------------------

@@ -18,9 +18,8 @@ from __future__ import annotations
 import hashlib
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -46,6 +45,7 @@ class EquivalenceResult(str, Enum):
 @dataclass
 class BehavioralContract:
     """Extracted behavioral contract of a function."""
+
     function_name: str = ""
     parameters: list[str] = field(default_factory=list)
     return_type: str = ""
@@ -63,6 +63,7 @@ class BehavioralContract:
 @dataclass
 class EquivalenceProof:
     """Proof of behavioral equivalence between two versions."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     result: EquivalenceResult = EquivalenceResult.UNKNOWN
     before_hash: str = ""
@@ -76,6 +77,7 @@ class EquivalenceProof:
 @dataclass
 class RefactoringVerification:
     """Complete verification result for a refactoring."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     refactoring_type: RefactoringType = RefactoringType.RENAME
     function_name: str = ""
@@ -85,7 +87,7 @@ class RefactoringVerification:
     safety_score: float = 0.0
     is_safe: bool = False
     warnings: list[str] = field(default_factory=list)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class ContractExtractor:
@@ -127,9 +129,7 @@ class ContractExtractor:
 class EquivalenceChecker:
     """Checks behavioral equivalence between two contracts."""
 
-    def check(
-        self, before: BehavioralContract, after: BehavioralContract
-    ) -> EquivalenceProof:
+    def check(self, before: BehavioralContract, after: BehavioralContract) -> EquivalenceProof:
         """Check if two contracts are behaviorally equivalent."""
         matching: list[str] = []
         divergent: list[str] = []
@@ -242,11 +242,13 @@ class IntentPreservingRefactoringService:
 
 _intent_refactor_instance: IntentPreservingRefactoringService | None = None
 
+
 def get_intent_refactoring_service() -> IntentPreservingRefactoringService:
     global _intent_refactor_instance
     if _intent_refactor_instance is None:
         _intent_refactor_instance = IntentPreservingRefactoringService()
     return _intent_refactor_instance
+
 
 def reset_intent_refactoring_service() -> None:
     global _intent_refactor_instance

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import re
 import time
-import uuid
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
@@ -258,14 +257,33 @@ class FirewallMetrics:
 
 _SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("AWS Access Key", re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("AWS Secret Key", re.compile(r"""(?:aws)?_?secret_?(?:access)?_?key\s*[=:]\s*['"][A-Za-z0-9/+=]{40}['"]""", re.IGNORECASE)),
-    ("Generic API Key", re.compile(r"""(?:api[_-]?key|apikey)\s*[=:]\s*['"][A-Za-z0-9_\-]{20,}['"]""", re.IGNORECASE)),
-    ("Generic Secret", re.compile(r"""(?:secret|token|password|passwd|pwd)\s*[=:]\s*['"][^\s'"]{8,}['"]""", re.IGNORECASE)),
+    (
+        "AWS Secret Key",
+        re.compile(
+            r"""(?:aws)?_?secret_?(?:access)?_?key\s*[=:]\s*['"][A-Za-z0-9/+=]{40}['"]""",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Generic API Key",
+        re.compile(
+            r"""(?:api[_-]?key|apikey)\s*[=:]\s*['"][A-Za-z0-9_\-]{20,}['"]""", re.IGNORECASE
+        ),
+    ),
+    (
+        "Generic Secret",
+        re.compile(
+            r"""(?:secret|token|password|passwd|pwd)\s*[=:]\s*['"][^\s'"]{8,}['"]""", re.IGNORECASE
+        ),
+    ),
     ("GitHub Token", re.compile(r"gh[pousr]_[A-Za-z0-9_]{36,}")),
     ("Slack Token", re.compile(r"xox[baprs]-[0-9A-Za-z\-]{10,}")),
     ("Private Key Header", re.compile(r"-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----")),
     ("JWT Token", re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_\-]+")),
-    ("Hardcoded IP + Port", re.compile(r"\b(?:password|secret|key)\s*=\s*['\"][^'\"]+['\"]", re.IGNORECASE)),
+    (
+        "Hardcoded IP + Port",
+        re.compile(r"\b(?:password|secret|key)\s*=\s*['\"][^'\"]+['\"]", re.IGNORECASE),
+    ),
 ]
 
 # =============================================================================
@@ -273,9 +291,24 @@ _SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 # =============================================================================
 
 _SQL_INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("String-formatted SQL", re.compile(r"""(?:execute|cursor\.execute|query)\s*\(\s*(?:f['\"]|['\"].*%s|['\"].*\bformat\b)""", re.IGNORECASE)),
-    ("Raw SQL concatenation", re.compile(r"""(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)\s+.*\+\s*(?:str\(|request\.|input\(|user)""", re.IGNORECASE)),
-    ("SQL string interpolation", re.compile(r"""(?:SELECT|INSERT|UPDATE|DELETE)\s+.*\{.*\}""", re.IGNORECASE)),
+    (
+        "String-formatted SQL",
+        re.compile(
+            r"""(?:execute|cursor\.execute|query)\s*\(\s*(?:f['\"]|['\"].*%s|['\"].*\bformat\b)""",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Raw SQL concatenation",
+        re.compile(
+            r"""(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)\s+.*\+\s*(?:str\(|request\.|input\(|user)""",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "SQL string interpolation",
+        re.compile(r"""(?:SELECT|INSERT|UPDATE|DELETE)\s+.*\{.*\}""", re.IGNORECASE),
+    ),
 ]
 
 _COMMAND_INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
@@ -357,9 +390,7 @@ class SuggestionRiskAnalyzer:
             for f in factors
             if f.get("category") in ("secret", "injection", "unsafe_pattern")
         ]
-        quality_issues = [
-            f["description"] for f in factors if f.get("category") == "quality"
-        ]
+        quality_issues = [f["description"] for f in factors if f.get("category") == "quality"]
 
         logger.debug(
             "risk_analysis_complete",
@@ -388,10 +419,17 @@ class SuggestionRiskAnalyzer:
         for label, pattern in self._secret_patterns:
             for match in pattern.finditer(code):
                 ln = code[: match.start()].count("\n") + 1
-                factors.append({"category": "secret", "severity": "critical",
-                                "description": f"Hardcoded {label} detected on line {ln}",
-                                "pattern": label, "line": ln,
-                                "matched_text": _redact(match.group()), "weight": 30.0})
+                factors.append(
+                    {
+                        "category": "secret",
+                        "severity": "critical",
+                        "description": f"Hardcoded {label} detected on line {ln}",
+                        "pattern": label,
+                        "line": ln,
+                        "matched_text": _redact(match.group()),
+                        "weight": 30.0,
+                    }
+                )
         return factors
 
     # ------------------------------------------------------------------
@@ -410,14 +448,17 @@ class SuggestionRiskAnalyzer:
             for label, pattern in patterns:
                 for match in pattern.finditer(code):
                     ln = code[: match.start()].count("\n") + 1
-                    factors.append({
-                        "category": "injection",
-                        "severity": "high",
-                        "description": f"{category_label} ({label}) on line {ln}",
-                        "pattern": label, "line": ln,
-                        "matched_text": _truncate(match.group(), 80),
-                        "weight": weight,
-                    })
+                    factors.append(
+                        {
+                            "category": "injection",
+                            "severity": "high",
+                            "description": f"{category_label} ({label}) on line {ln}",
+                            "pattern": label,
+                            "line": ln,
+                            "matched_text": _truncate(match.group(), 80),
+                            "weight": weight,
+                        }
+                    )
 
         _scan(self._sql_patterns, "Potential SQL injection", 25.0)
 
@@ -445,26 +486,44 @@ class SuggestionRiskAnalyzer:
             )
             for m in import_pat.finditer(code):
                 ln = code[: m.start()].count("\n") + 1
-                factors.append({"category": "unsafe_pattern", "severity": "medium",
-                                "description": f"Unsafe import '{module}' on line {ln}",
-                                "pattern": module, "line": ln,
-                                "matched_text": _truncate(m.group(), 80), "weight": 15.0})
+                factors.append(
+                    {
+                        "category": "unsafe_pattern",
+                        "severity": "medium",
+                        "description": f"Unsafe import '{module}' on line {ln}",
+                        "pattern": module,
+                        "line": ln,
+                        "matched_text": _truncate(m.group(), 80),
+                        "weight": 15.0,
+                    }
+                )
 
         # Additional unsafe patterns: path traversal and insecure crypto
         extra: list[tuple[str, re.Pattern[str], str, float]] = [
-            ("path_traversal", re.compile(r"""(?:\.\./|\.\.\\)"""),
-             "Path traversal pattern", 12.0),
-            ("insecure_crypto", re.compile(
-                r"""\b(?:hashlib\.md5|hashlib\.sha1|MD5\.new|SHA\.new)\s*\(""", re.IGNORECASE),
-             "Insecure hash algorithm", 10.0),
+            ("path_traversal", re.compile(r"""(?:\.\./|\.\.\\)"""), "Path traversal pattern", 12.0),
+            (
+                "insecure_crypto",
+                re.compile(
+                    r"""\b(?:hashlib\.md5|hashlib\.sha1|MD5\.new|SHA\.new)\s*\(""", re.IGNORECASE
+                ),
+                "Insecure hash algorithm",
+                10.0,
+            ),
         ]
         for pat_name, regex, desc, weight in extra:
             for m in regex.finditer(code):
                 ln = code[: m.start()].count("\n") + 1
-                factors.append({"category": "unsafe_pattern", "severity": "medium",
-                                "description": f"{desc} on line {ln}",
-                                "pattern": pat_name, "line": ln,
-                                "matched_text": _truncate(m.group(), 80), "weight": weight})
+                factors.append(
+                    {
+                        "category": "unsafe_pattern",
+                        "severity": "medium",
+                        "description": f"{desc} on line {ln}",
+                        "pattern": pat_name,
+                        "line": ln,
+                        "matched_text": _truncate(m.group(), 80),
+                        "weight": weight,
+                    }
+                )
 
         return factors
 
@@ -481,26 +540,52 @@ class SuggestionRiskAnalyzer:
 
         for idx, line in enumerate(lines, start=1):
             if len(line) > 200:
-                factors.append({"category": "quality", "severity": "low", "line": idx,
-                                "description": f"Line {idx} exceeds 200 chars ({len(line)})",
-                                "pattern": "long_line", "weight": 2.0})
+                factors.append(
+                    {
+                        "category": "quality",
+                        "severity": "low",
+                        "line": idx,
+                        "description": f"Line {idx} exceeds 200 chars ({len(line)})",
+                        "pattern": "long_line",
+                        "weight": 2.0,
+                    }
+                )
             stripped = line.lstrip()
             if stripped and (len(line) - len(stripped)) >= 16:
-                factors.append({"category": "quality", "severity": "low", "line": idx,
-                                "description": f"Deeply nested code on line {idx}",
-                                "pattern": "deep_nesting", "weight": 2.0})
+                factors.append(
+                    {
+                        "category": "quality",
+                        "severity": "low",
+                        "line": idx,
+                        "description": f"Deeply nested code on line {idx}",
+                        "pattern": "deep_nesting",
+                        "weight": 2.0,
+                    }
+                )
 
         # Regex-based quality checks
         _quality_patterns: list[tuple[str, re.Pattern[str], str, float]] = [
-            ("todo_marker", re.compile(r"\b(TODO|FIXME|HACK|XXX)\b", re.IGNORECASE), "Unresolved marker", 1.0),
+            (
+                "todo_marker",
+                re.compile(r"\b(TODO|FIXME|HACK|XXX)\b", re.IGNORECASE),
+                "Unresolved marker",
+                1.0,
+            ),
             ("bare_except", re.compile(r"\bexcept\s*:"), "Bare except clause", 3.0),
         ]
         for pattern_name, regex, desc_prefix, weight in _quality_patterns:
             for match in regex.finditer(code):
                 ln = code[: match.start()].count("\n") + 1
-                factors.append({"category": "quality", "severity": "low", "line": ln,
-                                "description": f"{desc_prefix} on line {ln}",
-                                "pattern": pattern_name, "weight": weight})
+                factors.append(
+                    {
+                        "category": "quality",
+                        "severity": "low",
+                        "line": ln,
+                        "description": f"{desc_prefix} on line {ln}",
+                        "pattern": pattern_name,
+                        "weight": weight,
+                    }
+                )
 
         return factors
 
@@ -521,9 +606,7 @@ class SuggestionRiskAnalyzer:
         total_weight = sum(f.get("weight", 1.0) for f in factors)
         score = min(total_weight, 100.0)
 
-        severity_counts: dict[str, int] = Counter(
-            f.get("severity", "low") for f in factors
-        )
+        severity_counts: dict[str, int] = Counter(f.get("severity", "low") for f in factors)
 
         if severity_counts.get("critical", 0) > 0 or score >= 80:
             risk_level = RiskLevel.CRITICAL
@@ -572,12 +655,8 @@ class CodeSanitizer:
         actions: list[SanitizationAction] = []
         current_code = code
 
-        has_secrets = any(
-            f.get("category") == "secret" for f in risk_assessment.risk_factors
-        )
-        has_injection = any(
-            f.get("category") == "injection" for f in risk_assessment.risk_factors
-        )
+        has_secrets = any(f.get("category") == "secret" for f in risk_assessment.risk_factors)
+        has_injection = any(f.get("category") == "injection" for f in risk_assessment.risk_factors)
         has_unsafe = any(
             f.get("category") == "unsafe_pattern"
             and f.get("pattern") not in ("path_traversal", "insecure_crypto")
@@ -589,9 +668,7 @@ class CodeSanitizer:
             actions.extend(secret_actions)
 
         if has_injection:
-            current_code, injection_actions = self._escape_injection(
-                current_code, language
-            )
+            current_code, injection_actions = self._escape_injection(current_code, language)
             actions.extend(injection_actions)
 
         if has_unsafe:
@@ -626,10 +703,15 @@ class CodeSanitizer:
                     ln = result[: match.start()].count("\n") + 1 + line_offset
                     replacement = pattern.sub(self._placeholder, snippet)
                     result = result[: match.start()] + replacement + result[match.end() :]
-                    actions.append(SanitizationAction(
-                        sanitization_type=SanitizationType.REMOVE_SECRETS,
-                        original_code=_redact(snippet), sanitized_code=replacement,
-                        description=f"Removed {label} and replaced with placeholder", line=ln))
+                    actions.append(
+                        SanitizationAction(
+                            sanitization_type=SanitizationType.REMOVE_SECRETS,
+                            original_code=_redact(snippet),
+                            sanitized_code=replacement,
+                            description=f"Removed {label} and replaced with placeholder",
+                            line=ln,
+                        )
+                    )
                     changed = True
                     break
         return result, actions
@@ -639,23 +721,29 @@ class CodeSanitizer:
     # ------------------------------------------------------------------
 
     def _escape_injection(
-        self, code: str, language: str, line_offset: int = 0
+        self, code: str, _language: str, line_offset: int = 0
     ) -> tuple[str, list[SanitizationAction]]:
         """Replace injection-prone patterns with parameterised equivalents."""
         actions: list[SanitizationAction] = []
         result = code
 
         fstring_sql = re.compile(
-            r"""((?:cursor\.execute|\.execute)\s*\(\s*)f(['"])(.*?)\2""", re.DOTALL)
+            r"""((?:cursor\.execute|\.execute)\s*\(\s*)f(['"])(.*?)\2""", re.DOTALL
+        )
         for match in fstring_sql.finditer(result):
             ln = result[: match.start()].count("\n") + 1 + line_offset
             original = match.group()
             safe = f"{match.group(1)}{match.group(2)}/* SANITIZED: use parameterised query */{match.group(2)}"
             result = result.replace(original, safe, 1)
-            actions.append(SanitizationAction(
-                sanitization_type=SanitizationType.ESCAPE_INJECTION,
-                original_code=_truncate(original, 120), sanitized_code=_truncate(safe, 120),
-                description="Replaced f-string SQL with parameterised query placeholder", line=ln))
+            actions.append(
+                SanitizationAction(
+                    sanitization_type=SanitizationType.ESCAPE_INJECTION,
+                    original_code=_truncate(original, 120),
+                    sanitized_code=_truncate(safe, 120),
+                    description="Replaced f-string SQL with parameterised query placeholder",
+                    line=ln,
+                )
+            )
 
         for func_name in ("eval", "exec"):
             for match in re.compile(rf"\b{func_name}\s*\(").finditer(result):
@@ -663,10 +751,15 @@ class CodeSanitizer:
                 original = match.group()
                 safe = f"# SANITIZED: {func_name} removed for safety\n# {func_name}("
                 result = result.replace(original, safe, 1)
-                actions.append(SanitizationAction(
-                    sanitization_type=SanitizationType.ESCAPE_INJECTION,
-                    original_code=original, sanitized_code=safe,
-                    description=f"Commented out unsafe {func_name}() call", line=ln))
+                actions.append(
+                    SanitizationAction(
+                        sanitization_type=SanitizationType.ESCAPE_INJECTION,
+                        original_code=original,
+                        sanitized_code=safe,
+                        description=f"Commented out unsafe {func_name}() call",
+                        line=ln,
+                    )
+                )
 
         return result, actions
 
@@ -680,23 +773,33 @@ class CodeSanitizer:
         """Comment out or replace unsafe imports with safe alternatives."""
         actions: list[SanitizationAction] = []
         result = code
-        replacements = {"os.system": "subprocess.run", "pickle": "json",
-                        "marshal": "json", "commands": "subprocess"}
+        replacements = {
+            "os.system": "subprocess.run",
+            "pickle": "json",
+            "marshal": "json",
+            "commands": "subprocess",
+        }
 
         for unsafe_mod, safe_mod in replacements.items():
             import_re = re.compile(
                 rf"^(\s*)(import\s+{re.escape(unsafe_mod)}|from\s+{re.escape(unsafe_mod)}\s+import\s+\w+)",
-                re.MULTILINE)
+                re.MULTILINE,
+            )
             for match in import_re.finditer(result):
                 ln = result[: match.start()].count("\n") + 1 + line_offset
                 original_line = match.group()
                 indent = match.group(1)
                 safe_line = f"{indent}# SANITIZED: {unsafe_mod} replaced with {safe_mod}\n{indent}import {safe_mod}"
                 result = result.replace(original_line, safe_line, 1)
-                actions.append(SanitizationAction(
-                    sanitization_type=SanitizationType.REMOVE_UNSAFE_IMPORT,
-                    original_code=original_line.strip(), sanitized_code=safe_line.strip(),
-                    description=f"Replaced unsafe '{unsafe_mod}' import with '{safe_mod}'", line=ln))
+                actions.append(
+                    SanitizationAction(
+                        sanitization_type=SanitizationType.REMOVE_UNSAFE_IMPORT,
+                        original_code=original_line.strip(),
+                        sanitized_code=safe_line.strip(),
+                        description=f"Replaced unsafe '{unsafe_mod}' import with '{safe_mod}'",
+                        line=ln,
+                    )
+                )
 
         return result, actions
 
@@ -763,8 +866,7 @@ class AICodeFirewall:
 
         override_available = (
             self._policy.allow_override
-            and self._override_counts.get(interception.id, 0)
-            < self._policy.max_override_count
+            and self._override_counts.get(interception.id, 0) < self._policy.max_override_count
         )
 
         reason = self._build_reason(action, risk)
@@ -820,8 +922,11 @@ class AICodeFirewall:
 
     def get_metrics(self) -> FirewallMetrics:
         """Return aggregated firewall metrics."""
-        avg_time = (sum(self._processing_times) / len(self._processing_times)
-                    if self._processing_times else 0.0)
+        avg_time = (
+            sum(self._processing_times) / len(self._processing_times)
+            if self._processing_times
+            else 0.0
+        )
         factor_counter: Counter[str] = Counter()
         for decision in self._decisions.values():
             for f in decision.risk_assessment.risk_factors:
@@ -835,7 +940,8 @@ class AICodeFirewall:
             blocked=self._action_counts.get(FirewallAction.BLOCK.value, 0),
             sanitized=self._action_counts.get(FirewallAction.SANITIZE.value, 0),
             overrides=self._action_counts.get("overrides", 0),
-            avg_processing_time_ms=avg_time, top_risk_factors=top_factors,
+            avg_processing_time_ms=avg_time,
+            top_risk_factors=top_factors,
         )
 
     def update_policy(self, policy: FirewallPolicy) -> None:
@@ -847,9 +953,7 @@ class AICodeFirewall:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _apply_policy(
-        self, risk: RiskAssessment, policy: FirewallPolicy
-    ) -> FirewallAction:
+    def _apply_policy(self, risk: RiskAssessment, policy: FirewallPolicy) -> FirewallAction:
         """Determine the firewall action based on risk assessment and policy."""
         if not policy.enabled:
             return FirewallAction.ALLOW
@@ -889,9 +993,12 @@ class AICodeFirewall:
         if risk.quality_issues:
             parts.append(f"{len(risk.quality_issues)} quality issue(s)")
         issues_text = " and ".join(parts) if parts else "risk factors"
-        verb = {FirewallAction.WARN: "flagged for review", FirewallAction.BLOCK: "blocked",
-                FirewallAction.SANITIZE: "sanitized",
-                FirewallAction.QUARANTINE: "quarantined for manual review"}.get(action, action.value)
+        verb = {
+            FirewallAction.WARN: "flagged for review",
+            FirewallAction.BLOCK: "blocked",
+            FirewallAction.SANITIZE: "sanitized",
+            FirewallAction.QUARANTINE: "quarantined for manual review",
+        }.get(action, action.value)
         return f"Suggestion {verb} due to {issues_text} (risk={risk.risk_level.value}, score={risk.overall_score:.1f})."
 
 

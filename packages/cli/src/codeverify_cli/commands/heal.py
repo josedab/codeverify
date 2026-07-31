@@ -57,10 +57,7 @@ def heal_analyze(ctx: click.Context, path: str, verify: bool, output_format: str
 
     path_obj = Path(path)
 
-    if path_obj.is_file():
-        files = [path_obj]
-    else:
-        files = list(path_obj.rglob("*.py"))[:20]  # Limit for CLI
+    files = [path_obj] if path_obj.is_file() else list(path_obj.rglob("*.py"))[:20]  # Limit for CLI
 
     if not files:
         console.print("[yellow]No Python files found[/yellow]")
@@ -142,10 +139,7 @@ def heal_apply(
     path_obj = Path(path)
     agent = SelfHealingAgent()
 
-    if path_obj.is_file():
-        files = [path_obj]
-    else:
-        files = list(path_obj.rglob("*.py"))[:20]
+    files = [path_obj] if path_obj.is_file() else list(path_obj.rglob("*.py"))[:20]
 
     applied = 0
     skipped = 0

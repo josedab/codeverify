@@ -165,8 +165,8 @@ class TestStreamingSessionPool:
     def test_max_sessions_evicts_oldest(self):
         pool = StreamingSessionPool(max_sessions=2)
         s1 = pool.create_session()
-        s2 = pool.create_session()
-        s3 = pool.create_session()
+        pool.create_session()
+        pool.create_session()
         assert pool.active_count == 2
         assert pool.get_session(s1.session_id) is None
 

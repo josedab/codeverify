@@ -296,7 +296,7 @@ class RegressionChecker:
     def check(
         self,
         fix: Fix,
-        context: dict[str, str] | None = None,
+        _context: dict[str, str] | None = None,
     ) -> list[RegressionCheck]:
         """Run regression checks on a fix."""
         checks: list[RegressionCheck] = []

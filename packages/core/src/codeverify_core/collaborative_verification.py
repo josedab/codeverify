@@ -285,7 +285,7 @@ class EventBroadcaster:
         self._listeners[session_id].append(callback)
         return subscription_id
 
-    def unsubscribe(self, session_id: str, callback: Callable) -> None:
+    def unsubscribe(self, session_id: str, callback: Callable[[CollaborativeEvent], None]) -> None:
         """Unsubscribe from session events."""
         if session_id in self._listeners:
             self._listeners[session_id] = [
@@ -668,7 +668,7 @@ class CollaborativeSessionManager:
     def unsubscribe_from_events(
         self,
         session_id: str,
-        callback: Callable,
+        callback: Callable[[CollaborativeEvent], None],
     ) -> None:
         """Unsubscribe from session events."""
         self._broadcaster.unsubscribe(session_id, callback)
@@ -680,7 +680,7 @@ class CollaborativeSessionManager:
             return None
 
         # Count findings by status
-        status_counts = {}
+        status_counts: dict[str, int] = {}
         for finding in session.findings.values():
             status = finding.status.value
             status_counts[status] = status_counts.get(status, 0) + 1

@@ -24,7 +24,7 @@ from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 from uuid import uuid4
 
 import structlog
@@ -165,7 +165,7 @@ class DigestReadyEvent(Event):
 class Subscription(Generic[E]):
     """Represents a subscription to an event type."""
 
-    handler: EventHandler
+    handler: EventHandler[E]
     priority: EventPriority = EventPriority.NORMAL
     filter_fn: Callable[[E], bool] | None = None
 
@@ -190,13 +190,13 @@ class EventBus:
 
     def __init__(self) -> None:
         """Initialize the event bus."""
-        self._subscriptions: dict[type[Event], list[Subscription]] = defaultdict(list)
+        self._subscriptions: dict[type[Event], list[Subscription[Event]]] = defaultdict(list)
         self._middleware: list[Callable[[Event], Coroutine[Any, Any, Event | None]]] = []
 
     def subscribe(
         self,
         event_type: type[E],
-        handler: EventHandler,
+        handler: EventHandler[E],
         priority: EventPriority = EventPriority.NORMAL,
         filter_fn: Callable[[E], bool] | None = None,
     ) -> Callable[[], None]:
@@ -217,7 +217,11 @@ class EventBus:
             priority=priority,
             filter_fn=filter_fn,
         )
-        self._subscriptions[event_type].append(subscription)
+        # Subscription[E] is invariant, but subscriptions for different concrete event
+        # types are intentionally stored together, keyed by their exact event_type; the
+        # dict key guarantees only matching-type events reach this handler at runtime.
+        untyped_subscription = cast(Subscription[Event], subscription)
+        self._subscriptions[event_type].append(untyped_subscription)
 
         # Sort by priority (descending)
         self._subscriptions[event_type].sort(
@@ -232,7 +236,7 @@ class EventBus:
         )
 
         def unsubscribe() -> None:
-            self._subscriptions[event_type].remove(subscription)
+            self._subscriptions[event_type].remove(untyped_subscription)
 
         return unsubscribe
 
@@ -269,6 +273,11 @@ class EventBus:
         # Run middleware
         processed_event: Event | None = event
         for middleware in self._middleware:
+            # processed_event is never actually None at this point: it starts as
+            # `event` and every reassignment below either keeps it a definite Event
+            # or returns immediately; mypy widens it to Event | None across the loop's
+            # back-edge, so it must be re-narrowed here at the top of each iteration.
+            assert processed_event is not None
             try:
                 processed_event = await middleware(processed_event)
                 if processed_event is None:
@@ -283,7 +292,12 @@ class EventBus:
                 # Continue with original event if middleware fails
                 processed_event = event
 
-        # Get subscriptions for this event type
+        # Get subscriptions for this event type.
+        # (processed_event cannot actually be None here: every middleware call that
+        # returns None triggers an early return above; this re-narrows for mypy since
+        # narrowing does not persist across the loop's back-edge.)
+        if processed_event is None:
+            return []
         subscriptions = self._subscriptions.get(type(event), [])
         if not subscriptions:
             logger.debug("No handlers for event", event_type=event.event_type)
@@ -356,7 +370,7 @@ def on_event(
     event_type: type[E],
     priority: EventPriority = EventPriority.NORMAL,
     filter_fn: Callable[[E], bool] | None = None,
-) -> Callable[[EventHandler], EventHandler]:
+) -> Callable[[EventHandler[E]], EventHandler[E]]:
     """
     Decorator to subscribe a function to an event type.
 
@@ -366,7 +380,7 @@ def on_event(
             print(f"Analysis complete: {event.repo_full_name}")
     """
 
-    def decorator(handler: EventHandler) -> EventHandler:
+    def decorator(handler: EventHandler[E]) -> EventHandler[E]:
         get_event_bus().subscribe(event_type, handler, priority, filter_fn)
         return handler
 

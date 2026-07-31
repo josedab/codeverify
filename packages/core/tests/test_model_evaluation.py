@@ -11,7 +11,7 @@ from codeverify_core.model_evaluation import (
 )
 
 
-def _fake_predict(code: str, language: str) -> list[dict]:
+def _fake_predict(code: str, _language: str) -> list[dict]:
     """Fake prediction function for testing."""
     findings = []
     if "eval(" in code:

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import time
-import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -20,6 +19,7 @@ logger = structlog.get_logger()
 
 class CIPlatform(str, Enum):
     """Supported CI/CD platforms."""
+
     GITHUB_ACTIONS = "github_actions"
     GITLAB_CI = "gitlab_ci"
     JENKINS = "jenkins"
@@ -28,6 +28,7 @@ class CIPlatform(str, Enum):
 
 class GateResult(str, Enum):
     """Quality gate result."""
+
     PASS = "pass"
     WARN = "warn"
     FAIL = "fail"
@@ -36,6 +37,7 @@ class GateResult(str, Enum):
 @dataclass
 class QualityGateConfig:
     """Configuration for quality gates."""
+
     max_critical: int = 0
     max_high: int = 0
     max_medium: int = 5
@@ -48,6 +50,7 @@ class QualityGateConfig:
 @dataclass
 class SARIFResult:
     """A single SARIF result (finding)."""
+
     rule_id: str = ""
     message: str = ""
     level: str = "warning"
@@ -61,6 +64,7 @@ class SARIFResult:
 @dataclass
 class SARIFReport:
     """SARIF 2.1.0 report."""
+
     tool_name: str = "codeverify"
     tool_version: str = "0.8.0"
     results: list[SARIFResult] = field(default_factory=list)
@@ -183,7 +187,9 @@ class CIConfigGenerator:
             return self._circleci(languages, checks, gate)
         raise ValueError(f"Unsupported platform: {platform}")
 
-    def _github_actions(self, languages: list[str], checks: list[str], gate: QualityGateConfig) -> str:
+    def _github_actions(
+        self, languages: list[str], checks: list[str], gate: QualityGateConfig
+    ) -> str:
         langs = ", ".join(languages)
         chks = ", ".join(checks)
         return f"""name: CodeVerify Analysis
@@ -295,13 +301,15 @@ class CICDActionRunner:
         sarif = SARIFReport()
         for f in findings:
             level_map = {"critical": "error", "high": "error", "medium": "warning", "low": "note"}
-            sarif.results.append(SARIFResult(
-                rule_id=f.get("rule_id", "unknown"),
-                message=f.get("message", ""),
-                level=level_map.get(f.get("severity", "low"), "note"),
-                file_path=f.get("file_path", ""),
-                start_line=f.get("line", 1),
-            ))
+            sarif.results.append(
+                SARIFResult(
+                    rule_id=f.get("rule_id", "unknown"),
+                    message=f.get("message", ""),
+                    level=level_map.get(f.get("severity", "low"), "note"),
+                    file_path=f.get("file_path", ""),
+                    start_line=f.get("line", 1),
+                )
+            )
 
         gate_result = self._gate_evaluator.evaluate(findings, gate_config)
         elapsed = (time.time() - start) * 1000

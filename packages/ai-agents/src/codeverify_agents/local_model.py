@@ -300,7 +300,7 @@ class OllamaEngine(InferenceEngine):
         self._base_url = base_url
         self._model_name: str = ""
 
-    async def load_model(self, model_path: str, config: LocalModelConfig) -> bool:
+    async def load_model(self, model_path: str, _config: LocalModelConfig) -> bool:
         """'Load' a model (Ollama manages this)."""
         import httpx
 
@@ -463,16 +463,19 @@ class QueryRouter:
         # Check query length and structure
         is_long = len(query) > 2000
         has_code = "```" in query or "def " in query or "function " in query
+        # Embedded code or long queries both increase effective complexity,
+        # so treat them as equivalent escalation signals.
+        is_substantial = is_long or has_code
 
-        if complex_count > 0 or (is_long and moderate_count > 0):
+        if complex_count > 0 or (is_substantial and moderate_count > 0):
             return QueryComplexity.COMPLEX
-        elif moderate_count > 0 or (is_long and simple_count > 0):
+        elif moderate_count > 0 or (is_substantial and simple_count > 0):
             return QueryComplexity.MODERATE
         elif simple_count > 0:
             return QueryComplexity.SIMPLE
         else:
-            # Default based on length
-            return QueryComplexity.MODERATE if is_long else QueryComplexity.SIMPLE
+            # Default based on length/code presence
+            return QueryComplexity.MODERATE if is_substantial else QueryComplexity.SIMPLE
 
     def _estimate_local_quality(self, query: str, complexity: QueryComplexity) -> float:
         """Estimate quality of local model for this query."""
@@ -493,7 +496,7 @@ class QueryRouter:
 
         return quality
 
-    def _can_handle_locally(self, query: str, context: dict[str, Any] | None) -> bool:
+    def _can_handle_locally(self, query: str, _context: dict[str, Any] | None) -> bool:
         """Check if local model has required capabilities."""
         query_lower = query.lower()
 

@@ -4,6 +4,7 @@
 Run this script to check if all dependencies and services are properly configured.
 """
 
+import importlib.util
 import os
 import subprocess
 import sys
@@ -30,12 +31,7 @@ def check_python_version() -> bool:
 
 def check_z3() -> bool:
     """Check if Z3 is installed."""
-    try:
-        import z3
-
-        return True
-    except ImportError:
-        return False
+    return importlib.util.find_spec("z3") is not None
 
 
 def check_postgres() -> bool:
@@ -43,7 +39,7 @@ def check_postgres() -> bool:
     try:
         import asyncpg
     except ImportError:
-        raise RuntimeError("asyncpg not installed (pip install asyncpg)")
+        raise RuntimeError("asyncpg not installed (pip install asyncpg)") from None
     import asyncio
 
     async def _check():
@@ -63,7 +59,7 @@ def check_redis() -> bool:
     try:
         import redis
     except ImportError:
-        raise RuntimeError("redis not installed (pip install redis)")
+        raise RuntimeError("redis not installed (pip install redis)") from None
     r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
     return r.ping()
 
@@ -144,7 +140,6 @@ def main():
     print()
 
     # Summary
-    all_set = all(check_env_var(name) for name, _ in env_vars)
     github_set = all(
         check_env_var(v)
         for v in ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_WEBHOOK_SECRET"]

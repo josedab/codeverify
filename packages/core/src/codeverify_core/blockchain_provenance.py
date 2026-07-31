@@ -15,10 +15,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -94,7 +93,7 @@ class BlockchainAttestation:
     block_number: int = 0
     status: AttestationStatus = AttestationStatus.PENDING
     timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     gas_used: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -125,7 +124,7 @@ class VerificationBadge:
     trust_score: float = 0.0
     verification_coverage: float = 0.0
     issued_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     token_id: int = 0
     metadata_uri: str = ""
@@ -166,15 +165,15 @@ class LocalBlockchain:
     def submit_transaction(self, data: dict[str, Any]) -> tuple[str, int]:
         """Submit a transaction to the local chain. Returns (tx_hash, block_number)."""
         self._block_number += 1
-        tx_hash = hashlib.sha256(
-            json.dumps(data, sort_keys=True, default=str).encode()
-        ).hexdigest()
-        self._blocks.append({
-            "block_number": self._block_number,
-            "tx_hash": tx_hash,
-            "data": data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        tx_hash = hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
+        self._blocks.append(
+            {
+                "block_number": self._block_number,
+                "tx_hash": tx_hash,
+                "data": data,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         return tx_hash, self._block_number
 
     def verify_transaction(self, tx_hash: str) -> dict[str, Any] | None:
@@ -293,22 +292,27 @@ class BlockchainProvenanceEngine:
         if not att:
             return False
         att.status = AttestationStatus.REVOKED
-        self._local_chain.submit_transaction({
-            "type": "revocation",
-            "attestation_id": attestation_id,
-        })
+        self._local_chain.submit_transaction(
+            {
+                "type": "revocation",
+                "attestation_id": attestation_id,
+            }
+        )
         return True
 
     def get_repo_attestations(self, repo_id: str) -> list[BlockchainAttestation]:
         """Get all attestations for a repository."""
         return [
-            a for a in self._attestations.values()
+            a
+            for a in self._attestations.values()
             if a.repo_id == repo_id and a.status == AttestationStatus.CONFIRMED
         ]
 
     def get_provenance_summary(self) -> dict[str, Any]:
         """Get summary of all provenance records."""
-        confirmed = [a for a in self._attestations.values() if a.status == AttestationStatus.CONFIRMED]
+        confirmed = [
+            a for a in self._attestations.values() if a.status == AttestationStatus.CONFIRMED
+        ]
         return {
             "total_attestations": len(self._attestations),
             "confirmed_attestations": len(confirmed),

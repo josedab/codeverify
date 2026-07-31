@@ -86,11 +86,8 @@ class CSharpParser(CodeParser):
             match = class_pattern.match(lines[i])
 
             if match:
-                class_type = match.group("type")
                 name = match.group("name")
                 bases = match.group("bases")
-                modifiers = match.group("modifiers") or ""
-                attrs = match.group("attrs") or ""
 
                 line_start = i + 1
 

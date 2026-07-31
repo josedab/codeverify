@@ -7,6 +7,7 @@ functions used by findings, rules, and analysis reports.
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
 
 class FindingSeverity(str, Enum):
@@ -182,10 +183,10 @@ def get_severity_label(severity: str | FindingSeverity) -> str:
 
 
 def sort_by_severity(
-    items: list,
+    items: list[Any],
     key: str = "severity",
     descending: bool = True,
-) -> list:
+) -> list[Any]:
     """Sort items by severity.
 
     Args:
@@ -197,11 +198,8 @@ def sort_by_severity(
         Sorted list
     """
 
-    def get_order(item):
-        if isinstance(item, dict):
-            sev = item.get(key, "info")
-        else:
-            sev = getattr(item, key, "info")
+    def get_order(item: Any) -> int:
+        sev = item.get(key, "info") if isinstance(item, dict) else getattr(item, key, "info")
         return SEVERITY_ORDER.get(str(sev).lower(), 0)
 
     return sorted(items, key=get_order, reverse=descending)

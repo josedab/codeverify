@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "codeverify-sdk"
 version = "0.1.0"
 description = "CodeVerify SDK — embed formal verification checks programmatically"
-readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [

@@ -1,5 +1,6 @@
 """Verification policy-as-code API router."""
 
+import re
 from typing import Any
 
 from fastapi import APIRouter
@@ -195,8 +196,6 @@ BUILT_IN_POLICIES: list[dict[str, Any]] = [
         "priority": 50,
     },
 ]
-
-import re
 
 
 def _match_condition(condition: PolicyConditionModel, context: dict[str, Any]) -> bool:

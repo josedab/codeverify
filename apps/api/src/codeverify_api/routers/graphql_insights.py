@@ -7,7 +7,7 @@ management and webhook subscription endpoints.
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -28,8 +28,12 @@ class ApiKeyCreateRequest(BaseModel):
     """Request to create an API key."""
 
     name: str = Field(..., description="Human-readable key name")
-    scopes: list[str] = Field(default=["read"], description="Permissions: read, write, admin, webhooks")
-    tier: str = Field(default="free", description="Rate limit tier: free, standard, premium, unlimited")
+    scopes: list[str] = Field(
+        default=["read"], description="Permissions: read, write, admin, webhooks"
+    )
+    tier: str = Field(
+        default="free", description="Rate limit tier: free, standard, premium, unlimited"
+    )
 
 
 class ApiKeyResponse(BaseModel):

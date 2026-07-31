@@ -84,7 +84,7 @@ TEST_TEMPLATES = {
 def test_{name}():
     """
     {description}
-    
+
     Generated from verification counterexample.
     Counterexample: {counterexample}
     """
@@ -96,13 +96,13 @@ def test_{name}():
 
 class Test{class_name}(unittest.TestCase):
     """Generated tests for {target}."""
-    
+
     {setup}
-    
+
     def test_{name}(self):
         """
         {description}
-        
+
         Generated from verification counterexample.
         """
         {test_body}
@@ -112,7 +112,7 @@ class Test{class_name}(unittest.TestCase):
 
 describe('{target}', () => {{
     {setup}
-    
+
     test('{description}', () => {{
         {test_body}
     }});
@@ -123,7 +123,7 @@ describe('{target}', () => {{
 
 describe('{target}', () => {{
     {setup}
-    
+
     it('{description}', () => {{
         {test_body}
     }});
@@ -476,7 +476,7 @@ class TestGeneratorAgent(BaseAgent):
         self,
         target_function: str,
         counterexample: Counterexample,
-        signature: dict[str, Any],
+        _signature: dict[str, Any],
         language: Language,
         framework: TestFramework,
     ) -> str:
@@ -498,7 +498,7 @@ class TestGeneratorAgent(BaseAgent):
         target: str,
         variables: dict[str, Any],
         expected: str,
-        framework: TestFramework,
+        _framework: TestFramework,
     ) -> str:
         """Generate Python test body."""
         lines = []
@@ -547,7 +547,7 @@ class TestGeneratorAgent(BaseAgent):
         target: str,
         variables: dict[str, Any],
         expected: str,
-        framework: TestFramework,
+        _framework: TestFramework,
     ) -> str:
         """Generate TypeScript/JavaScript test body."""
         lines = []
@@ -576,7 +576,7 @@ class TestGeneratorAgent(BaseAgent):
         self,
         target: str,
         variables: dict[str, Any],
-        expected: str,
+        _expected: str,
     ) -> str:
         """Generate Go test body."""
         lines = []
@@ -640,7 +640,7 @@ class TestGeneratorAgent(BaseAgent):
         self,
         source_file: str,
         language: Language,
-        framework: TestFramework,
+        _framework: TestFramework,
     ) -> str:
         """Generate appropriate test file name."""
         if language == Language.PYTHON:

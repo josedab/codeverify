@@ -27,7 +27,7 @@ import re
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -103,12 +103,15 @@ class PrivacyConfig:
     @classmethod
     def for_level(cls, level: PrivacyLevel) -> PrivacyConfig:
         configs = {
-            PrivacyLevel.STRICT: cls(level=level, epsilon_per_pattern=0.01,
-                                     noise_scale=2.0, min_org_count=5),
-            PrivacyLevel.MODERATE: cls(level=level, epsilon_per_pattern=0.1,
-                                       noise_scale=1.0, min_org_count=3),
-            PrivacyLevel.RELAXED: cls(level=level, epsilon_per_pattern=0.5,
-                                      noise_scale=0.5, min_org_count=2),
+            PrivacyLevel.STRICT: cls(
+                level=level, epsilon_per_pattern=0.01, noise_scale=2.0, min_org_count=5
+            ),
+            PrivacyLevel.MODERATE: cls(
+                level=level, epsilon_per_pattern=0.1, noise_scale=1.0, min_org_count=3
+            ),
+            PrivacyLevel.RELAXED: cls(
+                level=level, epsilon_per_pattern=0.5, noise_scale=0.5, min_org_count=2
+            ),
         }
         return configs.get(level, cls())
 
@@ -142,7 +145,7 @@ class AggregatedPattern:
     aggregated_frequency: float = 0.0
     aggregated_confidence: float = 0.0
     adoption_count: int = 0
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -154,7 +157,7 @@ class FederatedRound:
     status: AggregationStatus = AggregationStatus.COLLECTING
     contributions: dict[str, list[LocalPattern]] = field(default_factory=dict)
     aggregated_patterns: list[AggregatedPattern] = field(default_factory=list)
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
     @property
@@ -171,7 +174,9 @@ class OrgContribution:
     patterns_adopted: int = 0
     rounds_participated: int = 0
     privacy_budget: PrivacyBudget = field(default_factory=PrivacyBudget)
-    hmac_key: str = field(default_factory=lambda: hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:32])
+    hmac_key: str = field(
+        default_factory=lambda: hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:32]
+    )
 
 
 @dataclass
@@ -182,7 +187,7 @@ class AuditLogEntry:
     org_id: str = ""
     action: str = ""
     details: dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     ip_address: str = ""
     success: bool = True
     error: str = ""
@@ -209,12 +214,12 @@ class InputValidator:
     MAX_FINDINGS = 10000
     MAX_CATEGORY_LENGTH = 100
     MAX_ORG_ID_LENGTH = 128
-    ALLOWED_CATEGORY_PATTERN = re.compile(r'^[a-zA-Z0-9_\-.]+$')
+    ALLOWED_CATEGORY_PATTERN = re.compile(r"^[a-zA-Z0-9_\-.]+$")
 
     def validate_org_id(self, org_id: str) -> tuple[bool, str]:
         if not org_id or len(org_id) > self.MAX_ORG_ID_LENGTH:
             return False, f"org_id must be 1-{self.MAX_ORG_ID_LENGTH} characters"
-        if not re.match(r'^[a-zA-Z0-9_\-]+$', org_id):
+        if not re.match(r"^[a-zA-Z0-9_\-]+$", org_id):
             return False, "org_id must be alphanumeric with hyphens/underscores"
         return True, ""
 
@@ -320,18 +325,22 @@ class PatternExtractor:
             content = f"{org_id}:{cat}:{count}"
             content_hash = hashlib.sha256(content.encode()).hexdigest()[:12]
 
-            patterns.append(LocalPattern(
-                org_id=hashlib.sha256(org_id.encode()).hexdigest()[:8] if self._config.strip_identifiers else org_id,
-                pattern_type=PatternType.FINDING_PATTERN,
-                category=cat,
-                frequency=float(count),
-                confidence=round(avg_conf, 3),
-                content_hash=content_hash,
-                noisy_frequency=max(0.0, round(noisy_freq, 2)),
-                is_anonymized=True,
-            ))
+            patterns.append(
+                LocalPattern(
+                    org_id=hashlib.sha256(org_id.encode()).hexdigest()[:8]
+                    if self._config.strip_identifiers
+                    else org_id,
+                    pattern_type=PatternType.FINDING_PATTERN,
+                    category=cat,
+                    frequency=float(count),
+                    confidence=round(avg_conf, 3),
+                    content_hash=content_hash,
+                    noisy_frequency=max(0.0, round(noisy_freq, 2)),
+                    is_anonymized=True,
+                )
+            )
 
-        return patterns[:self._config.max_patterns_per_round]
+        return patterns[: self._config.max_patterns_per_round]
 
 
 class FederatedAggregator:
@@ -356,21 +365,23 @@ class FederatedAggregator:
 
         aggregated: list[AggregatedPattern] = []
         for cat, patterns in category_data.items():
-            org_ids = set(p.org_id for p in patterns)
+            org_ids = {p.org_id for p in patterns}
             if len(org_ids) < self._min_orgs:
                 continue
 
             avg_freq = sum(p.noisy_frequency for p in patterns) / len(patterns)
             avg_conf = sum(p.confidence for p in patterns) / len(patterns)
 
-            aggregated.append(AggregatedPattern(
-                pattern_type=patterns[0].pattern_type,
-                category=cat,
-                language=patterns[0].language,
-                contributing_orgs=len(org_ids),
-                aggregated_frequency=round(avg_freq, 2),
-                aggregated_confidence=round(avg_conf, 3),
-            ))
+            aggregated.append(
+                AggregatedPattern(
+                    pattern_type=patterns[0].pattern_type,
+                    category=cat,
+                    language=patterns[0].language,
+                    contributing_orgs=len(org_ids),
+                    aggregated_frequency=round(avg_freq, 2),
+                    aggregated_confidence=round(avg_conf, 3),
+                )
+            )
 
         aggregated.sort(key=lambda p: p.aggregated_frequency, reverse=True)
         return aggregated
@@ -407,9 +418,7 @@ class FederatedVerificationService:
     def calibrator(self) -> NoiseCalibrator:
         return self._calibrator
 
-    def register_org(
-        self, org_id: str, epsilon_budget: float = 1.0
-    ) -> OrgContribution:
+    def register_org(self, org_id: str, epsilon_budget: float = 1.0) -> OrgContribution:
         """Register an org for federated learning."""
         valid, err = self._validator.validate_org_id(org_id)
         if not valid:
@@ -472,11 +481,15 @@ class FederatedVerificationService:
         org.patterns_contributed += len(patterns)
         org.rounds_participated += 1
 
-        self._audit("contribute", org_id, details={
-            "patterns": len(patterns),
-            "findings_count": len(findings),
-            "epsilon_remaining": round(org.privacy_budget.remaining_epsilon, 4),
-        })
+        self._audit(
+            "contribute",
+            org_id,
+            details={
+                "patterns": len(patterns),
+                "findings_count": len(findings),
+                "epsilon_remaining": round(org.privacy_budget.remaining_epsilon, 4),
+            },
+        )
         return patterns
 
     def sign_contribution(self, org_id: str, finding_count: int) -> str | None:
@@ -494,7 +507,7 @@ class FederatedVerificationService:
         aggregated = self._aggregator.aggregate(self._current_round.contributions)
         self._current_round.aggregated_patterns = aggregated
         self._current_round.status = AggregationStatus.COMPLETED
-        self._current_round.completed_at = datetime.now(timezone.utc)
+        self._current_round.completed_at = datetime.now(UTC)
         self._rounds.append(self._current_round)
         self._global_patterns.extend(aggregated)
         self._current_round = None
@@ -542,7 +555,10 @@ class FederatedVerificationService:
         return list(self._audit_log)
 
     def calibrate_noise(
-        self, sensitivity: float, desired_accuracy: float, dataset_size: int,
+        self,
+        sensitivity: float,
+        desired_accuracy: float,
+        dataset_size: int,
     ) -> float:
         """Get recommended epsilon for desired accuracy."""
         return self._calibrator.calibrate_epsilon(sensitivity, desired_accuracy, dataset_size)
@@ -556,8 +572,11 @@ class FederatedVerificationService:
         error: str = "",
     ) -> None:
         entry = AuditLogEntry(
-            org_id=org_id, action=action,
-            details=details or {}, success=success, error=error,
+            org_id=org_id,
+            action=action,
+            details=details or {},
+            success=success,
+            error=error,
         )
         self._audit_log.append(entry)
         log_fn = logger.info if success else logger.warning

@@ -32,6 +32,8 @@ limiter = Limiter(
     key_func=get_user_identifier,
     default_limits=["100/minute"],
     storage_uri=getattr(settings, "REDIS_URL", None),
+    in_memory_fallback_enabled=True,
+    swallow_errors=True,
 )
 
 

@@ -15,10 +15,9 @@ Features:
 from __future__ import annotations
 
 import hashlib
-import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -122,7 +121,7 @@ class SavePoint:
     copilot_suggestion_id: str | None = None
     description: str = ""
     created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -220,17 +219,19 @@ class CopilotUndoManager:
         if not target or target.status != SavePointStatus.ACTIVE:
             return None
 
-        idx = self._chronological.index(save_point_id) if save_point_id in self._chronological else -1
+        idx = (
+            self._chronological.index(save_point_id) if save_point_id in self._chronological else -1
+        )
         if idx < 0:
             return None
 
         # Mark all subsequent save points as rolled back
-        for sp_id in self._chronological[idx + 1:]:
+        for sp_id in self._chronological[idx + 1 :]:
             sp = self._save_points.get(sp_id)
             if sp:
                 sp.status = SavePointStatus.ROLLED_BACK
 
-        self._chronological = self._chronological[:idx + 1]
+        self._chronological = self._chronological[: idx + 1]
         self._rollback_count += 1
 
         logger.info(
@@ -264,7 +265,9 @@ class CopilotUndoManager:
         return sp
 
     def compare_branches(
-        self, branch_a_id: str, branch_b_id: str,
+        self,
+        branch_a_id: str,
+        branch_b_id: str,
     ) -> dict[str, Any]:
         """Compare two branching save points."""
         a = self._save_points.get(branch_a_id)
@@ -286,7 +289,8 @@ class CopilotUndoManager:
                 "findings": b.proof_snapshot.findings_count,
             },
             "recommendation": (
-                a.branch_label if a.proof_snapshot.trust_score >= b.proof_snapshot.trust_score
+                a.branch_label
+                if a.proof_snapshot.trust_score >= b.proof_snapshot.trust_score
                 else b.branch_label
             ),
         }

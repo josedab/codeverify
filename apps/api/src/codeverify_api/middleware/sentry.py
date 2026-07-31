@@ -15,7 +15,7 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from codeverify_api.config import settings
 
 
-def setup_sentry(app: FastAPI) -> None:
+def setup_sentry(_app: FastAPI) -> None:
     """Configure Sentry error tracking."""
     sentry_dsn = getattr(settings, "SENTRY_DSN", None)
 
@@ -51,7 +51,7 @@ def setup_sentry(app: FastAPI) -> None:
     )
 
 
-def filter_sensitive_data(event: dict, hint: dict) -> dict | None:
+def filter_sensitive_data(event: dict, _hint: dict) -> dict | None:
     """Filter sensitive data from Sentry events."""
     # Remove sensitive headers
     if "request" in event and "headers" in event["request"]:

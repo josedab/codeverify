@@ -17,7 +17,6 @@ from __future__ import annotations
 import hashlib
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -42,6 +41,7 @@ class ExplanationType(str, Enum):
 @dataclass
 class ProofExplanation:
     """A natural language explanation of a proof or counterexample."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     explanation_type: ExplanationType = ExplanationType.COUNTEREXAMPLE
     detail_level: DetailLevel = DetailLevel.STANDARD
@@ -57,6 +57,7 @@ class ProofExplanation:
 @dataclass
 class ExplanationContext:
     """Context for generating an explanation."""
+
     check_type: str = ""
     function_name: str = ""
     file_path: str = ""
@@ -158,15 +159,21 @@ class ExplanationGenerator:
             return self._cache[cache_key]
 
         templates = EXPLANATION_TEMPLATES.get(context.check_type, {})
-        template = templates.get(detail.value, "Finding in `{func}` at line {line}: {check_type} violation.")
+        template = templates.get(
+            detail.value, "Finding in `{func}` at line {line}: {check_type} violation."
+        )
 
         var = next(iter(context.variable_assignments.keys()), "unknown")
         assignments = ", ".join(f"{k}={v}" for k, v in context.variable_assignments.items())
 
         narrative = template.format(
-            var=var, func=context.function_name, file=context.file_path,
-            line=context.line, severity=context.severity,
-            assignments=assignments, check_type=context.check_type,
+            var=var,
+            func=context.function_name,
+            file=context.file_path,
+            line=context.line,
+            severity=context.severity,
+            assignments=assignments,
+            check_type=context.check_type,
         )
 
         explanation = ProofExplanation(
@@ -191,7 +198,8 @@ class ExplanationGenerator:
         template = templates.get(detail.value, "✅ `{func}` verified for {check_type}.")
 
         narrative = template.format(
-            func=context.function_name, file=context.file_path,
+            func=context.function_name,
+            file=context.file_path,
             check_type=context.check_type,
         )
 
@@ -203,9 +211,7 @@ class ExplanationGenerator:
             markdown=narrative,
         )
 
-    def generate_pr_comment(
-        self, explanations: list[ProofExplanation]
-    ) -> str:
+    def generate_pr_comment(self, explanations: list[ProofExplanation]) -> str:
         """Generate a formatted PR comment from multiple explanations."""
         if not explanations:
             return "✅ **CodeVerify**: No issues found."
@@ -221,7 +227,9 @@ class ExplanationGenerator:
                 parts.append(e.markdown + "\n\n---\n")
 
         if successes:
-            parts.append(f"\n### ✅ {len(successes)} Check{'s' if len(successes) > 1 else ''} Passed\n")
+            parts.append(
+                f"\n### ✅ {len(successes)} Check{'s' if len(successes) > 1 else ''} Passed\n"
+            )
             for e in successes:
                 parts.append(f"- {e.narrative}\n")
 
@@ -261,11 +269,13 @@ class NLProofExplanationService:
 
 _nl_explain_instance: NLProofExplanationService | None = None
 
+
 def get_nl_explanation_service() -> NLProofExplanationService:
     global _nl_explain_instance
     if _nl_explain_instance is None:
         _nl_explain_instance = NLProofExplanationService()
     return _nl_explain_instance
+
 
 def reset_nl_explanation_service() -> None:
     global _nl_explain_instance

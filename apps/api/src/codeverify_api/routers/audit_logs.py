@@ -74,7 +74,7 @@ async def list_audit_logs(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=100, description="Items per page"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> AuditLogListResponse:
     """List audit logs with filtering and pagination."""
     # Build filter conditions
@@ -148,7 +148,7 @@ async def list_audit_logs(
 async def get_audit_log_stats(
     organization_id: UUID | None = Query(None, description="Filter by organization"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> AuditLogStats:
     """Get audit log statistics."""
     base_filter = []
@@ -222,7 +222,7 @@ async def get_audit_log_stats(
 @router.get("/actions")
 async def get_audit_actions(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> list[str]:
     """Get list of unique audit actions."""
     query = select(AuditLog.action).distinct().order_by(AuditLog.action)
@@ -233,7 +233,7 @@ async def get_audit_actions(
 @router.get("/resource-types")
 async def get_resource_types(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> list[str]:
     """Get list of unique resource types."""
     query = (
@@ -253,7 +253,7 @@ async def export_audit_logs(
     end_date: datetime | None = Query(None, description="Filter by end date"),
     format: Literal["csv", "json"] = Query("csv", description="Export format"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> StreamingResponse:
     """Export audit logs for compliance."""
     conditions = []
@@ -346,7 +346,7 @@ async def export_audit_logs(
 async def get_audit_log(
     log_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> AuditLogResponse:
     """Get a specific audit log entry."""
     query = (

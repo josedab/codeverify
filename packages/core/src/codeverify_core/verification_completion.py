@@ -19,7 +19,6 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -256,8 +255,12 @@ class CompletionVerifier:
         return entry
 
     def _update_cache(
-        self, fingerprint: str, status: VerificationStatus,
-        checks_passed: int, checks_total: int, issues: list[str],
+        self,
+        fingerprint: str,
+        status: VerificationStatus,
+        checks_passed: int,
+        checks_total: int,
+        issues: list[str],
     ) -> None:
         if len(self._cache) >= self._cache_size:
             oldest_key = min(self._cache, key=lambda k: self._cache[k].created_at)
@@ -301,8 +304,9 @@ class CompletionVerifier:
         checks_passed = 0
 
         for rule in rules:
-            # Check against the candidate text itself
-            if rule.matches(candidate.text):
+            # Check against the full code (surrounding context + candidate text)
+            # so rules can catch issues that span the context boundary.
+            if rule.matches(full_code):
                 issues.append(f"[{rule.id}] {rule.message}")
             else:
                 checks_passed += 1
@@ -338,7 +342,8 @@ class CompletionVerifier:
         )
 
     def verify_and_rank(
-        self, candidates: list[CompletionCandidate],
+        self,
+        candidates: list[CompletionCandidate],
     ) -> list[VerifiedCompletion]:
         """Verify multiple candidates and rank by verification score."""
         limited = candidates[: self.max_candidates]
@@ -367,7 +372,9 @@ class CompletionVerifierStats:
 
     @property
     def avg_verification_ms(self) -> float:
-        return self.total_time_ms / self.total_verifications if self.total_verifications > 0 else 0.0
+        return (
+            self.total_time_ms / self.total_verifications if self.total_verifications > 0 else 0.0
+        )
 
 
 class CompletionMiddleware:
@@ -418,9 +425,7 @@ class CompletionMiddleware:
 
         # Add unverified short completions at the end
         for c in short:
-            verified.append(
-                VerifiedCompletion(candidate=c, status=VerificationStatus.UNVERIFIED)
-            )
+            verified.append(VerifiedCompletion(candidate=c, status=VerificationStatus.UNVERIFIED))
 
         return verified
 

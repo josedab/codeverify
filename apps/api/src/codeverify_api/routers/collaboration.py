@@ -10,6 +10,7 @@ Provides REST API endpoints for AI assistant collaboration:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import time
 from typing import Any
@@ -641,10 +642,8 @@ async def _broadcast_to_session(session_id: str, message: dict[str, Any]) -> Non
     """Broadcast a message to all WebSocket connections for a session."""
     connections = _ws_connections.get(session_id, [])
     for ws in connections:
-        try:
+        with contextlib.suppress(Exception):
             await ws.send_json(message)
-        except Exception:
-            pass
 
 
 def _analyze_code(code: str, language: str) -> list[dict[str, Any]]:
@@ -654,32 +653,39 @@ def _analyze_code(code: str, language: str) -> list[dict[str, Any]]:
     issues = []
 
     # Null safety check
-    if language == "python":
-        if "return None" in code and "Optional" not in code and "| None" not in code:
-            issues.append(
-                {
-                    "constraint_id": "null_safety",
-                    "constraint_type": "type_safety",
-                    "severity": "high",
-                    "message": "Function may return None without Optional type annotation",
-                    "suggestion": "Add Optional[] to return type or use | None",
-                }
-            )
+    if (
+        language == "python"
+        and "return None" in code
+        and "Optional" not in code
+        and "| None" not in code
+    ):
+        issues.append(
+            {
+                "constraint_id": "null_safety",
+                "constraint_type": "type_safety",
+                "severity": "high",
+                "message": "Function may return None without Optional type annotation",
+                "suggestion": "Add Optional[] to return type or use | None",
+            }
+        )
 
     # Division safety
     divisions = re.findall(r"(\w+)\s*/\s*(\w+)", code)
     for _, divisor in divisions:
-        if divisor not in ("2", "10", "100", "1000", "2.0", "10.0"):
-            if f"if {divisor}" not in code and f"{divisor} != 0" not in code:
-                issues.append(
-                    {
-                        "constraint_id": "division_safety",
-                        "constraint_type": "arithmetic_safety",
-                        "severity": "critical",
-                        "message": f"Division by '{divisor}' without zero check",
-                        "suggestion": f"Add check: 'if {divisor} != 0'",
-                    }
-                )
+        if (
+            divisor not in ("2", "10", "100", "1000", "2.0", "10.0")
+            and f"if {divisor}" not in code
+            and f"{divisor} != 0" not in code
+        ):
+            issues.append(
+                {
+                    "constraint_id": "division_safety",
+                    "constraint_type": "arithmetic_safety",
+                    "severity": "critical",
+                    "message": f"Division by '{divisor}' without zero check",
+                    "suggestion": f"Add check: 'if {divisor} != 0'",
+                }
+            )
 
     # SQL injection
     sql_patterns = [

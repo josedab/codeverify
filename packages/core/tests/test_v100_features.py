@@ -13,8 +13,6 @@ Covers all 10 next-gen features:
 10. Real-Time Collaborative Verification Sessions
 """
 
-import pytest
-
 
 # ─── Feature 1: AI Code Insurance Underwriting Platform ─────────────────
 
@@ -50,7 +48,8 @@ class TestInsuranceUnderwriting:
 
     def test_premium_calculation(self):
         from codeverify_core.insurance_underwriting import (
-            PremiumCalculator, RiskProfile,
+            PremiumCalculator,
+            RiskProfile,
         )
 
         calc = PremiumCalculator()
@@ -66,7 +65,9 @@ class TestInsuranceUnderwriting:
 
     def test_policy_lifecycle(self):
         from codeverify_core.insurance_underwriting import (
-            InsuranceUnderwriter, RiskProfile, PolicyStatus,
+            InsuranceUnderwriter,
+            PolicyStatus,
+            RiskProfile,
         )
 
         uw = InsuranceUnderwriter()
@@ -84,7 +85,10 @@ class TestInsuranceUnderwriting:
 
     def test_claim_submission_and_validation(self):
         from codeverify_core.insurance_underwriting import (
-            InsuranceUnderwriter, RiskProfile, CoverageType, ClaimStatus,
+            ClaimStatus,
+            CoverageType,
+            InsuranceUnderwriter,
+            RiskProfile,
         )
 
         uw = InsuranceUnderwriter()
@@ -110,7 +114,10 @@ class TestInsuranceUnderwriting:
 
     def test_claim_rejection_outside_coverage(self):
         from codeverify_core.insurance_underwriting import (
-            InsuranceUnderwriter, RiskProfile, ClaimStatus, ClaimRejectionReason,
+            ClaimRejectionReason,
+            ClaimStatus,
+            InsuranceUnderwriter,
+            RiskProfile,
         )
 
         uw = InsuranceUnderwriter()
@@ -130,7 +137,8 @@ class TestInsuranceUnderwriting:
 
     def test_portfolio_summary(self):
         from codeverify_core.insurance_underwriting import (
-            InsuranceUnderwriter, RiskProfile,
+            InsuranceUnderwriter,
+            RiskProfile,
         )
 
         uw = InsuranceUnderwriter()
@@ -142,7 +150,8 @@ class TestInsuranceUnderwriting:
 
     def test_singleton(self):
         from codeverify_core.insurance_underwriting import (
-            get_insurance_underwriter, reset_insurance_underwriter,
+            get_insurance_underwriter,
+            reset_insurance_underwriter,
         )
 
         reset_insurance_underwriter()
@@ -169,7 +178,9 @@ class TestSecurityGraph:
 
     def test_vulnerability_registration(self):
         from codeverify_core.cross_repo_security_graph import (
-            SecurityKnowledgeGraph, VulnerabilityRecord, VulnSeverity,
+            SecurityKnowledgeGraph,
+            VulnerabilityRecord,
+            VulnSeverity,
         )
 
         graph = SecurityKnowledgeGraph()
@@ -188,7 +199,9 @@ class TestSecurityGraph:
 
     def test_blast_radius(self):
         from codeverify_core.cross_repo_security_graph import (
-            SecurityKnowledgeGraph, VulnerabilityRecord, VulnSeverity,
+            SecurityKnowledgeGraph,
+            VulnerabilityRecord,
+            VulnSeverity,
         )
 
         graph = SecurityKnowledgeGraph()
@@ -211,13 +224,16 @@ class TestSecurityGraph:
 
     def test_org_risk_summary(self):
         from codeverify_core.cross_repo_security_graph import (
-            SecurityKnowledgeGraph, VulnerabilityRecord, VulnSeverity,
+            SecurityKnowledgeGraph,
+            VulnerabilityRecord,
+            VulnSeverity,
         )
 
         graph = SecurityKnowledgeGraph()
         graph.add_repository("repo-1", "App1")
         vuln = VulnerabilityRecord(
-            title="Test vuln", severity=VulnSeverity.CRITICAL,
+            title="Test vuln",
+            severity=VulnSeverity.CRITICAL,
         )
         graph.register_vulnerability(vuln)
 
@@ -227,7 +243,8 @@ class TestSecurityGraph:
 
     def test_singleton(self):
         from codeverify_core.cross_repo_security_graph import (
-            get_security_graph, reset_security_graph,
+            get_security_graph,
+            reset_security_graph,
         )
 
         reset_security_graph()
@@ -243,7 +260,8 @@ class TestSecurityGraph:
 class TestPrivacyPreservingProofs:
     def test_proof_anonymization(self):
         from codeverify_core.privacy_preserving_proofs import (
-            ProofAnonymizer, ProofCategory,
+            ProofAnonymizer,
+            ProofCategory,
         )
 
         anon = ProofAnonymizer()
@@ -257,7 +275,8 @@ class TestPrivacyPreservingProofs:
 
     def test_marketplace_contribute_and_search(self):
         from codeverify_core.privacy_preserving_proofs import (
-            PrivacyPreservingProofMarketplace, ProofCategory,
+            PrivacyPreservingProofMarketplace,
+            ProofCategory,
         )
 
         mp = PrivacyPreservingProofMarketplace(epsilon_budget=10.0)
@@ -274,7 +293,8 @@ class TestPrivacyPreservingProofs:
 
     def test_privacy_budget_exhaustion(self):
         from codeverify_core.privacy_preserving_proofs import (
-            PrivacyPreservingProofMarketplace, ProofCategory,
+            PrivacyPreservingProofMarketplace,
+            ProofCategory,
         )
 
         mp = PrivacyPreservingProofMarketplace(epsilon_budget=2.0)
@@ -296,7 +316,8 @@ class TestPrivacyPreservingProofs:
 
     def test_upvote_and_download(self):
         from codeverify_core.privacy_preserving_proofs import (
-            PrivacyPreservingProofMarketplace, ProofCategory,
+            PrivacyPreservingProofMarketplace,
+            ProofCategory,
         )
 
         mp = PrivacyPreservingProofMarketplace()
@@ -310,7 +331,8 @@ class TestPrivacyPreservingProofs:
 
     def test_singleton(self):
         from codeverify_core.privacy_preserving_proofs import (
-            get_privacy_marketplace, reset_privacy_marketplace,
+            get_privacy_marketplace,
+            reset_privacy_marketplace,
         )
 
         reset_privacy_marketplace()
@@ -326,7 +348,8 @@ class TestPrivacyPreservingProofs:
 class TestBlockchainProvenance:
     def test_create_attestation(self):
         from codeverify_core.blockchain_provenance import (
-            BlockchainProvenanceEngine, AttestationStatus,
+            AttestationStatus,
+            BlockchainProvenanceEngine,
         )
 
         engine = BlockchainProvenanceEngine()
@@ -350,7 +373,8 @@ class TestBlockchainProvenance:
 
     def test_issue_badge(self):
         from codeverify_core.blockchain_provenance import (
-            BlockchainProvenanceEngine, BadgeLevel,
+            BadgeLevel,
+            BlockchainProvenanceEngine,
         )
 
         engine = BlockchainProvenanceEngine()
@@ -365,7 +389,8 @@ class TestBlockchainProvenance:
 
     def test_badge_levels(self):
         from codeverify_core.blockchain_provenance import (
-            VerificationBadge, BadgeLevel,
+            BadgeLevel,
+            VerificationBadge,
         )
 
         assert VerificationBadge.level_from_score(96) == BadgeLevel.DIAMOND
@@ -384,7 +409,8 @@ class TestBlockchainProvenance:
 
     def test_revoke_attestation(self):
         from codeverify_core.blockchain_provenance import (
-            BlockchainProvenanceEngine, AttestationStatus,
+            AttestationStatus,
+            BlockchainProvenanceEngine,
         )
 
         engine = BlockchainProvenanceEngine()
@@ -407,7 +433,8 @@ class TestBlockchainProvenance:
 
     def test_singleton(self):
         from codeverify_core.blockchain_provenance import (
-            get_blockchain_provenance, reset_blockchain_provenance,
+            get_blockchain_provenance,
+            reset_blockchain_provenance,
         )
 
         reset_blockchain_provenance()
@@ -431,7 +458,8 @@ class TestNLComplianceEngine:
 
     def test_standard_detection(self):
         from codeverify_core.nl_compliance_engine import (
-            NLQueryParser, ComplianceStandard,
+            ComplianceStandard,
+            NLQueryParser,
         )
 
         parser = NLQueryParser()
@@ -447,7 +475,8 @@ class TestNLComplianceEngine:
             "data.py": "def get_data():\n    # TODO: add access control\n    return db.query()\n",
         }
         result = executor.execute_query(
-            "Verify authorization checks before data access", files,
+            "Verify authorization checks before data access",
+            files,
         )
         assert result.confidence > 0
         assert len(result.evidence) > 0
@@ -461,7 +490,8 @@ class TestNLComplianceEngine:
 
     def test_list_templates(self):
         from codeverify_core.nl_compliance_engine import (
-            ComplianceQueryExecutor, ComplianceStandard,
+            ComplianceQueryExecutor,
+            ComplianceStandard,
         )
 
         executor = ComplianceQueryExecutor()
@@ -483,7 +513,8 @@ class TestNLComplianceEngine:
 
     def test_singleton(self):
         from codeverify_core.nl_compliance_engine import (
-            get_compliance_query_engine, reset_compliance_query_engine,
+            get_compliance_query_engine,
+            reset_compliance_query_engine,
         )
 
         reset_compliance_query_engine()
@@ -502,14 +533,22 @@ class TestFairnessVerification:
 
         return [
             GroupMetrics(
-                group_name="group_a", total_count=100,
-                positive_count=60, true_positive=50,
-                false_positive=10, true_negative=30, false_negative=10,
+                group_name="group_a",
+                total_count=100,
+                positive_count=60,
+                true_positive=50,
+                false_positive=10,
+                true_negative=30,
+                false_negative=10,
             ),
             GroupMetrics(
-                group_name="group_b", total_count=100,
-                positive_count=40, true_positive=30,
-                false_positive=10, true_negative=50, false_negative=10,
+                group_name="group_b",
+                total_count=100,
+                positive_count=40,
+                true_positive=30,
+                false_positive=10,
+                true_negative=50,
+                false_negative=10,
             ),
         ]
 
@@ -542,7 +581,8 @@ class TestFairnessVerification:
 
     def test_remediation_suggestions(self):
         from codeverify_core.fairness_verification import (
-            BiasDetector, RemediationAdvisor,
+            BiasDetector,
+            RemediationAdvisor,
         )
 
         detector = BiasDetector()
@@ -554,7 +594,8 @@ class TestFairnessVerification:
 
     def test_full_fairness_report(self):
         from codeverify_core.fairness_verification import (
-            FairnessVerifier, ComplianceStatus,
+            ComplianceStatus,
+            FairnessVerifier,
         )
 
         verifier = FairnessVerifier()
@@ -570,7 +611,8 @@ class TestFairnessVerification:
 
     def test_singleton(self):
         from codeverify_core.fairness_verification import (
-            get_fairness_verifier, reset_fairness_verifier,
+            get_fairness_verifier,
+            reset_fairness_verifier,
         )
 
         reset_fairness_verifier()
@@ -586,7 +628,10 @@ class TestFairnessVerification:
 class TestCopilotUndo:
     def test_create_save_point(self):
         from codeverify_core.copilot_undo import (
-            CopilotUndoManager, CodeDiff, ProofSnapshot, VerificationState,
+            CodeDiff,
+            CopilotUndoManager,
+            ProofSnapshot,
+            VerificationState,
         )
 
         mgr = CopilotUndoManager()
@@ -599,7 +644,9 @@ class TestCopilotUndo:
 
     def test_rollback(self):
         from codeverify_core.copilot_undo import (
-            CopilotUndoManager, CodeDiff, SavePointStatus,
+            CodeDiff,
+            CopilotUndoManager,
+            SavePointStatus,
         )
 
         mgr = CopilotUndoManager()
@@ -618,7 +665,9 @@ class TestCopilotUndo:
 
     def test_trust_trend(self):
         from codeverify_core.copilot_undo import (
-            CopilotUndoManager, CodeDiff, ProofSnapshot,
+            CodeDiff,
+            CopilotUndoManager,
+            ProofSnapshot,
         )
 
         mgr = CopilotUndoManager()
@@ -632,7 +681,9 @@ class TestCopilotUndo:
 
     def test_branch_comparison(self):
         from codeverify_core.copilot_undo import (
-            CopilotUndoManager, CodeDiff, ProofSnapshot,
+            CodeDiff,
+            CopilotUndoManager,
+            ProofSnapshot,
         )
 
         mgr = CopilotUndoManager()
@@ -655,7 +706,7 @@ class TestCopilotUndo:
         assert comparison["recommendation"] == "Option B"
 
     def test_history(self):
-        from codeverify_core.copilot_undo import CopilotUndoManager, CodeDiff
+        from codeverify_core.copilot_undo import CodeDiff, CopilotUndoManager
 
         mgr = CopilotUndoManager()
         for i in range(5):
@@ -665,7 +716,8 @@ class TestCopilotUndo:
 
     def test_singleton(self):
         from codeverify_core.copilot_undo import (
-            get_copilot_undo_manager, reset_copilot_undo_manager,
+            get_copilot_undo_manager,
+            reset_copilot_undo_manager,
         )
 
         reset_copilot_undo_manager()
@@ -681,7 +733,9 @@ class TestCopilotUndo:
 class TestQualityForecasting:
     def test_trend_analysis_stable(self):
         from codeverify_core.quality_forecasting import (
-            TrendCalculator, MetricType, TrendDirection,
+            MetricType,
+            TrendCalculator,
+            TrendDirection,
         )
 
         calc = TrendCalculator()
@@ -692,7 +746,9 @@ class TestQualityForecasting:
 
     def test_trend_analysis_declining(self):
         from codeverify_core.quality_forecasting import (
-            TrendCalculator, MetricType, TrendDirection,
+            MetricType,
+            TrendCalculator,
+            TrendDirection,
         )
 
         calc = TrendCalculator()
@@ -704,7 +760,9 @@ class TestQualityForecasting:
 
     def test_trend_analysis_improving(self):
         from codeverify_core.quality_forecasting import (
-            TrendCalculator, MetricType, TrendDirection,
+            MetricType,
+            TrendCalculator,
+            TrendDirection,
         )
 
         calc = TrendCalculator()
@@ -723,7 +781,7 @@ class TestQualityForecasting:
         assert alerts[0].severity.value in ("warning", "critical")
 
     def test_full_forecast(self):
-        from codeverify_core.quality_forecasting import QualityForecaster, MetricType
+        from codeverify_core.quality_forecasting import MetricType, QualityForecaster
 
         forecaster = QualityForecaster()
         for i in range(10):
@@ -737,7 +795,8 @@ class TestQualityForecasting:
 
     def test_singleton(self):
         from codeverify_core.quality_forecasting import (
-            get_quality_forecaster, reset_quality_forecaster,
+            get_quality_forecaster,
+            reset_quality_forecaster,
         )
 
         reset_quality_forecaster()
@@ -753,7 +812,10 @@ class TestQualityForecasting:
 class TestVerifiedCodeGen:
     def test_basic_generation(self):
         from codeverify_core.verified_codegen import (
-            VerifiedCodeGenerator, CodeSpec, SpecLanguage, GenerationStatus,
+            CodeSpec,
+            GenerationStatus,
+            SpecLanguage,
+            VerifiedCodeGenerator,
         )
 
         gen = VerifiedCodeGenerator()
@@ -768,7 +830,10 @@ class TestVerifiedCodeGen:
 
     def test_constraint_checking(self):
         from codeverify_core.verified_codegen import (
-            ConstraintChecker, ConstraintType, FormalConstraint, SpecLanguage,
+            ConstraintChecker,
+            ConstraintType,
+            FormalConstraint,
+            SpecLanguage,
         )
 
         checker = ConstraintChecker()
@@ -785,7 +850,10 @@ class TestVerifiedCodeGen:
 
     def test_security_constraint_fails(self):
         from codeverify_core.verified_codegen import (
-            ConstraintChecker, ConstraintType, FormalConstraint, SpecLanguage,
+            ConstraintChecker,
+            ConstraintType,
+            FormalConstraint,
+            SpecLanguage,
         )
 
         checker = ConstraintChecker()
@@ -802,8 +870,11 @@ class TestVerifiedCodeGen:
 
     def test_generation_with_constraints(self):
         from codeverify_core.verified_codegen import (
-            VerifiedCodeGenerator, CodeSpec, SpecLanguage,
-            FormalConstraint, ConstraintType,
+            CodeSpec,
+            ConstraintType,
+            FormalConstraint,
+            SpecLanguage,
+            VerifiedCodeGenerator,
         )
 
         gen = VerifiedCodeGenerator()
@@ -834,7 +905,8 @@ class TestVerifiedCodeGen:
 
     def test_singleton(self):
         from codeverify_core.verified_codegen import (
-            get_verified_codegen, reset_verified_codegen,
+            get_verified_codegen,
+            reset_verified_codegen,
         )
 
         reset_verified_codegen()
@@ -850,7 +922,8 @@ class TestVerifiedCodeGen:
 class TestCollaborativeVerification:
     def test_create_session(self):
         from codeverify_core.collaborative_verification_sessions import (
-            CollaborativeVerificationSession, SessionPhase,
+            CollaborativeVerificationSession,
+            SessionPhase,
         )
 
         session = CollaborativeVerificationSession(host_name="Alice")
@@ -860,7 +933,8 @@ class TestCollaborativeVerification:
 
     def test_join_and_leave(self):
         from codeverify_core.collaborative_verification_sessions import (
-            CollaborativeVerificationSession, ParticipantRole,
+            CollaborativeVerificationSession,
+            ParticipantRole,
         )
 
         session = CollaborativeVerificationSession(host_name="Alice")
@@ -873,7 +947,8 @@ class TestCollaborativeVerification:
 
     def test_session_lifecycle(self):
         from codeverify_core.collaborative_verification_sessions import (
-            CollaborativeVerificationSession, SessionPhase,
+            CollaborativeVerificationSession,
+            SessionPhase,
         )
 
         session = CollaborativeVerificationSession(host_name="Host")
@@ -887,7 +962,8 @@ class TestCollaborativeVerification:
 
     def test_code_changes_and_verification(self):
         from codeverify_core.collaborative_verification_sessions import (
-            CollaborativeVerificationSession, LineStatus,
+            CollaborativeVerificationSession,
+            LineStatus,
         )
 
         session = CollaborativeVerificationSession(host_name="Dev")
@@ -949,7 +1025,7 @@ class TestCollaborativeVerification:
 
         mgr = CollaborativeSessionManager()
         s1 = mgr.create_session("Alice")
-        s2 = mgr.create_session("Bob")
+        mgr.create_session("Bob")
         assert mgr.total_sessions == 2
         assert len(mgr.list_active_sessions()) == 2
 
@@ -958,7 +1034,8 @@ class TestCollaborativeVerification:
 
     def test_singleton(self):
         from codeverify_core.collaborative_verification_sessions import (
-            get_collab_session_manager, reset_collab_session_manager,
+            get_collab_session_manager,
+            reset_collab_session_manager,
         )
 
         reset_collab_session_manager()

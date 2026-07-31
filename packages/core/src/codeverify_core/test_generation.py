@@ -13,9 +13,7 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import re
-import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -308,11 +306,13 @@ class SymbolicPathDiscoverer:
             if stripped.startswith("if ") or stripped.startswith("elif "):
                 cond = stripped.split(":", 1)[0]
                 cond = re.sub(r"^(if|elif)\s+", "", cond).strip()
-                branches.append(PathCondition(
-                    condition=cond,
-                    condition_type=PathConditionType.BRANCH_TRUE,
-                    line=i,
-                ))
+                branches.append(
+                    PathCondition(
+                        condition=cond,
+                        condition_type=PathConditionType.BRANCH_TRUE,
+                        line=i,
+                    )
+                )
         return branches[: self.max_depth]
 
     def _enumerate_paths(
@@ -356,7 +356,9 @@ class TestInputGenerator:
         }
 
     def generate_inputs(
-        self, path: CodePath, param_types: dict[str, str] | None = None,
+        self,
+        path: CodePath,
+        param_types: dict[str, str] | None = None,
     ) -> list[list[TestInput]]:
         """Generate test input sets for a code path."""
         types = param_types or {}
@@ -394,7 +396,10 @@ class TestInputGenerator:
         return input_sets
 
     def _solve_for_variable(
-        self, var: str, vtype: str, conditions: list[PathCondition],
+        self,
+        var: str,
+        vtype: str,
+        conditions: list[PathCondition],
     ) -> Any:
         """Solve for a variable value that satisfies conditions."""
         for cond in conditions:
@@ -432,7 +437,10 @@ class TestInputGenerator:
         return defaults[0] if defaults else 0
 
     def _solve_negative(
-        self, var: str, vtype: str, conditions: list[PathCondition],
+        self,
+        _var: str,
+        vtype: str,
+        _conditions: list[PathCondition],
     ) -> Any:
         """Solve for a value that violates conditions (boundary testing)."""
         defaults = self._type_defaults.get(vtype, [0, -1])
@@ -462,12 +470,14 @@ class MutationTester:
                     if re.search(pattern, line):
                         mutated_line = re.sub(pattern, replacement, line, count=1)
                         if mutated_line != line:
-                            mutants.append(Mutant(
-                                original=line.strip(),
-                                mutated=mutated_line.strip(),
-                                mutation_type=mutation_type,
-                                line=i + 1,
-                            ))
+                            mutants.append(
+                                Mutant(
+                                    original=line.strip(),
+                                    mutated=mutated_line.strip(),
+                                    mutation_type=mutation_type,
+                                    line=i + 1,
+                                )
+                            )
                 except re.error:
                     continue
 
@@ -494,14 +504,14 @@ class MutationTester:
             if not killed:
                 mutant.status = MutantStatus.SURVIVED
 
-        killed = sum(1 for m in mutants if m.status == MutantStatus.KILLED)
+        killed_count = sum(1 for m in mutants if m.status == MutantStatus.KILLED)
         survived = sum(1 for m in mutants if m.status == MutantStatus.SURVIVED)
         timeout = sum(1 for m in mutants if m.status == MutantStatus.TIMEOUT)
         errors = sum(1 for m in mutants if m.status == MutantStatus.ERROR)
 
         return MutationReport(
             total_mutants=len(mutants),
-            killed=killed,
+            killed=killed_count,
             survived=survived,
             timeout=timeout,
             errors=errors,
@@ -509,7 +519,10 @@ class MutationTester:
         )
 
     def _test_would_catch(
-        self, test: GeneratedTest, mutant: Mutant, source: str,
+        self,
+        test: GeneratedTest,
+        mutant: Mutant,
+        _source: str,
     ) -> bool:
         """Heuristic: would this test detect this mutant?"""
         if test.expected_exception and mutant.mutation_type == "return_removal":
@@ -602,7 +615,9 @@ class TestSuiteGenerator:
         return self._format_pytest_suite(all_tests)
 
     def mutation_test(
-        self, source: str, tests: list[GeneratedTest],
+        self,
+        source: str,
+        tests: list[GeneratedTest],
     ) -> MutationReport:
         """Run mutation testing on generated tests."""
         mutants = self._mutation_tester.generate_mutants(source, self._max_mutants)

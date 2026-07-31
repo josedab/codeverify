@@ -78,7 +78,7 @@ class InputSanitizationMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Check query parameters
-        for key, value in request.query_params.items():
+        for _key, value in request.query_params.items():
             if self._is_dangerous(value):
                 return Response(
                     content='{"error": "Invalid input detected"}',

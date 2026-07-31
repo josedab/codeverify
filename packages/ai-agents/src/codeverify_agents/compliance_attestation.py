@@ -615,7 +615,7 @@ class ComplianceAttestationEngine(BaseAgent):
         total_compliant = 0
         total_gaps = []
 
-        for framework, report in reports.items():
+        for _framework, report in reports.items():
             summary = report.get("summary", {})
             total_controls += summary.get("total_controls", 0)
             total_compliant += summary.get("compliant", 0)

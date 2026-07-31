@@ -237,30 +237,54 @@ class CVECorrelator:
     """Correlate packages against a local CVE knowledge base."""
 
     _CVE_DATABASE: dict[str, list[dict[str, Any]]] = {
-        "npm:lodash": [{
-            "cve_id": "CVE-2021-23337", "severity": CVESeverity.HIGH,
-            "cvss_score": 7.2, "description": "Prototype pollution in lodash",
-            "affected_versions": ["<4.17.21"], "fixed_versions": ["4.17.21"],
-            "exploit_maturity": ExploitMaturity.FUNCTIONAL, "published_date": "2021-02-15",
-        }],
-        "npm:minimist": [{
-            "cve_id": "CVE-2021-44906", "severity": CVESeverity.CRITICAL,
-            "cvss_score": 9.8, "description": "Prototype pollution in minimist",
-            "affected_versions": ["<1.2.6"], "fixed_versions": ["1.2.6"],
-            "exploit_maturity": ExploitMaturity.PROOF_OF_CONCEPT, "published_date": "2022-03-17",
-        }],
-        "pypi:requests": [{
-            "cve_id": "CVE-2023-32681", "severity": CVESeverity.MEDIUM,
-            "cvss_score": 6.1, "description": "Unintended leak of Proxy-Authorization header",
-            "affected_versions": ["<2.31.0"], "fixed_versions": ["2.31.0"],
-            "exploit_maturity": ExploitMaturity.UNPROVEN, "published_date": "2023-05-26",
-        }],
-        "npm:express": [{
-            "cve_id": "CVE-2024-29041", "severity": CVESeverity.MEDIUM,
-            "cvss_score": 6.1, "description": "Open redirect via malformed URLs",
-            "affected_versions": ["<4.19.2"], "fixed_versions": ["4.19.2"],
-            "exploit_maturity": ExploitMaturity.PROOF_OF_CONCEPT, "published_date": "2024-03-25",
-        }],
+        "npm:lodash": [
+            {
+                "cve_id": "CVE-2021-23337",
+                "severity": CVESeverity.HIGH,
+                "cvss_score": 7.2,
+                "description": "Prototype pollution in lodash",
+                "affected_versions": ["<4.17.21"],
+                "fixed_versions": ["4.17.21"],
+                "exploit_maturity": ExploitMaturity.FUNCTIONAL,
+                "published_date": "2021-02-15",
+            }
+        ],
+        "npm:minimist": [
+            {
+                "cve_id": "CVE-2021-44906",
+                "severity": CVESeverity.CRITICAL,
+                "cvss_score": 9.8,
+                "description": "Prototype pollution in minimist",
+                "affected_versions": ["<1.2.6"],
+                "fixed_versions": ["1.2.6"],
+                "exploit_maturity": ExploitMaturity.PROOF_OF_CONCEPT,
+                "published_date": "2022-03-17",
+            }
+        ],
+        "pypi:requests": [
+            {
+                "cve_id": "CVE-2023-32681",
+                "severity": CVESeverity.MEDIUM,
+                "cvss_score": 6.1,
+                "description": "Unintended leak of Proxy-Authorization header",
+                "affected_versions": ["<2.31.0"],
+                "fixed_versions": ["2.31.0"],
+                "exploit_maturity": ExploitMaturity.UNPROVEN,
+                "published_date": "2023-05-26",
+            }
+        ],
+        "npm:express": [
+            {
+                "cve_id": "CVE-2024-29041",
+                "severity": CVESeverity.MEDIUM,
+                "cvss_score": 6.1,
+                "description": "Open redirect via malformed URLs",
+                "affected_versions": ["<4.19.2"],
+                "fixed_versions": ["4.19.2"],
+                "exploit_maturity": ExploitMaturity.PROOF_OF_CONCEPT,
+                "published_date": "2024-03-25",
+            }
+        ],
     }
 
     def __init__(self) -> None:
@@ -277,7 +301,9 @@ class CVECorrelator:
                 matched.append(cve)
         if matched:
             self._hit_count += len(matched)
-            logger.warning("cves_matched", package=package_name, version=version, count=len(matched))
+            logger.warning(
+                "cves_matched", package=package_name, version=version, count=len(matched)
+            )
         return matched
 
     def _check_version_affected(self, version: str, affected_versions: list[str]) -> bool:
@@ -305,9 +331,13 @@ class CVECorrelator:
         entries = self._CVE_DATABASE.get(f"{ecosystem}:{package_name}", [])
         return [
             CVERecord(
-                cve_id=e["cve_id"], severity=e["severity"], cvss_score=e["cvss_score"],
-                description=e["description"], affected_versions=e["affected_versions"],
-                fixed_versions=e["fixed_versions"], exploit_maturity=e["exploit_maturity"],
+                cve_id=e["cve_id"],
+                severity=e["severity"],
+                cvss_score=e["cvss_score"],
+                description=e["description"],
+                affected_versions=e["affected_versions"],
+                fixed_versions=e["fixed_versions"],
+                exploit_maturity=e["exploit_maturity"],
                 published_date=datetime.fromisoformat(e["published_date"]),
             )
             for e in entries
@@ -325,10 +355,12 @@ class CVECorrelator:
     @staticmethod
     def _compare_versions(a: str, b: str) -> int:
         """Compare two semver-like version strings."""
+
         def _parts(v: str) -> list[int]:
             return [int(x) for x in re.findall(r"\d+", v)]
+
         pa, pb = _parts(a), _parts(b)
-        for x, y in zip(pa, pb):
+        for x, y in zip(pa, pb, strict=False):
             if x != y:
                 return x - y
         return len(pa) - len(pb)
@@ -354,7 +386,16 @@ class RiskScorer:
 
     KNOWN_PACKAGES: dict[str, list[str]] = {
         "npm": ["lodash", "express", "react", "webpack", "axios", "chalk", "moment", "debug"],
-        "pypi": ["requests", "numpy", "pandas", "flask", "django", "boto3", "urllib3", "setuptools"],
+        "pypi": [
+            "requests",
+            "numpy",
+            "pandas",
+            "flask",
+            "django",
+            "boto3",
+            "urllib3",
+            "setuptools",
+        ],
     }
 
     def __init__(self) -> None:
@@ -377,8 +418,10 @@ class RiskScorer:
         score = min(max(composite, 0.0), 100.0)
 
         scores = {
-            RiskCategory.VULNERABILITY: vuln, RiskCategory.MAINTENANCE: maint,
-            RiskCategory.LICENSE: lic, RiskCategory.TYPOSQUATTING: typo,
+            RiskCategory.VULNERABILITY: vuln,
+            RiskCategory.MAINTENANCE: maint,
+            RiskCategory.LICENSE: lic,
+            RiskCategory.TYPOSQUATTING: typo,
         }
         profile.risk_category = max(scores, key=scores.get)  # type: ignore[arg-type]
         profile.risk_score = round(score, 2)
@@ -405,16 +448,24 @@ class RiskScorer:
         if not cves:
             return 0.0
         severity_w = {
-            CVESeverity.CRITICAL: 1.0, CVESeverity.HIGH: 0.75,
-            CVESeverity.MEDIUM: 0.4, CVESeverity.LOW: 0.15, CVESeverity.NONE: 0.0,
+            CVESeverity.CRITICAL: 1.0,
+            CVESeverity.HIGH: 0.75,
+            CVESeverity.MEDIUM: 0.4,
+            CVESeverity.LOW: 0.15,
+            CVESeverity.NONE: 0.0,
         }
         maturity_m = {
-            ExploitMaturity.HIGH: 1.3, ExploitMaturity.FUNCTIONAL: 1.2,
-            ExploitMaturity.PROOF_OF_CONCEPT: 1.0, ExploitMaturity.UNPROVEN: 0.8,
+            ExploitMaturity.HIGH: 1.3,
+            ExploitMaturity.FUNCTIONAL: 1.2,
+            ExploitMaturity.PROOF_OF_CONCEPT: 1.0,
+            ExploitMaturity.UNPROVEN: 0.8,
             ExploitMaturity.NOT_DEFINED: 0.9,
         }
         total = sum(
-            (c.cvss_score / 10.0) * 100 * severity_w.get(c.severity, 0.5) * maturity_m.get(c.exploit_maturity, 1.0)
+            (c.cvss_score / 10.0)
+            * 100
+            * severity_w.get(c.severity, 0.5)
+            * maturity_m.get(c.exploit_maturity, 1.0)
             for c in cves
         )
         return min(total, 100.0)
@@ -434,9 +485,7 @@ class RiskScorer:
         known = self.KNOWN_PACKAGES.get(ecosystem, [])
         if name in known:
             return 0.0
-        min_dist = min(
-            (self._levenshtein_distance(name, k) for k in known), default=float("inf")
-        )
+        min_dist = min((self._levenshtein_distance(name, k) for k in known), default=float("inf"))
         if min_dist <= 1:
             return 95.0
         if min_dist == 2:
@@ -462,7 +511,9 @@ class RiskScorer:
         for i, c1 in enumerate(s1):
             curr_row = [i + 1]
             for j, c2 in enumerate(s2):
-                curr_row.append(min(prev_row[j + 1] + 1, curr_row[j] + 1, prev_row[j] + (0 if c1 == c2 else 1)))
+                curr_row.append(
+                    min(prev_row[j + 1] + 1, curr_row[j] + 1, prev_row[j] + (0 if c1 == c2 else 1))
+                )
             prev_row = curr_row
         return prev_row[-1]
 
@@ -483,27 +534,41 @@ class SBOMGenerator:
     _CYCLONEDX_SPEC = "1.5"
     _SPDX_SPEC = "SPDX-2.3"
     _PURL_TYPES: dict[str, str] = {
-        "npm": "npm", "pypi": "pypi", "maven": "maven",
-        "cargo": "cargo", "go": "golang", "nuget": "nuget",
+        "npm": "npm",
+        "pypi": "pypi",
+        "maven": "maven",
+        "cargo": "cargo",
+        "go": "golang",
+        "nuget": "nuget",
     }
 
     def __init__(self) -> None:
         logger.info("sbom_generator_initialized")
 
     def generate(
-        self, project_name: str, components: list[SBOMComponent],
+        self,
+        project_name: str,
+        components: list[SBOMComponent],
         format: SBOMFormat = SBOMFormat.CYCLONEDX,
     ) -> SBOMDocument:
         """Build an ``SBOMDocument`` from a list of components."""
         spec = self._CYCLONEDX_SPEC if format == SBOMFormat.CYCLONEDX else self._SPDX_SPEC
-        high_risk = sum(1 for c in components if c.risk_profile and c.risk_profile.risk_score >= 70.0)
+        high_risk = sum(
+            1 for c in components if c.risk_profile and c.risk_profile.risk_score >= 70.0
+        )
         total_risk = sum(c.risk_profile.risk_score for c in components if c.risk_profile)
         sbom = SBOMDocument(
-            format=format, version=spec, created_at=datetime.utcnow(),
-            project_name=project_name, components=components,
-            total_risk_score=round(total_risk, 2), high_risk_count=high_risk,
+            format=format,
+            version=spec,
+            created_at=datetime.utcnow(),
+            project_name=project_name,
+            components=components,
+            total_risk_score=round(total_risk, 2),
+            high_risk_count=high_risk,
         )
-        logger.info("sbom_generated", project=project_name, format=format.value, components=len(components))
+        logger.info(
+            "sbom_generated", project=project_name, format=format.value, components=len(components)
+        )
         return sbom
 
     def _generate_purl(self, name: str, version: str, ecosystem: str) -> str:
@@ -525,8 +590,10 @@ class SBOMGenerator:
 
     def _export_cyclonedx_json(self, sbom: SBOMDocument) -> str:
         doc: dict[str, Any] = {
-            "bomFormat": "CycloneDX", "specVersion": sbom.version,
-            "serialNumber": f"urn:uuid:{uuid.uuid4()}", "version": 1,
+            "bomFormat": "CycloneDX",
+            "specVersion": sbom.version,
+            "serialNumber": f"urn:uuid:{uuid.uuid4()}",
+            "version": 1,
             "metadata": {
                 "timestamp": sbom.created_at.isoformat(),
                 "component": {"type": "application", "name": sbom.project_name},
@@ -535,21 +602,28 @@ class SBOMGenerator:
         }
         for comp in sbom.components:
             entry: dict[str, Any] = {
-                "type": "library", "name": comp.name, "version": comp.version, "purl": comp.purl,
+                "type": "library",
+                "name": comp.name,
+                "version": comp.version,
+                "purl": comp.purl,
             }
             if comp.licenses:
                 entry["licenses"] = [{"license": {"id": lic}} for lic in comp.licenses]
             if comp.supplier:
                 entry["supplier"] = {"name": comp.supplier}
             if comp.checksums:
-                entry["hashes"] = [{"alg": alg, "content": val} for alg, val in comp.checksums.items()]
+                entry["hashes"] = [
+                    {"alg": alg, "content": val} for alg, val in comp.checksums.items()
+                ]
             doc["components"].append(entry)
         return json.dumps(doc, indent=2)
 
     def _export_spdx_json(self, sbom: SBOMDocument) -> str:
         doc: dict[str, Any] = {
-            "spdxVersion": sbom.version, "dataLicense": "CC0-1.0",
-            "SPDXID": "SPDXRef-DOCUMENT", "name": sbom.project_name,
+            "spdxVersion": sbom.version,
+            "dataLicense": "CC0-1.0",
+            "SPDXID": "SPDXRef-DOCUMENT",
+            "name": sbom.project_name,
             "documentNamespace": f"https://spdx.org/spdxdocs/{sbom.project_name}-{uuid.uuid4()}",
             "creationInfo": {
                 "created": sbom.created_at.isoformat(),
@@ -560,14 +634,19 @@ class SBOMGenerator:
         for comp in sbom.components:
             pkg: dict[str, Any] = {
                 "SPDXID": f"SPDXRef-Package-{comp.name}-{comp.version}".replace(".", "-"),
-                "name": comp.name, "versionInfo": comp.version, "downloadLocation": "NOASSERTION",
+                "name": comp.name,
+                "versionInfo": comp.version,
+                "downloadLocation": "NOASSERTION",
                 "licenseConcluded": comp.licenses[0] if comp.licenses else "NOASSERTION",
             }
             if comp.purl:
-                pkg["externalRefs"] = [{
-                    "referenceCategory": "PACKAGE-MANAGER",
-                    "referenceType": "purl", "referenceLocator": comp.purl,
-                }]
+                pkg["externalRefs"] = [
+                    {
+                        "referenceCategory": "PACKAGE-MANAGER",
+                        "referenceType": "purl",
+                        "referenceLocator": comp.purl,
+                    }
+                ]
             if comp.supplier:
                 pkg["supplier"] = f"Organization: {comp.supplier}"
             doc["packages"].append(pkg)
@@ -580,13 +659,15 @@ class SBOMGenerator:
             "  <components>",
         ]
         for comp in sbom.components:
-            lines.extend([
-                '    <component type="library">',
-                f"      <name>{comp.name}</name>",
-                f"      <version>{comp.version}</version>",
-                f"      <purl>{comp.purl}</purl>",
-                "    </component>",
-            ])
+            lines.extend(
+                [
+                    '    <component type="library">',
+                    f"      <name>{comp.name}</name>",
+                    f"      <version>{comp.version}</version>",
+                    f"      <purl>{comp.purl}</purl>",
+                    "    </component>",
+                ]
+            )
         lines += ["  </components>", "</bom>"]
         return "\n".join(lines)
 
@@ -597,12 +678,14 @@ class SBOMGenerator:
             f"  <name>{sbom.project_name}</name>",
         ]
         for comp in sbom.components:
-            lines.extend([
-                "  <package>",
-                f"    <name>{comp.name}</name>",
-                f"    <versionInfo>{comp.version}</versionInfo>",
-                "  </package>",
-            ])
+            lines.extend(
+                [
+                    "  <package>",
+                    f"    <name>{comp.name}</name>",
+                    f"    <versionInfo>{comp.version}</versionInfo>",
+                    "  </package>",
+                ]
+            )
         lines.append("</SpdxDocument>")
         return "\n".join(lines)
 
@@ -629,28 +712,40 @@ class SupplyChainRiskAnalyzer:
         self._sbom_gen = SBOMGenerator()
         logger.info("supply_chain_risk_analyzer_initialized")
 
-    def analyze(self, project_name: str, dependencies: list[dict[str, Any]]) -> SupplyChainRiskReport:
+    def analyze(
+        self, project_name: str, dependencies: list[dict[str, Any]]
+    ) -> SupplyChainRiskReport:
         """Run a full supply-chain risk analysis."""
         profiles: list[DependencyRiskProfile] = []
         for dep in dependencies:
             name, version = dep["name"], dep["version"]
             ecosystem = dep.get("ecosystem", "npm")
             cves = self._correlator.correlate(name, version, ecosystem)
-            profiles.append(DependencyRiskProfile(
-                package_name=name, version=version, ecosystem=ecosystem,
-                cve_records=cves, license_risk=dep.get("license_risk", "low"),
-                popularity_score=float(dep.get("popularity_score", 50)),
-            ))
+            profiles.append(
+                DependencyRiskProfile(
+                    package_name=name,
+                    version=version,
+                    ecosystem=ecosystem,
+                    cve_records=cves,
+                    license_risk=dep.get("license_risk", "low"),
+                    popularity_score=float(dep.get("popularity_score", 50)),
+                )
+            )
 
         project_score = self._scorer.score_project(profiles)
-        critical = sum(1 for p in profiles for c in p.cve_records if c.severity == CVESeverity.CRITICAL)
+        critical = sum(
+            1 for p in profiles for c in p.cve_records if c.severity == CVESeverity.CRITICAL
+        )
         high = sum(1 for p in profiles for c in p.cve_records if c.severity == CVESeverity.HIGH)
 
         report = SupplyChainRiskReport(
-            project_name=project_name, scan_date=datetime.utcnow(),
+            project_name=project_name,
+            scan_date=datetime.utcnow(),
             total_dependencies=len(dependencies),
             direct_dependencies=sum(1 for d in dependencies if d.get("direct", True)),
-            risk_score=project_score, critical_cves=critical, high_cves=high,
+            risk_score=project_score,
+            critical_cves=critical,
+            high_cves=high,
             dependency_profiles=profiles,
             recommendations=self._build_recommendations(profiles),
         )
@@ -658,7 +753,9 @@ class SupplyChainRiskAnalyzer:
         return report
 
     def generate_sbom(
-        self, project_name: str, dependencies: list[dict[str, Any]],
+        self,
+        project_name: str,
+        dependencies: list[dict[str, Any]],
         format: SBOMFormat = SBOMFormat.CYCLONEDX,
     ) -> SBOMDocument:
         """Generate an SBOM for the given dependencies."""
@@ -668,14 +765,23 @@ class SupplyChainRiskAnalyzer:
             ecosystem = dep.get("ecosystem", "npm")
             purl = self._sbom_gen._generate_purl(name, version, ecosystem)
             cves = self._correlator.correlate(name, version, ecosystem)
-            profile = DependencyRiskProfile(package_name=name, version=version, ecosystem=ecosystem, cve_records=cves)
+            profile = DependencyRiskProfile(
+                package_name=name, version=version, ecosystem=ecosystem, cve_records=cves
+            )
             self._scorer.score_dependency(profile)
-            components.append(SBOMComponent(
-                name=name, version=version, ecosystem=ecosystem, purl=purl,
-                licenses=dep.get("licenses", []), supplier=dep.get("supplier"),
-                checksums=dep.get("checksums", {}), dependencies=dep.get("dependencies", []),
-                risk_profile=profile,
-            ))
+            components.append(
+                SBOMComponent(
+                    name=name,
+                    version=version,
+                    ecosystem=ecosystem,
+                    purl=purl,
+                    licenses=dep.get("licenses", []),
+                    supplier=dep.get("supplier"),
+                    checksums=dep.get("checksums", {}),
+                    dependencies=dep.get("dependencies", []),
+                    risk_profile=profile,
+                )
+            )
         return self._sbom_gen.generate(project_name, components, format)
 
     def get_remediation_plan(self, report: SupplyChainRiskReport) -> list[dict[str, Any]]:
@@ -692,15 +798,23 @@ class SupplyChainRiskAnalyzer:
                         f"(fixes {cve.cve_id}, CVSS {cve.cvss_score})"
                     )
             if profile.typosquat_risk >= 70.0:
-                actions.append(f"Verify {profile.package_name} is not a typosquat (risk: {profile.typosquat_risk}%)")
+                actions.append(
+                    f"Verify {profile.package_name} is not a typosquat (risk: {profile.typosquat_risk}%)"
+                )
             if profile.license_risk in ("high", "critical"):
-                actions.append(f"Review licence compliance for {profile.package_name} (risk: {profile.license_risk})")
+                actions.append(
+                    f"Review licence compliance for {profile.package_name} (risk: {profile.license_risk})"
+                )
             if actions:
-                plan.append({
-                    "package": profile.package_name, "version": profile.version,
-                    "risk_score": profile.risk_score, "risk_category": profile.risk_category.value,
-                    "actions": actions,
-                })
+                plan.append(
+                    {
+                        "package": profile.package_name,
+                        "version": profile.version,
+                        "risk_score": profile.risk_score,
+                        "risk_category": profile.risk_category.value,
+                        "actions": actions,
+                    }
+                )
         logger.info("remediation_plan_generated", items=len(plan))
         return plan
 
@@ -717,20 +831,33 @@ class SupplyChainRiskAnalyzer:
         for name in set(old_pkgs) & set(new_pkgs):
             old_p, new_p = old_pkgs[name], new_pkgs[name]
             if old_p.risk_score != new_p.risk_score or old_p.version != new_p.version:
-                changed.append({
-                    "package": name, "old_version": old_p.version, "new_version": new_p.version,
-                    "old_score": old_p.risk_score, "new_score": new_p.risk_score,
-                    "delta": round(new_p.risk_score - old_p.risk_score, 2),
-                })
+                changed.append(
+                    {
+                        "package": name,
+                        "old_version": old_p.version,
+                        "new_version": new_p.version,
+                        "old_score": old_p.risk_score,
+                        "new_score": new_p.risk_score,
+                        "delta": round(new_p.risk_score - old_p.risk_score, 2),
+                    }
+                )
 
         score_delta = round(new_report.risk_score - old_report.risk_score, 2)
         trend = "worsening" if score_delta > 5 else ("improving" if score_delta < -5 else "stable")
 
-        logger.info("reports_compared", old_score=old_report.risk_score, new_score=new_report.risk_score, trend=trend)
+        logger.info(
+            "reports_compared",
+            old_score=old_report.risk_score,
+            new_score=new_report.risk_score,
+            trend=trend,
+        )
         return {
-            "old_score": old_report.risk_score, "new_score": new_report.risk_score,
-            "score_delta": score_delta, "trend": trend,
-            "dependencies_added": added, "dependencies_removed": removed,
+            "old_score": old_report.risk_score,
+            "new_score": new_report.risk_score,
+            "score_delta": score_delta,
+            "trend": trend,
+            "dependencies_added": added,
+            "dependencies_removed": removed,
             "dependencies_changed": changed,
             "new_critical_cves": new_report.critical_cves - old_report.critical_cves,
             "new_high_cves": new_report.high_cves - old_report.high_cves,
@@ -739,19 +866,29 @@ class SupplyChainRiskAnalyzer:
     def _build_recommendations(self, profiles: list[DependencyRiskProfile]) -> list[str]:
         """Generate human-readable recommendations from scored profiles."""
         recs: list[str] = []
-        critical_cves = [(p, c) for p in profiles for c in p.cve_records if c.severity == CVESeverity.CRITICAL]
+        critical_cves = [
+            (p, c) for p in profiles for c in p.cve_records if c.severity == CVESeverity.CRITICAL
+        ]
         if critical_cves:
-            recs.append(f"URGENT: {len(critical_cves)} critical CVE(s) found — upgrade affected packages immediately.")
+            recs.append(
+                f"URGENT: {len(critical_cves)} critical CVE(s) found — upgrade affected packages immediately."
+            )
         typo_suspects = [p for p in profiles if p.typosquat_risk >= 70.0]
         if typo_suspects:
             names = ", ".join(p.package_name for p in typo_suspects)
-            recs.append(f"Potential typosquatting detected for: {names}. Verify package authenticity before use.")
+            recs.append(
+                f"Potential typosquatting detected for: {names}. Verify package authenticity before use."
+            )
         high_risk = [p for p in profiles if p.risk_score >= 70.0]
         if high_risk:
-            recs.append(f"{len(high_risk)} high-risk dependency(ies). Consider pinning versions and enabling alerts.")
+            recs.append(
+                f"{len(high_risk)} high-risk dependency(ies). Consider pinning versions and enabling alerts."
+            )
         license_issues = [p for p in profiles if p.license_risk in ("high", "critical")]
         if license_issues:
-            recs.append("Licence compliance issues found. Review high-risk licences against your organisation's policy.")
+            recs.append(
+                "Licence compliance issues found. Review high-risk licences against your organisation's policy."
+            )
         if not recs:
             recs.append("No significant supply-chain risks detected.")
         return recs

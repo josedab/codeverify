@@ -50,7 +50,7 @@ def ramp_start(
     )
 
     ramp_manager = GradualVerificationRamp(default_schedule=schedule)
-    state = ramp_manager.start_ramp(repository)
+    ramp_manager.start_ramp(repository)
 
     console.print(f"[green]✓ Ramp started for {repository}[/green]")
     console.print("\nSchedule:")
@@ -141,9 +141,8 @@ def ramp_end(ctx: click.Context, repository: str, confirm: bool) -> None:
     """End ramp and enable full enforcement."""
     from codeverify_core.gradual_ramp import GradualVerificationRamp
 
-    if not confirm:
-        if not click.confirm(f"End ramp and enable full enforcement for {repository}?"):
-            return
+    if not confirm and not click.confirm(f"End ramp and enable full enforcement for {repository}?"):
+        return
 
     ramp_manager = GradualVerificationRamp()
     if ramp_manager.end_ramp(repository):

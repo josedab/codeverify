@@ -258,20 +258,20 @@ async def get_alerts(
     if severity:
         try:
             severity_filter = DriftSeverity(severity.lower())
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid severity: {severity}. Valid values: low, medium, high, critical",
-            )
+            ) from e
 
     if category:
         try:
             category_filter = DriftCategory(category.lower())
-        except ValueError:
+        except ValueError as e:
             valid = [c.value for c in DriftCategory]
             raise HTTPException(
                 status_code=400, detail=f"Invalid category: {category}. Valid values: {valid}"
-            )
+            ) from e
 
     alerts = detector.get_active_alerts(severity_filter, category_filter)
 

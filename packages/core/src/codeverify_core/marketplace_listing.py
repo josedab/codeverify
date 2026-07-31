@@ -14,12 +14,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
-import secrets
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -146,9 +144,7 @@ class MarketplaceListing:
         default_factory=lambda: ["code-review", "security", "code-quality"]
     )
     pricing_model: str = "per-unit"
-    plans: list[MarketplacePlan] = field(
-        default_factory=lambda: list(MarketplacePlan)
-    )
+    plans: list[MarketplacePlan] = field(default_factory=lambda: list(MarketplacePlan))
     homepage_url: str = "https://codeverify.dev"
     docs_url: str = "https://docs.codeverify.dev"
     support_url: str = "https://codeverify.dev/support"
@@ -170,9 +166,7 @@ class Installation:
     status: InstallationStatus = InstallationStatus.PENDING
     repos: list[str] = field(default_factory=list)
     onboarding_phase: OnboardingPhase = OnboardingPhase.APP_INSTALLED
-    installed_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    installed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     config_generated: bool = False
     workflow_created: bool = False
     baseline_scan_done: bool = False
@@ -183,15 +177,15 @@ class UsageRecord:
     """Usage record for a billing period."""
 
     installation_id: str = ""
-    period_start: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
+    period_start: datetime = field(default_factory=lambda: datetime.now(UTC))
+    metrics: dict[str, int] = field(
+        default_factory=lambda: {
+            UsageMetric.VERIFICATIONS.value: 0,
+            UsageMetric.AI_ANALYSES.value: 0,
+            UsageMetric.PR_REVIEWS.value: 0,
+            UsageMetric.API_CALLS.value: 0,
+        }
     )
-    metrics: dict[str, int] = field(default_factory=lambda: {
-        UsageMetric.VERIFICATIONS.value: 0,
-        UsageMetric.AI_ANALYSES.value: 0,
-        UsageMetric.PR_REVIEWS.value: 0,
-        UsageMetric.API_CALLS.value: 0,
-    })
 
     def increment(self, metric: UsageMetric, count: int = 1) -> None:
         key = metric.value
@@ -218,9 +212,7 @@ class InstallationEvent:
     installation_id: str = ""
     event_type: str = ""
     details: dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class ConfigAutoGenerator:
@@ -331,7 +323,7 @@ class ConfigAutoGenerator:
             f'  - "**/__pycache__/**"\n'
         )
 
-    def _render_workflow_yaml(self, repo: str) -> str:
+    def _render_workflow_yaml(self, _repo: str) -> str:
         return (
             "name: CodeVerify\n\n"
             "on:\n"
@@ -360,9 +352,7 @@ class UsageMeter:
 
     def get_usage(self, installation_id: str) -> UsageRecord:
         if installation_id not in self._records:
-            self._records[installation_id] = UsageRecord(
-                installation_id=installation_id
-            )
+            self._records[installation_id] = UsageRecord(installation_id=installation_id)
         return self._records[installation_id]
 
     def record_usage(
@@ -425,9 +415,7 @@ class UsageMeter:
 
     def reset_period(self, installation_id: str) -> None:
         """Reset usage for a new billing period."""
-        self._records[installation_id] = UsageRecord(
-            installation_id=installation_id
-        )
+        self._records[installation_id] = UsageRecord(installation_id=installation_id)
 
 
 class MarketplaceService:
@@ -466,11 +454,15 @@ class MarketplaceService:
             repos=repos or [],
         )
         self._installations[installation.id] = installation
-        self._record_event(installation.id, "installed", {
-            "account": account_login,
-            "plan": plan.value,
-            "repo_count": len(installation.repos),
-        })
+        self._record_event(
+            installation.id,
+            "installed",
+            {
+                "account": account_login,
+                "plan": plan.value,
+                "repo_count": len(installation.repos),
+            },
+        )
         logger.info(
             "marketplace_installation",
             installation_id=installation.id,
@@ -492,25 +484,31 @@ class MarketplaceService:
             raise ValueError(f"Installation {installation_id} not found")
 
         repo = installation.repos[0] if installation.repos else "unknown"
-        config = self._config_generator.generate_config(
-            repo, file_paths, strict=strict
-        )
+        config = self._config_generator.generate_config(repo, file_paths, strict=strict)
 
         installation.config_generated = True
         installation.onboarding_phase = OnboardingPhase.CONFIG_GENERATED
-        self._record_event(installation_id, "config_generated", {
-            "languages": config.detected_languages,
-            "frameworks": config.detected_frameworks,
-        })
+        self._record_event(
+            installation_id,
+            "config_generated",
+            {
+                "languages": config.detected_languages,
+                "frameworks": config.detected_frameworks,
+            },
+        )
 
         installation.workflow_created = True
         installation.onboarding_phase = OnboardingPhase.WORKFLOW_CREATED
         self._record_event(installation_id, "workflow_created", {})
 
         installation.onboarding_phase = OnboardingPhase.BASELINE_SCAN_QUEUED
-        self._record_event(installation_id, "baseline_scan_queued", {
-            "estimated_minutes": config.estimated_first_scan_minutes,
-        })
+        self._record_event(
+            installation_id,
+            "baseline_scan_queued",
+            {
+                "estimated_minutes": config.estimated_first_scan_minutes,
+            },
+        )
 
         return config
 
@@ -535,10 +533,14 @@ class MarketplaceService:
             return False
         old_plan = installation.plan
         installation.plan = new_plan
-        self._record_event(installation_id, "plan_changed", {
-            "old_plan": old_plan.value,
-            "new_plan": new_plan.value,
-        })
+        self._record_event(
+            installation_id,
+            "plan_changed",
+            {
+                "old_plan": old_plan.value,
+                "new_plan": new_plan.value,
+            },
+        )
         logger.info(
             "plan_changed",
             installation_id=installation_id,
@@ -569,14 +571,9 @@ class MarketplaceService:
         return self._installations.get(installation_id)
 
     def list_active_installations(self) -> list[Installation]:
-        return [
-            i for i in self._installations.values()
-            if i.status == InstallationStatus.ACTIVE
-        ]
+        return [i for i in self._installations.values() if i.status == InstallationStatus.ACTIVE]
 
-    def get_installation_events(
-        self, installation_id: str
-    ) -> list[InstallationEvent]:
+    def get_installation_events(self, installation_id: str) -> list[InstallationEvent]:
         return [e for e in self._events if e.installation_id == installation_id]
 
     def get_analytics(self) -> dict[str, Any]:
@@ -591,9 +588,7 @@ class MarketplaceService:
             "active_installations": len(active),
             "plan_distribution": dict(plan_counts),
             "total_repos": sum(len(i.repos) for i in active),
-            "onboarding_complete": sum(
-                1 for i in active if i.baseline_scan_done
-            ),
+            "onboarding_complete": sum(1 for i in active if i.baseline_scan_done),
         }
 
     def _record_event(
@@ -602,11 +597,13 @@ class MarketplaceService:
         event_type: str,
         details: dict[str, Any],
     ) -> None:
-        self._events.append(InstallationEvent(
-            installation_id=installation_id,
-            event_type=event_type,
-            details=details,
-        ))
+        self._events.append(
+            InstallationEvent(
+                installation_id=installation_id,
+                event_type=event_type,
+                details=details,
+            )
+        )
 
 
 # ─── Singleton Access ──────────────────────────────────────────────────

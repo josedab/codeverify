@@ -247,15 +247,6 @@ class TestReachabilityReport:
 
     def test_report_to_dict(self):
         """Test report serialization."""
-        vuln = Vulnerability(
-            id="test",
-            type=VulnerabilityType.CVE,
-            title="Test Vuln",
-            description="Test",
-            severity="high",
-            cve_id="CVE-2024-0001",
-        )
-
         report = ReachabilityReport(
             total_vulnerabilities=1,
             reachable_count=0,

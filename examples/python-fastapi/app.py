@@ -1,6 +1,6 @@
 """Example FastAPI app with intentional issues for CodeVerify to find."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 
 app = FastAPI(title="User Service")
 

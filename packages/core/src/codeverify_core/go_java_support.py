@@ -16,7 +16,6 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -79,7 +78,9 @@ class GoJavaNode:
 
     @property
     def signature(self) -> str:
-        params = ", ".join(f"{p.get('name', '')} {p.get('type', '')}".strip() for p in self.parameters)
+        params = ", ".join(
+            f"{p.get('name', '')} {p.get('type', '')}".strip() for p in self.parameters
+        )
         ret = f" {self.return_type}" if self.return_type else ""
         return f"{self.name}({params}){ret}"
 
@@ -108,11 +109,15 @@ class GoJavaParseResult:
 
     @property
     def functions(self) -> list[GoJavaNode]:
-        return [n for n in self.nodes if n.node_type in (GoJavaNodeType.FUNCTION, GoJavaNodeType.METHOD)]
+        return [
+            n for n in self.nodes if n.node_type in (GoJavaNodeType.FUNCTION, GoJavaNodeType.METHOD)
+        ]
 
     @property
     def classes(self) -> list[GoJavaNode]:
-        return [n for n in self.nodes if n.node_type in (GoJavaNodeType.CLASS, GoJavaNodeType.STRUCT)]
+        return [
+            n for n in self.nodes if n.node_type in (GoJavaNodeType.CLASS, GoJavaNodeType.STRUCT)
+        ]
 
     @property
     def pattern_count(self) -> int:
@@ -143,84 +148,122 @@ class AdvancedGoParser:
 
     def parse(self, code: str, file_path: str = "") -> GoJavaParseResult:
         import time as _time
+
         start = _time.monotonic()
         nodes: list[GoJavaNode] = []
         patterns: list[PatternMatch] = []
 
         for m in self._FUNC.finditer(code):
-            line = code[:m.start()].count("\n") + 1
+            line = code[: m.start()].count("\n") + 1
             receiver = m.group(2) or ""
             params = self._parse_params(m.group(4) or "")
-            nodes.append(GoJavaNode(
-                node_type=GoJavaNodeType.METHOD if receiver else GoJavaNodeType.FUNCTION,
-                name=m.group(3),
-                start_line=line,
-                return_type=(m.group(5) or "").strip(),
-                parameters=params,
-                metadata={"receiver": receiver} if receiver else {},
-            ))
+            nodes.append(
+                GoJavaNode(
+                    node_type=GoJavaNodeType.METHOD if receiver else GoJavaNodeType.FUNCTION,
+                    name=m.group(3),
+                    start_line=line,
+                    return_type=(m.group(5) or "").strip(),
+                    parameters=params,
+                    metadata={"receiver": receiver} if receiver else {},
+                )
+            )
 
         for m in self._STRUCT.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            nodes.append(GoJavaNode(node_type=GoJavaNodeType.STRUCT, name=m.group(1), start_line=line))
+            line = code[: m.start()].count("\n") + 1
+            nodes.append(
+                GoJavaNode(node_type=GoJavaNodeType.STRUCT, name=m.group(1), start_line=line)
+            )
 
         for m in self._INTERFACE.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            nodes.append(GoJavaNode(node_type=GoJavaNodeType.INTERFACE, name=m.group(1), start_line=line))
+            line = code[: m.start()].count("\n") + 1
+            nodes.append(
+                GoJavaNode(node_type=GoJavaNodeType.INTERFACE, name=m.group(1), start_line=line)
+            )
 
         for m in self._GOROUTINE.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            nodes.append(GoJavaNode(node_type=GoJavaNodeType.GOROUTINE, name=m.group(1), start_line=line))
+            line = code[: m.start()].count("\n") + 1
+            nodes.append(
+                GoJavaNode(node_type=GoJavaNodeType.GOROUTINE, name=m.group(1), start_line=line)
+            )
 
         for m in self._CHANNEL.finditer(code):
-            line = code[:m.start()].count("\n") + 1
+            line = code[: m.start()].count("\n") + 1
             buffered = m.group(2) is not None
-            nodes.append(GoJavaNode(
-                node_type=GoJavaNodeType.CHANNEL, name=m.group(1), start_line=line,
-                metadata={"buffered": buffered, "capacity": int(m.group(2)) if m.group(2) else 0},
-            ))
+            nodes.append(
+                GoJavaNode(
+                    node_type=GoJavaNodeType.CHANNEL,
+                    name=m.group(1),
+                    start_line=line,
+                    metadata={
+                        "buffered": buffered,
+                        "capacity": int(m.group(2)) if m.group(2) else 0,
+                    },
+                )
+            )
 
         for m in self._DEFER.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            nodes.append(GoJavaNode(node_type=GoJavaNodeType.DEFER, name=m.group(1), start_line=line))
-            patterns.append(PatternMatch(
-                pattern=IdiomaticPattern.GO_DEFER_CLOSE, line=line,
-                context=m.group(0), severity="info", suggestion="Good: using defer for cleanup",
-            ))
+            line = code[: m.start()].count("\n") + 1
+            nodes.append(
+                GoJavaNode(node_type=GoJavaNodeType.DEFER, name=m.group(1), start_line=line)
+            )
+            patterns.append(
+                PatternMatch(
+                    pattern=IdiomaticPattern.GO_DEFER_CLOSE,
+                    line=line,
+                    context=m.group(0),
+                    severity="info",
+                    suggestion="Good: using defer for cleanup",
+                )
+            )
 
         # Idiomatic patterns
         for m in self._ERR_IGNORED.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            patterns.append(PatternMatch(
-                pattern=IdiomaticPattern.GO_ERROR_IGNORED, line=line,
-                context=m.group(0), severity="warning",
-                suggestion="Don't discard errors with `_`. Handle or propagate them.",
-            ))
+            line = code[: m.start()].count("\n") + 1
+            patterns.append(
+                PatternMatch(
+                    pattern=IdiomaticPattern.GO_ERROR_IGNORED,
+                    line=line,
+                    context=m.group(0),
+                    severity="warning",
+                    suggestion="Don't discard errors with `_`. Handle or propagate them.",
+                )
+            )
 
         for m in self._MUTEX.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            patterns.append(PatternMatch(
-                pattern=IdiomaticPattern.GO_MUTEX_USAGE, line=line,
-                context=m.group(0), severity="info",
-                suggestion="Ensure matching Unlock via defer",
-            ))
+            line = code[: m.start()].count("\n") + 1
+            patterns.append(
+                PatternMatch(
+                    pattern=IdiomaticPattern.GO_MUTEX_USAGE,
+                    line=line,
+                    context=m.group(0),
+                    severity="info",
+                    suggestion="Ensure matching Unlock via defer",
+                )
+            )
 
         for m in self._CONTEXT.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            patterns.append(PatternMatch(
-                pattern=IdiomaticPattern.GO_CONTEXT_USAGE, line=line,
-                context=m.group(0), severity="info",
-                suggestion="Good: using context for cancellation",
-            ))
+            line = code[: m.start()].count("\n") + 1
+            patterns.append(
+                PatternMatch(
+                    pattern=IdiomaticPattern.GO_CONTEXT_USAGE,
+                    line=line,
+                    context=m.group(0),
+                    severity="info",
+                    suggestion="Good: using context for cancellation",
+                )
+            )
 
         elapsed = (_time.monotonic() - start) * 1000
         return GoJavaParseResult(
-            language="go", file_path=file_path, nodes=nodes,
-            patterns=patterns, parse_time_ms=elapsed,
+            language="go",
+            file_path=file_path,
+            nodes=nodes,
+            patterns=patterns,
+            parse_time_ms=elapsed,
         )
 
     def _parse_params(self, params_str: str) -> list[dict[str, str]]:
-        params = []
+        params: list[dict[str, str]] = []
         if not params_str.strip():
             return params
         for part in params_str.split(","):
@@ -253,77 +296,114 @@ class AdvancedJavaParser:
 
     def parse(self, code: str, file_path: str = "") -> GoJavaParseResult:
         import time as _time
+
         start = _time.monotonic()
         nodes: list[GoJavaNode] = []
         patterns: list[PatternMatch] = []
 
         for m in self._CLASS.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            nodes.append(GoJavaNode(
-                node_type=GoJavaNodeType.CLASS, name=m.group(1), start_line=line,
-                metadata={"extends": m.group(2) or "", "implements": (m.group(3) or "").strip()},
-            ))
+            line = code[: m.start()].count("\n") + 1
+            nodes.append(
+                GoJavaNode(
+                    node_type=GoJavaNodeType.CLASS,
+                    name=m.group(1),
+                    start_line=line,
+                    metadata={
+                        "extends": m.group(2) or "",
+                        "implements": (m.group(3) or "").strip(),
+                    },
+                )
+            )
 
         for m in self._INTERFACE.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            nodes.append(GoJavaNode(node_type=GoJavaNodeType.INTERFACE, name=m.group(1), start_line=line))
+            line = code[: m.start()].count("\n") + 1
+            nodes.append(
+                GoJavaNode(node_type=GoJavaNodeType.INTERFACE, name=m.group(1), start_line=line)
+            )
 
         for m in self._ENUM.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            nodes.append(GoJavaNode(node_type=GoJavaNodeType.ENUM, name=m.group(1), start_line=line))
+            line = code[: m.start()].count("\n") + 1
+            nodes.append(
+                GoJavaNode(node_type=GoJavaNodeType.ENUM, name=m.group(1), start_line=line)
+            )
 
         for m in self._METHOD.finditer(code):
-            line = code[:m.start()].count("\n") + 1
+            line = code[: m.start()].count("\n") + 1
             annotation = m.group(1) or ""
             annotations = [annotation] if annotation else []
             params = self._parse_params(m.group(4) or "")
-            nodes.append(GoJavaNode(
-                node_type=GoJavaNodeType.METHOD, name=m.group(3), start_line=line,
-                return_type=m.group(2).strip(), parameters=params, annotations=annotations,
-                metadata={"throws": (m.group(5) or "").strip()} if m.group(5) else {},
-            ))
+            nodes.append(
+                GoJavaNode(
+                    node_type=GoJavaNodeType.METHOD,
+                    name=m.group(3),
+                    start_line=line,
+                    return_type=m.group(2).strip(),
+                    parameters=params,
+                    annotations=annotations,
+                    metadata={"throws": (m.group(5) or "").strip()} if m.group(5) else {},
+                )
+            )
 
         # Pattern detection
         for m in self._NULLABLE.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            patterns.append(PatternMatch(
-                pattern=IdiomaticPattern.JAVA_NULLABLE_ANNOTATION, line=line,
-                context=m.group(0), severity="info",
-                suggestion="Good: using nullability annotations for type safety",
-            ))
+            line = code[: m.start()].count("\n") + 1
+            patterns.append(
+                PatternMatch(
+                    pattern=IdiomaticPattern.JAVA_NULLABLE_ANNOTATION,
+                    line=line,
+                    context=m.group(0),
+                    severity="info",
+                    suggestion="Good: using nullability annotations for type safety",
+                )
+            )
 
         for m in self._TRY_RESOURCES.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            patterns.append(PatternMatch(
-                pattern=IdiomaticPattern.JAVA_TRY_WITH_RESOURCES, line=line,
-                context="try-with-resources", severity="info",
-                suggestion="Good: using try-with-resources for automatic cleanup",
-            ))
+            line = code[: m.start()].count("\n") + 1
+            patterns.append(
+                PatternMatch(
+                    pattern=IdiomaticPattern.JAVA_TRY_WITH_RESOURCES,
+                    line=line,
+                    context="try-with-resources",
+                    severity="info",
+                    suggestion="Good: using try-with-resources for automatic cleanup",
+                )
+            )
 
         for m in self._OPTIONAL.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            patterns.append(PatternMatch(
-                pattern=IdiomaticPattern.JAVA_OPTIONAL_USAGE, line=line,
-                context=m.group(0), severity="info",
-                suggestion="Good: using Optional to express nullable return types",
-            ))
+            line = code[: m.start()].count("\n") + 1
+            patterns.append(
+                PatternMatch(
+                    pattern=IdiomaticPattern.JAVA_OPTIONAL_USAGE,
+                    line=line,
+                    context=m.group(0),
+                    severity="info",
+                    suggestion="Good: using Optional to express nullable return types",
+                )
+            )
 
         for m in self._SYNCHRONIZED.finditer(code):
-            line = code[:m.start()].count("\n") + 1
-            patterns.append(PatternMatch(
-                pattern=IdiomaticPattern.JAVA_SYNCHRONIZED, line=line,
-                context="synchronized block", severity="info",
-                suggestion="Consider using java.util.concurrent locks for better control",
-            ))
+            line = code[: m.start()].count("\n") + 1
+            patterns.append(
+                PatternMatch(
+                    pattern=IdiomaticPattern.JAVA_SYNCHRONIZED,
+                    line=line,
+                    context="synchronized block",
+                    severity="info",
+                    suggestion="Consider using java.util.concurrent locks for better control",
+                )
+            )
 
         elapsed = (_time.monotonic() - start) * 1000
         return GoJavaParseResult(
-            language="java", file_path=file_path, nodes=nodes,
-            patterns=patterns, parse_time_ms=elapsed,
+            language="java",
+            file_path=file_path,
+            nodes=nodes,
+            patterns=patterns,
+            parse_time_ms=elapsed,
         )
 
     def _parse_params(self, params_str: str) -> list[dict[str, str]]:
-        params = []
+        params: list[dict[str, str]] = []
         if not params_str.strip():
             return params
         for part in params_str.split(","):
@@ -349,7 +429,9 @@ class GoJavaLanguageSupport:
             return self._go_parser.parse(code, file_path)
         if language.lower() == "java":
             return self._java_parser.parse(code, file_path)
-        return GoJavaParseResult(language=language, file_path=file_path, errors=[f"Unsupported: {language}"])
+        return GoJavaParseResult(
+            language=language, file_path=file_path, errors=[f"Unsupported: {language}"]
+        )
 
     def detect_language(self, file_path: str) -> str | None:
         ext = file_path.rsplit(".", 1)[-1].lower() if "." in file_path else ""

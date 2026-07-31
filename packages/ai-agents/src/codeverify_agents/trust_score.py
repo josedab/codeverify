@@ -97,7 +97,9 @@ class AIDetector:
             comment_lengths = [len(c.strip()) for c in comment_lines]
             if comment_lengths:
                 avg_len = sum(comment_lengths) / len(comment_lengths)
-                variance = sum((l - avg_len) ** 2 for l in comment_lengths) / len(comment_lengths)
+                variance = sum((length - avg_len) ** 2 for length in comment_lengths) / len(
+                    comment_lengths
+                )
                 if variance < 100:  # Low variance = likely AI
                     ai_pattern_matches += 1
                     total_patterns += 1
@@ -169,7 +171,9 @@ class ComplexityAnalyzer:
     def calculate(self, code: str) -> float:
         """Calculate code complexity score (0-1, lower is better)."""
         lines = code.split("\n")
-        non_empty_lines = [l for l in lines if l.strip() and not l.strip().startswith("#")]
+        non_empty_lines = [
+            line for line in lines if line.strip() and not line.strip().startswith("#")
+        ]
 
         if not non_empty_lines:
             return 0.0
@@ -177,7 +181,7 @@ class ComplexityAnalyzer:
         factors = []
 
         # Line length complexity
-        long_lines = sum(1 for l in non_empty_lines if len(l) > 100)
+        long_lines = sum(1 for line in non_empty_lines if len(line) > 100)
         factors.append(min(long_lines / len(non_empty_lines), 1.0))
 
         # Nesting depth

@@ -182,7 +182,7 @@ async def calculate_trust_scores_batch(
 @router.post("/feedback")
 async def submit_trust_score_feedback(
     request: TrustScoreFeedbackRequest,
-    db: AsyncSession = Depends(get_db),
+    _db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """
     Submit feedback on a trust score prediction.

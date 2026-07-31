@@ -18,8 +18,9 @@ import hashlib
 import re
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -87,9 +88,7 @@ class ProofArtifact:
     downvotes: int = 0
     download_count: int = 0
     reuse_count: int = 0
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def quality_score(self) -> float:
@@ -141,12 +140,12 @@ class MarketplaceStats:
 class ProofAnonymizer:
     """Anonymizes proof artifacts to remove org-specific identifiers."""
 
-    PATTERNS_TO_STRIP = [
-        (r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', '<email>'),
-        (r'https?://[^\s"\']+', '<url>'),
-        (r'/(?:home|Users)/\w+/[^\s"\']*', '<path>'),
-        (r'[A-Z][a-z]+(?:[A-Z][a-z]+)+', lambda m: f'Identifier_{hash(m.group()) % 1000}'),
-        (r'(?:api[_-]?key|token|secret|password)\s*[=:]\s*["\'][^"\']+["\']', '<redacted>'),
+    PATTERNS_TO_STRIP: list[tuple[str, str | Callable[[re.Match[str]], str]]] = [
+        (r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", "<email>"),
+        (r'https?://[^\s"\']+', "<url>"),
+        (r'/(?:home|Users)/\w+/[^\s"\']*', "<path>"),
+        (r"[A-Z][a-z]+(?:[A-Z][a-z]+)+", lambda m: f"Identifier_{hash(m.group()) % 1000}"),
+        (r'(?:api[_-]?key|token|secret|password)\s*[=:]\s*["\'][^"\']+["\']', "<redacted>"),
     ]
 
     def anonymize(self, artifact: ProofArtifact) -> ProofArtifact:
@@ -154,9 +153,7 @@ class ProofAnonymizer:
         artifact.z3_constraints = self._strip_identifiers(artifact.z3_constraints)
         artifact.pattern_code = self._strip_identifiers(artifact.pattern_code)
         artifact.fix_template = self._strip_identifiers(artifact.fix_template)
-        artifact.author_id = hashlib.sha256(
-            artifact.author_id.encode()
-        ).hexdigest()[:8]
+        artifact.author_id = hashlib.sha256(artifact.author_id.encode()).hexdigest()[:8]
         artifact.is_anonymized = True
         return artifact
 
@@ -204,11 +201,13 @@ class ProofMatcher:
                     match_type = "exact"
 
             if score > 0.3:
-                results.append(SearchResult(
-                    artifact=artifact,
-                    relevance_score=round(score, 3),
-                    match_type=match_type,
-                ))
+                results.append(
+                    SearchResult(
+                        artifact=artifact,
+                        relevance_score=round(score, 3),
+                        match_type=match_type,
+                    )
+                )
 
         results.sort(key=lambda r: r.relevance_score, reverse=True)
         return results
@@ -336,7 +335,9 @@ class ProofArtifactMarketplaceService:
                 continue
             if query:
                 q_lower = query.lower()
-                searchable = f"{artifact.title} {artifact.description} {' '.join(artifact.tags)}".lower()
+                searchable = (
+                    f"{artifact.title} {artifact.description} {' '.join(artifact.tags)}".lower()
+                )
                 if q_lower not in searchable:
                     continue
             results.append(artifact)
@@ -395,8 +396,11 @@ class ProofArtifactMarketplaceService:
             lang_dist[a.language.value] += 1
             author_downloads[a.author_id] += a.download_count
 
+        contributor_stats: list[dict[str, Any]] = [
+            {"author_id": k, "downloads": v} for k, v in author_downloads.items()
+        ]
         top_contributors = sorted(
-            [{"author_id": k, "downloads": v} for k, v in author_downloads.items()],
+            contributor_stats,
             key=lambda x: x["downloads"],
             reverse=True,
         )[:10]

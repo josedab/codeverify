@@ -18,7 +18,6 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -45,6 +44,7 @@ class RiskBucket(str, Enum):
 @dataclass
 class DepthConfig:
     """Configuration for a verification depth tier."""
+
     depth: VerificationDepth = VerificationDepth.PATTERN
     cost_cents_per_file: float = 0.0
     latency_ms: int = 100
@@ -55,23 +55,31 @@ class DepthConfig:
     def all_tiers(cls) -> dict[VerificationDepth, DepthConfig]:
         return {
             VerificationDepth.PATTERN: cls(
-                depth=VerificationDepth.PATTERN, cost_cents_per_file=0.0,
-                latency_ms=50, accuracy=0.4,
+                depth=VerificationDepth.PATTERN,
+                cost_cents_per_file=0.0,
+                latency_ms=50,
+                accuracy=0.4,
                 checks=["regex_patterns", "known_bad_patterns"],
             ),
             VerificationDepth.STATIC: cls(
-                depth=VerificationDepth.STATIC, cost_cents_per_file=0.5,
-                latency_ms=200, accuracy=0.6,
+                depth=VerificationDepth.STATIC,
+                cost_cents_per_file=0.5,
+                latency_ms=200,
+                accuracy=0.6,
                 checks=["ast_analysis", "type_checking", "lint_rules"],
             ),
             VerificationDepth.AI: cls(
-                depth=VerificationDepth.AI, cost_cents_per_file=5.0,
-                latency_ms=5000, accuracy=0.85,
+                depth=VerificationDepth.AI,
+                cost_cents_per_file=5.0,
+                latency_ms=5000,
+                accuracy=0.85,
                 checks=["semantic_analysis", "security_scan", "trust_score"],
             ),
             VerificationDepth.FORMAL: cls(
-                depth=VerificationDepth.FORMAL, cost_cents_per_file=8.0,
-                latency_ms=3000, accuracy=0.95,
+                depth=VerificationDepth.FORMAL,
+                cost_cents_per_file=8.0,
+                latency_ms=3000,
+                accuracy=0.95,
                 checks=["z3_null_safety", "z3_bounds", "z3_overflow", "z3_division"],
             ),
         }
@@ -80,6 +88,7 @@ class DepthConfig:
 @dataclass
 class FileRiskScore:
     """Risk assessment for a single file."""
+
     file_path: str = ""
     risk_score: float = 0.5
     risk_bucket: RiskBucket = RiskBucket.MEDIUM
@@ -91,6 +100,7 @@ class FileRiskScore:
 @dataclass
 class RoutingDecision:
     """Routing decision for a set of files."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     file_routes: list[FileRiskScore] = field(default_factory=list)
     total_estimated_cost_cents: float = 0.0
@@ -102,6 +112,7 @@ class RoutingDecision:
 @dataclass
 class RoutingStats:
     """Statistics about routing decisions."""
+
     total_files_routed: int = 0
     depth_distribution: dict[str, int] = field(default_factory=dict)
     total_cost_saved_cents: float = 0.0
@@ -128,7 +139,7 @@ class RiskScorer:
         self,
         file_path: str,
         change_lines: int = 0,
-        file_total_lines: int = 100,
+        _file_total_lines: int = 100,
         is_new_file: bool = False,
         author_commits: int = 10,
     ) -> FileRiskScore:
@@ -165,7 +176,9 @@ class RiskScorer:
             bucket = RiskBucket.MINIMAL
 
         return FileRiskScore(
-            file_path=file_path, risk_score=score, risk_bucket=bucket,
+            file_path=file_path,
+            risk_score=score,
+            risk_bucket=bucket,
             factors=factors,
         )
 

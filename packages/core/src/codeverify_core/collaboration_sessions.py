@@ -6,10 +6,11 @@ live trust score broadcasting, and Live Share–style session management.
 
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
@@ -50,14 +51,14 @@ class Participant:
     role: SessionRole
     active_file: str | None = None
     cursor_position: tuple[int, int] | None = None  # (line, col)
-    joined_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_active: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    joined_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_active: datetime = field(default_factory=lambda: datetime.now(UTC))
     edits_count: int = 0
     findings_resolved: int = 0
 
     @property
     def idle_seconds(self) -> float:
-        return (datetime.now(timezone.utc) - self.last_active).total_seconds()
+        return (datetime.now(UTC) - self.last_active).total_seconds()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -79,7 +80,7 @@ class LiveTrustScore:
     score: float  # 0-100
     trend: str  # "improving", "stable", "declining"
     factors: dict[str, float] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -139,7 +140,7 @@ class ConflictAlert:
     line_ranges: list[tuple[int, int]]
     severity: str  # "warning", "conflict"
     message: str
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -157,7 +158,7 @@ class SessionEvent:
 
     type: str  # "trust_update", "finding", "conflict", "participant_joined", etc.
     data: dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class CollaborationSession:
@@ -181,18 +182,18 @@ class CollaborationSession:
         self.session_id = session_id or str(uuid.uuid4())
         self.state = SessionState.ACTIVE
         self.verification_mode = verification_mode
-        self.created_at = datetime.now(timezone.utc)
+        self.created_at = datetime.now(UTC)
         self._participants: dict[str, Participant] = {}
         self._files: dict[str, FileState] = {}
         self._events: list[SessionEvent] = []
         self._event_callbacks: list[Callable[[SessionEvent], None]] = []
-        self._edit_ranges: dict[str, dict[str, tuple[int, int]]] = {}  # file -> {participant_id -> (start, end)}
+        self._edit_ranges: dict[
+            str, dict[str, tuple[int, int]]
+        ] = {}  # file -> {participant_id -> (start, end)}
 
         # Add host
         host_id = str(uuid.uuid4())
-        self._participants[host_id] = Participant(
-            id=host_id, name=host_name, role=SessionRole.HOST
-        )
+        self._participants[host_id] = Participant(id=host_id, name=host_name, role=SessionRole.HOST)
 
     def add_participant(
         self,
@@ -203,20 +204,24 @@ class CollaborationSession:
         """Add a participant to the session."""
         participant = Participant(id=participant_id, name=name, role=role)
         self._participants[participant_id] = participant
-        self._emit(SessionEvent(
-            type="participant_joined",
-            data={"participant": participant.to_dict()},
-        ))
+        self._emit(
+            SessionEvent(
+                type="participant_joined",
+                data={"participant": participant.to_dict()},
+            )
+        )
         return participant
 
     def remove_participant(self, participant_id: str) -> None:
         """Remove a participant from the session."""
         participant = self._participants.pop(participant_id, None)
         if participant:
-            self._emit(SessionEvent(
-                type="participant_left",
-                data={"participant_id": participant_id, "name": participant.name},
-            ))
+            self._emit(
+                SessionEvent(
+                    type="participant_left",
+                    data={"participant_id": participant_id, "name": participant.name},
+                )
+            )
 
     def record_edit(
         self,
@@ -230,7 +235,7 @@ class CollaborationSession:
         if not participant:
             return None
 
-        participant.last_active = datetime.now(timezone.utc)
+        participant.last_active = datetime.now(UTC)
         participant.active_file = file_path
         participant.edits_count += 1
 
@@ -263,7 +268,7 @@ class CollaborationSession:
         file_state = self._files[file_path]
         file_state.record_score(trust_score)
         file_state.findings_count = findings_count
-        file_state.last_verified = datetime.now(timezone.utc)
+        file_state.last_verified = datetime.now(UTC)
         file_state.pending_changes = False
 
         live_score = LiveTrustScore(
@@ -275,13 +280,15 @@ class CollaborationSession:
             },
         )
 
-        self._emit(SessionEvent(
-            type="trust_update",
-            data={
-                "file_path": file_path,
-                "trust_score": live_score.to_dict(),
-            },
-        ))
+        self._emit(
+            SessionEvent(
+                type="trust_update",
+                data={
+                    "file_path": file_path,
+                    "trust_score": live_score.to_dict(),
+                },
+            )
+        )
 
         return live_score
 
@@ -308,9 +315,7 @@ class CollaborationSession:
                 "files_verified": sum(
                     1 for f in self._files.values() if f.last_verified is not None
                 ),
-                "pending_changes": sum(
-                    1 for f in self._files.values() if f.pending_changes
-                ),
+                "pending_changes": sum(1 for f in self._files.values() if f.pending_changes),
                 "active_participants": sum(
                     1 for p in self._participants.values() if p.idle_seconds < 300
                 ),
@@ -342,10 +347,12 @@ class CollaborationSession:
         """Change the verification mode for the session."""
         old_mode = self.verification_mode
         self.verification_mode = mode
-        self._emit(SessionEvent(
-            type="mode_changed",
-            data={"old_mode": old_mode.value, "new_mode": mode.value},
-        ))
+        self._emit(
+            SessionEvent(
+                type="mode_changed",
+                data={"old_mode": old_mode.value, "new_mode": mode.value},
+            )
+        )
 
     def pause(self) -> None:
         self.state = SessionState.PAUSED
@@ -361,9 +368,7 @@ class CollaborationSession:
         self._emit(SessionEvent(type="session_ended"))
         return {
             "session_id": self.session_id,
-            "duration_seconds": (
-                datetime.now(timezone.utc) - self.created_at
-            ).total_seconds(),
+            "duration_seconds": (datetime.now(UTC) - self.created_at).total_seconds(),
             "participants": len(self._participants),
             "files_edited": len(self._files),
             "total_edits": sum(p.edits_count for p in self._participants.values()),
@@ -407,10 +412,12 @@ class CollaborationSession:
                 severity="conflict" if len(conflicting) > 1 else "warning",
                 message=f"Overlapping edits in {file_path} by {len(conflicting) + 1} participants",
             )
-            self._emit(SessionEvent(
-                type="conflict_detected",
-                data=alert.to_dict(),
-            ))
+            self._emit(
+                SessionEvent(
+                    type="conflict_detected",
+                    data=alert.to_dict(),
+                )
+            )
             return alert
         return None
 
@@ -484,9 +491,6 @@ class SessionManager:
         ]
 
     def _cleanup_ended(self) -> None:
-        ended = [
-            sid for sid, s in self._sessions.items()
-            if s.state == SessionState.ENDED
-        ]
+        ended = [sid for sid, s in self._sessions.items() if s.state == SessionState.ENDED]
         for sid in ended:
             del self._sessions[sid]

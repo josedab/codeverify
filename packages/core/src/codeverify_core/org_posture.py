@@ -17,11 +17,9 @@ from __future__ import annotations
 
 import statistics
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -139,9 +137,13 @@ class DORAMetrics:
             self.mttr_level,
             self.change_failure_level,
         ]
-        level_order = [DORAMetricLevel.LOW, DORAMetricLevel.MEDIUM,
-                       DORAMetricLevel.HIGH, DORAMetricLevel.ELITE]
-        indices = [level_order.index(l) for l in levels]
+        level_order = [
+            DORAMetricLevel.LOW,
+            DORAMetricLevel.MEDIUM,
+            DORAMetricLevel.HIGH,
+            DORAMetricLevel.ELITE,
+        ]
+        indices = [level_order.index(level) for level in levels]
         median_idx = sorted(indices)[len(indices) // 2]
         return level_order[median_idx]
 
@@ -158,9 +160,7 @@ class PostureScore:
     dora_score: float = 0.0  # 0-100
     trend: PostureTrend = PostureTrend.STABLE
     risk_level: RiskLevel = RiskLevel.MEDIUM
-    calculated_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    calculated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -173,9 +173,7 @@ class PostureAlert:
     message: str = ""
     score_before: float = 0.0
     score_after: float = 0.0
-    triggered_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    triggered_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -195,12 +193,8 @@ class ExecutiveDigest:
 
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     org_name: str = ""
-    period_start: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    period_end: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    period_start: datetime = field(default_factory=lambda: datetime.now(UTC))
+    period_end: datetime = field(default_factory=lambda: datetime.now(UTC))
     posture_score: PostureScore | None = None
     dora_metrics: DORAMetrics | None = None
     heatmap: list[HeatmapEntry] = field(default_factory=list)
@@ -363,13 +357,15 @@ class OrgSecurityPostureService:
             last = self._history[-1]
             drop = last.overall_score - score.overall_score
             if drop >= self._alert_threshold_drop:
-                self._alerts.append(PostureAlert(
-                    severity=AlertSeverity.WARNING if drop < 10 else AlertSeverity.CRITICAL,
-                    title="Posture Score Drop",
-                    message=f"Score dropped {drop:.1f} points ({last.overall_score:.1f} → {score.overall_score:.1f})",
-                    score_before=last.overall_score,
-                    score_after=score.overall_score,
-                ))
+                self._alerts.append(
+                    PostureAlert(
+                        severity=AlertSeverity.WARNING if drop < 10 else AlertSeverity.CRITICAL,
+                        title="Posture Score Drop",
+                        message=f"Score dropped {drop:.1f} points ({last.overall_score:.1f} → {score.overall_score:.1f})",
+                        score_before=last.overall_score,
+                        score_after=score.overall_score,
+                    )
+                )
 
         self._history.append(score)
         return score
@@ -379,30 +375,41 @@ class OrgSecurityPostureService:
         entries: list[HeatmapEntry] = []
         for repo in self._repos.values():
             total_findings = (
-                repo.critical_findings + repo.high_findings
-                + repo.medium_findings + repo.low_findings
+                repo.critical_findings
+                + repo.high_findings
+                + repo.medium_findings
+                + repo.low_findings
             )
             repo_score = repo.verification_coverage * 50 + repo.fix_rate * 50
             risk = (
-                RiskLevel.CRITICAL if repo.critical_findings > 0
-                else RiskLevel.HIGH if repo.high_findings > 3
-                else RiskLevel.MEDIUM if total_findings > 10
-                else RiskLevel.LOW if total_findings > 0
+                RiskLevel.CRITICAL
+                if repo.critical_findings > 0
+                else RiskLevel.HIGH
+                if repo.high_findings > 3
+                else RiskLevel.MEDIUM
+                if total_findings > 10
+                else RiskLevel.LOW
+                if total_findings > 0
                 else RiskLevel.MINIMAL
             )
             top_issue = (
-                "Critical findings" if repo.critical_findings > 0
-                else "High findings" if repo.high_findings > 0
-                else "Low coverage" if repo.verification_coverage < 0.5
+                "Critical findings"
+                if repo.critical_findings > 0
+                else "High findings"
+                if repo.high_findings > 0
+                else "Low coverage"
+                if repo.verification_coverage < 0.5
                 else "Healthy"
             )
-            entries.append(HeatmapEntry(
-                repo_name=repo.repo_name,
-                risk_level=risk,
-                score=round(repo_score, 1),
-                top_issue=top_issue,
-                finding_count=total_findings,
-            ))
+            entries.append(
+                HeatmapEntry(
+                    repo_name=repo.repo_name,
+                    risk_level=risk,
+                    score=round(repo_score, 1),
+                    top_issue=top_issue,
+                    finding_count=total_findings,
+                )
+            )
 
         entries.sort(key=lambda e: e.score)
         return entries

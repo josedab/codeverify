@@ -9,7 +9,7 @@ Key differentiator: Instead of just reporting CVEs, CodeVerify PROVES whether th
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TypedDict
 
 import structlog
 from z3 import (
@@ -486,14 +486,14 @@ class ReachabilityAnalyzer:
 
         # Entry points are reachable
         for entry in entry_nodes:
-            solver.add(node_reachable[entry.id] == True)
+            solver.add(node_reachable[entry.id])
 
         # If a caller is reachable and calls a function, that function is reachable
         for edge in edges:
             if edge.source in node_reachable and edge.target in node_reachable:
                 # source reachable -> target reachable (if edge exists)
                 edge_exists = Bool(f"edge_{edge.source}_{edge.target}")
-                solver.add(edge_exists == True)  # Edge exists in call graph
+                solver.add(edge_exists)  # Edge exists in call graph
                 solver.add(
                     Implies(
                         And(node_reachable[edge.source], edge_exists), node_reachable[edge.target]
@@ -547,7 +547,7 @@ class ReachabilityAnalyzer:
                 adj[edge.source] = []
             adj[edge.source].append(edge.target)
 
-        paths = []
+        paths: list[list[str]] = []
         target_ids = {t.id for t in targets}
 
         for entry in entries:
@@ -581,11 +581,19 @@ class ReachabilityAnalyzer:
         return node_id
 
 
+class VulnPatternInfo(TypedDict):
+    """Structure of an entry in ``VulnerabilityScanner.VULN_PATTERNS``."""
+
+    patterns: list[str]
+    title: str
+    severity: str
+
+
 class VulnerabilityScanner:
     """Scans code for known vulnerabilities and analyzes reachability."""
 
     # Known vulnerable patterns (simplified)
-    VULN_PATTERNS = {
+    VULN_PATTERNS: dict[str, VulnPatternInfo] = {
         "CWE-78": {  # OS Command Injection
             "patterns": [
                 r"subprocess\.(call|run|Popen)\s*\([^)]*shell\s*=\s*True",

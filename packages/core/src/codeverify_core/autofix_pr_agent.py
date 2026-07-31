@@ -13,12 +13,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -109,7 +107,7 @@ class FixResult:
     pr_title: str = ""
     pr_body: str = ""
     pr_branch: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     total_iterations: int = 0
     max_iterations: int = 3
 
@@ -121,7 +119,10 @@ class FixResult:
     def best_candidate(self) -> FixCandidate | None:
         verified = [c for c in self.candidates if c.verification_passed]
         if verified:
-            return max(verified, key=lambda c: {"high": 3, "medium": 2, "low": 1}.get(c.confidence.value, 0))
+            return max(
+                verified,
+                key=lambda c: {"high": 3, "medium": 2, "low": 1}.get(c.confidence.value, 0),
+            )
         return None
 
 
@@ -187,7 +188,9 @@ class FixGenerator:
 
         fixed = template.format(
             var="value",
-            original_line=finding.code_snippet.strip() if finding.code_snippet else "# original code",
+            original_line=finding.code_snippet.strip()
+            if finding.code_snippet
+            else "# original code",
             default="None",
             divisor="divisor",
             index="i",
@@ -263,7 +266,9 @@ class FixVerifier:
         category = finding.category.lower()
         fixed_lower = candidate.fixed_code.lower()
 
-        if "null" in category and ("none" in fixed_lower or "null" in fixed_lower or "nil" in fixed_lower):
+        if "null" in category and (
+            "none" in fixed_lower or "null" in fixed_lower or "nil" in fixed_lower
+        ):
             candidate.verification_passed = True
             return True
 
@@ -320,7 +325,9 @@ class AutofixAgent:
         if best:
             if best.diff_lines > self._max_diff_lines:
                 result.status = FixStatus.FAILED_VERIFICATION
-                logger.warning("autofix_diff_too_large", lines=best.diff_lines, max=self._max_diff_lines)
+                logger.warning(
+                    "autofix_diff_too_large", lines=best.diff_lines, max=self._max_diff_lines
+                )
             else:
                 result.selected_candidate = best
                 result.status = FixStatus.VERIFIED
@@ -350,7 +357,7 @@ class AutofixAgent:
             f"\n**File:** `{finding.file_path}` (line {finding.line_number})",
             f"**Severity:** {finding.severity}",
             f"**Finding:** {finding.message}",
-            f"\n### Fix Applied",
+            "\n### Fix Applied",
             f"{candidate.explanation}",
             f"**Confidence:** {candidate.confidence.value}",
             f"**Verified:** {'✅ Yes' if candidate.verification_passed else '❌ No'}",

@@ -65,7 +65,7 @@ class VerificationTask:
     file_path: str = field(compare=False)
     language: str = field(compare=False)
     config: VerificationConfig = field(compare=False)
-    callback: Callable | None = field(compare=False, default=None)
+    callback: Callable[[Any], None] | None = field(compare=False, default=None)
     created_at: float = field(compare=False, default_factory=time.time)
 
     @staticmethod
@@ -147,7 +147,7 @@ class BackgroundVerificationQueue:
         """Start processing the queue."""
         self._running = True
 
-        def worker():
+        def worker() -> None:
             while self._running:
                 # Rate limiting
                 elapsed = time.time() - self._last_task_time
@@ -228,7 +228,7 @@ class PredictivePrecomputer:
         self._history_size = history_size
         self._prediction_threshold = prediction_threshold
         self._common_patterns: dict[str, list[str]] = self._load_common_patterns()
-        self._pre_computed: dict[str, Any] = {}
+        self._pre_computed: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
 
     def _load_common_patterns(self) -> dict[str, list[str]]:
@@ -241,7 +241,12 @@ class PredictivePrecomputer:
             "for ": ["for item in items:", "for i in range(n):", "for key, value in dict.items():"],
             "try:": ["try:\n    pass\nexcept Exception as e:\n    pass"],
             "with ": ["with open(path) as f:", "with lock:"],
-            "async ": ["async def func():", "async with ctx:"],
+            "async ": [
+                "async def func():",
+                "async with ctx:",
+                "async function name() {}",
+                "async () => {}",
+            ],
             "return ": ["return None", "return result", "return True"],
             # TypeScript/JavaScript patterns
             "function ": ["function name() {}", "function name(param) {}"],
@@ -249,7 +254,6 @@ class PredictivePrecomputer:
             "if (": ["if (condition) {}", "if (x === null) {}"],
             "for (": ["for (let i = 0; i < n; i++) {}", "for (const item of items) {}"],
             "try {": ["try {\n} catch (e) {\n}"],
-            "async ": ["async function name() {}", "async () => {}"],
             "await ": ["await promise", "await fetch(url)"],
         }
 
@@ -283,9 +287,9 @@ class PredictivePrecomputer:
 
     def predict_completions(
         self,
-        file_path: str,
+        _file_path: str,
         current_line: str,
-        language: str,
+        _language: str,
     ) -> list[str]:
         """Predict likely code completions."""
         predictions = []
@@ -306,7 +310,7 @@ class PredictivePrecomputer:
         self,
         file_path: str,
         predictions: list[str],
-        verify_func: Callable[[str], Any],
+        verify_func: Callable[[str], dict[str, Any]],
     ) -> None:
         """Pre-compute verification for predictions."""
         for prediction in predictions:
@@ -327,14 +331,15 @@ class PredictivePrecomputer:
         file_path: str,
         code: str,
         max_age_seconds: float = 60.0,
-    ) -> Any | None:
+    ) -> dict[str, Any] | None:
         """Get pre-computed result if available."""
         cache_key = self._get_cache_key(file_path, code)
         with self._lock:
             if cache_key in self._pre_computed:
                 entry = self._pre_computed[cache_key]
                 if time.time() - entry["timestamp"] < max_age_seconds:
-                    return entry["result"]
+                    result = entry["result"]
+                    return result if isinstance(result, dict) else None
                 else:
                     del self._pre_computed[cache_key]
         return None
@@ -443,7 +448,7 @@ class EdgeInferenceManager:
     - Provider availability
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._providers: dict[str, InferenceProvider] = {}
         self._usage_stats: dict[str, dict[str, int]] = defaultdict(
             lambda: {"calls": 0, "errors": 0}
@@ -559,7 +564,7 @@ class QuickChecker:
     - Known vulnerability patterns
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._pattern_cache: dict[str, list[dict[str, Any]]] = {}
         self._known_issues: list[dict[str, Any]] = self._load_known_issues()
 
@@ -730,7 +735,7 @@ class DeepVerifier:
             verify_time_ms=verify_time,
         )
 
-    def _extract_constraints(self, code: str, language: str) -> list[str]:
+    def _extract_constraints(self, code: str, _language: str) -> list[str]:
         """Extract verification constraints from code."""
         # In production, this would analyze the code and generate Z3 constraints
         constraints = []
@@ -803,7 +808,7 @@ class PerformanceOptimizedVerifier:
         file_path: str,
         language: str,
         config: VerificationConfig,
-        callback: Callable | None = None,
+        callback: Callable[[Any], None] | None = None,
         async_mode: bool = True,
     ) -> dict[str, Any] | None:
         """

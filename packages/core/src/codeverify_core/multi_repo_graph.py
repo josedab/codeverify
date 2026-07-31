@@ -13,11 +13,8 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
-import json
 import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -87,9 +84,7 @@ class ContractField:
             return False
         if self.required and not other.required:
             return False
-        if not self.nullable and other.nullable:
-            return False
-        return True
+        return not (not self.nullable and other.nullable)
 
 
 @dataclass
@@ -177,9 +172,7 @@ class BlastRadius:
         if not self.breaking_changes:
             return 0.0
         severity_weights = {"critical": 4.0, "high": 3.0, "medium": 2.0, "low": 1.0}
-        total = sum(
-            severity_weights.get(bc.severity, 1.0) for bc in self.breaking_changes
-        )
+        total = sum(severity_weights.get(bc.severity, 1.0) for bc in self.breaking_changes)
         return min(10.0, total * (1 + len(self.transitively_affected) * 0.2))
 
 
@@ -203,13 +196,15 @@ class ContractExtractor:
                 request_fields = self._extract_request_fields(details)
                 response_fields = self._extract_response_fields(details)
 
-                endpoints.append(Endpoint(
-                    path=path,
-                    method=method.upper(),
-                    request_fields=request_fields,
-                    response_fields=response_fields,
-                    description=details.get("summary", ""),
-                ))
+                endpoints.append(
+                    Endpoint(
+                        path=path,
+                        method=method.upper(),
+                        request_fields=request_fields,
+                        response_fields=response_fields,
+                        description=details.get("summary", ""),
+                    )
+                )
 
         return ServiceContract(
             service_name=service_name,
@@ -218,17 +213,19 @@ class ContractExtractor:
             endpoints=endpoints,
         )
 
-    def _extract_request_fields(self, operation: dict) -> list[ContractField]:
+    def _extract_request_fields(self, operation: dict[str, Any]) -> list[ContractField]:
         fields: list[ContractField] = []
         for param in operation.get("parameters", []):
             if not isinstance(param, dict):
                 continue
-            fields.append(ContractField(
-                name=param.get("name", ""),
-                field_type=self._map_type(param.get("schema", {}).get("type", "string")),
-                required=param.get("required", False),
-                nullable=not param.get("required", False),
-            ))
+            fields.append(
+                ContractField(
+                    name=param.get("name", ""),
+                    field_type=self._map_type(param.get("schema", {}).get("type", "string")),
+                    required=param.get("required", False),
+                    nullable=not param.get("required", False),
+                )
+            )
 
         # Request body
         body = operation.get("requestBody", {})
@@ -239,7 +236,7 @@ class ContractExtractor:
 
         return fields
 
-    def _extract_response_fields(self, operation: dict) -> list[ContractField]:
+    def _extract_response_fields(self, operation: dict[str, Any]) -> list[ContractField]:
         fields: list[ContractField] = []
         responses = operation.get("responses", {})
         success_resp = responses.get("200", responses.get("201", {}))
@@ -252,7 +249,9 @@ class ContractExtractor:
         return fields
 
     def _extract_schema_fields(
-        self, schema: dict, required: bool = False,
+        self,
+        schema: dict[str, Any],
+        required: bool = False,
     ) -> list[ContractField]:
         fields: list[ContractField] = []
         if not isinstance(schema, dict):
@@ -264,13 +263,15 @@ class ContractExtractor:
         for name, prop in properties.items():
             if not isinstance(prop, dict):
                 continue
-            fields.append(ContractField(
-                name=name,
-                field_type=self._map_type(prop.get("type", "string")),
-                required=name in required_fields or required,
-                nullable=prop.get("nullable", name not in required_fields),
-                description=prop.get("description", ""),
-            ))
+            fields.append(
+                ContractField(
+                    name=name,
+                    field_type=self._map_type(prop.get("type", "string")),
+                    required=name in required_fields or required,
+                    nullable=prop.get("nullable", name not in required_fields),
+                    description=prop.get("description", ""),
+                )
+            )
 
         return fields
 
@@ -304,14 +305,16 @@ class ContractCompatibilityChecker:
                 continue
 
             if endpoint.id not in provider_map:
-                breaking_changes.append(BreakingChange(
-                    change_type=ChangeType.ENDPOINT_REMOVED,
-                    service=provider_contract.service_name,
-                    endpoint=endpoint.id,
-                    description=f"Endpoint {endpoint.id} not found in provider",
-                    severity="critical",
-                    affected_consumers=[consumer_contract.service_name],
-                ))
+                breaking_changes.append(
+                    BreakingChange(
+                        change_type=ChangeType.ENDPOINT_REMOVED,
+                        service=provider_contract.service_name,
+                        endpoint=endpoint.id,
+                        description=f"Endpoint {endpoint.id} not found in provider",
+                        severity="critical",
+                        affected_consumers=[consumer_contract.service_name],
+                    )
+                )
                 continue
 
             provider_ep = provider_map[endpoint.id]
@@ -321,50 +324,58 @@ class ContractCompatibilityChecker:
             for cf in endpoint.response_fields:
                 if cf.name not in provider_resp_map:
                     if cf.required:
-                        breaking_changes.append(BreakingChange(
-                            change_type=ChangeType.FIELD_REMOVED,
-                            service=provider_contract.service_name,
-                            endpoint=endpoint.id,
-                            field_name=cf.name,
-                            description=f"Required field '{cf.name}' missing from provider response",
-                            severity="high",
-                            affected_consumers=[consumer_contract.service_name],
-                        ))
+                        breaking_changes.append(
+                            BreakingChange(
+                                change_type=ChangeType.FIELD_REMOVED,
+                                service=provider_contract.service_name,
+                                endpoint=endpoint.id,
+                                field_name=cf.name,
+                                description=f"Required field '{cf.name}' missing from provider response",
+                                severity="high",
+                                affected_consumers=[consumer_contract.service_name],
+                            )
+                        )
                 else:
                     pf = provider_resp_map[cf.name]
                     if not cf.is_compatible_with(pf):
                         if cf.field_type != pf.field_type:
-                            breaking_changes.append(BreakingChange(
-                                change_type=ChangeType.TYPE_CHANGED,
-                                service=provider_contract.service_name,
-                                endpoint=endpoint.id,
-                                field_name=cf.name,
-                                description=(
-                                    f"Type mismatch for '{cf.name}': "
-                                    f"consumer expects {cf.field_type.value}, "
-                                    f"provider has {pf.field_type.value}"
-                                ),
-                                severity="high",
-                                affected_consumers=[consumer_contract.service_name],
-                            ))
+                            breaking_changes.append(
+                                BreakingChange(
+                                    change_type=ChangeType.TYPE_CHANGED,
+                                    service=provider_contract.service_name,
+                                    endpoint=endpoint.id,
+                                    field_name=cf.name,
+                                    description=(
+                                        f"Type mismatch for '{cf.name}': "
+                                        f"consumer expects {cf.field_type.value}, "
+                                        f"provider has {pf.field_type.value}"
+                                    ),
+                                    severity="high",
+                                    affected_consumers=[consumer_contract.service_name],
+                                )
+                            )
                         if not cf.nullable and pf.nullable:
-                            breaking_changes.append(BreakingChange(
-                                change_type=ChangeType.NULLABLE_CHANGED,
-                                service=provider_contract.service_name,
-                                endpoint=endpoint.id,
-                                field_name=cf.name,
-                                description=(
-                                    f"Field '{cf.name}' is nullable in provider "
-                                    f"but consumer does not handle null"
-                                ),
-                                severity="medium",
-                                affected_consumers=[consumer_contract.service_name],
-                            ))
+                            breaking_changes.append(
+                                BreakingChange(
+                                    change_type=ChangeType.NULLABLE_CHANGED,
+                                    service=provider_contract.service_name,
+                                    endpoint=endpoint.id,
+                                    field_name=cf.name,
+                                    description=(
+                                        f"Field '{cf.name}' is nullable in provider "
+                                        f"but consumer does not handle null"
+                                    ),
+                                    severity="medium",
+                                    affected_consumers=[consumer_contract.service_name],
+                                )
+                            )
 
         return breaking_changes
 
     def check_version_compatibility(
-        self, old_contract: ServiceContract, new_contract: ServiceContract,
+        self,
+        old_contract: ServiceContract,
+        new_contract: ServiceContract,
     ) -> list[BreakingChange]:
         """Detect breaking changes between two versions of the same service."""
         breaking_changes: list[BreakingChange] = []
@@ -374,13 +385,15 @@ class ContractCompatibilityChecker:
         # Removed endpoints
         for ep_id in old_map:
             if ep_id not in new_map:
-                breaking_changes.append(BreakingChange(
-                    change_type=ChangeType.ENDPOINT_REMOVED,
-                    service=new_contract.service_name,
-                    endpoint=ep_id,
-                    description=f"Endpoint {ep_id} was removed",
-                    severity="critical",
-                ))
+                breaking_changes.append(
+                    BreakingChange(
+                        change_type=ChangeType.ENDPOINT_REMOVED,
+                        service=new_contract.service_name,
+                        endpoint=ep_id,
+                        description=f"Endpoint {ep_id} was removed",
+                        severity="critical",
+                    )
+                )
 
         # Changed endpoints
         for ep_id, old_ep in old_map.items():
@@ -393,41 +406,47 @@ class ContractCompatibilityChecker:
 
             for name, old_field in old_resp_map.items():
                 if name not in new_resp_map:
-                    breaking_changes.append(BreakingChange(
-                        change_type=ChangeType.FIELD_REMOVED,
-                        service=new_contract.service_name,
-                        endpoint=ep_id,
-                        field_name=name,
-                        description=f"Response field '{name}' was removed",
-                        severity="high",
-                    ))
-                else:
-                    new_field = new_resp_map[name]
-                    if old_field.field_type != new_field.field_type:
-                        breaking_changes.append(BreakingChange(
-                            change_type=ChangeType.TYPE_CHANGED,
+                    breaking_changes.append(
+                        BreakingChange(
+                            change_type=ChangeType.FIELD_REMOVED,
                             service=new_contract.service_name,
                             endpoint=ep_id,
                             field_name=name,
-                            description=(
-                                f"Type of '{name}' changed from "
-                                f"{old_field.field_type.value} to {new_field.field_type.value}"
-                            ),
+                            description=f"Response field '{name}' was removed",
                             severity="high",
-                        ))
+                        )
+                    )
+                else:
+                    new_field = new_resp_map[name]
+                    if old_field.field_type != new_field.field_type:
+                        breaking_changes.append(
+                            BreakingChange(
+                                change_type=ChangeType.TYPE_CHANGED,
+                                service=new_contract.service_name,
+                                endpoint=ep_id,
+                                field_name=name,
+                                description=(
+                                    f"Type of '{name}' changed from "
+                                    f"{old_field.field_type.value} to {new_field.field_type.value}"
+                                ),
+                                severity="high",
+                            )
+                        )
 
             # New required request fields
             old_req_names = {f.name for f in old_ep.request_fields}
             for new_field in new_ep.request_fields:
                 if new_field.name not in old_req_names and new_field.required:
-                    breaking_changes.append(BreakingChange(
-                        change_type=ChangeType.FIELD_ADDED_REQUIRED,
-                        service=new_contract.service_name,
-                        endpoint=ep_id,
-                        field_name=new_field.name,
-                        description=f"New required request field '{new_field.name}' added",
-                        severity="high",
-                    ))
+                    breaking_changes.append(
+                        BreakingChange(
+                            change_type=ChangeType.FIELD_ADDED_REQUIRED,
+                            service=new_contract.service_name,
+                            endpoint=ep_id,
+                            field_name=new_field.name,
+                            description=f"New required request field '{new_field.name}' added",
+                            severity="high",
+                        )
+                    )
 
         return breaking_changes
 
@@ -472,7 +491,9 @@ class VerificationGraph:
             if consumer is None or provider is None:
                 continue
             breaks = self._checker.check_compatibility(
-                consumer, provider, dep.endpoints_used or None,
+                consumer,
+                provider,
+                dep.endpoints_used or None,
             )
             dep.verified = len(breaks) == 0
             all_breaks.extend(breaks)

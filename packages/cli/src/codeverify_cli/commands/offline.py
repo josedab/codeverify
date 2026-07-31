@@ -161,10 +161,7 @@ def offline_analyze(ctx: click.Context, path: str, output_format: str) -> None:
 
     path_obj = Path(path)
 
-    if path_obj.is_file():
-        files = [path_obj]
-    else:
-        files = list(path_obj.rglob("*.py"))[:20]
+    files = [path_obj] if path_obj.is_file() else list(path_obj.rglob("*.py"))[:20]
 
     if not files:
         console.print("[yellow]No Python files found[/yellow]")

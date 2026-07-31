@@ -8,6 +8,8 @@ This module provides:
 """
 
 import asyncio
+import contextlib
+import functools
 import hashlib
 import time
 from collections import defaultdict
@@ -55,9 +57,7 @@ class TextRange:
             return False
         if line == self.start_line and col < self.start_col:
             return False
-        if line == self.end_line and col > self.end_col:
-            return False
-        return True
+        return not (line == self.end_line and col > self.end_col)
 
     def overlaps(self, other: "TextRange") -> bool:
         """Check if ranges overlap."""
@@ -67,9 +67,7 @@ class TextRange:
             return False
         if self.end_line == other.start_line and self.end_col < other.start_col:
             return False
-        if self.start_line == other.end_line and self.start_col > other.end_col:
-            return False
-        return True
+        return not (self.start_line == other.end_line and self.start_col > other.end_col)
 
 
 @dataclass
@@ -105,7 +103,7 @@ class IncrementalASTParser:
     when code changes occur.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: dict[str, ASTNode] = {}
         self.root_id: str | None = None
         self.content: str = ""
@@ -156,12 +154,10 @@ class IncrementalASTParser:
         import re
 
         lines = content.split("\n")
-        current_indent = 0
         i = 0
 
         while i < len(lines):
             line = lines[i]
-            stripped = line.strip()
 
             # Function definition
             func_match = re.match(r"^(\s*)(async\s+)?def\s+(\w+)\s*\(", line)
@@ -174,9 +170,13 @@ class IncrementalASTParser:
                 end_line = i + 1
                 while end_line < len(lines):
                     next_line = lines[end_line]
-                    if next_line.strip() and not next_line.startswith(" " * (indent + 1)):
-                        if not next_line.startswith(" " * (indent + 1)) and next_line.strip():
-                            break
+                    if (
+                        next_line.strip()
+                        and not next_line.startswith(" " * (indent + 1))
+                        and not next_line.startswith(" " * (indent + 1))
+                        and next_line.strip()
+                    ):
+                        break
                     end_line += 1
                 end_line = max(i, end_line - 1)
 
@@ -241,11 +241,9 @@ class IncrementalASTParser:
 
         lines = content.split("\n")
         i = 0
-        brace_depth = 0
 
         while i < len(lines):
             line = lines[i]
-            stripped = line.strip()
 
             # Function/method definition
             func_match = re.match(
@@ -509,7 +507,7 @@ class Debouncer:
         self.delay_ms = delay_ms
         self.max_delay_ms = max_delay_ms
         self.adaptive = adaptive
-        self._pending_tasks: dict[str, asyncio.Task] = {}
+        self._pending_tasks: dict[str, asyncio.Task[None]] = {}
         self._last_trigger: dict[str, float] = {}
         self._trigger_count: dict[str, int] = defaultdict(int)
 
@@ -541,15 +539,13 @@ class Debouncer:
         # Cancel existing pending task
         if key in self._pending_tasks:
             self._pending_tasks[key].cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._pending_tasks[key]
-            except asyncio.CancelledError:
-                pass
 
         self._trigger_count[key] += 1
         delay = self._calculate_delay(key)
 
-        async def delayed_callback():
+        async def delayed_callback() -> None:
             await asyncio.sleep(delay)
             self._last_trigger[key] = time.time()
             if asyncio.iscoroutinefunction(callback):
@@ -644,7 +640,7 @@ class ContinuousVerificationEngine:
         self._results: dict[str, VerificationResult] = {}
         self._callbacks: list[Callable[[VerificationResult], None]] = []
         self._running = False
-        self._worker_task: asyncio.Task | None = None
+        self._worker_task: asyncio.Task[None] | None = None
 
     async def initialize(self, content: str, language: str = "python") -> None:
         """Initialize engine with file content."""
@@ -658,10 +654,8 @@ class ContinuousVerificationEngine:
         self.debouncer.cancel_all()
         if self._worker_task:
             self._worker_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._worker_task
-            except asyncio.CancelledError:
-                pass
 
     def on_result(self, callback: Callable[[VerificationResult], None]) -> None:
         """Register callback for verification results."""
@@ -681,9 +675,12 @@ class ContinuousVerificationEngine:
 
         # Debounce verification
         for node_id in all_affected:
+            # functools.partial binds node_id at creation time (avoiding the late-binding
+            # closure bug); it also sidesteps a mypy limitation where it cannot infer the
+            # type of a lambda's default-valued parameter in this zero-arg-callable context.
             await self.debouncer.debounce(
                 f"verify:{node_id}",
-                lambda nid=node_id: self._queue_verification(nid),
+                functools.partial(self._queue_verification, node_id),
             )
 
     def _queue_verification(self, node_id: str) -> None:
@@ -704,10 +701,8 @@ class ContinuousVerificationEngine:
 
                 # Notify callbacks
                 for callback in self._callbacks:
-                    try:
+                    with contextlib.suppress(Exception):
                         callback(result)
-                    except Exception:
-                        pass
 
             except TimeoutError:
                 continue

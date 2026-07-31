@@ -14,6 +14,7 @@ dependencies = [
     "codeverify-core>=0.2.0",
     "codeverify-verifier>=0.2.0",
     "codeverify-agents>=0.2.0",
+    "codeverify-lsp>=0.1.0",
 ]
 
 [project.optional-dependencies]

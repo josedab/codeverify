@@ -129,13 +129,17 @@ class VerificationAnswer:
 class NaturalLanguageQueryParser:
     """Parses natural language queries into formal verification queries."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Define patterns for different query types
         self._patterns = self._build_patterns()
 
-    def _build_patterns(self) -> list[tuple[re.Pattern, QueryType, Callable]]:
+    def _build_patterns(
+        self,
+    ) -> list[tuple[re.Pattern[str], QueryType, Callable[[ParsedQuery, re.Match[str], str], None]]]:
         """Build regex patterns for query recognition."""
-        patterns = []
+        patterns: list[
+            tuple[re.Pattern[str], QueryType, Callable[[ParsedQuery, re.Match[str], str], None]]
+        ] = []
 
         # Null check patterns
         null_patterns = [
@@ -294,7 +298,7 @@ class NaturalLanguageQueryParser:
     def _extract_null_check(
         self,
         parsed: ParsedQuery,
-        match: re.Match,
+        match: re.Match[str],
         query: str,
     ) -> None:
         """Extract null check query components."""
@@ -309,8 +313,8 @@ class NaturalLanguageQueryParser:
     def _extract_bounds_check(
         self,
         parsed: ParsedQuery,
-        match: re.Match,
-        query: str,
+        match: re.Match[str],
+        _query: str,
     ) -> None:
         """Extract bounds check query components."""
         if match.groups():
@@ -321,8 +325,8 @@ class NaturalLanguageQueryParser:
     def _extract_value_check(
         self,
         parsed: ParsedQuery,
-        match: re.Match,
-        query: str,
+        match: re.Match[str],
+        _query: str,
     ) -> None:
         """Extract value check query components."""
         if match.groups():
@@ -333,8 +337,8 @@ class NaturalLanguageQueryParser:
     def _extract_reachability(
         self,
         parsed: ParsedQuery,
-        match: re.Match,
-        query: str,
+        match: re.Match[str],
+        _query: str,
     ) -> None:
         """Extract reachability query components."""
         if match.groups():
@@ -346,8 +350,8 @@ class NaturalLanguageQueryParser:
     def _extract_termination(
         self,
         parsed: ParsedQuery,
-        match: re.Match,
-        query: str,
+        _match: re.Match[str],
+        _query: str,
     ) -> None:
         """Extract termination query components."""
         parsed.subject = "loop"
@@ -356,8 +360,8 @@ class NaturalLanguageQueryParser:
     def _extract_exception(
         self,
         parsed: ParsedQuery,
-        match: re.Match,
-        query: str,
+        _match: re.Match[str],
+        _query: str,
     ) -> None:
         """Extract exception query components."""
         parsed.subject = "function"
@@ -366,8 +370,8 @@ class NaturalLanguageQueryParser:
     def _extract_invariant(
         self,
         parsed: ParsedQuery,
-        match: re.Match,
-        query: str,
+        match: re.Match[str],
+        _query: str,
     ) -> None:
         """Extract invariant query components."""
         groups = match.groups()
@@ -380,7 +384,7 @@ class NaturalLanguageQueryParser:
     def _extract_comparison(
         self,
         parsed: ParsedQuery,
-        match: re.Match,
+        match: re.Match[str],
         query: str,
     ) -> None:
         """Extract comparison query components."""
@@ -595,7 +599,7 @@ class AnswerGenerator:
         self,
         answer: VerificationAnswer,
         parsed: ParsedQuery,
-        result: ProofResult,
+        _result: ProofResult,
         details: dict[str, Any],
     ) -> None:
         """Generate value check answer."""
@@ -654,9 +658,9 @@ class AnswerGenerator:
     def _generate_termination_answer(
         self,
         answer: VerificationAnswer,
-        parsed: ParsedQuery,
+        _parsed: ParsedQuery,
         result: ProofResult,
-        details: dict[str, Any],
+        _details: dict[str, Any],
     ) -> None:
         """Generate termination answer."""
         if result == ProofResult.PROVEN:
@@ -678,7 +682,7 @@ class AnswerGenerator:
     def _generate_exception_answer(
         self,
         answer: VerificationAnswer,
-        parsed: ParsedQuery,
+        _parsed: ParsedQuery,
         result: ProofResult,
         details: dict[str, Any],
     ) -> None:
@@ -703,9 +707,9 @@ class AnswerGenerator:
     def _generate_generic_answer(
         self,
         answer: VerificationAnswer,
-        parsed: ParsedQuery,
-        result: ProofResult,
-        details: dict[str, Any],
+        _parsed: ParsedQuery,
+        _result: ProofResult,
+        _details: dict[str, Any],
     ) -> None:
         """Generate generic answer for unknown query types."""
         answer.answer = "I couldn't fully understand your question."
@@ -729,7 +733,7 @@ class NLVerificationEngine:
     Combines parsing, verification, and answer generation.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.parser = NaturalLanguageQueryParser()
         self.answer_generator = AnswerGenerator()
         self._query_history: list[dict[str, Any]] = []
@@ -779,7 +783,7 @@ class NLVerificationEngine:
         self,
         parsed: ParsedQuery,
         code: str,
-        language: str,
+        _language: str,
     ) -> tuple[ProofResult, dict[str, Any]]:
         """Perform verification based on parsed query."""
         details: dict[str, Any] = {}
@@ -881,7 +885,7 @@ class NLVerificationEngine:
 
     def _verify_exceptions(
         self,
-        parsed: ParsedQuery,
+        _parsed: ParsedQuery,
         code: str,
     ) -> tuple[ProofResult, dict[str, Any]]:
         """Verify exception safety."""
@@ -907,8 +911,8 @@ class NLVerificationEngine:
 
     def _verify_comparison(
         self,
-        parsed: ParsedQuery,
-        code: str,
+        _parsed: ParsedQuery,
+        _code: str,
     ) -> tuple[ProofResult, dict[str, Any]]:
         """Verify comparison."""
         # Simplified - would use Z3 in production

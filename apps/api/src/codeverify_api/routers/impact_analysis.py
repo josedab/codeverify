@@ -286,8 +286,10 @@ async def parse_dependencies(request: DependencyParseRequest) -> list[PackageRef
                         name=name, version=version, source_file="package.json", dep_type="peer"
                     )
                 )
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON")
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON"
+            ) from e
 
     elif request.file_type == "requirements.txt":
         for line in request.content.splitlines():

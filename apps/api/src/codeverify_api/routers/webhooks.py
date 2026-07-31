@@ -45,26 +45,29 @@ async def handle_github_webhook(
     x_github_event: str = Header(..., alias="X-GitHub-Event"),
     x_hub_signature_256: str = Header(None, alias="X-Hub-Signature-256"),
     x_github_delivery: str = Header(..., alias="X-GitHub-Delivery"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> dict[str, Any]:
     """Handle incoming GitHub webhooks."""
     payload = await request.body()
 
     # Verify signature in production
-    if settings.ENVIRONMENT != "development" and settings.GITHUB_WEBHOOK_SECRET:
-        if not verify_github_signature(
+    if (
+        settings.ENVIRONMENT != "development"
+        and settings.GITHUB_WEBHOOK_SECRET
+        and not verify_github_signature(
             payload, x_hub_signature_256 or "", settings.GITHUB_WEBHOOK_SECRET
-        ):
-            logger.warning("Invalid webhook signature", delivery_id=x_github_delivery)
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid signature",
-            )
+        )
+    ):
+        logger.warning("Invalid webhook signature", delivery_id=x_github_delivery)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid signature",
+        )
 
     data = await request.json()
     logger.info(
         "Received GitHub webhook",
-        event=x_github_event,
+        event_type=x_github_event,
         delivery_id=x_github_delivery,
         action=data.get("action"),
     )
@@ -87,24 +90,25 @@ async def handle_gitlab_webhook(
     x_gitlab_token: str = Header(None, alias="X-Gitlab-Token"),
 ) -> dict[str, Any]:
     """Handle incoming GitLab webhooks."""
-    payload = await request.body()
-
     # Verify token in production
     gitlab_secret = getattr(settings, "GITLAB_WEBHOOK_SECRET", None)
-    if settings.ENVIRONMENT != "development" and gitlab_secret:
-        if not verify_gitlab_token(x_gitlab_token or "", gitlab_secret):
-            logger.warning("Invalid GitLab webhook token")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-            )
+    if (
+        settings.ENVIRONMENT != "development"
+        and gitlab_secret
+        and not verify_gitlab_token(x_gitlab_token or "", gitlab_secret)
+    ):
+        logger.warning("Invalid GitLab webhook token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
 
     data = await request.json()
     event_type = data.get("object_kind", x_gitlab_event or "unknown")
 
     logger.info(
         "Received GitLab webhook",
-        event=event_type,
+        event_type=event_type,
         action=data.get("object_attributes", {}).get("action"),
     )
 
@@ -122,7 +126,7 @@ async def handle_bitbucket_webhook(
     request: Request,
     x_event_key: str = Header(..., alias="X-Event-Key"),
     x_hook_uuid: str = Header(None, alias="X-Hook-UUID"),
-    x_request_uuid: str = Header(None, alias="X-Request-UUID"),
+    _x_request_uuid: str = Header(None, alias="X-Request-UUID"),
 ) -> dict[str, Any]:
     """Handle incoming Bitbucket webhooks."""
     payload = await request.body()
@@ -144,7 +148,7 @@ async def handle_bitbucket_webhook(
     data = await request.json()
     logger.info(
         "Received Bitbucket webhook",
-        event=x_event_key,
+        event_type=x_event_key,
         hook_uuid=x_hook_uuid,
     )
 

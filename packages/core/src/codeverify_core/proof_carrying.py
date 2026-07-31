@@ -286,7 +286,10 @@ class ProofCompressor:
 
         raw = base64.b64decode(compressed)
         decompressed = gzip.decompress(raw)
-        return json.loads(decompressed.decode("utf-8"))
+        result = json.loads(decompressed.decode("utf-8"))
+        if not isinstance(result, dict):
+            raise ValueError("Decompressed proof data is not a JSON object")
+        return result
 
 
 class ProofCarryingPRManager:
@@ -421,7 +424,7 @@ class ProofCarryingPRManager:
             "counterexamples": counterexamples,
             "timeouts": timeouts,
             "total_proof_time_ms": total_time,
-            "files_verified": len(set(p.file_path for p in proofs)),
+            "files_verified": len({p.file_path for p in proofs}),
             "all_verified": counterexamples == 0 and timeouts == 0,
         }
 
@@ -561,7 +564,7 @@ class ProofArtifactStore:
     def find_reusable_proof(
         self,
         formula: str,
-        commit_sha: str | None = None,
+        _commit_sha: str | None = None,
     ) -> VerificationProof | None:
         """
         Find a reusable proof for a formula.

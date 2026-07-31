@@ -8,6 +8,7 @@ Key differentiator: Each fix is mathematically proven correct using Z3.
 
 import difflib
 import hashlib
+import importlib.util
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -273,8 +274,6 @@ class FixGenerator:
         language: str,
     ) -> GeneratedFix | None:
         """Generate fix using AI/LLM."""
-        prompt = self._build_fix_prompt(finding, code, language)
-
         # In production, this would call the LLM
         # For now, we simulate with pattern-based fixes
         fixed_code = self._simulate_ai_fix(finding, code, language)
@@ -362,46 +361,44 @@ class FixGenerator:
 
         return "\n".join(fixed_lines)
 
-    def _simulate_ai_fix(self, finding: Finding, code: str, language: str) -> str:
+    def _simulate_ai_fix(self, finding: Finding, code: str, _language: str) -> str:
         """Simulate AI-generated fix (placeholder for actual LLM call)."""
         lines = code.split("\n")
 
-        if finding.category == FixCategory.NULL_SAFETY:
+        if finding.category == FixCategory.NULL_SAFETY and finding.line_start <= len(lines):
             # Add null check before problematic line
-            if finding.line_start <= len(lines):
-                problem_line = lines[finding.line_start - 1]
-                indent = len(problem_line) - len(problem_line.lstrip())
+            problem_line = lines[finding.line_start - 1]
+            indent = len(problem_line) - len(problem_line.lstrip())
 
-                # Find variable being dereferenced
-                match = re.search(r"(\w+)\.", problem_line)
-                if match:
-                    var = match.group(1)
-                    guard = " " * indent + f"if {var} is not None:"
-                    indented_problem = " " * (indent + 4) + problem_line.strip()
+            # Find variable being dereferenced
+            match = re.search(r"(\w+)\.", problem_line)
+            if match:
+                var = match.group(1)
+                guard = " " * indent + f"if {var} is not None:"
+                indented_problem = " " * (indent + 4) + problem_line.strip()
 
-                    fixed_lines = lines.copy()
-                    fixed_lines[finding.line_start - 1] = guard + "\n" + indented_problem
-                    return "\n".join(fixed_lines)
+                fixed_lines = lines.copy()
+                fixed_lines[finding.line_start - 1] = guard + "\n" + indented_problem
+                return "\n".join(fixed_lines)
 
-        elif finding.category == FixCategory.BOUNDS_CHECK:
-            if finding.line_start <= len(lines):
-                problem_line = lines[finding.line_start - 1]
-                indent = len(problem_line) - len(problem_line.lstrip())
+        if finding.category == FixCategory.BOUNDS_CHECK and finding.line_start <= len(lines):
+            problem_line = lines[finding.line_start - 1]
+            indent = len(problem_line) - len(problem_line.lstrip())
 
-                # Find array access
-                match = re.search(r"(\w+)\[(\w+)\]", problem_line)
-                if match:
-                    array, idx = match.groups()
-                    guard = " " * indent + f"if 0 <= {idx} < len({array}):"
-                    indented_problem = " " * (indent + 4) + problem_line.strip()
+            # Find array access
+            match = re.search(r"(\w+)\[(\w+)\]", problem_line)
+            if match:
+                array, idx = match.groups()
+                guard = " " * indent + f"if 0 <= {idx} < len({array}):"
+                indented_problem = " " * (indent + 4) + problem_line.strip()
 
-                    fixed_lines = lines.copy()
-                    fixed_lines[finding.line_start - 1] = guard + "\n" + indented_problem
-                    return "\n".join(fixed_lines)
+                fixed_lines = lines.copy()
+                fixed_lines[finding.line_start - 1] = guard + "\n" + indented_problem
+                return "\n".join(fixed_lines)
 
         return code
 
-    def _fix_single_line(self, line: str, finding: Finding, language: str) -> str | None:
+    def _fix_single_line(self, line: str, finding: Finding, _language: str) -> str | None:
         """Try to fix a single line."""
         if finding.category == FixCategory.NULL_SAFETY:
             # Convert x.method() to x.method() if x is not None else None
@@ -517,10 +514,8 @@ class FixVerifier:
 
     def _run_verification(self, fix: GeneratedFix, finding: Finding) -> dict[str, Any]:
         """Run Z3 verification on the fix."""
-        # Import Z3 verifier
-        try:
-            from z3 import And, Bool, Implies, Int, Not, Or, Solver, sat, unsat
-        except ImportError:
+        # Check Z3 availability without importing unused names
+        if importlib.util.find_spec("z3") is None:
             return {"verified": True, "details": "Z3 not available, skipping formal verification"}
 
         # Build verification conditions based on finding category
@@ -618,7 +613,7 @@ class TestGenerator:
 
         return tests
 
-    def _generate_null_safety_tests(self, fix: GeneratedFix, finding: Finding) -> list[str]:
+    def _generate_null_safety_tests(self, fix: GeneratedFix, _finding: Finding) -> list[str]:
         """Generate tests for null safety fixes."""
         func_match = re.search(r"def\s+(\w+)", fix.fixed_code)
         func_name = func_match.group(1) if func_match else "function_under_test"
@@ -638,7 +633,7 @@ class TestGenerator:
 ''',
         ]
 
-    def _generate_bounds_tests(self, fix: GeneratedFix, finding: Finding) -> list[str]:
+    def _generate_bounds_tests(self, _fix: GeneratedFix, _finding: Finding) -> list[str]:
         """Generate tests for bounds check fixes."""
         return [
             '''def test_bounds_negative_index():
@@ -655,7 +650,7 @@ class TestGenerator:
 ''',
         ]
 
-    def _generate_generic_tests(self, fix: GeneratedFix, finding: Finding) -> list[str]:
+    def _generate_generic_tests(self, _fix: GeneratedFix, finding: Finding) -> list[str]:
         """Generate generic regression tests."""
         return [
             f'''def test_fix_for_{finding.id.replace("-", "_")}():

@@ -169,14 +169,14 @@ class FeatureExtractor:
         features = self._compute_features(code, metrics, language)
         return metrics, features
 
-    def _extract_metrics(self, code: str, language: str) -> CodeMetrics:
+    def _extract_metrics(self, code: str, _language: str) -> CodeMetrics:
         """Extract structural metrics from code."""
         lines = code.split("\n")
         metrics = CodeMetrics()
 
         # Basic counts
         metrics.line_count = len(lines)
-        metrics.non_empty_lines = sum(1 for l in lines if l.strip())
+        metrics.non_empty_lines = sum(1 for line in lines if line.strip())
 
         # Comment analysis
         comment_lines = []
@@ -197,7 +197,7 @@ class FeatureExtractor:
         metrics.import_count = len(re.findall(r"^\s*(?:import|from)\s+", code, re.MULTILINE))
 
         # Line length stats
-        line_lengths = [len(l) for l in lines if l.strip()]
+        line_lengths = [len(line) for line in lines if line.strip()]
         if line_lengths:
             metrics.avg_line_length = statistics.mean(line_lengths)
             if len(line_lengths) > 1:
@@ -295,9 +295,9 @@ class FeatureExtractor:
 
         # Perfect formatting check
         perfect_indent = all(
-            (len(l) - len(l.lstrip())) % 4 == 0
-            for l in lines
-            if l.strip() and not l.strip().startswith("#")
+            (len(line) - len(line.lstrip())) % 4 == 0
+            for line in lines
+            if line.strip() and not line.strip().startswith("#")
         )
         metrics.has_perfect_formatting = perfect_indent and metrics.indent_consistency > 0.9
 
@@ -317,7 +317,9 @@ class FeatureExtractor:
 
         return metrics
 
-    def _compute_features(self, code: str, metrics: CodeMetrics, language: str) -> dict[str, float]:
+    def _compute_features(
+        self, code: str, metrics: CodeMetrics, _language: str
+    ) -> dict[str, float]:
         """Compute normalized feature vector for classification."""
         features = {}
 
@@ -422,10 +424,7 @@ class AIClassifier:
             weight_sum += abs(weight)
 
         # Normalize score to 0-1
-        if weight_sum > 0:
-            normalized_score = (score / weight_sum + 1) / 2
-        else:
-            normalized_score = 0.5
+        normalized_score = (score / weight_sum + 1) / 2 if weight_sum > 0 else 0.5
 
         # Apply sigmoid for smoother probability
         confidence = 1 / (1 + math.exp(-5 * (normalized_score - 0.5)))

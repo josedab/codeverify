@@ -111,7 +111,7 @@ class Component:
 
     def to_cyclonedx(self) -> dict[str, Any]:
         """Convert to CycloneDX format."""
-        component = {
+        component: dict[str, Any] = {
             "type": self.type.value,
             "name": self.name,
             "version": self.version,
@@ -144,7 +144,7 @@ class Component:
 
     def to_spdx(self) -> dict[str, Any]:
         """Convert to SPDX format."""
-        package = {
+        package: dict[str, Any] = {
             "SPDXID": f"SPDXRef-Package-{self.name}-{self.version}".replace(".", "-"),
             "name": self.name,
             "versionInfo": self.version,
@@ -274,7 +274,7 @@ class SBOM:
 
     def to_cyclonedx(self) -> dict[str, Any]:
         """Export as CycloneDX 1.5 format."""
-        sbom = {
+        sbom: dict[str, Any] = {
             "bomFormat": "CycloneDX",
             "specVersion": "1.5",
             "serialNumber": f"urn:uuid:{self.serial_number}",
@@ -337,7 +337,7 @@ class SBOM:
 
     def to_spdx(self) -> dict[str, Any]:
         """Export as SPDX 2.3 format."""
-        spdx = {
+        spdx: dict[str, Any] = {
             "spdxVersion": "SPDX-2.3",
             "dataLicense": "CC0-1.0",
             "SPDXID": "SPDXRef-DOCUMENT",
@@ -680,10 +680,7 @@ class VerifiedSBOMExporter:
             - signature: Cryptographic signature (if signing enabled)
             - metadata: Export metadata
         """
-        if format == SBOMFormat.CYCLONEDX:
-            sbom_content = sbom.to_cyclonedx()
-        else:
-            sbom_content = sbom.to_spdx()
+        sbom_content = sbom.to_cyclonedx() if format == SBOMFormat.CYCLONEDX else sbom.to_spdx()
 
         result = {
             "sbom": sbom_content,

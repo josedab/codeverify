@@ -269,7 +269,6 @@ class CppParser(CodeParser):
             match = class_pattern.match(lines[i])
 
             if match:
-                class_type = match.group(1)
                 name = match.group(2)
                 bases = match.group(3)
 

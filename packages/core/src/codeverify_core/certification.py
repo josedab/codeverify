@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -148,7 +148,7 @@ class AssessmentSubmission:
     points_earned: int = 0
     total_points: int = 0
     passed: bool = False
-    submitted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    submitted_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     graded_at: datetime | None = None
     attempt_number: int = 1
 
@@ -165,7 +165,7 @@ class DigitalBadge:
     image_url: str = ""
     criteria: str = ""
     issued_to: str = ""
-    issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    issued_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     verification_url: str = ""
     credential_hash: str = ""
@@ -186,17 +186,15 @@ class Certificate:
     level: CertificationLevel = CertificationLevel.FOUNDATIONS
     holder_name: str = ""
     holder_email: str = ""
-    issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=730)
-    )
+    issued_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime = field(default_factory=lambda: datetime.now(UTC) + timedelta(days=730))
     certificate_number: str = ""
     verification_hash: str = ""
     badges: list[DigitalBadge] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
-        return datetime.now(timezone.utc) < self.expires_at
+        return datetime.now(UTC) < self.expires_at
 
     @property
     def verification_url(self) -> str:
@@ -210,7 +208,7 @@ class LearnerProgress:
     learner_id: str = ""
     learner_name: str = ""
     learner_email: str = ""
-    enrolled_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    enrolled_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     module_status: dict[str, ModuleStatus] = field(default_factory=dict)
     lab_completions: list[str] = field(default_factory=list)
     assessment_submissions: list[AssessmentSubmission] = field(default_factory=list)
@@ -241,7 +239,12 @@ class CourseBuilder:
                 order=1,
                 level=CertificationLevel.FOUNDATIONS,
                 duration_minutes=30,
-                topics=["What is formal verification", "SMT solvers", "Proofs vs testing", "CodeVerify overview"],
+                topics=[
+                    "What is formal verification",
+                    "SMT solvers",
+                    "Proofs vs testing",
+                    "CodeVerify overview",
+                ],
                 learning_objectives=[
                     "Explain the difference between testing and formal verification",
                     "Describe how Z3 SMT solver works at a high level",
@@ -392,9 +395,7 @@ class CourseBuilder:
 class AssessmentGrader:
     """Grades certification assessments."""
 
-    def grade(
-        self, assessment: Assessment, answers: dict[str, str]
-    ) -> AssessmentSubmission:
+    def grade(self, assessment: Assessment, answers: dict[str, str]) -> AssessmentSubmission:
         """Grade an assessment submission."""
         points_earned = 0
         total_points = assessment.total_points
@@ -414,7 +415,7 @@ class AssessmentGrader:
             points_earned=points_earned,
             total_points=total_points,
             passed=passed,
-            graded_at=datetime.now(timezone.utc),
+            graded_at=datetime.now(UTC),
         )
 
 
@@ -488,14 +489,10 @@ class CertificationProgram:
         """Initialize the foundations curriculum."""
         self.modules = self.course_builder.build_foundations_course()
         self.labs = self.course_builder.build_labs(self.modules)
-        foundations_exam = self.course_builder.build_assessment(
-            CertificationLevel.FOUNDATIONS
-        )
+        foundations_exam = self.course_builder.build_assessment(CertificationLevel.FOUNDATIONS)
         self.assessments[foundations_exam.id] = foundations_exam
 
-    def enroll_learner(
-        self, name: str, email: str
-    ) -> LearnerProgress:
+    def enroll_learner(self, name: str, email: str) -> LearnerProgress:
         """Enroll a new learner."""
         learner_id = str(uuid.uuid4())[:8]
         progress = LearnerProgress(
@@ -508,9 +505,7 @@ class CertificationProgram:
         logger.info("learner_enrolled", learner_id=learner_id, name=name)
         return progress
 
-    def complete_module(
-        self, learner_id: str, module_id: str
-    ) -> ModuleStatus:
+    def complete_module(self, learner_id: str, module_id: str) -> ModuleStatus:
         """Mark a module as completed for a learner."""
         progress = self.learners.get(learner_id)
         if not progress:
@@ -543,10 +538,10 @@ class CertificationProgram:
 
         submission = self.grader.grade(assessment, answers)
         submission.learner_id = learner_id
-        submission.attempt_number = len([
-            s for s in progress.assessment_submissions
-            if s.assessment_id == assessment_id
-        ]) + 1
+        submission.attempt_number = (
+            len([s for s in progress.assessment_submissions if s.assessment_id == assessment_id])
+            + 1
+        )
 
         progress.assessment_submissions.append(submission)
 
@@ -579,11 +574,10 @@ class CertificationProgram:
     def get_program_stats(self) -> dict[str, Any]:
         """Get overall program statistics."""
         total_enrolled = len(self.learners)
-        total_certified = sum(
-            1 for l in self.learners.values() if l.certificates
-        )
+        total_certified = sum(1 for learner in self.learners.values() if learner.certificates)
         avg_completion = (
-            sum(l.completion_percentage for l in self.learners.values()) / total_enrolled
+            sum(learner.completion_percentage for learner in self.learners.values())
+            / total_enrolled
             if total_enrolled > 0
             else 0.0
         )
@@ -592,9 +586,7 @@ class CertificationProgram:
             "total_enrolled": total_enrolled,
             "total_certified": total_certified,
             "certification_rate": (
-                f"{total_certified / total_enrolled:.0%}"
-                if total_enrolled > 0
-                else "0%"
+                f"{total_certified / total_enrolled:.0%}" if total_enrolled > 0 else "0%"
             ),
             "average_completion": f"{avg_completion:.0f}%",
             "total_modules": len(self.modules),

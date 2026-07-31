@@ -57,11 +57,11 @@ class TestIntentExtractor:
             title="Add rate limiting to API endpoints",
             description="""
             Implement rate limiting for all public API endpoints.
-            
+
             - Add RateLimiter class in utils/
             - Apply to /api/v1/* routes
             - Configure limits via environment variables
-            
+
             Should not modify authentication logic.
             """,
             issue_type="feature",
@@ -116,7 +116,7 @@ class TestIntentExtractor:
             Update logging in these files:
             - src/services/auth.py
             - src/api/users.ts
-            
+
             Component: AuthService
             Module: authentication
             """,
@@ -140,7 +140,7 @@ class TestIntentExtractor:
             - Migrate from raw SQL to ORM
             - Add connection pooling
             - Update all repository classes
-            
+
             1. Create base repository class
             2. Implement caching layer
             3. Add metrics

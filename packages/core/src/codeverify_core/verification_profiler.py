@@ -77,10 +77,13 @@ class StageProfile:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "stage": self.stage.value, "duration_ms": self.duration_ms,
-            "memory_mb": self.memory_mb, "cpu_percent": self.cpu_percent,
+            "stage": self.stage.value,
+            "duration_ms": self.duration_ms,
+            "memory_mb": self.memory_mb,
+            "cpu_percent": self.cpu_percent,
             "constraint_count": self.constraint_count,
-            "tokens_used": self.tokens_used, "cache_hit": self.cache_hit,
+            "tokens_used": self.tokens_used,
+            "cache_hit": self.cache_hit,
         }
 
 
@@ -98,8 +101,10 @@ class BottleneckInfo:
     def to_dict(self) -> dict[str, Any]:
         return {
             "bottleneck_type": self.bottleneck_type.value,
-            "stage": self.stage.value, "description": self.description,
-            "severity": self.severity, "suggested_fix": self.suggested_fix,
+            "stage": self.stage.value,
+            "description": self.description,
+            "severity": self.severity,
+            "suggested_fix": self.suggested_fix,
             "estimated_speedup": self.estimated_speedup,
         }
 
@@ -121,13 +126,16 @@ class FunctionProfile:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "function_name": self.function_name, "file_path": self.file_path,
-            "language": self.language, "total_time_ms": self.total_time_ms,
+            "function_name": self.function_name,
+            "file_path": self.file_path,
+            "language": self.language,
+            "total_time_ms": self.total_time_ms,
             "stages": [s.to_dict() for s in self.stages],
             "complexity_score": self.complexity_score,
             "line_count": self.line_count,
             "bottlenecks": [b.to_dict() for b in self.bottlenecks],
-            "verified": self.verified, "timestamp": self.timestamp.isoformat(),
+            "verified": self.verified,
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
@@ -144,10 +152,12 @@ class OptimizationRecommendation:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "strategy": self.strategy.value, "target": self.target,
+            "strategy": self.strategy.value,
+            "target": self.target,
             "description": self.description,
             "estimated_speedup_percent": self.estimated_speedup_percent,
-            "risk": self.risk, "implementation_effort": self.implementation_effort,
+            "risk": self.risk,
+            "implementation_effort": self.implementation_effort,
         }
 
 
@@ -166,8 +176,10 @@ class BudgetAllocation:
         return {
             "file_path": self.file_path,
             "allocated_time_ms": self.allocated_time_ms,
-            "actual_time_ms": self.actual_time_ms, "priority": self.priority,
-            "depth": self.depth, "utilization": self.utilization,
+            "actual_time_ms": self.actual_time_ms,
+            "priority": self.priority,
+            "depth": self.depth,
+            "utilization": self.utilization,
         }
 
 
@@ -252,27 +264,39 @@ class VerificationInstrumenter:
         """Begin profiling a function verification. Returns a profile_id."""
         profile_id = uuid.uuid4().hex[:12]
         self._active[profile_id] = _ActiveProfile(
-            profile_id=profile_id, function_name=function_name,
-            file_path=file_path, language=language,
+            profile_id=profile_id,
+            function_name=function_name,
+            file_path=file_path,
+            language=language,
             start_time_ns=time.perf_counter_ns(),
         )
         logger.debug("profiling_started", profile_id=profile_id, function=function_name)
         return profile_id
 
     def record_stage(
-        self, profile_id: str, stage: ProfileStage, duration_ms: float,
-        memory_mb: float = 0.0, cpu_percent: float = 0.0, **kwargs: Any,
+        self,
+        profile_id: str,
+        stage: ProfileStage,
+        duration_ms: float,
+        memory_mb: float = 0.0,
+        cpu_percent: float = 0.0,
+        **kwargs: Any,
     ) -> None:
         """Record metrics for a completed verification stage."""
         if profile_id not in self._active:
             logger.warning("record_stage_unknown_profile", profile_id=profile_id)
             return
-        self._active[profile_id].stages.append(StageProfile(
-            stage=stage, duration_ms=duration_ms, memory_mb=memory_mb,
-            cpu_percent=cpu_percent, constraint_count=kwargs.get("constraint_count", 0),
-            tokens_used=kwargs.get("tokens_used", 0),
-            cache_hit=kwargs.get("cache_hit", False),
-        ))
+        self._active[profile_id].stages.append(
+            StageProfile(
+                stage=stage,
+                duration_ms=duration_ms,
+                memory_mb=memory_mb,
+                cpu_percent=cpu_percent,
+                constraint_count=kwargs.get("constraint_count", 0),
+                tokens_used=kwargs.get("tokens_used", 0),
+                cache_hit=kwargs.get("cache_hit", False),
+            )
+        )
 
     def end_profiling(self, profile_id: str, verified: bool = True) -> FunctionProfile:
         """Finish profiling and return the completed FunctionProfile."""
@@ -289,10 +313,15 @@ class VerificationInstrumenter:
         line_count = int(parsing[0].duration_ms * 8) if parsing else 0
 
         profile = FunctionProfile(
-            function_name=active.function_name, file_path=active.file_path,
-            language=active.language, total_time_ms=total_ms,
-            stages=active.stages, complexity_score=complexity,
-            line_count=line_count, bottlenecks=[], verified=verified,
+            function_name=active.function_name,
+            file_path=active.file_path,
+            language=active.language,
+            total_time_ms=total_ms,
+            stages=active.stages,
+            complexity_score=complexity,
+            line_count=line_count,
+            bottlenecks=[],
+            verified=verified,
             timestamp=datetime.utcnow(),
         )
         logger.info("profiling_complete", profile_id=profile_id, total_ms=round(total_ms, 2))
@@ -311,16 +340,22 @@ class VerificationInstrumenter:
 class BottleneckDetector:
     """Analyses a FunctionProfile to detect performance bottlenecks."""
 
-    def __init__(self, timeout_threshold_ms: float = 5000.0, complexity_threshold: float = 50.0) -> None:
+    def __init__(
+        self, timeout_threshold_ms: float = 5000.0, complexity_threshold: float = 50.0
+    ) -> None:
         self._timeout_threshold_ms = timeout_threshold_ms
         self._complexity_threshold = complexity_threshold
 
     def detect_bottlenecks(self, profile: FunctionProfile) -> list[BottleneckInfo]:
         """Run all bottleneck checks against a profile."""
         results: list[BottleneckInfo] = []
-        for check in [self._check_timeout, self._check_complexity,
-                      self._check_constraint_explosion, self._check_memory,
-                      self._check_slow_model]:
+        for check in [
+            self._check_timeout,
+            self._check_complexity,
+            self._check_constraint_explosion,
+            self._check_memory,
+            self._check_slow_model,
+        ]:
             r = check(profile)
             if r is not None:
                 results.append(r)
@@ -359,7 +394,9 @@ class BottleneckDetector:
         if total <= 500:
             return None
         severity = min(total / 2000, 1.0)
-        solving_ms = sum(s.duration_ms for s in profile.stages if s.stage == ProfileStage.Z3_SOLVING)
+        solving_ms = sum(
+            s.duration_ms for s in profile.stages if s.stage == ProfileStage.Z3_SOLVING
+        )
         return BottleneckInfo(
             bottleneck_type=BottleneckType.MANY_CONSTRAINTS,
             stage=ProfileStage.Z3_SOLVING,
@@ -375,9 +412,11 @@ class BottleneckDetector:
             return None
         severity = min(peak.memory_mb / 2048.0, 1.0)
         return BottleneckInfo(
-            bottleneck_type=BottleneckType.MEMORY_LIMIT, stage=peak.stage,
+            bottleneck_type=BottleneckType.MEMORY_LIMIT,
+            stage=peak.stage,
             description=f"Stage {peak.stage.value} used {peak.memory_mb:.0f}MB",
-            severity=severity, suggested_fix="Reduce input size or enable streaming analysis",
+            severity=severity,
+            suggested_fix="Reduce input size or enable streaming analysis",
             estimated_speedup=0.2 * severity,
         )
 
@@ -393,7 +432,8 @@ class BottleneckDetector:
             return None
         tokens = sum(s.tokens_used for s in ai_stages)
         return BottleneckInfo(
-            bottleneck_type=BottleneckType.SLOW_MODEL, stage=ProfileStage.AI_ANALYSIS,
+            bottleneck_type=BottleneckType.SLOW_MODEL,
+            stage=ProfileStage.AI_ANALYSIS,
             description=f"AI analysis consumed {ratio:.0%} of total time ({ai_ms:.0f}ms, {tokens} tokens)",
             severity=min(ratio, 1.0),
             suggested_fix="Use a faster model or cache repeated analyses",
@@ -422,7 +462,9 @@ class OptimizationAdvisor:
         pass
 
     def recommend(
-        self, bottlenecks: list[BottleneckInfo], profile: FunctionProfile,
+        self,
+        bottlenecks: list[BottleneckInfo],
+        profile: FunctionProfile,
     ) -> list[OptimizationRecommendation]:
         """Generate recommendations for detected bottlenecks."""
         recs: list[OptimizationRecommendation] = []
@@ -439,34 +481,46 @@ class OptimizationAdvisor:
         return recs
 
     def _recommend_for_timeout(
-        self, bottleneck: BottleneckInfo, profile: FunctionProfile,
+        self,
+        bottleneck: BottleneckInfo,
+        profile: FunctionProfile,
     ) -> OptimizationRecommendation:
         return OptimizationRecommendation(
-            strategy=OptimizationStrategy.REDUCE_DEPTH, target=profile.function_name,
+            strategy=OptimizationStrategy.REDUCE_DEPTH,
+            target=profile.function_name,
             description=f"Reduce verification depth for {profile.function_name} to avoid timeout in {bottleneck.stage.value}",
             estimated_speedup_percent=bottleneck.estimated_speedup * 100,
-            risk="May miss deep semantic issues", implementation_effort="low",
+            risk="May miss deep semantic issues",
+            implementation_effort="low",
         )
 
     def _recommend_for_complexity(
-        self, bottleneck: BottleneckInfo, profile: FunctionProfile,
+        self,
+        bottleneck: BottleneckInfo,
+        profile: FunctionProfile,
     ) -> OptimizationRecommendation:
         return OptimizationRecommendation(
-            strategy=OptimizationStrategy.SPLIT_FUNCTION, target=profile.function_name,
+            strategy=OptimizationStrategy.SPLIT_FUNCTION,
+            target=profile.function_name,
             description=f"Split {profile.function_name} (complexity {profile.complexity_score:.1f}) into smaller units",
             estimated_speedup_percent=bottleneck.estimated_speedup * 100,
-            risk="Requires refactoring the source code", implementation_effort="high",
+            risk="Requires refactoring the source code",
+            implementation_effort="high",
         )
 
     def _recommend_for_constraints(
-        self, bottleneck: BottleneckInfo, profile: FunctionProfile,
+        self,
+        bottleneck: BottleneckInfo,
+        profile: FunctionProfile,
     ) -> OptimizationRecommendation:
         total_constraints = sum(s.constraint_count for s in profile.stages)
         return OptimizationRecommendation(
-            strategy=OptimizationStrategy.SIMPLIFY_CONSTRAINTS, target=profile.function_name,
+            strategy=OptimizationStrategy.SIMPLIFY_CONSTRAINTS,
+            target=profile.function_name,
             description=f"Simplify {total_constraints} constraints for {profile.function_name} to speed up solving",
             estimated_speedup_percent=bottleneck.estimated_speedup * 100,
-            risk="Simplified constraints may be less precise", implementation_effort="medium",
+            risk="Simplified constraints may be less precise",
+            implementation_effort="medium",
         )
 
 
@@ -481,7 +535,9 @@ class BudgetAllocator:
     def __init__(self, total_budget_ms: float = 60000.0) -> None:
         self._total_budget_ms = total_budget_ms
 
-    def allocate(self, files: list[dict[str, Any]], history: list[FunctionProfile]) -> list[BudgetAllocation]:
+    def allocate(
+        self, files: list[dict[str, Any]], history: list[FunctionProfile]
+    ) -> list[BudgetAllocation]:
         """Allocate time budget to each file based on priority and history."""
         if not files:
             return []
@@ -490,18 +546,24 @@ class BudgetAllocator:
         allocations: list[BudgetAllocation] = []
         for info, pri in priorities:
             allocated = self._total_budget_ms * (pri / total_pri)
-            allocations.append(BudgetAllocation(
-                file_path=info.get("path", "unknown"),
-                allocated_time_ms=round(allocated, 2), actual_time_ms=0.0,
-                priority=round(pri, 4), depth=self._select_depth(pri, allocated),
-                utilization=0.0,
-            ))
+            allocations.append(
+                BudgetAllocation(
+                    file_path=info.get("path", "unknown"),
+                    allocated_time_ms=round(allocated, 2),
+                    actual_time_ms=0.0,
+                    priority=round(pri, 4),
+                    depth=self._select_depth(pri, allocated),
+                    utilization=0.0,
+                )
+            )
         return allocations
 
-    def _calculate_priority(self, file_info: dict[str, Any], history: list[FunctionProfile]) -> float:
-        complexity = file_info.get("complexity", 10.0)
-        criticality = file_info.get("criticality", 0.5)
-        lines = file_info.get("lines", 100)
+    def _calculate_priority(
+        self, file_info: dict[str, Any], history: list[FunctionProfile]
+    ) -> float:
+        complexity = float(file_info.get("complexity", 10.0))
+        criticality = float(file_info.get("criticality", 0.5))
+        lines = int(file_info.get("lines", 100))
         base = (complexity * 0.4) + (criticality * 40) + (math.log1p(lines) * 2)
 
         path = file_info.get("path", "")
@@ -524,7 +586,9 @@ class BudgetAllocator:
         return "pattern"
 
     def rebalance(
-        self, allocations: list[BudgetAllocation], actual_results: list[FunctionProfile],
+        self,
+        allocations: list[BudgetAllocation],
+        actual_results: list[FunctionProfile],
     ) -> list[BudgetAllocation]:
         """Rebalance budget allocations based on actual verification results."""
         result_map = {r.file_path: r for r in actual_results}
@@ -536,9 +600,14 @@ class BudgetAllocator:
             if result is None:
                 continue
             alloc.actual_time_ms = result.total_time_ms
-            alloc.utilization = round(
-                result.total_time_ms / alloc.allocated_time_ms, 4,
-            ) if alloc.allocated_time_ms > 0 else 0.0
+            alloc.utilization = (
+                round(
+                    result.total_time_ms / alloc.allocated_time_ms,
+                    4,
+                )
+                if alloc.allocated_time_ms > 0
+                else 0.0
+            )
             if result.total_time_ms < alloc.allocated_time_ms * 0.7:
                 surplus_ms += alloc.allocated_time_ms - result.total_time_ms
             elif result.total_time_ms > alloc.allocated_time_ms:
@@ -550,7 +619,11 @@ class BudgetAllocator:
                 alloc.allocated_time_ms += extra
                 alloc.depth = self._select_depth(alloc.priority, alloc.allocated_time_ms)
 
-        logger.info("budget_rebalanced", surplus_ms=round(surplus_ms, 2), underperformers=len(underperformers))
+        logger.info(
+            "budget_rebalanced",
+            surplus_ms=round(surplus_ms, 2),
+            underperformers=len(underperformers),
+        )
         return allocations
 
 
@@ -570,7 +643,11 @@ class VerificationProfiler:
         self._budget_ms = budget_ms
 
     def profile_function(
-        self, function_name: str, file_path: str, code: str, language: str,
+        self,
+        function_name: str,
+        file_path: str,
+        code: str,
+        language: str,
     ) -> FunctionProfile:
         """Profile the verification of a single function end-to-end."""
         pid = self._instrumenter.start_profiling(function_name, file_path, language)
@@ -580,12 +657,17 @@ class VerificationProfiler:
         stage_specs: list[tuple[ProfileStage, float, dict[str, Any]]] = [
             (ProfileStage.PARSING, 0.5 * lines * lf, {}),
             (ProfileStage.TYPE_CHECKING, 0.8 * lines * lf, {}),
-            (ProfileStage.CONSTRAINT_GENERATION, 1.2 * lines * lf,
-             {"constraint_count": max(1, int(lines * 1.5))}),
-            (ProfileStage.Z3_SOLVING, 2.0 * lines * lf,
-             {"constraint_count": max(1, int(lines * 1.5))}),
-            (ProfileStage.AI_ANALYSIS, 3.0 * lines * lf,
-             {"tokens_used": max(1, lines * 20)}),
+            (
+                ProfileStage.CONSTRAINT_GENERATION,
+                1.2 * lines * lf,
+                {"constraint_count": max(1, int(lines * 1.5))},
+            ),
+            (
+                ProfileStage.Z3_SOLVING,
+                2.0 * lines * lf,
+                {"constraint_count": max(1, int(lines * 1.5))},
+            ),
+            (ProfileStage.AI_ANALYSIS, 3.0 * lines * lf, {"tokens_used": max(1, lines * 20)}),
             (ProfileStage.SYNTHESIS, 0.3 * lines * lf, {}),
         ]
         for stage, base_ms, kw in stage_specs:
@@ -593,9 +675,12 @@ class VerificationProfiler:
             _busy_wait_ms(max(base_ms * 0.001, 0.01))
             elapsed = (time.perf_counter_ns() - t0) / 1_000_000
             self._instrumenter.record_stage(
-                pid, stage, duration_ms=round(base_ms + elapsed, 3),
+                pid,
+                stage,
+                duration_ms=round(base_ms + elapsed, 3),
                 memory_mb=round(lines * 0.05, 2),
-                cpu_percent=round(min(base_ms / 10, 95), 1), **kw,
+                cpu_percent=round(min(base_ms / 10, 95), 1),
+                **kw,
             )
 
         profile = self._instrumenter.end_profiling(pid, verified=True)
@@ -604,15 +689,22 @@ class VerificationProfiler:
         return profile
 
     def generate_report(
-        self, project_name: str, profiles: list[FunctionProfile],
+        self,
+        project_name: str,
+        profiles: list[FunctionProfile],
     ) -> ProfileReport:
         """Generate a comprehensive profiling report from collected profiles."""
         if not profiles:
             return ProfileReport(
-                project_name=project_name, generated_at=datetime.utcnow(),
-                total_functions_profiled=0, avg_verification_time_ms=0.0,
-                slowest_functions=[], bottleneck_summary={},
-                recommendations=[], budget_utilization=[], trends=[],
+                project_name=project_name,
+                generated_at=datetime.utcnow(),
+                total_functions_profiled=0,
+                avg_verification_time_ms=0.0,
+                slowest_functions=[],
+                bottleneck_summary={},
+                recommendations=[],
+                budget_utilization=[],
+                trends=[],
                 estimated_total_speedup=0.0,
             )
 
@@ -625,7 +717,9 @@ class VerificationProfiler:
         bn_summary: dict[str, int] = {}
         for p in profiles:
             for bn in p.bottlenecks:
-                bn_summary[bn.bottleneck_type.value] = bn_summary.get(bn.bottleneck_type.value, 0) + 1
+                bn_summary[bn.bottleneck_type.value] = (
+                    bn_summary.get(bn.bottleneck_type.value, 0) + 1
+                )
 
         # Collect and deduplicate recommendations
         recs: list[OptimizationRecommendation] = []
@@ -641,18 +735,23 @@ class VerificationProfiler:
             BudgetAllocation(
                 file_path=p.file_path,
                 allocated_time_ms=self._budget_ms / max(len(profiles), 1),
-                actual_time_ms=p.total_time_ms, priority=p.complexity_score,
+                actual_time_ms=p.total_time_ms,
+                priority=p.complexity_score,
                 depth="full" if p.total_time_ms > 5000 else "standard",
                 utilization=round(p.total_time_ms / (self._budget_ms / max(len(profiles), 1)), 4),
-            ) for p in profiles
+            )
+            for p in profiles
         ]
 
         report = ProfileReport(
-            project_name=project_name, generated_at=datetime.utcnow(),
+            project_name=project_name,
+            generated_at=datetime.utcnow(),
             total_functions_profiled=len(profiles),
             avg_verification_time_ms=round(avg_time, 2),
-            slowest_functions=slowest, bottleneck_summary=bn_summary,
-            recommendations=recs, budget_utilization=budget_util,
+            slowest_functions=slowest,
+            bottleneck_summary=bn_summary,
+            recommendations=recs,
+            budget_utilization=budget_util,
             trends=self.get_trends(profiles),
             estimated_total_speedup=self._calculate_estimated_speedup(recs),
         )
@@ -660,7 +759,9 @@ class VerificationProfiler:
         return report
 
     def get_trends(
-        self, profiles: list[FunctionProfile], periods: int = 5,
+        self,
+        profiles: list[FunctionProfile],
+        periods: int = 5,
     ) -> list[PerformanceTrend]:
         """Compute performance trends by splitting profiles into time periods."""
         if not profiles:
@@ -678,22 +779,28 @@ class VerificationProfiler:
             total_stages = sum(len(p.stages) for p in chunk)
             timeout_thresh = self._budget_ms / max(len(profiles), 1) * 2
             timeouts = sum(1 for p in chunk if p.total_time_ms > timeout_thresh)
-            trends.append(PerformanceTrend(
-                period=f"period_{len(trends) + 1}",
-                avg_verification_time_ms=round(sum(times) / len(times), 2),
-                p95_verification_time_ms=round(_percentile(times, 95), 2),
-                p99_verification_time_ms=round(_percentile(times, 99), 2),
-                timeout_rate=round(timeouts / len(chunk), 4),
-                cache_hit_rate=round(cache_hits / total_stages if total_stages else 0.0, 4),
-                total_verifications=len(chunk),
-            ))
+            trends.append(
+                PerformanceTrend(
+                    period=f"period_{len(trends) + 1}",
+                    avg_verification_time_ms=round(sum(times) / len(times), 2),
+                    p95_verification_time_ms=round(_percentile(times, 95), 2),
+                    p99_verification_time_ms=round(_percentile(times, 99), 2),
+                    timeout_rate=round(timeouts / len(chunk), 4),
+                    cache_hit_rate=round(cache_hits / total_stages if total_stages else 0.0, 4),
+                    total_verifications=len(chunk),
+                )
+            )
         return trends
 
     def get_optimization_plan(self, report: ProfileReport) -> list[OptimizationRecommendation]:
         """Return the report's recommendations sorted by estimated speedup."""
-        return sorted(report.recommendations, key=lambda r: r.estimated_speedup_percent, reverse=True)
+        return sorted(
+            report.recommendations, key=lambda r: r.estimated_speedup_percent, reverse=True
+        )
 
-    def _calculate_estimated_speedup(self, recommendations: list[OptimizationRecommendation]) -> float:
+    def _calculate_estimated_speedup(
+        self, recommendations: list[OptimizationRecommendation]
+    ) -> float:
         """Estimate aggregate speedup using diminishing-returns: 1 - product(1 - s_i/100)."""
         if not recommendations:
             return 0.0
@@ -732,8 +839,16 @@ def _estimate_complexity(stages: list[StageProfile], total_constraints: int) -> 
 
 def _language_factor(language: str) -> float:
     """Multiplier reflecting typical verification cost per language."""
-    return {"python": 1.0, "javascript": 1.1, "typescript": 1.15, "java": 1.2,
-            "go": 0.9, "rust": 1.3, "c": 1.4, "cpp": 1.5}.get(language.lower(), 1.0)
+    return {
+        "python": 1.0,
+        "javascript": 1.1,
+        "typescript": 1.15,
+        "java": 1.2,
+        "go": 0.9,
+        "rust": 1.3,
+        "c": 1.4,
+        "cpp": 1.5,
+    }.get(language.lower(), 1.0)
 
 
 def _busy_wait_ms(ms: float) -> None:

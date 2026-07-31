@@ -307,9 +307,11 @@ async def register_contract(request: ContractModel) -> dict[str, Any]:
     }
 
     # Update repository's exported contracts
-    if request.owner_repo in _repositories:
-        if contract_id not in _repositories[request.owner_repo]["exported_contracts"]:
-            _repositories[request.owner_repo]["exported_contracts"].append(contract_id)
+    if (
+        request.owner_repo in _repositories
+        and contract_id not in _repositories[request.owner_repo]["exported_contracts"]
+    ):
+        _repositories[request.owner_repo]["exported_contracts"].append(contract_id)
 
     return {
         "registered": True,
@@ -439,9 +441,11 @@ async def analyze_impact(request: ImpactAnalysisRequest) -> dict[str, Any]:
         repo_data = _repositories.get(dependent)
         if repo_data:
             for change in contract_changes:
-                if change["contract_id"] in repo_data["imported_contracts"]:
-                    if dependent not in affected_repos:
-                        affected_repos.append(dependent)
+                if (
+                    change["contract_id"] in repo_data["imported_contracts"]
+                    and dependent not in affected_repos
+                ):
+                    affected_repos.append(dependent)
 
     # Generate recommendations
     recommendations = []
@@ -489,15 +493,14 @@ async def generate_upgrade_plan(
         repo_data = _repositories.get(repo)
         if repo_data:
             for change in impact["contract_changes"]:
-                if change["contract_id"] in repo_data["imported_contracts"]:
-                    if change["breaking"]:
-                        step["actions"].append(
-                            {
-                                "type": "update_code",
-                                "contract_id": change["contract_id"],
-                                "description": change["description"],
-                            }
-                        )
+                if change["contract_id"] in repo_data["imported_contracts"] and change["breaking"]:
+                    step["actions"].append(
+                        {
+                            "type": "update_code",
+                            "contract_id": change["contract_id"],
+                            "description": change["description"],
+                        }
+                    )
 
         if step["actions"]:
             steps.append(step)
@@ -585,7 +588,7 @@ async def detect_dependencies(
 
                 pkg_json = json.loads(request.package_config)
                 for dep_type in ["dependencies", "devDependencies"]:
-                    for pkg in pkg_json.get(dep_type, {}).keys():
+                    for pkg in pkg_json.get(dep_type, {}):
                         dependencies.append(
                             {
                                 "name": pkg,
@@ -746,9 +749,8 @@ def _compare_contracts(
         # Check return type
         if old.get("signature", {}).get("return_type") != new.get("signature", {}).get(
             "return_type"
-        ):
-            if old.get("signature", {}).get("return_type"):
-                breaking_reasons.append("Return type changed")
+        ) and old.get("signature", {}).get("return_type"):
+            breaking_reasons.append("Return type changed")
 
         # Check parameters
         old_params = {p["name"]: p for p in old.get("signature", {}).get("parameters", [])}
@@ -761,9 +763,8 @@ def _compare_contracts(
 
         # Added required parameters
         for name, param in new_params.items():
-            if name not in old_params:
-                if not param.get("optional", False):
-                    breaking_reasons.append(f"Required parameter '{name}' added")
+            if name not in old_params and not param.get("optional", False):
+                breaking_reasons.append(f"Required parameter '{name}' added")
 
     elif contract_type == "api_endpoint":
         # Check path and method

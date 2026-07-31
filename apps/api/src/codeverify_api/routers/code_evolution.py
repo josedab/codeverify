@@ -10,6 +10,7 @@ Provides REST API endpoints for tracking code evolution:
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime
 from typing import Any
 
@@ -121,10 +122,8 @@ async def record_snapshot(request: RecordSnapshotRequest) -> SnapshotResponse:
 
     timestamp = None
     if request.timestamp:
-        try:
+        with contextlib.suppress(ValueError):
             timestamp = datetime.fromisoformat(request.timestamp)
-        except ValueError:
-            pass
 
     snapshot = tracker.record_snapshot(
         repository=request.repository,
@@ -200,10 +199,8 @@ async def analyze_trends(request: AnalyzeTrendsRequest) -> dict[str, Any]:
     if request.metric_types:
         metric_types = []
         for mt in request.metric_types:
-            try:
+            with contextlib.suppress(ValueError):
                 metric_types.append(MetricType(mt))
-            except ValueError:
-                pass
 
     trends = tracker.analyze_trends(
         repository=request.repository,
@@ -326,8 +323,8 @@ async def get_metric_history(
 
     try:
         mt = MetricType(metric_type)
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid metric type: {metric_type}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid metric type: {metric_type}") from e
 
     history = tracker.get_metric_history(
         repository=repository,

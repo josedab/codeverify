@@ -1,5 +1,6 @@
 """Cross-Language Verification Bridge - Unified verification for polyglot codebases."""
 
+import re
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -1615,16 +1616,19 @@ class CrossLanguageVerificationBridge(BaseAgent):
                 )
 
         # Compare return type
-        if expected.return_type and actual.return_type:
-            if not self._types_compatible(expected.return_type, actual.return_type, language):
-                issues.append(
-                    {
-                        "type": "return_type_mismatch",
-                        "expected": expected.return_type.base_type,
-                        "actual": actual.return_type.base_type,
-                        "severity": "error",
-                    }
-                )
+        if (
+            expected.return_type
+            and actual.return_type
+            and not self._types_compatible(expected.return_type, actual.return_type, language)
+        ):
+            issues.append(
+                {
+                    "type": "return_type_mismatch",
+                    "expected": expected.return_type.base_type,
+                    "actual": actual.return_type.base_type,
+                    "severity": "error",
+                }
+            )
 
         return issues
 
@@ -1664,7 +1668,7 @@ class CrossLanguageVerificationBridge(BaseAgent):
         self,
         type1: TypeContract,
         type2: TypeContract,
-        language: Language,
+        _language: Language,
     ) -> bool:
         """Check if two types are compatible."""
         # Same base type
@@ -1676,10 +1680,7 @@ class CrossLanguageVerificationBridge(BaseAgent):
             return True
 
         # Any is compatible with everything
-        if type1.base_type == "any" or type2.base_type == "any":
-            return True
-
-        return False
+        return type1.base_type == "any" or type2.base_type == "any"
 
     def _function_contract_to_dict(self, contract: FunctionContract) -> dict[str, Any]:
         """Convert FunctionContract to dictionary."""
@@ -1777,7 +1778,7 @@ class CrossLanguageVerificationBridge(BaseAgent):
     def get_type_mapping(
         self,
         base_type: str,
-        source_language: Language,
+        _source_language: Language,
         target_language: Language,
     ) -> str | None:
         """Get type mapping between languages."""

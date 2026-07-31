@@ -258,7 +258,7 @@ name: My Custom Rule
 # Detailed description
 description: |
   This rule checks for...
-  
+
   Why this matters:
   - Reason 1
   - Reason 2
@@ -439,7 +439,7 @@ def cmd_lint(args: argparse.Namespace) -> int:
         return 1
 
 
-def cmd_generate_template(args: argparse.Namespace) -> int:
+def cmd_generate_template(_args: argparse.Namespace) -> int:
     """Generate a rule template."""
     print(generate_template())
     return 0
@@ -478,7 +478,7 @@ Examples:
     )
 
     # generate-template command
-    template_parser = subparsers.add_parser("generate-template", help="Generate rule template")
+    subparsers.add_parser("generate-template", help="Generate rule template")
 
     args = parser.parse_args()
 

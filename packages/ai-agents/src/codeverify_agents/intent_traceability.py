@@ -335,7 +335,7 @@ class IntentExtractor:
             changes.extend(matches)
 
         # Deduplicate and clean
-        changes = list(set(c.strip() for c in changes if len(c.strip()) > 5))
+        changes = list({c.strip() for c in changes if len(c.strip()) > 5})
 
         return changes[:10]  # Limit to 10
 
@@ -444,7 +444,7 @@ class IntentExtractor:
             matches = re.findall(pattern, text, re.IGNORECASE)
             constraints.extend(matches)
 
-        return list(set(c.strip() for c in constraints))
+        return list({c.strip() for c in constraints})
 
     def _calculate_confidence(
         self,
@@ -990,8 +990,8 @@ class IntentTraceabilityEngine:
         self,
         score: float,
         findings: list[TraceabilityFinding],
-        issue: IssueDetails,
-        changes: CodeChangeSummary,
+        _issue: IssueDetails,
+        _changes: CodeChangeSummary,
     ) -> list[str]:
         """Generate recommendations based on analysis."""
         recommendations = []

@@ -10,6 +10,7 @@ Provides REST API endpoints for continuous learning from user feedback:
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -158,10 +159,8 @@ async def get_feedback(
 
     cat = None
     if category:
-        try:
+        with contextlib.suppress(ValueError):
             cat = FindingCategory(category)
-        except ValueError:
-            pass
 
     records = engine.collector.get_recent_feedback(hours=hours, category=cat)
     records = records[:limit]
@@ -280,7 +279,7 @@ async def get_recommendation(request: RecommendationRequest) -> dict[str, Any]:
 
     recommendation = engine.get_recommendation(
         finding_type=request.finding_type,
-        code_snippet=request.code_snippet,
+        _code_snippet=request.code_snippet,
     )
 
     return recommendation

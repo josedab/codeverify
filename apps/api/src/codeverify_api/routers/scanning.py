@@ -111,6 +111,34 @@ async def trigger_scan(request: TriggerScanRequest) -> ScanResultSummary:
     )
 
 
+@router.get("/schedules")
+async def list_scheduled_scans(
+    repo_full_name: str | None = None,
+) -> dict[str, Any]:
+    """List all scheduled scans."""
+    from codeverify_core.scanning import _scheduled_scans
+
+    schedules = list(_scheduled_scans.values())
+
+    if repo_full_name:
+        schedules = [s for s in schedules if s.config.repo_full_name == repo_full_name]
+
+    return {
+        "schedules": [
+            {
+                "id": str(s.id),
+                "repo_full_name": s.config.repo_full_name,
+                "scan_type": s.config.scan_type.value,
+                "schedule": s.schedule.value,
+                "next_run": s.next_run.isoformat() if s.next_run else None,
+                "last_run": s.last_run.isoformat() if s.last_run else None,
+                "enabled": s.enabled,
+            }
+            for s in schedules
+        ],
+    }
+
+
 @router.get("/{scan_id}")
 async def get_scan_result(scan_id: str) -> dict[str, Any]:
     """Get detailed scan results by ID."""
@@ -122,7 +150,7 @@ async def get_scan_result(scan_id: str) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid scan ID format",
-        )
+        ) from None
 
     result = await do_get_result(scan_uuid)
 
@@ -171,7 +199,7 @@ async def simulate_scan(scan_id: str) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid scan ID format",
-        )
+        ) from None
 
     try:
         result = await simulate_scan_execution(scan_uuid)
@@ -179,7 +207,7 @@ async def simulate_scan(scan_id: str) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
-        )
+        ) from e
 
     return {
         "scan_id": str(result.scan_id),
@@ -263,34 +291,6 @@ async def create_scheduled_scan(request: ScanConfigRequest) -> dict[str, Any]:
         "schedule": scheduled.schedule.value,
         "next_run": scheduled.next_run.isoformat() if scheduled.next_run else None,
         "enabled": scheduled.enabled,
-    }
-
-
-@router.get("/schedules")
-async def list_scheduled_scans(
-    repo_full_name: str | None = None,
-) -> dict[str, Any]:
-    """List all scheduled scans."""
-    from codeverify_core.scanning import _scheduled_scans
-
-    schedules = list(_scheduled_scans.values())
-
-    if repo_full_name:
-        schedules = [s for s in schedules if s.config.repo_full_name == repo_full_name]
-
-    return {
-        "schedules": [
-            {
-                "id": str(s.id),
-                "repo_full_name": s.config.repo_full_name,
-                "scan_type": s.config.scan_type.value,
-                "schedule": s.schedule.value,
-                "next_run": s.next_run.isoformat() if s.next_run else None,
-                "last_run": s.last_run.isoformat() if s.last_run else None,
-                "enabled": s.enabled,
-            }
-            for s in schedules
-        ],
     }
 
 

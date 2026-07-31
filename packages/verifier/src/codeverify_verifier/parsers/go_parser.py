@@ -259,9 +259,6 @@ class GoParser(CodeParser):
         """Find methods associated with a struct."""
         methods: list[ParsedFunction] = []
 
-        # Match methods with receiver of this struct type
-        method_pattern = re.compile(rf"func\s+\([^)]*\*?{struct_name}\)\s+(\w+)")
-
         for func in self._parse_functions(code):
             for decorator in func.decorators:
                 if decorator.startswith("receiver:") and struct_name in decorator:

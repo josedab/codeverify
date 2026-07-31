@@ -132,7 +132,7 @@ MODEL_PATTERNS = {
 }
 
 
-def quick_pattern_analysis(code: str, language: str) -> list[dict[str, Any]]:
+def quick_pattern_analysis(code: str, _language: str) -> list[dict[str, Any]]:
     """Perform fast pattern-based analysis."""
     import re
 
@@ -201,7 +201,9 @@ def quick_ai_detection(code: str) -> tuple[bool, float, str]:
         comment_lengths = [len(c.strip()) for c in comment_lines]
         if comment_lengths:
             avg_len = sum(comment_lengths) / len(comment_lengths)
-            variance = sum((l - avg_len) ** 2 for l in comment_lengths) / len(comment_lengths)
+            variance = sum((length - avg_len) ** 2 for length in comment_lengths) / len(
+                comment_lengths
+            )
             if variance < 100:  # Low variance = likely AI
                 ai_matches += 1
                 total_patterns += 1

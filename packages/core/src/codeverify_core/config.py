@@ -220,10 +220,7 @@ class CodeVerifyConfig:
 
 def parse_config(content: str | dict[str, Any]) -> CodeVerifyConfig:
     """Parse configuration from YAML string or dict."""
-    if isinstance(content, str):
-        data = yaml.safe_load(content) or {}
-    else:
-        data = content
+    data = yaml.safe_load(content) or {} if isinstance(content, str) else content
 
     config = CodeVerifyConfig()
 
@@ -411,11 +408,7 @@ def should_analyze_file(config: CodeVerifyConfig, file_path: str) -> bool:
             return False
 
     # Check inclusions
-    for pattern in config.include_patterns:
-        if fnmatch(file_path, pattern):
-            return True
-
-    return False
+    return any(fnmatch(file_path, pattern) for pattern in config.include_patterns)
 
 
 def should_ignore_finding(
@@ -526,7 +519,7 @@ rules:
     severity: low
     pattern: "\\bprint\\s*\\("
     enabled: true
-  
+
   - id: auth-required
     name: "Endpoints require authentication"
     description: "All API endpoints should have authentication"

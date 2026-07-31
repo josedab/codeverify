@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 
 # =============================================================================
 # Feature 1: Verified Auto-Fix with Test Generation
@@ -33,7 +32,7 @@ class TestAutofixValidation:
         assert FixValidationStatus.REGRESSION_DETECTED == "regression_detected"
 
     def test_fix_validator_valid_fix(self):
-        from codeverify_core.autofix_validation import FixValidator, FixValidationStatus
+        from codeverify_core.autofix_validation import FixValidationStatus, FixValidator
 
         validator = FixValidator()
         original = "x = 1 / 0"
@@ -45,12 +44,10 @@ class TestAutofixValidation:
         assert result.validation_time_ms >= 0
 
     def test_fix_validator_syntax_error(self):
-        from codeverify_core.autofix_validation import FixValidator, FixValidationStatus
+        from codeverify_core.autofix_validation import FixValidationStatus, FixValidator
 
         validator = FixValidator()
-        result = validator.validate_fix(
-            "x = 1", "x = (", "test issue at line 1"
-        )
+        result = validator.validate_fix("x = 1", "x = (", "test issue at line 1")
         assert result.status == FixValidationStatus.FAILED
         assert not result.issue_resolved
 
@@ -148,7 +145,7 @@ class TestProductionLearning:
         collector = IncidentCollector()
         incident = ProductionIncident(
             id="inc-1",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             service="api",
             error_type="NullPointerException",
             stack_trace="at line 42",
@@ -173,7 +170,7 @@ class TestProductionLearning:
         collector = IncidentCollector()
         incident = ProductionIncident(
             id="inc-2",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             service="worker",
             error_type="IndexError",
             stack_trace="index out of range",
@@ -233,7 +230,7 @@ class TestProductionLearning:
 
         incident = ProductionIncident(
             id="inc-3",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             service="api",
             error_type="ValueError",
             stack_trace="line 10",
@@ -313,10 +310,10 @@ class TestRealTimePairProgramming:
 
     def test_suggestion_engine(self):
         from codeverify_core.realtime_pair_programming import (
+            AnalysisScope,
             IncrementalAnalysisResult,
             SuggestionEngine,
             UserPreferences,
-            AnalysisScope,
         )
 
         engine = SuggestionEngine()
@@ -418,13 +415,13 @@ class TestCrossLanguageContracts:
         )
 
         extractor = ContractExtractor()
-        code = '''
+        code = """
 def add(a: int, b: int) -> int:
     return a + b
 
 def greet(name: str) -> str:
     return f"Hello {name}"
-'''
+"""
         contracts = extractor.extract_contracts(code, ContractLanguage.PYTHON, "math.py")
         assert len(contracts) >= 2
         assert any(c.name == "add" for c in contracts)
@@ -504,12 +501,8 @@ export function greet(name: string): string {
             file_path="math.py",
             line=1,
             parameters={
-                "a": UniversalType(
-                    name="a", language=ContractLanguage.PYTHON, native_type="int"
-                ),
-                "b": UniversalType(
-                    name="b", language=ContractLanguage.PYTHON, native_type="int"
-                ),
+                "a": UniversalType(name="a", language=ContractLanguage.PYTHON, native_type="int"),
+                "b": UniversalType(name="b", language=ContractLanguage.PYTHON, native_type="int"),
             },
             return_type=UniversalType(
                 name="result", language=ContractLanguage.PYTHON, native_type="int"
@@ -633,12 +626,10 @@ class TestMultiRepoImpact:
         assert index.file_count == 2
 
     def test_org_dependency_graph(self):
-        from codeverify_core.multi_repo_impact import OrgRepositoryIndexer, RepositoryIndex
+        from codeverify_core.multi_repo_impact import OrgRepositoryIndexer
 
         indexer = OrgRepositoryIndexer()
-        repo1 = indexer.index_repository(
-            "lib-a", "org", {"lib.py": "def compute(): pass\n"}
-        )
+        repo1 = indexer.index_repository("lib-a", "org", {"lib.py": "def compute(): pass\n"})
         repo2 = indexer.index_repository(
             "app-b", "org", {"app.py": "from lib_a import compute\ndef main(): compute()\n"}
         )
@@ -751,9 +742,7 @@ def process(x):
 
         detector = CodeSmellDetector()
         # A "long method" - lots of lines
-        long_func = "def long_func():\n" + "\n".join(
-            [f"    x{i} = {i}" for i in range(50)]
-        )
+        long_func = "def long_func():\n" + "\n".join([f"    x{i} = {i}" for i in range(50)])
         smells = detector.detect_smells(long_func, "main.py")
         assert isinstance(smells, list)
 
@@ -794,9 +783,7 @@ def process(x):
                 confidence=0.9,
             )
         ]
-        code = "def long_func():\n" + "\n".join(
-            [f"    x{i} = {i}" for i in range(50)]
-        )
+        code = "def long_func():\n" + "\n".join([f"    x{i} = {i}" for i in range(50)])
         plans = planner.create_plan(smells, code, "python")
         assert isinstance(plans, list)
 
@@ -880,7 +867,7 @@ class TestComplianceAsCode:
             title="Test report",
             description="A verification report",
             content_hash="",
-            collected_at=datetime.now(timezone.utc),
+            collected_at=datetime.now(UTC),
             control_ids=["CC5.1"],
         )
         stored_id = vault.store_evidence(evidence)
@@ -903,15 +890,17 @@ class TestComplianceAsCode:
             title="Scan result",
             description="Test scan result content for integrity check",
             content_hash="",
-            collected_at=datetime.now(timezone.utc),
+            collected_at=datetime.now(UTC),
             control_ids=["CC6.1"],
         )
         vault.store_evidence(evidence)
-        # After storage, the vault should compute a hash
         stored = vault.retrieve_evidence("ev-2")
         assert stored is not None
-        # Integrity check: evidence was stored and can be retrieved
-        assert stored.id == "ev-2"
+        assert stored.content_hash
+        assert vault.verify_integrity("ev-2") is True
+
+        stored.title = "Tampered scan result"
+        assert vault.verify_integrity("ev-2") is False
 
     def test_attestation_engine(self):
         from codeverify_core.compliance_as_code import (
@@ -919,7 +908,7 @@ class TestComplianceAsCode:
             AttestationLevel,
         )
 
-        engine = AttestationEngine()
+        engine = AttestationEngine(secret=b"test-attestation-secret")
         attestation = engine.create_attestation(
             control_id="CC5.1",
             attester="admin@test.com",
@@ -929,8 +918,21 @@ class TestComplianceAsCode:
         )
         assert attestation.control_id == "CC5.1"
         assert attestation.valid
-        verified = engine.verify_attestation(attestation)
-        assert isinstance(verified, bool)
+        assert engine.verify_attestation(attestation) is True
+
+    def test_attestation_engine_requires_secret_for_signing(self, monkeypatch):
+        from codeverify_core.compliance_as_code import AttestationEngine
+
+        monkeypatch.delenv("CODEVERIFY_ATTESTATION_SECRET", raising=False)
+        engine = AttestationEngine()
+
+        with pytest.raises(RuntimeError, match="CODEVERIFY_ATTESTATION_SECRET"):
+            engine.create_attestation(
+                control_id="CC5.1",
+                attester="admin@test.com",
+                statement="Control is effective",
+                evidence_ids=["ev-1"],
+            )
 
     def test_compliance_report_generator(self):
         from codeverify_core.compliance_as_code import (
@@ -948,15 +950,15 @@ class TestComplianceAsCode:
                 evidence_count=3,
                 attestation_count=1,
                 gaps=[],
-                last_assessed=datetime.now(timezone.utc),
+                last_assessed=datetime.now(UTC),
             ),
         ]
         report = generator.generate_report(
             "test-org",
             ComplianceFrameworkType.SOC2_TYPE_II,
             assessments,
-            datetime.now(timezone.utc),
-            datetime.now(timezone.utc),
+            datetime.now(UTC),
+            datetime.now(UTC),
         )
         assert report.organization == "test-org"
         assert report.passing_controls >= 1
@@ -967,14 +969,21 @@ class TestComplianceAsCode:
             ComplianceFrameworkType,
         )
 
-        engine = ComplianceAsCodeEngine()
+        engine = ComplianceAsCodeEngine(attestation_secret=b"test-attestation-secret")
         report = engine.assess_compliance(
             "test-org",
             ComplianceFrameworkType.SOC2_TYPE_II,
-            [{"rule": "null_check", "status": "pass", "file": "main.py"}],
+            [
+                {
+                    "rule_id": "risk_assessment_check",
+                    "passed": True,
+                    "file": "main.py",
+                }
+            ],
         )
         assert report.organization == "test-org"
         assert report.total_controls >= 1
+        assert report.passing_controls >= 1
 
 
 # =============================================================================
@@ -1009,7 +1018,7 @@ class TestProofMarketplaceV2:
             language="python",
             framework=None,
             tags=["null", "safety"],
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         content = ProofContent(
             proof_id="proof-1",
@@ -1050,11 +1059,11 @@ class TestProofMarketplaceV2:
                 language="python",
                 framework=None,
                 tags=["bounds", "array"],
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             content = ProofContent(
                 proof_id=f"search-proof-{i}",
-                z3_expression=f"index >= 0 && index < len",
+                z3_expression="index >= 0 && index < len",
                 natural_language="Index within bounds",
                 code_pattern="arr[index]",
                 test_cases=[],
@@ -1113,7 +1122,7 @@ class TestProofMarketplaceV2:
             language="python",
             framework=None,
             tags=[],
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         content = ProofContent(
             proof_id="quality-proof",
@@ -1135,7 +1144,7 @@ class TestProofMarketplaceV2:
             comment="Excellent proof",
             quality_assessment=QualityTier.EXPERT_REVIEWED,
             issues_found=[],
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         manager.submit_review(review)
         metrics = manager.get_quality_metrics("quality-proof")
@@ -1174,9 +1183,7 @@ class TestVerificationProfiler:
         profile_id = instrumenter.start_profiling("test_func", "test.py", "python")
         assert profile_id
 
-        instrumenter.record_stage(
-            profile_id, ProfileStage.PARSING, duration_ms=10.0, memory_mb=5.0
-        )
+        instrumenter.record_stage(profile_id, ProfileStage.PARSING, duration_ms=10.0, memory_mb=5.0)
         instrumenter.record_stage(
             profile_id, ProfileStage.Z3_SOLVING, duration_ms=50.0, memory_mb=10.0
         )
@@ -1213,7 +1220,7 @@ class TestVerificationProfiler:
             line_count=100,
             bottlenecks=[],
             verified=True,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
         bottlenecks = detector.detect_bottlenecks(profile)
         assert isinstance(bottlenecks, list)
@@ -1255,7 +1262,7 @@ class TestVerificationProfiler:
             line_count=50,
             bottlenecks=[bottleneck],
             verified=False,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
         recommendations = advisor.recommend([bottleneck], profile)
         assert len(recommendations) >= 1
@@ -1299,7 +1306,7 @@ class TestVerificationProfiler:
                 line_count=20 * (i + 1),
                 bottlenecks=[],
                 verified=True,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
             for i in range(5)
         ]
@@ -1335,7 +1342,7 @@ class TestVerificationProfiler:
                 line_count=20,
                 bottlenecks=[],
                 verified=True,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
         ]
         trends = profiler.get_trends(profiles, periods=3)
@@ -1365,7 +1372,7 @@ class TestVerificationProfiler:
             line_count=10,
             bottlenecks=[],
             verified=True,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
         d = profile.to_dict()
         assert d["function_name"] == "func"

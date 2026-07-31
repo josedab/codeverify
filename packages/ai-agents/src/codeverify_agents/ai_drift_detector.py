@@ -681,52 +681,51 @@ class AIDriftDetector(BaseAgent):
                 )
 
         # Review rate decline
-        if baseline.review_rate > 0:
-            review_decline = baseline.review_rate - current.review_rate
-            if current.review_rate < self.thresholds["review_rate_min"]:
-                alerts.append(
-                    DriftAlert(
-                        alert_id=self._generate_id(),
-                        category=DriftCategory.REVIEW_DEPTH_DECLINE,
-                        alert_type=AlertType.THRESHOLD,
-                        severity=DriftSeverity.HIGH,
-                        message=f"Review rate below threshold: {current.review_rate:.1f}%",
-                        details=f"Only {current.review_rate:.1f}% of AI code is being reviewed (baseline: {baseline.review_rate:.1f}%)",
-                        metric_name="review_rate",
-                        current_value=current.review_rate,
-                        baseline_value=baseline.review_rate,
-                        threshold=self.thresholds["review_rate_min"],
-                        recommendations=[
-                            "Mandate code reviews for all AI-generated code",
-                            "Set up automated review reminders",
-                            "Track and reward thorough reviews",
-                        ],
-                    )
+        if baseline.review_rate > 0 and current.review_rate < self.thresholds["review_rate_min"]:
+            alerts.append(
+                DriftAlert(
+                    alert_id=self._generate_id(),
+                    category=DriftCategory.REVIEW_DEPTH_DECLINE,
+                    alert_type=AlertType.THRESHOLD,
+                    severity=DriftSeverity.HIGH,
+                    message=f"Review rate below threshold: {current.review_rate:.1f}%",
+                    details=f"Only {current.review_rate:.1f}% of AI code is being reviewed (baseline: {baseline.review_rate:.1f}%)",
+                    metric_name="review_rate",
+                    current_value=current.review_rate,
+                    baseline_value=baseline.review_rate,
+                    threshold=self.thresholds["review_rate_min"],
+                    recommendations=[
+                        "Mandate code reviews for all AI-generated code",
+                        "Set up automated review reminders",
+                        "Track and reward thorough reviews",
+                    ],
                 )
+            )
 
         # Security score decline
-        if baseline.avg_security_score > 0:
-            security_decline = baseline.avg_security_score - current.avg_security_score
-            if current.avg_security_score < self.thresholds["security_score_min"]:
-                alerts.append(
-                    DriftAlert(
-                        alert_id=self._generate_id(),
-                        category=DriftCategory.SECURITY_RISK_INCREASE,
-                        alert_type=AlertType.THRESHOLD,
-                        severity=DriftSeverity.HIGH,
-                        message=f"Security score below threshold: {current.avg_security_score:.1f}",
-                        details="AI-generated code security is declining",
-                        metric_name="avg_security_score",
-                        current_value=current.avg_security_score,
-                        baseline_value=baseline.avg_security_score,
-                        threshold=self.thresholds["security_score_min"],
-                        recommendations=[
-                            "Enable security-focused AI code analysis",
-                            "Add security review checkpoints",
-                            "Provide security training for the team",
-                        ],
-                    )
+        if (
+            baseline.avg_security_score > 0
+            and current.avg_security_score < self.thresholds["security_score_min"]
+        ):
+            alerts.append(
+                DriftAlert(
+                    alert_id=self._generate_id(),
+                    category=DriftCategory.SECURITY_RISK_INCREASE,
+                    alert_type=AlertType.THRESHOLD,
+                    severity=DriftSeverity.HIGH,
+                    message=f"Security score below threshold: {current.avg_security_score:.1f}",
+                    details="AI-generated code security is declining",
+                    metric_name="avg_security_score",
+                    current_value=current.avg_security_score,
+                    baseline_value=baseline.avg_security_score,
+                    threshold=self.thresholds["security_score_min"],
+                    recommendations=[
+                        "Enable security-focused AI code analysis",
+                        "Add security review checkpoints",
+                        "Provide security training for the team",
+                    ],
                 )
+            )
 
         # Critical findings increase
         if current.critical_finding_rate > self.thresholds["critical_finding_max"]:

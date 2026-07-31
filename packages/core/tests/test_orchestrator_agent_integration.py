@@ -7,16 +7,23 @@ using their real interfaces, with mock LLM responses.
 
 from __future__ import annotations
 
+from datetime import UTC
+from typing import Any
+
 import pytest
 
 try:
-    from codeverify_agents.base import AgentConfig, AgentResult, BaseAgent, CodeContext
+    from codeverify_agents.base import AgentConfig, AgentResult, CodeContext
+
     HAS_AGENTS = True
 except ImportError:
     HAS_AGENTS = False
+
     # Provide stubs for test collection when codeverify_agents is not installed
     class AgentConfig:  # type: ignore[no-redef]
-        def __init__(self, **kwargs): pass
+        def __init__(self, **kwargs):
+            pass
+
     class AgentResult:  # type: ignore[no-redef]
         def __init__(self, success=True, data=None, error=None, tokens_used=0, latency_ms=0):
             self.success = success
@@ -24,6 +31,7 @@ except ImportError:
             self.error = error
             self.tokens_used = tokens_used
             self.latency_ms = latency_ms
+
     class CodeContext:  # type: ignore[no-redef]
         def __init__(self, code="", file_path="unknown", language="python", **kwargs):
             self.code = code
@@ -31,12 +39,20 @@ except ImportError:
             self.language = language
             self.is_ai_generated = kwargs.get("is_ai_generated", False)
             self.metadata = kwargs.get("metadata", {})
+
         @classmethod
         def from_dict(cls, code, context):
-            return cls(code=code, file_path=context.get("file_path", "unknown"),
-                      language=context.get("language", "python"),
-                      metadata={k: v for k, v in context.items()
-                                if k not in ("file_path", "language", "is_ai_generated")})
+            return cls(
+                code=code,
+                file_path=context.get("file_path", "unknown"),
+                language=context.get("language", "python"),
+                metadata={
+                    k: v
+                    for k, v in context.items()
+                    if k not in ("file_path", "language", "is_ai_generated")
+                },
+            )
+
 
 pytestmark = pytest.mark.skipif(not HAS_AGENTS, reason="codeverify_agents not installed")
 
@@ -50,23 +66,27 @@ class MockableSemanticAgent:
     def __init__(self, config: AgentConfig | None = None):
         self.config = config or AgentConfig()
 
-    async def analyze(self, code: str, context: dict | None = None) -> AgentResult:
+    async def analyze(self, code: str, _context: dict | None = None) -> AgentResult:
         findings = []
         if "eval(" in code:
-            findings.append({
-                "title": "Dangerous eval usage",
-                "severity": "critical",
-                "category": "code_injection",
-                "line": next(
-                    (i for i, l in enumerate(code.split("\n"), 1) if "eval(" in l), 1
-                ),
-            })
+            findings.append(
+                {
+                    "title": "Dangerous eval usage",
+                    "severity": "critical",
+                    "category": "code_injection",
+                    "line": next(
+                        (i for i, line in enumerate(code.split("\n"), 1) if "eval(" in line), 1
+                    ),
+                }
+            )
         if "# TODO" in code:
-            findings.append({
-                "title": "Unresolved TODO",
-                "severity": "low",
-                "category": "maintainability",
-            })
+            findings.append(
+                {
+                    "title": "Unresolved TODO",
+                    "severity": "low",
+                    "category": "maintainability",
+                }
+            )
         return AgentResult(
             success=True,
             data={
@@ -85,22 +105,26 @@ class MockableSecurityAgent:
     def __init__(self, config: AgentConfig | None = None):
         self.config = config or AgentConfig()
 
-    async def analyze(self, code: str, context: dict | None = None) -> AgentResult:
+    async def analyze(self, code: str, _context: dict | None = None) -> AgentResult:
         findings = []
         if "password" in code.lower():
-            findings.append({
-                "title": "Potential hardcoded credential",
-                "severity": "high",
-                "category": "credential_exposure",
-                "cwe": 798,
-            })
+            findings.append(
+                {
+                    "title": "Potential hardcoded credential",
+                    "severity": "high",
+                    "category": "credential_exposure",
+                    "cwe": 798,
+                }
+            )
         if "http://" in code:
-            findings.append({
-                "title": "Unencrypted HTTP",
-                "severity": "medium",
-                "category": "transport_security",
-                "owasp": "A02:2021",
-            })
+            findings.append(
+                {
+                    "title": "Unencrypted HTTP",
+                    "severity": "medium",
+                    "category": "transport_security",
+                    "owasp": "A02:2021",
+                }
+            )
         return AgentResult(
             success=True,
             data={"vulnerabilities": findings},
@@ -115,7 +139,7 @@ class MockableTrustScoreAgent:
     def __init__(self, config: AgentConfig | None = None):
         self.config = config or AgentConfig()
 
-    async def calculate_score(self, code: str, context: dict | None = None) -> AgentResult:
+    async def calculate_score(self, code: str, _context: dict | None = None) -> AgentResult:
         lines = code.split("\n")
         complexity = len(lines)
         score = max(0, 100 - complexity * 2)
@@ -156,13 +180,13 @@ class AgentBridgeExecutor:
 
     async def execute(self, task) -> None:
         """Execute a task using the appropriate real agent."""
+        from datetime import datetime
+
         from codeverify_core.agentic_orchestrator import (
             AgentFinding,
             TaskResult,
             TaskStatus,
         )
-        from datetime import datetime, timezone
-        import asyncio
 
         agent = self._agents.get(task.task_type)
         if not agent:
@@ -170,12 +194,10 @@ class AgentBridgeExecutor:
             return
 
         task.status = TaskStatus.RUNNING
-        task.started_at = datetime.now(timezone.utc)
+        task.started_at = datetime.now(UTC)
 
         code_snippets = "\n".join(
-            f.get("content", f.get("path", ""))
-            for f in task.target_files
-            if isinstance(f, dict)
+            f.get("content", f.get("path", "")) for f in task.target_files if isinstance(f, dict)
         ) or "\n".join(str(f) for f in task.target_files)
 
         try:
@@ -187,15 +209,17 @@ class AgentBridgeExecutor:
             findings: list[AgentFinding] = []
             raw_findings = result.data.get("findings", result.data.get("vulnerabilities", []))
             for rf in raw_findings:
-                findings.append(AgentFinding(
-                    agent_type=task.task_type,
-                    file_path=rf.get("file_path", ""),
-                    line=rf.get("line", 0),
-                    severity=rf.get("severity", "medium"),
-                    category=rf.get("category", ""),
-                    message=rf.get("title", ""),
-                    confidence=0.85,
-                ))
+                findings.append(
+                    AgentFinding(
+                        agent_type=task.task_type,
+                        file_path=rf.get("file_path", ""),
+                        line=rf.get("line", 0),
+                        severity=rf.get("severity", "medium"),
+                        category=rf.get("category", ""),
+                        message=rf.get("title", ""),
+                        confidence=0.85,
+                    )
+                )
 
             task.result = TaskResult(
                 task_id=task.id,
@@ -205,12 +229,12 @@ class AgentBridgeExecutor:
                 latency_ms=int(result.latency_ms),
             )
             task.status = TaskStatus.COMPLETED
-            task.completed_at = datetime.now(timezone.utc)
+            task.completed_at = datetime.now(UTC)
 
         except Exception as e:
             task.status = TaskStatus.FAILED
             task.result = TaskResult(task_id=task.id, success=False, error=str(e))
-            task.completed_at = datetime.now(timezone.utc)
+            task.completed_at = datetime.now(UTC)
 
 
 # ─── Tests ─────────────────────────────────────────────────────────────
@@ -230,12 +254,15 @@ class TestCodeContextBridge:
         assert ctx.is_ai_generated is True
 
     def test_code_context_from_dict(self):
-        ctx = CodeContext.from_dict("x = 1", {
-            "file_path": "test.py",
-            "language": "python",
-            "is_ai_generated": False,
-            "custom_field": "value",
-        })
+        ctx = CodeContext.from_dict(
+            "x = 1",
+            {
+                "file_path": "test.py",
+                "language": "python",
+                "is_ai_generated": False,
+                "custom_field": "value",
+            },
+        )
         assert ctx.file_path == "test.py"
         assert ctx.metadata["custom_field"] == "value"
 
@@ -365,9 +392,7 @@ class TestOrchestratorEndToEnd:
 
         # 3. Resolve conflicts
         resolver = ConflictResolver()
-        resolved, conflicts = resolver.resolve(
-            all_findings, ConflictStrategy.CONFIDENCE_WEIGHTED
-        )
+        resolved, conflicts = resolver.resolve(all_findings, ConflictStrategy.CONFIDENCE_WEIGHTED)
         assert len(resolved) >= 1
 
     @pytest.mark.asyncio

@@ -40,7 +40,7 @@ class TestVerificationQueue:
         q.enqueue(VerificationJob(priority=JobPriority.CRITICAL, repo_id="r2", commit_sha="crit"))
         q.enqueue(VerificationJob(priority=JobPriority.NORMAL, repo_id="r3", commit_sha="norm"))
         j1 = q.dequeue()
-        j2 = q.dequeue()
+        q.dequeue()
         j3 = q.dequeue()
         assert j1.commit_sha == "crit"
         assert j3.commit_sha == "low"
@@ -71,7 +71,7 @@ class TestVerificationQueue:
     def test_timeout_detection(self):
         q = VerificationQueue()
         q.enqueue(VerificationJob(priority=0, repo_id="r1", commit_sha="a", timeout_seconds=0))
-        job = q.dequeue()
+        q.dequeue()
         time.sleep(0.01)
         timed_out = q.check_timeouts()
         assert len(timed_out) == 1

@@ -21,6 +21,7 @@ Features:
 from __future__ import annotations
 
 import warnings as _warnings
+
 _warnings.warn(
     "codeverify_core.saas_platform is deprecated. Use codeverify_core.hosted_saas instead.",
     DeprecationWarning,
@@ -29,15 +30,13 @@ _warnings.warn(
 
 
 import hashlib
-import math
 import secrets
 import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, TypedDict
 
 import structlog
 
@@ -140,7 +139,7 @@ class UsageRecord:
     tenant_id: str = ""
     metric: UsageMetricType = UsageMetricType.VERIFICATIONS
     value: int = 0
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -149,8 +148,8 @@ class UsageSummary:
     """Aggregated usage for a billing period."""
 
     tenant_id: str = ""
-    period_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    period_end: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    period_start: datetime = field(default_factory=lambda: datetime.now(UTC))
+    period_end: datetime = field(default_factory=lambda: datetime.now(UTC))
     totals: dict[str, int] = field(default_factory=dict)
     limits: dict[str, int] = field(default_factory=dict)
 
@@ -181,7 +180,7 @@ class ApiKey:
     key_hash: str = ""
     prefix: str = ""
     scopes: list[ApiKeyScope] = field(default_factory=lambda: [ApiKeyScope.READ])
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     last_used_at: datetime | None = None
     is_active: bool = True
@@ -190,7 +189,7 @@ class ApiKey:
     def is_expired(self) -> bool:
         if self.expires_at is None:
             return False
-        return datetime.now(timezone.utc) > self.expires_at
+        return datetime.now(UTC) > self.expires_at
 
     def has_scope(self, scope: ApiKeyScope) -> bool:
         return ApiKeyScope.ADMIN in self.scopes or scope in self.scopes
@@ -208,7 +207,7 @@ class Tenant:
     owner_email: str = ""
     github_org: str = ""
     limits: PlanLimits = field(default_factory=PlanLimits)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     trial_ends_at: datetime | None = None
     billing_customer_id: str = ""
     settings: dict[str, Any] = field(default_factory=dict)
@@ -228,20 +227,24 @@ class Tenant:
         self.status = TenantStatus.TRIAL
         self.plan = PlanTier.PRO
         self.limits = PlanLimits.for_tier(PlanTier.PRO)
-        self.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=days)
+        self.trial_ends_at = datetime.now(UTC) + timedelta(days=days)
 
     @property
     def is_trial_expired(self) -> bool:
         if self.trial_ends_at is None:
             return False
-        return datetime.now(timezone.utc) > self.trial_ends_at
+        return datetime.now(UTC) > self.trial_ends_at
 
 
 class RateLimiter:
     """Token-bucket rate limiter per tenant."""
 
+    class _Bucket(TypedDict):
+        count: int
+        window_start: float
+
     def __init__(self) -> None:
-        self._buckets: dict[str, dict[str, Any]] = {}
+        self._buckets: dict[str, RateLimiter._Bucket] = {}
 
     def check(self, tenant_id: str, max_per_hour: int) -> bool:
         now = time.time()
@@ -250,9 +253,7 @@ class RateLimiter:
             self._buckets[tenant_id] = {"count": 1, "window_start": now}
             return True
         if max_per_hour <= 0:
-            if max_per_hour == -1:
-                return True
-            return False
+            return max_per_hour == -1
         if bucket["count"] >= max_per_hour:
             return False
         bucket["count"] += 1
@@ -279,22 +280,31 @@ class UsageTracker:
     def __init__(self) -> None:
         self._records: list[UsageRecord] = []
 
-    def record(self, tenant_id: str, metric: UsageMetricType, value: int = 1, **metadata: Any) -> UsageRecord:
+    def record(
+        self, tenant_id: str, metric: UsageMetricType, value: int = 1, **metadata: Any
+    ) -> UsageRecord:
         rec = UsageRecord(tenant_id=tenant_id, metric=metric, value=value, metadata=metadata)
         self._records.append(rec)
         return rec
 
-    def get_total(self, tenant_id: str, metric: UsageMetricType, since: datetime | None = None) -> int:
+    def get_total(
+        self, tenant_id: str, metric: UsageMetricType, since: datetime | None = None
+    ) -> int:
         total = 0
         for r in self._records:
-            if r.tenant_id == tenant_id and r.metric == metric:
-                if since is None or r.timestamp >= since:
-                    total += r.value
+            if (
+                r.tenant_id == tenant_id
+                and r.metric == metric
+                and (since is None or r.timestamp >= since)
+            ):
+                total += r.value
         return total
 
-    def get_summary(self, tenant_id: str, limits: PlanLimits, period_start: datetime | None = None) -> UsageSummary:
+    def get_summary(
+        self, tenant_id: str, limits: PlanLimits, period_start: datetime | None = None
+    ) -> UsageSummary:
         if period_start is None:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         totals = {}
@@ -385,7 +395,7 @@ class SaaSPlatform:
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
         expires_at = None
         if expires_in_days:
-            expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
+            expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
 
         api_key = ApiKey(
             tenant_id=tenant_id,
@@ -402,7 +412,7 @@ class SaaSPlatform:
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
         for ak in self._api_keys.values():
             if ak.key_hash == key_hash and ak.is_active and not ak.is_expired:
-                ak.last_used_at = datetime.now(timezone.utc)
+                ak.last_used_at = datetime.now(UTC)
                 return ak
         return None
 

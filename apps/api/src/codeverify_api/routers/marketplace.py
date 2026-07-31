@@ -209,7 +209,7 @@ def _agent_to_list_item(agent: dict[str, Any]) -> AgentListItem:
         author=agent["author"],
         category=AgentCategory(agent["category"]),
         capabilities=[AgentCapability(c) for c in agent["capabilities"]],
-        languages=[AgentLanguage(l) for l in agent["languages"]],
+        languages=[AgentLanguage(lang) for lang in agent["languages"]],
         tags=agent.get("tags", []),
         icon=agent.get("icon"),
         downloads=_agent_downloads.get(agent["id"], 0),
@@ -327,7 +327,7 @@ async def get_agent(
         author=agent["author"],
         category=AgentCategory(agent["category"]),
         capabilities=[AgentCapability(c) for c in agent["capabilities"]],
-        languages=[AgentLanguage(l) for l in agent["languages"]],
+        languages=[AgentLanguage(lang) for lang in agent["languages"]],
         tags=agent.get("tags", []),
         icon=agent.get("icon"),
         homepage=agent.get("homepage"),
@@ -372,7 +372,7 @@ async def publish_agent(
     try:
         manifest, files = AgentPackage.read_from_bytes(content)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid package: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid package: {e}") from e
 
     # Validate author matches current user
     # In production, use actual user authentication
@@ -404,7 +404,7 @@ async def publish_agent(
         "owner_id": user_id,
         "category": manifest.category.value,
         "capabilities": [c.value for c in manifest.capabilities],
-        "languages": [l.value for l in manifest.languages],
+        "languages": [lang.value for lang in manifest.languages],
         "tags": manifest.tags,
         "icon": manifest.icon,
         "homepage": manifest.homepage,

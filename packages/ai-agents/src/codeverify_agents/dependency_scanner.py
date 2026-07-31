@@ -620,15 +620,22 @@ class UpgradeAdvisor:
         current_parts = [int(x) for x in re.findall(r"\d+", current)]
         target_parts = [int(x) for x in re.findall(r"\d+", target)]
 
-        if len(current_parts) >= 1 and len(target_parts) >= 1:
-            # Major version change
-            if target_parts[0] > current_parts[0]:
-                return UpgradeRisk.BREAKING
+        # Major version change
+        if (
+            len(current_parts) >= 1
+            and len(target_parts) >= 1
+            and target_parts[0] > current_parts[0]
+        ):
+            return UpgradeRisk.BREAKING
 
-        if len(current_parts) >= 2 and len(target_parts) >= 2:
-            # Minor version change
-            if target_parts[0] == current_parts[0] and target_parts[1] > current_parts[1]:
-                return UpgradeRisk.MEDIUM
+        # Minor version change
+        if (
+            len(current_parts) >= 2
+            and len(target_parts) >= 2
+            and target_parts[0] == current_parts[0]
+            and target_parts[1] > current_parts[1]
+        ):
+            return UpgradeRisk.MEDIUM
 
         return UpgradeRisk.LOW
 
@@ -640,11 +647,12 @@ class UpgradeAdvisor:
         current_parts = [int(x) for x in re.findall(r"\d+", pkg.version)]
         target_parts = [int(x) for x in re.findall(r"\d+", target_version)]
 
-        if len(current_parts) >= 1 and len(target_parts) >= 1:
-            if target_parts[0] > current_parts[0]:
-                breaking.append(
-                    f"Major version upgrade from {current_parts[0]} to {target_parts[0]}"
-                )
+        if (
+            len(current_parts) >= 1
+            and len(target_parts) >= 1
+            and target_parts[0] > current_parts[0]
+        ):
+            breaking.append(f"Major version upgrade from {current_parts[0]} to {target_parts[0]}")
 
         return breaking
 
@@ -802,5 +810,5 @@ class DependencyVulnerabilityScanner:
             "total_scans": len(self.scan_results),
             "total_vulnerabilities": total_vulns,
             "severity_breakdown": dict(severity_totals),
-            "ecosystems_scanned": list(set(r.ecosystem.value for r in self.scan_results.values())),
+            "ecosystems_scanned": list({r.ecosystem.value for r in self.scan_results.values()}),
         }

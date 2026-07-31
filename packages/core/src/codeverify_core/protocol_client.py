@@ -15,13 +15,12 @@ Usage:
 
 from __future__ import annotations
 
-import hashlib
-import json
-import time
-import uuid
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from typing import Any
+import contextlib
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from codeverify_core.verification_protocol import VerificationProtocolServer
 
 PROTOCOL_VERSION = "1.0.0"
 
@@ -103,10 +102,8 @@ class VerificationClient:
         api_key: str = "",
         config: ClientConfig | None = None,
     ) -> None:
-        self._config = config or ClientConfig(
-            server_url=server_url, api_key=api_key
-        )
-        self._local_server = None
+        self._config = config or ClientConfig(server_url=server_url, api_key=api_key)
+        self._local_server: VerificationProtocolServer | None = None
         if not server_url:
             self._init_local()
 
@@ -170,10 +167,8 @@ class VerificationClient:
         check_types = []
         if checks:
             for c in checks:
-                try:
+                with contextlib.suppress(ValueError):
                     check_types.append(CheckType(c))
-                except ValueError:
-                    pass
         if not check_types:
             check_types = [CheckType.ALL]
 
@@ -188,11 +183,14 @@ class VerificationClient:
             timeout_ms=self._config.timeout_seconds * 1000,
         )
 
+        # Guaranteed non-None: this private method is only invoked from
+        # verify() after an `if self._local_server:` check.
+        assert self._local_server is not None
         resp = self._local_server.verify(req)
         return self._convert_response(resp)
 
     def _verify_local_files(
-        self, files: list[dict[str, str]], language: str, checks: list[str] | None
+        self, files: list[dict[str, str]], language: str, _checks: list[str] | None
     ) -> VerifyResult:
         from codeverify_core.verification_protocol import (
             CheckType,
@@ -206,11 +204,14 @@ class VerificationClient:
             checks=[CheckType.ALL],
             include_proofs=self._config.include_proofs,
         )
+        # Guaranteed non-None: this private method is only invoked from
+        # verify_files() after an `if self._local_server:` check.
+        assert self._local_server is not None
         resp = self._local_server.verify(req)
         return self._convert_response(resp)
 
     def _verify_remote(
-        self, code: str, language: str, file_path: str, checks: list[str] | None
+        self, _code: str, _language: str, _file_path: str, _checks: list[str] | None
     ) -> VerifyResult:
         """Verify via HTTP (placeholder — requires httpx in production)."""
         return VerifyResult(
@@ -220,7 +221,7 @@ class VerificationClient:
         )
 
     def _verify_remote_files(
-        self, files: list[dict[str, str]], language: str, checks: list[str] | None
+        self, _files: list[dict[str, str]], _language: str, _checks: list[str] | None
     ) -> VerifyResult:
         return VerifyResult(status="error")
 
@@ -228,27 +229,37 @@ class VerificationClient:
         """Convert protocol response to client result."""
         findings = [
             Finding(
-                id=f.id, file_path=f.file_path, line=f.line,
-                check_type=f.check_type.value if hasattr(f.check_type, "value") else str(f.check_type),
-                severity=f.severity, message=f.message,
-                fix_suggestion=f.fix_suggestion, proof_id=f.proof_id,
+                id=f.id,
+                file_path=f.file_path,
+                line=f.line,
+                check_type=f.check_type.value
+                if hasattr(f.check_type, "value")
+                else str(f.check_type),
+                severity=f.severity,
+                message=f.message,
+                fix_suggestion=f.fix_suggestion,
+                proof_id=f.proof_id,
             )
             for f in resp.findings
         ]
         proofs = [
             ProofCertificate(
                 id=p.id,
-                check_type=p.check_type.value if hasattr(p.check_type, "value") else str(p.check_type),
+                check_type=p.check_type.value
+                if hasattr(p.check_type, "value")
+                else str(p.check_type),
                 status=p.status.value if hasattr(p.status, "value") else str(p.status),
                 constraints_checked=p.constraints_checked,
-                content_hash=p.content_hash, signature=p.signature,
+                content_hash=p.content_hash,
+                signature=p.signature,
             )
             for p in resp.proofs
         ]
         return VerifyResult(
             request_id=resp.request_id,
             status=resp.status.value if hasattr(resp.status, "value") else str(resp.status),
-            findings=findings, proofs=proofs,
+            findings=findings,
+            proofs=proofs,
             verification_time_ms=resp.verification_time_ms,
             server_id=resp.server_id,
         )

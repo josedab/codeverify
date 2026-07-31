@@ -12,14 +12,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
-import math
-import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -43,6 +39,7 @@ class HeatmapLevel(str, Enum):
 @dataclass
 class FileHistory:
     """Historical data for a file."""
+
     file_path: str = ""
     total_findings: int = 0
     critical_findings: int = 0
@@ -59,6 +56,7 @@ class FileHistory:
 @dataclass
 class PredictionResult:
     """Defect prediction for a file/function."""
+
     file_path: str = ""
     function_name: str = ""
     risk_score: float = 0.0
@@ -72,12 +70,13 @@ class PredictionResult:
 @dataclass
 class HeatmapData:
     """Complete heatmap for a repository."""
+
     repo: str = ""
     predictions: list[PredictionResult] = field(default_factory=list)
     total_files: int = 0
     high_risk_count: int = 0
     avg_risk: float = 0.0
-    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def risk_distribution(self) -> dict[str, int]:
@@ -90,6 +89,7 @@ class HeatmapData:
 @dataclass
 class TicketSuggestion:
     """Suggested Jira/Linear ticket from prediction."""
+
     title: str = ""
     description: str = ""
     priority: str = "medium"
@@ -127,23 +127,43 @@ class DefectPredictor:
         score = sum(factors[k] * self.FEATURE_WEIGHTS[k] for k in factors)
         score = round(min(1.0, max(0.0, score)), 3)
 
-        sorted_factors = sorted(factors.items(), key=lambda x: x[1] * self.FEATURE_WEIGHTS.get(x[0], 0), reverse=True)
+        sorted_factors = sorted(
+            factors.items(), key=lambda x: x[1] * self.FEATURE_WEIGHTS.get(x[0], 0), reverse=True
+        )
         for name, val in sorted_factors[:3]:
             if val > 0.3:
                 top_factors.append(f"{name}: {val:.2f}")
 
-        level = (HeatmapLevel.CRITICAL if score >= 0.8 else HeatmapLevel.HIGH if score >= 0.6
-                 else HeatmapLevel.MEDIUM if score >= 0.4 else HeatmapLevel.LOW if score >= 0.2 else HeatmapLevel.SAFE)
+        level = (
+            HeatmapLevel.CRITICAL
+            if score >= 0.8
+            else HeatmapLevel.HIGH
+            if score >= 0.6
+            else HeatmapLevel.MEDIUM
+            if score >= 0.4
+            else HeatmapLevel.LOW
+            if score >= 0.2
+            else HeatmapLevel.SAFE
+        )
 
         predicted = round(score * 5, 1)
 
-        trend = RiskTrend.INCREASING if factors["recency"] > 0.6 else RiskTrend.DECREASING if factors["recency"] < 0.2 else RiskTrend.STABLE
+        trend = (
+            RiskTrend.INCREASING
+            if factors["recency"] > 0.6
+            else RiskTrend.DECREASING
+            if factors["recency"] < 0.2
+            else RiskTrend.STABLE
+        )
 
         return PredictionResult(
-            file_path=history.file_path, risk_score=score,
-            heatmap_level=level, predicted_defects_next_sprint=predicted,
+            file_path=history.file_path,
+            risk_score=score,
+            heatmap_level=level,
+            predicted_defects_next_sprint=predicted,
             confidence=0.6 + 0.3 * min(history.total_commits / 50, 1.0),
-            top_factors=top_factors, trend=trend,
+            top_factors=top_factors,
+            trend=trend,
         )
 
 
@@ -157,11 +177,16 @@ class DefectHeatmapService:
     def generate_heatmap(self, repo: str, file_histories: list[FileHistory]) -> HeatmapData:
         predictions = [self._predictor.predict(h) for h in file_histories]
         predictions.sort(key=lambda p: p.risk_score, reverse=True)
-        high_risk = sum(1 for p in predictions if p.heatmap_level in (HeatmapLevel.CRITICAL, HeatmapLevel.HIGH))
+        high_risk = sum(
+            1 for p in predictions if p.heatmap_level in (HeatmapLevel.CRITICAL, HeatmapLevel.HIGH)
+        )
         avg = sum(p.risk_score for p in predictions) / len(predictions) if predictions else 0.0
         heatmap = HeatmapData(
-            repo=repo, predictions=predictions, total_files=len(predictions),
-            high_risk_count=high_risk, avg_risk=round(avg, 3),
+            repo=repo,
+            predictions=predictions,
+            total_files=len(predictions),
+            high_risk_count=high_risk,
+            avg_risk=round(avg, 3),
         )
         self._heatmaps.append(heatmap)
         return heatmap
@@ -171,12 +196,16 @@ class DefectHeatmapService:
         for p in heatmap.predictions[:max_tickets]:
             if p.heatmap_level not in (HeatmapLevel.CRITICAL, HeatmapLevel.HIGH):
                 continue
-            tickets.append(TicketSuggestion(
-                title=f"Verification focus: {p.file_path}",
-                description=f"Predicted {p.predicted_defects_next_sprint} defects. Risk: {p.risk_score:.0%}. Factors: {', '.join(p.top_factors)}",
-                priority="high" if p.heatmap_level == HeatmapLevel.CRITICAL else "medium",
-                labels=["verification", "predicted-risk"], file_path=p.file_path, risk_score=p.risk_score,
-            ))
+            tickets.append(
+                TicketSuggestion(
+                    title=f"Verification focus: {p.file_path}",
+                    description=f"Predicted {p.predicted_defects_next_sprint} defects. Risk: {p.risk_score:.0%}. Factors: {', '.join(p.top_factors)}",
+                    priority="high" if p.heatmap_level == HeatmapLevel.CRITICAL else "medium",
+                    labels=["verification", "predicted-risk"],
+                    file_path=p.file_path,
+                    risk_score=p.risk_score,
+                )
+            )
         return tickets
 
     def get_heatmaps(self) -> list[HeatmapData]:
@@ -184,10 +213,15 @@ class DefectHeatmapService:
 
 
 _heatmap_instance: DefectHeatmapService | None = None
+
+
 def get_defect_heatmap_service() -> DefectHeatmapService:
     global _heatmap_instance
-    if _heatmap_instance is None: _heatmap_instance = DefectHeatmapService()
+    if _heatmap_instance is None:
+        _heatmap_instance = DefectHeatmapService()
     return _heatmap_instance
+
+
 def reset_defect_heatmap_service() -> None:
     global _heatmap_instance
     _heatmap_instance = None

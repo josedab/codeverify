@@ -616,12 +616,11 @@ def _replay_event(
     replay_event["timestamp"] = time.time()
 
     # Modify verification events if params changed
-    if modified_params:
-        if event["event_type"] == "verification_start":
-            replay_event["data"]["parameters"] = {
-                **event["data"].get("parameters", {}),
-                **modified_params,
-            }
+    if modified_params and event["event_type"] == "verification_start":
+        replay_event["data"]["parameters"] = {
+            **event["data"].get("parameters", {}),
+            **modified_params,
+        }
 
     return replay_event
 

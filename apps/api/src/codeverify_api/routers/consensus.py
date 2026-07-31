@@ -86,11 +86,11 @@ async def verify_with_consensus(
 
     try:
         strategy = ConsensusStrategy(request.consensus_strategy)
-    except ValueError:
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid consensus strategy: {request.consensus_strategy}",
-        )
+        ) from e
 
     consensus = MultiModelConsensus(consensus_strategy=strategy)
 

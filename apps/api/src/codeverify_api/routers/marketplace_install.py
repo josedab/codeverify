@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -18,8 +18,10 @@ router = APIRouter()
 # Models
 # ---------------------------------------------------------------------------
 
+
 class MarketplaceInstallEvent(BaseModel):
     """Incoming webhook from GitHub Marketplace installation."""
+
     action: str = Field(description="created, deleted, suspend, unsuspend")
     installation_id: int
     account_login: str
@@ -159,19 +161,24 @@ _onboarding: dict[int, dict[str, Any]] = {}
 _funnel_events: list[dict[str, Any]] = []
 
 
-def _record_funnel_event(installation_id: int, event: str, metadata: dict[str, Any] | None = None) -> None:
-    _funnel_events.append({
-        "id": str(uuid.uuid4()),
-        "installation_id": installation_id,
-        "event": event,
-        "metadata": metadata or {},
-        "timestamp": datetime.utcnow().isoformat(),
-    })
+def _record_funnel_event(
+    installation_id: int, event: str, metadata: dict[str, Any] | None = None
+) -> None:
+    _funnel_events.append(
+        {
+            "id": str(uuid.uuid4()),
+            "installation_id": installation_id,
+            "event": event,
+            "metadata": metadata or {},
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/install/webhook")
 async def handle_marketplace_webhook(event: MarketplaceInstallEvent) -> dict[str, Any]:
@@ -193,7 +200,11 @@ async def handle_marketplace_webhook(event: MarketplaceInstallEvent) -> dict[str
             "account_login": event.account_login,
             "status": "detecting_languages",
             "steps": [
-                {"name": "install", "status": "complete", "completed_at": datetime.utcnow().isoformat()},
+                {
+                    "name": "install",
+                    "status": "complete",
+                    "completed_at": datetime.utcnow().isoformat(),
+                },
                 {"name": "detect_languages", "status": "pending"},
                 {"name": "generate_config", "status": "pending"},
                 {"name": "first_analysis", "status": "pending"},
@@ -223,7 +234,9 @@ async def handle_marketplace_webhook(event: MarketplaceInstallEvent) -> dict[str
     return {"status": "ignored", "action": event.action}
 
 
-@router.post("/install/{installation_id}/detect-languages", response_model=list[LanguageDetectionResult])
+@router.post(
+    "/install/{installation_id}/detect-languages", response_model=list[LanguageDetectionResult]
+)
 async def detect_languages(installation_id: int) -> list[LanguageDetectionResult]:
     """Auto-detect languages for all repositories in an installation."""
     onboarding = _onboarding.get(installation_id)
@@ -296,13 +309,15 @@ async def generate_configs(installation_id: int) -> list[GeneratedConfig]:
         yml = _generate_codeverify_yml(lang, repo_name)
         lang_config = LANGUAGE_CONFIGS.get(lang, LANGUAGE_CONFIGS["python"])
 
-        configs.append(GeneratedConfig(
-            repo_full_name=repo_name,
-            config_yaml=yml,
-            language=lang,
-            verification_level=lang_config["verification_level"],
-            auto_fix_enabled=lang_config["auto_fix"],
-        ))
+        configs.append(
+            GeneratedConfig(
+                repo_full_name=repo_name,
+                config_yaml=yml,
+                language=lang,
+                verification_level=lang_config["verification_level"],
+                auto_fix_enabled=lang_config["auto_fix"],
+            )
+        )
 
     onboarding["config_generated"] = True
     onboarding["repos_activated"] = len(configs)
@@ -388,9 +403,24 @@ async def get_marketplace_listing() -> dict[str, Any]:
         ),
         "categories": ["code-review", "security", "continuous-integration"],
         "pricing": [
-            {"plan": "free", "price": 0, "unit": "month", "description": "100 verifications/month for public repos"},
-            {"plan": "pro", "price": 29, "unit": "month", "description": "5,000 verifications/month, private repos"},
-            {"plan": "enterprise", "price": None, "unit": "custom", "description": "Unlimited, SSO, compliance"},
+            {
+                "plan": "free",
+                "price": 0,
+                "unit": "month",
+                "description": "100 verifications/month for public repos",
+            },
+            {
+                "plan": "pro",
+                "price": 29,
+                "unit": "month",
+                "description": "5,000 verifications/month, private repos",
+            },
+            {
+                "plan": "enterprise",
+                "price": None,
+                "unit": "custom",
+                "description": "Unlimited, SSO, compliance",
+            },
         ],
         "features": [
             "Zero-config language detection",

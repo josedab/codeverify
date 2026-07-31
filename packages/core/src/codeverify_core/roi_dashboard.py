@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import structlog
 
@@ -38,7 +38,16 @@ class CostCategory(str, Enum):
 
 
 # Industry benchmarks for bug costs (source: IBM Systems Sciences Institute, Ponemon)
-BUG_COST_ESTIMATES = {
+class BugCostEstimate(TypedDict):
+    """Estimated cost range for a bug of a given severity."""
+
+    min: int
+    avg: int
+    max: int
+    description: str
+
+
+BUG_COST_ESTIMATES: dict[BugSeverity, BugCostEstimate] = {
     BugSeverity.CRITICAL: {
         "min": 50000,
         "avg": 150000,
@@ -339,10 +348,10 @@ class CostTracker:
 
     def _filter_by_period(
         self,
-        items: list,
+        items: list[VerificationCost],
         since: datetime | None,
         until: datetime | None,
-    ) -> list:
+    ) -> list[VerificationCost]:
         """Filter items by time period."""
         filtered = items
         if since:
@@ -444,10 +453,10 @@ class BugValueCalculator:
 
     def _filter_by_period(
         self,
-        items: list,
+        items: list[BugCaught],
         since: datetime | None,
         until: datetime | None,
-    ) -> list:
+    ) -> list[BugCaught]:
         """Filter items by time period."""
         filtered = items
         if since:

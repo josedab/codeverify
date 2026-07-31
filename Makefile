@@ -15,6 +15,9 @@ setup: ## Full development environment setup
 	. .venv/bin/activate && pip install -e "packages/core[dev]" \
 	                                   -e "packages/verifier[dev]" \
 	                                   -e "packages/ai-agents[dev]" \
+	                                   -e "packages/lsp-server[dev]" \
+	                                   -e "packages/cli[dev]" \
+	                                   -e "packages/sdk-python[pytest]" \
 	                                   -e "packages/z3-mcp" \
 	                                   -e "apps/api[dev]" \
 	                                   -e "apps/worker[dev]"
@@ -40,7 +43,7 @@ dev-api: docker-up ## Start just the API server (no web/GitHub app)
 	. .venv/bin/activate && uvicorn codeverify_api.main:app --reload --port 8000
 
 test: ## Run all tests (requires running infrastructure)
-	. .venv/bin/activate && pytest packages/ apps/ -v --tb=short
+	. .venv/bin/activate && pytest packages/ apps/ tests/ -v --tb=short
 
 test-core: ## Run core package tests only (no infrastructure needed)
 	. .venv/bin/activate && pytest packages/core/ -v --tb=short
@@ -49,12 +52,13 @@ test-fast: ## Run all package tests (no app/infrastructure tests)
 	. .venv/bin/activate && pytest packages/ -v --tb=short
 
 test-coverage: ## Run tests with coverage report
-	. .venv/bin/activate && pytest packages/ apps/ --cov --cov-report=html --cov-report=term-missing
+	. .venv/bin/activate && pytest packages/ apps/ tests/ --cov --cov-report=html --cov-report=term-missing
 	@echo "Coverage report: htmlcov/index.html"
 
 lint: ## Run linters (ruff + mypy)
 	. .venv/bin/activate && ruff check .
 	. .venv/bin/activate && ruff format --check .
+	. .venv/bin/activate && mypy --strict packages/core/src packages/verifier/src
 
 format: ## Auto-format code
 	. .venv/bin/activate && ruff check --fix .

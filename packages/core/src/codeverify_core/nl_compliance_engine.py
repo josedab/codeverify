@@ -14,12 +14,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
-import re
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -87,7 +85,7 @@ class ComplianceQuery:
     parsed_intent: str = ""
     status: QueryStatus = QueryStatus.PENDING
     submitted_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -292,7 +290,7 @@ class ComplianceQueryExecutor:
         violations = self._check_violations(parsed, evidence)
         recommendations = self._generate_recommendations(parsed, violations)
 
-        compliant = len(violations) == 0 and len(evidence) > 0
+        compliant: bool | None = len(violations) == 0 and len(evidence) > 0
         confidence = parsed.confidence
         if evidence:
             avg_strength = sum(
@@ -339,7 +337,8 @@ class ComplianceQueryExecutor:
         return self.execute_query(template.query, codebase_files)
 
     def list_templates(
-        self, standard: ComplianceStandard | None = None,
+        self,
+        standard: ComplianceStandard | None = None,
     ) -> list[ComplianceTemplate]:
         """List available templates, optionally filtered by standard."""
         templates = list(self._templates.values())
@@ -368,25 +367,31 @@ class ComplianceQueryExecutor:
                         elif any(weak in line_lower for weak in ["todo", "fixme", "hack"]):
                             strength = EvidenceStrength.WEAK
 
-                        evidence.append(ComplianceEvidence(
-                            file_path=filepath,
-                            line_start=i,
-                            line_end=i,
-                            code_snippet=line.strip()[:200],
-                            description=f"Found '{kw}' pattern in {filepath}:{i}",
-                            strength=strength,
-                        ))
+                        evidence.append(
+                            ComplianceEvidence(
+                                file_path=filepath,
+                                line_start=i,
+                                line_end=i,
+                                code_snippet=line.strip()[:200],
+                                description=f"Found '{kw}' pattern in {filepath}:{i}",
+                                strength=strength,
+                            )
+                        )
                         break  # One evidence per line
         return evidence
 
     def _check_violations(
         self,
-        query: ComplianceQuery,
+        _query: ComplianceQuery,
         evidence: list[ComplianceEvidence],
     ) -> list[str]:
         """Check for compliance violations."""
         violations: list[str] = []
-        weak = [e for e in evidence if e.strength in (EvidenceStrength.WEAK, EvidenceStrength.INSUFFICIENT)]
+        weak = [
+            e
+            for e in evidence
+            if e.strength in (EvidenceStrength.WEAK, EvidenceStrength.INSUFFICIENT)
+        ]
         for e in weak:
             violations.append(
                 f"Weak implementation at {e.file_path}:{e.line_start}: {e.description}"

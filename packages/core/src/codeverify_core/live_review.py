@@ -158,41 +158,37 @@ class FindingConsensus:
 # NL assertion patterns → constraint templates
 _NL_PATTERNS: list[tuple[str, str, list[str]]] = [
     # "x should never be null/None"
-    (r"(\w+)\s+should\s+never\s+be\s+(?:null|None|nil)",
-     "{var} != None", ["var"]),
+    (r"(\w+)\s+should\s+never\s+be\s+(?:null|None|nil)", "{var} != None", ["var"]),
     # "x must be positive"
-    (r"(\w+)\s+(?:must|should)\s+be\s+positive",
-     "{var} > 0", ["var"]),
+    (r"(\w+)\s+(?:must|should)\s+be\s+positive", "{var} > 0", ["var"]),
     # "x must be non-negative"
-    (r"(\w+)\s+(?:must|should)\s+be\s+non-negative",
-     "{var} >= 0", ["var"]),
+    (r"(\w+)\s+(?:must|should)\s+be\s+non-negative", "{var} >= 0", ["var"]),
     # "x should be less than y"
-    (r"(\w+)\s+should\s+be\s+less\s+than\s+(\w+)",
-     "{var1} < {var2}", ["var1", "var2"]),
+    (r"(\w+)\s+should\s+be\s+less\s+than\s+(\w+)", "{var1} < {var2}", ["var1", "var2"]),
     # "x should be greater than y"
-    (r"(\w+)\s+should\s+be\s+greater\s+than\s+(\w+)",
-     "{var1} > {var2}", ["var1", "var2"]),
+    (r"(\w+)\s+should\s+be\s+greater\s+than\s+(\w+)", "{var1} > {var2}", ["var1", "var2"]),
     # "x should equal y"
-    (r"(\w+)\s+should\s+equal\s+(\w+)",
-     "{var1} == {var2}", ["var1", "var2"]),
+    (r"(\w+)\s+should\s+equal\s+(\w+)", "{var1} == {var2}", ["var1", "var2"]),
     # "x should not equal y"
-    (r"(\w+)\s+should\s+not\s+equal\s+(\w+)",
-     "{var1} != {var2}", ["var1", "var2"]),
+    (r"(\w+)\s+should\s+not\s+equal\s+(\w+)", "{var1} != {var2}", ["var1", "var2"]),
     # "array length should be less than N"
-    (r"(?:array|list)\s+(?:length|size)\s+should\s+be\s+less\s+than\s+(\d+)",
-     "len(array) < {n}", ["n"]),
+    (
+        r"(?:array|list)\s+(?:length|size)\s+should\s+be\s+less\s+than\s+(\d+)",
+        "len(array) < {n}",
+        ["n"],
+    ),
     # "return value should never be negative"
-    (r"return\s+value\s+should\s+never\s+be\s+negative",
-     "result >= 0", []),
+    (r"return\s+value\s+should\s+never\s+be\s+negative", "result >= 0", []),
     # "x should be between A and B"
-    (r"(\w+)\s+should\s+be\s+between\s+(\w+)\s+and\s+(\w+)",
-     "{lo} <= {var} <= {hi}", ["var", "lo", "hi"]),
+    (
+        r"(\w+)\s+should\s+be\s+between\s+(\w+)\s+and\s+(\w+)",
+        "{lo} <= {var} <= {hi}",
+        ["var", "lo", "hi"],
+    ),
     # "division should be safe" / "no division by zero"
-    (r"(?:no\s+)?division\s+(?:by\s+zero|should\s+be\s+safe)",
-     "divisor != 0", []),
+    (r"(?:no\s+)?division\s+(?:by\s+zero|should\s+be\s+safe)", "divisor != 0", []),
     # "index should be in bounds"
-    (r"index\s+should\s+be\s+in\s+bounds",
-     "0 <= index < len(array)", []),
+    (r"index\s+should\s+be\s+in\s+bounds", "0 <= index < len(array)", []),
 ]
 
 
@@ -245,7 +241,8 @@ class NLAssertionCompiler:
         )
 
     def compile_batch(
-        self, assertions: list[NLAssertion],
+        self,
+        assertions: list[NLAssertion],
     ) -> list[CompiledAssertion]:
         return [self.compile(a) for a in assertions]
 
@@ -284,13 +281,15 @@ class LiveReviewSession:
         compiled = self._compiler.compile(nl)
         self._assertions.append(compiled)
 
-        self._history.append({
-            "action": "assertion_added",
-            "assertion_id": nl.id,
-            "author": author,
-            "text": text,
-            "timestamp": time.time(),
-        })
+        self._history.append(
+            {
+                "action": "assertion_added",
+                "assertion_id": nl.id,
+                "author": author,
+                "text": text,
+                "timestamp": time.time(),
+            }
+        )
 
         return compiled
 
@@ -318,13 +317,15 @@ class LiveReviewSession:
         ]
         self._votes[finding_id].votes.append(review_vote)
 
-        self._history.append({
-            "action": "vote_cast",
-            "finding_id": finding_id,
-            "voter": voter,
-            "vote": vote.value,
-            "timestamp": time.time(),
-        })
+        self._history.append(
+            {
+                "action": "vote_cast",
+                "finding_id": finding_id,
+                "voter": voter,
+                "vote": vote.value,
+                "timestamp": time.time(),
+            }
+        )
 
         return self._votes[finding_id]
 
@@ -346,9 +347,7 @@ class LiveReviewSession:
 
     @property
     def verified_count(self) -> int:
-        return sum(
-            1 for a in self._assertions if a.status == AssertionStatus.VERIFIED
-        )
+        return sum(1 for a in self._assertions if a.status == AssertionStatus.VERIFIED)
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -372,12 +371,15 @@ class LiveReviewManager:
         self._max_sessions = max_sessions
 
     def create_session(
-        self, pr_id: str, repo: str = "",
+        self,
+        pr_id: str,
+        repo: str = "",
     ) -> LiveReviewSession:
         """Create a new live review session."""
         if len(self._sessions) >= self._max_sessions:
             oldest_key = min(
-                self._sessions, key=lambda k: self._sessions[k].created_at,
+                self._sessions,
+                key=lambda k: self._sessions[k].created_at,
             )
             del self._sessions[oldest_key]
 

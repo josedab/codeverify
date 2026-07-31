@@ -87,7 +87,7 @@ class LeaderboardResponse(BaseModel):
 async def get_dashboard_stats(
     organization_id: UUID | None = Query(None, description="Filter by organization"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get dashboard statistics."""
     # Base query filters
@@ -221,7 +221,7 @@ async def get_dashboard_stats(
 async def get_repository_stats(
     repository_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get statistics for a specific repository."""
     # Total analyses for this repo
@@ -289,7 +289,7 @@ async def get_repository_stats(
 async def get_team_stats(
     organization_id: UUID = Query(..., description="Organization ID"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> TeamStatsResponse:
     """Get team-level statistics for an organization."""
     now = datetime.utcnow()
@@ -316,7 +316,7 @@ async def get_team_stats(
     active_7d = set()
     active_30d = set()
 
-    for user, membership in members:
+    for user, _membership in members:
         # Analyses triggered by this user
         analyses_count = await db.execute(
             select(func.count(Analysis.id)).where(
@@ -399,12 +399,11 @@ async def get_trends(
     organization_id: UUID | None = Query(None, description="Filter by organization"),
     period: str = Query("30d", description="Time period: 7d, 30d, 90d"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> TrendsResponse:
     """Get trend data for charts."""
     period_days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 30)
     now = datetime.utcnow()
-    start_date = now - timedelta(days=period_days)
 
     # Get repo IDs for filtering
     repo_ids = None
@@ -498,7 +497,7 @@ async def get_leaderboard(
     metric: str = Query("analyses", description="Metric: analyses, findings_fixed, activity"),
     period: str = Query("30d", description="Time period: 7d, 30d, 90d, all"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ) -> LeaderboardResponse:
     """Get leaderboard for gamification."""
     period_days = {"7d": 7, "30d": 30, "90d": 90, "all": 365 * 10}.get(period, 30)
@@ -537,7 +536,7 @@ async def get_leaderboard(
             count = await db.execute(
                 select(func.count(Finding.id)).where(
                     Finding.dismissed_by == user.id,
-                    Finding.dismissed == True,
+                    Finding.dismissed,
                     Finding.created_at >= start_date,
                 )
             )

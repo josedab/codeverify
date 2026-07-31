@@ -564,16 +564,19 @@ class ConstraintStreamer:
         # Check for array access without bounds check
         array_access = re.findall(r"(\w+)\[(\w+)\]", code)
         for array, index in array_access:
-            if f"len({array})" not in code and f"range(len({array}))" not in code:
-                if index not in ("0", "1", "-1"):
-                    issues.append(
-                        {
-                            "type": "bounds_check",
-                            "message": f"Array access {array}[{index}] may be out of bounds",
-                            "severity": "high",
-                            "constraint_id": "bounds_check",
-                        }
-                    )
+            if (
+                f"len({array})" not in code
+                and f"range(len({array}))" not in code
+                and index not in ("0", "1", "-1")
+            ):
+                issues.append(
+                    {
+                        "type": "bounds_check",
+                        "message": f"Array access {array}[{index}] may be out of bounds",
+                        "severity": "high",
+                        "constraint_id": "bounds_check",
+                    }
+                )
 
         return issues
 
@@ -585,16 +588,19 @@ class ConstraintStreamer:
         # Check for division without zero check
         divisions = re.findall(r"(\w+)\s*/\s*(\w+)", code)
         for _, divisor in divisions:
-            if divisor not in ("2", "10", "100", "1000"):
-                if f"if {divisor}" not in code and f"{divisor} != 0" not in code:
-                    issues.append(
-                        {
-                            "type": "division_safety",
-                            "message": f"Division by {divisor} without zero check",
-                            "severity": "critical",
-                            "constraint_id": "division_safety",
-                        }
-                    )
+            if (
+                divisor not in ("2", "10", "100", "1000")
+                and f"if {divisor}" not in code
+                and f"{divisor} != 0" not in code
+            ):
+                issues.append(
+                    {
+                        "type": "division_safety",
+                        "message": f"Division by {divisor} without zero check",
+                        "severity": "critical",
+                        "constraint_id": "division_safety",
+                    }
+                )
 
         return issues
 

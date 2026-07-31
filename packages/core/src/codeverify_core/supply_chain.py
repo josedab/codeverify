@@ -15,12 +15,11 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import re
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -124,7 +123,7 @@ class Vulnerability:
     cvss_score: float = 0.0
     title: str = ""
     description: str = ""
-    published_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    published_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def display_id(self) -> str:
@@ -195,7 +194,7 @@ class SupplyChainReport:
     overall_risk_score: float = 0.0
     risks: list[DependencyRisk] = field(default_factory=list)
     sbom: list[SBOMEntry] = field(default_factory=list)
-    scanned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    scanned_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def is_clean(self) -> bool:
@@ -228,17 +227,20 @@ class LockfileParser:
                 continue
             match = re.match(r"^([\w\-_.]+)(?:\[.*\])?\s*(?:==|>=|~=|!=)\s*([\d.\w]+)", line)
             if match:
-                deps.append(Dependency(
-                    name=match.group(1),
-                    version=match.group(2),
-                    package_manager=PackageManager.PIP,
-                ))
+                deps.append(
+                    Dependency(
+                        name=match.group(1),
+                        version=match.group(2),
+                        package_manager=PackageManager.PIP,
+                    )
+                )
         return deps
 
     def parse_package_lock(self, content: str) -> list[Dependency]:
         """Parse npm package-lock.json (simplified)."""
         deps = []
         import json
+
         try:
             data = json.loads(content)
             packages = data.get("packages", data.get("dependencies", {}))
@@ -249,13 +251,15 @@ class LockfileParser:
                 if not clean_name:
                     continue
                 version = info.get("version", "")
-                deps.append(Dependency(
-                    name=clean_name,
-                    version=version,
-                    package_manager=PackageManager.NPM,
-                    license_id=info.get("license", ""),
-                    direct=not info.get("dev", False),
-                ))
+                deps.append(
+                    Dependency(
+                        name=clean_name,
+                        version=version,
+                        package_manager=PackageManager.NPM,
+                        license_id=info.get("license", ""),
+                        direct=not info.get("dev", False),
+                    )
+                )
         except (json.JSONDecodeError, AttributeError):
             pass
         return deps
@@ -272,11 +276,13 @@ class LockfileParser:
                 key = f"{name}@{version}"
                 if key not in seen:
                     seen.add(key)
-                    deps.append(Dependency(
-                        name=name,
-                        version=version,
-                        package_manager=PackageManager.GO,
-                    ))
+                    deps.append(
+                        Dependency(
+                            name=name,
+                            version=version,
+                            package_manager=PackageManager.GO,
+                        )
+                    )
         return deps
 
 
@@ -289,7 +295,7 @@ class VulnerabilityDatabase:
     def add_vulnerability(self, vuln: Vulnerability) -> None:
         self._vulns[vuln.package_name.lower()].append(vuln)
 
-    def lookup(self, package_name: str, version: str = "") -> list[Vulnerability]:
+    def lookup(self, package_name: str, _version: str = "") -> list[Vulnerability]:
         return list(self._vulns.get(package_name.lower(), []))
 
     @property
@@ -305,7 +311,10 @@ class LicensePolicy:
         allowed_categories: list[LicenseCategory] | None = None,
         blocked_licenses: list[str] | None = None,
     ) -> None:
-        self.allowed = allowed_categories or [LicenseCategory.PERMISSIVE, LicenseCategory.WEAK_COPYLEFT]
+        self.allowed = allowed_categories or [
+            LicenseCategory.PERMISSIVE,
+            LicenseCategory.WEAK_COPYLEFT,
+        ]
         self.blocked = set(blocked_licenses or [])
 
     def check(self, dep: Dependency) -> ComplianceStatus:
@@ -390,7 +399,9 @@ class SupplyChainVerifier:
             sbom=sbom,
         )
         self._scans.append(report)
-        logger.info("supply_chain_scanned", project=project_name, vulns=total_vulns, deps=len(dependencies))
+        logger.info(
+            "supply_chain_scanned", project=project_name, vulns=total_vulns, deps=len(dependencies)
+        )
         return report
 
     def scan_lockfile(
@@ -412,7 +423,7 @@ class SupplyChainVerifier:
 
     def _calculate_risk(
         self,
-        dep: Dependency,
+        _dep: Dependency,
         vulns: list[Vulnerability],
         compliance: ComplianceStatus,
     ) -> float:

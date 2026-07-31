@@ -24,9 +24,10 @@ from urllib.parse import unquote, urlparse
 try:
     from lsprotocol import types as lsp
     from pygls.server import LanguageServer
-    from pygls.workspace import TextDocument
 except ImportError:
-    raise ImportError("LSP dependencies not installed. Install with: pip install pygls lsprotocol")
+    raise ImportError(
+        "LSP dependencies not installed. Install with: pip install pygls lsprotocol"
+    ) from None
 
 import structlog
 
@@ -112,7 +113,7 @@ class CodeVerifyLanguageServer(LanguageServer):
         @self.command("codeverify.analyze")
         async def analyze_command(uri: str) -> dict[str, Any]:
             """Command to trigger analysis."""
-            await self._analyze_document(uri, force=True)
+            await self._analyze_document(uri, _force=True)
             return {"success": True}
 
         @self.command("codeverify.getTrustScore")
@@ -162,7 +163,7 @@ class CodeVerifyLanguageServer(LanguageServer):
         task = asyncio.create_task(delayed_analysis())
         self._pending_verifications[uri] = task
 
-    async def _analyze_document(self, uri: str, force: bool = False) -> None:
+    async def _analyze_document(self, uri: str, _force: bool = False) -> None:
         """Analyze a document and publish diagnostics."""
         # Get document
         document = self.workspace.get_text_document(uri)
@@ -261,35 +262,43 @@ class CodeVerifyLanguageServer(LanguageServer):
 
         for i, line in enumerate(lines):
             # Null safety checks
-            if language == "python":
-                if ".method" in line and "is not None" not in line and "if " not in line:
-                    findings.append(
-                        self._create_finding(
-                            id=str(uuid.uuid4()),
-                            title="Potential None dereference",
-                            description="This code may raise AttributeError if the object is None",
-                            severity="medium",
-                            category="null_safety",
-                            line_start=i + 1,
-                            line_end=i + 1,
-                        )
+            if (
+                language == "python"
+                and ".method" in line
+                and "is not None" not in line
+                and "if " not in line
+            ):
+                findings.append(
+                    self._create_finding(
+                        id=str(uuid.uuid4()),
+                        title="Potential None dereference",
+                        description="This code may raise AttributeError if the object is None",
+                        severity="medium",
+                        category="null_safety",
+                        line_start=i + 1,
+                        line_end=i + 1,
                     )
+                )
 
-            elif language in ("typescript", "javascript"):
-                if "." in line and "?." not in line and "&&" not in line:
-                    # Skip common safe patterns
-                    if not any(s in line for s in ["console.", "Math.", "JSON.", "Object."]):
-                        findings.append(
-                            self._create_finding(
-                                id=str(uuid.uuid4()),
-                                title="Potential null/undefined dereference",
-                                description="Consider using optional chaining (?.) to prevent runtime errors",
-                                severity="low",
-                                category="null_safety",
-                                line_start=i + 1,
-                                line_end=i + 1,
-                            )
-                        )
+            # Skip common safe patterns
+            if (
+                language in ("typescript", "javascript")
+                and "." in line
+                and "?." not in line
+                and "&&" not in line
+                and not any(s in line for s in ["console.", "Math.", "JSON.", "Object."])
+            ):
+                findings.append(
+                    self._create_finding(
+                        id=str(uuid.uuid4()),
+                        title="Potential null/undefined dereference",
+                        description="Consider using optional chaining (?.) to prevent runtime errors",
+                        severity="low",
+                        category="null_safety",
+                        line_start=i + 1,
+                        line_end=i + 1,
+                    )
+                )
 
             # Array bounds checks
             if (
@@ -311,19 +320,24 @@ class CodeVerifyLanguageServer(LanguageServer):
                 )
 
             # SQL injection
-            if "execute" in line.lower() and ("+" in line or "%" in line or "format" in line):
-                if "SELECT" in line.upper() or "INSERT" in line.upper() or "UPDATE" in line.upper():
-                    findings.append(
-                        self._create_finding(
-                            id=str(uuid.uuid4()),
-                            title="Potential SQL injection",
-                            description="Use parameterized queries instead of string concatenation",
-                            severity="critical",
-                            category="security",
-                            line_start=i + 1,
-                            line_end=i + 1,
-                        )
+            if (
+                "execute" in line.lower()
+                and ("+" in line or "%" in line or "format" in line)
+                and (
+                    "SELECT" in line.upper() or "INSERT" in line.upper() or "UPDATE" in line.upper()
+                )
+            ):
+                findings.append(
+                    self._create_finding(
+                        id=str(uuid.uuid4()),
+                        title="Potential SQL injection",
+                        description="Use parameterized queries instead of string concatenation",
+                        severity="critical",
+                        category="security",
+                        line_start=i + 1,
+                        line_end=i + 1,
                     )
+                )
 
         return findings
 
@@ -558,7 +572,6 @@ class CodeVerifyLanguageServer(LanguageServer):
             return {"error": "Document not found"}
 
         # Simple local trust score calculation
-        code = document.source
         findings = self._findings_by_uri.get(uri, [])
 
         # Base score

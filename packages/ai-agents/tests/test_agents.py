@@ -1,263 +1,305 @@
-"""Tests for AI agents."""
+"""Tests for the core AI agent interfaces."""
 
-from unittest.mock import AsyncMock, Mock, patch
+import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from codeverify_agents import (
+    AgentConfig,
+    AgentResult,
+    SecurityAgent,
+    SemanticAgent,
+    SynthesisAgent,
+)
 from codeverify_agents.base import BaseAgent
-from codeverify_agents.security import SecurityAnalysisAgent
-from codeverify_agents.semantic import SemanticAnalysisAgent
-from codeverify_agents.synthesis import SynthesisAgent
+from codeverify_agents.factory import MockLLMClientProvider
+
+
+class _ConcreteAgent(BaseAgent):
+    """Minimal concrete agent used to exercise BaseAgent behavior."""
+
+    async def analyze(self, code: str, context: dict) -> AgentResult:
+        return AgentResult(success=True, data={"code": code, "context": context})
 
 
 class TestBaseAgent:
     """Tests for base agent functionality."""
 
     def test_agent_initialization(self):
-        """Agent initializes with provider settings."""
-        agent = BaseAgent(provider="openai", model="gpt-4")
-        assert agent.provider == "openai"
-        assert agent.model == "gpt-4"
+        """Agent stores the supplied AgentConfig."""
+        config = AgentConfig(provider="anthropic", anthropic_model="claude-test")
+        agent = _ConcreteAgent(config)
+
+        assert agent.config is config
+        assert agent.config.provider == "anthropic"
+        assert agent.config.anthropic_model == "claude-test"
 
     def test_agent_default_provider(self):
-        """Agent uses default provider if not specified."""
-        agent = BaseAgent()
-        assert agent.provider in ["openai", "anthropic"]
+        """Agent uses the documented default configuration."""
+        agent = _ConcreteAgent()
+
+        assert agent.config.provider == "openai"
+        assert agent.config.openai_model == "gpt-4-turbo-preview"
 
     @pytest.mark.asyncio
     async def test_call_llm_openai(self):
-        """Agent can call OpenAI API."""
-        agent = BaseAgent(provider="openai", model="gpt-4")
+        """Agent calls an injected OpenAI client without network access."""
+        agent = _ConcreteAgent(AgentConfig(provider="openai", openai_api_key="test-key"))
+        agent._llm_provider = MockLLMClientProvider(openai_response="Test response")
 
-        with patch("openai.AsyncOpenAI") as mock_openai:
-            mock_client = Mock()
-            mock_client.chat.completions.create = AsyncMock(
-                return_value=Mock(choices=[Mock(message=Mock(content="Test response"))])
-            )
-            mock_openai.return_value = mock_client
+        response = await agent._call_llm("System prompt", "User prompt", json_mode=True)
 
-            response = await agent._call_llm("Test prompt")
-
-            assert response == "Test response"
+        assert response["content"] == "Test response"
+        assert response["tokens"] == 100
+        assert response["latency_ms"] >= 0
 
     @pytest.mark.asyncio
     async def test_call_llm_anthropic(self):
-        """Agent can call Anthropic API."""
-        agent = BaseAgent(provider="anthropic", model="claude-3-sonnet")
+        """Agent calls an injected Anthropic client without network access."""
+        agent = _ConcreteAgent(AgentConfig(provider="anthropic", anthropic_api_key="test-key"))
+        agent._llm_provider = MockLLMClientProvider(anthropic_response="Test response")
 
-        with patch("anthropic.AsyncAnthropic") as mock_anthropic:
-            mock_client = Mock()
-            mock_client.messages.create = AsyncMock(
-                return_value=Mock(content=[Mock(text="Test response")])
-            )
-            mock_anthropic.return_value = mock_client
+        response = await agent._call_llm("System prompt", "User prompt")
 
-            response = await agent._call_llm("Test prompt")
-
-            assert response == "Test response"
+        assert response["content"] == "Test response"
+        assert response["tokens"] == 100
+        assert response["latency_ms"] >= 0
 
 
-class TestSemanticAnalysisAgent:
-    """Tests for semantic analysis agent."""
+class TestSemanticAgent:
+    """Tests for the current semantic analysis agent."""
 
     @pytest.fixture
     def agent(self):
-        """Create a semantic analysis agent."""
-        return SemanticAnalysisAgent()
+        return SemanticAgent()
 
     def test_agent_type(self, agent):
-        """Agent has correct type."""
-        assert agent.agent_type == "semantic"
+        """SemanticAgent is a BaseAgent with semantic defaults."""
+        assert isinstance(agent, BaseAgent)
+        assert agent.config.provider == "openai"
+        assert agent.config.openai_model == "gpt-4-turbo-preview"
 
     @pytest.mark.asyncio
     async def test_analyze_function(self, agent):
-        """Agent can analyze a function."""
+        """SemanticAgent returns an AgentResult containing parsed analysis."""
         code = """
 def calculate_total(items, tax_rate):
     subtotal = sum(item.price for item in items)
     return subtotal * (1 + tax_rate)
 """
+        payload = {
+            "summary": "Calculate total price with tax",
+            "functions": [
+                {
+                    "name": "calculate_total",
+                    "purpose": "Calculate a taxed total",
+                    "preconditions": ["items is iterable", "tax_rate >= 0"],
+                    "postconditions": ["return value >= 0"],
+                    "assumptions": [],
+                    "edge_cases": ["empty items list"],
+                    "concerns": [],
+                }
+            ],
+            "behavioral_changes": [],
+            "verification_hints": ["check tax_rate"],
+        }
+        response = {
+            "content": json.dumps(payload),
+            "tokens": 37,
+            "latency_ms": 1.5,
+        }
 
-        with patch.object(agent, "_call_llm") as mock_llm:
-            mock_llm.return_value = """
-{
-    "intent": "Calculate total price with tax",
-    "preconditions": ["items is iterable", "tax_rate >= 0"],
-    "postconditions": ["return value >= 0"],
-    "edge_cases": ["empty items list", "negative tax_rate"],
-    "issues": []
-}
-"""
+        with patch.object(agent, "_call_llm", new=AsyncMock(return_value=response)) as mock_llm:
             result = await agent.analyze(code, {"file_path": "pricing.py"})
 
-            assert "intent" in result
-            assert "preconditions" in result
+        assert result.success is True
+        assert result.data["summary"] == "Calculate total price with tax"
+        assert result.data["functions"][0]["preconditions"] == [
+            "items is iterable",
+            "tax_rate >= 0",
+        ]
+        assert result.tokens_used == 37
+        assert mock_llm.await_args.kwargs["json_mode"] is True
+        assert "`pricing.py`" in mock_llm.await_args.kwargs["user_prompt"]
 
     @pytest.mark.asyncio
     async def test_handles_malformed_response(self, agent):
-        """Agent handles malformed LLM response gracefully."""
-        with patch.object(agent, "_call_llm") as mock_llm:
-            mock_llm.return_value = "Not valid JSON"
+        """Malformed JSON is preserved in the standard parse fallback."""
+        response = {"content": "Not valid JSON", "tokens": 4, "latency_ms": 0.5}
 
+        with patch.object(agent, "_call_llm", new=AsyncMock(return_value=response)):
             result = await agent.analyze("def foo(): pass", {})
 
-            # Should return empty or error result, not crash
-            assert isinstance(result, dict)
+        assert result.success is True
+        assert result.data == {"raw_response": "Not valid JSON"}
+        assert result.tokens_used == 4
 
 
-class TestSecurityAnalysisAgent:
-    """Tests for security analysis agent."""
+class TestSecurityAgent:
+    """Tests for the current security analysis agent."""
 
     @pytest.fixture
     def agent(self):
-        """Create a security analysis agent."""
-        return SecurityAnalysisAgent()
+        return SecurityAgent()
 
     def test_agent_type(self, agent):
-        """Agent has correct type."""
-        assert agent.agent_type == "security"
+        """SecurityAgent is a BaseAgent with security defaults."""
+        assert isinstance(agent, BaseAgent)
+        assert agent.config.provider == "anthropic"
+        assert agent.config.anthropic_model == "claude-3-sonnet-20240229"
 
     @pytest.mark.asyncio
     async def test_detect_sql_injection(self, agent):
-        """Agent detects SQL injection vulnerability."""
+        """SecurityAgent returns structured vulnerabilities from the LLM."""
         code = """
 def get_user(user_id):
     query = f"SELECT * FROM users WHERE id = {user_id}"
     cursor.execute(query)
     return cursor.fetchone()
 """
-
-        with patch.object(agent, "_call_llm") as mock_llm:
-            mock_llm.return_value = """
-{
-    "vulnerabilities": [
-        {
-            "type": "sql_injection",
-            "severity": "critical",
-            "description": "User input used directly in SQL query",
-            "line": 3,
-            "fix": "Use parameterized queries"
+        payload = {
+            "vulnerabilities": [
+                {
+                    "id": "vuln-1",
+                    "severity": "critical",
+                    "category": "injection",
+                    "cwe_id": "CWE-89",
+                    "title": "SQL injection",
+                    "description": "User input is interpolated into SQL",
+                    "location": {"file": "db.py", "line": 3},
+                    "fix_suggestion": "Use a parameterized query",
+                    "confidence": 0.98,
+                }
+            ],
+            "secrets_detected": [],
+            "security_score": 20,
+            "summary": "Critical SQL injection found",
         }
-    ]
-}
-"""
+        response = {"content": json.dumps(payload), "tokens": 29, "latency_ms": 1.0}
+
+        with patch.object(agent, "_call_llm", new=AsyncMock(return_value=response)):
             result = await agent.analyze(code, {"file_path": "db.py"})
 
-            assert "vulnerabilities" in result
-            assert len(result["vulnerabilities"]) > 0
-            assert result["vulnerabilities"][0]["type"] == "sql_injection"
+        assert result.success is True
+        assert result.data["vulnerabilities"][0]["cwe_id"] == "CWE-89"
+        assert result.data["vulnerabilities"][0]["fix_suggestion"] == ("Use a parameterized query")
+        assert result.tokens_used == 29
 
     @pytest.mark.asyncio
     async def test_detect_secret_exposure(self, agent):
-        """Agent detects hardcoded secrets."""
+        """The public pattern scanner reports concrete secret types and lines."""
         code = """
-API_KEY = "sk-proj-abcdef123456"
+API_KEY = "sk-abcdef12345678901234567890"
 password = "super_secret_password"
 """
 
-        with patch.object(agent, "_call_llm") as mock_llm:
-            mock_llm.return_value = """
-{
-    "vulnerabilities": [
-        {
-            "type": "hardcoded_secret",
-            "severity": "high",
-            "description": "API key exposed in source code",
-            "line": 1
-        }
-    ]
-}
-"""
-            result = await agent.analyze(code, {})
+        secrets = await agent.scan_for_secrets(code)
 
-            assert "vulnerabilities" in result
-            assert any(v["type"] == "hardcoded_secret" for v in result["vulnerabilities"])
+        assert [(secret["type"], secret["line"]) for secret in secrets] == [
+            ("api_key", 2),
+            ("openai_key", 2),
+            ("password", 3),
+        ]
+        assert all(secret["severity"] == "high" for secret in secrets)
 
 
 class TestSynthesisAgent:
-    """Tests for synthesis agent."""
+    """Tests for synthesis through the current BaseAgent interface."""
 
     @pytest.fixture
     def agent(self):
-        """Create a synthesis agent."""
         return SynthesisAgent()
 
     def test_agent_type(self, agent):
-        """Agent has correct type."""
-        assert agent.agent_type == "synthesis"
+        """SynthesisAgent is a BaseAgent with synthesis defaults."""
+        assert isinstance(agent, BaseAgent)
+        assert agent.config.provider == "openai"
+        assert agent.config.openai_model == "gpt-4-turbo-preview"
 
     @pytest.mark.asyncio
     async def test_consolidate_findings(self, agent):
-        """Agent consolidates findings from multiple sources."""
-        findings = {
-            "semantic": {"issues": [{"title": "Missing null check", "severity": "medium"}]},
-            "security": {"vulnerabilities": [{"type": "sql_injection", "severity": "critical"}]},
-            "formal": {"violations": [{"check": "integer_overflow", "severity": "high"}]},
+        """SynthesisAgent exposes consolidated findings in AgentResult.data."""
+        payload = {
+            "summary": {
+                "total_issues": 2,
+                "critical": 1,
+                "high": 1,
+                "medium": 0,
+                "low": 0,
+                "pass": False,
+                "recommendation": "Fix critical issues before merging",
+            },
+            "findings": [
+                {"id": "f1", "title": "SQL injection", "severity": "critical"},
+                {"id": "f2", "title": "Integer overflow", "severity": "high"},
+            ],
+            "github_comment": "Two issues found",
+        }
+        response = {"content": json.dumps(payload), "tokens": 51, "latency_ms": 2.0}
+        context = {
+            "semantic_results": {"issues": [{"title": "Missing null check"}]},
+            "verification_results": {"violations": [{"title": "Integer overflow"}]},
+            "security_results": {"vulnerabilities": [{"title": "SQL injection"}]},
         }
 
-        with patch.object(agent, "_call_llm") as mock_llm:
-            mock_llm.return_value = """
-{
-    "consolidated_findings": [
-        {
-            "title": "SQL Injection Vulnerability",
-            "severity": "critical",
-            "category": "security",
-            "confidence": 0.95
-        },
-        {
-            "title": "Potential Integer Overflow",
-            "severity": "high",
-            "category": "logic_error",
-            "confidence": 0.88
-        }
-    ],
-    "summary": "2 critical issues found",
-    "recommendation": "Fix SQL injection immediately"
-}
-"""
-            result = await agent.synthesize(findings)
+        with patch.object(agent, "_call_llm", new=AsyncMock(return_value=response)):
+            result = await agent.analyze("def query(): pass", context)
 
-            assert "consolidated_findings" in result
-            assert len(result["consolidated_findings"]) >= 1
+        assert result.success is True
+        assert [finding["id"] for finding in result.data["findings"]] == ["f1", "f2"]
+        assert result.data["summary"]["recommendation"] == ("Fix critical issues before merging")
+        assert result.tokens_used == 51
 
     @pytest.mark.asyncio
     async def test_deduplicates_findings(self, agent):
-        """Agent removes duplicate findings."""
-        findings = {
-            "semantic": {"issues": [{"title": "Null check", "line": 42}]},
-            "formal": {
-                "violations": [{"title": "Null check", "line": 42}]  # Same issue
-            },
+        """The synthesized response represents duplicate source findings once."""
+        payload = {
+            "summary": {"total_issues": 1, "pass": False},
+            "findings": [{"id": "f1", "title": "Null check", "severity": "medium"}],
+        }
+        response = {"content": json.dumps(payload), "tokens": 12, "latency_ms": 1.0}
+        context = {
+            "semantic_results": {"issues": [{"title": "Null check", "line": 42}]},
+            "verification_results": {"violations": [{"title": "Null check", "line": 42}]},
         }
 
-        with patch.object(agent, "_call_llm") as mock_llm:
-            mock_llm.return_value = """
-{
-    "consolidated_findings": [
-        {"title": "Null check issue", "line": 42, "confidence": 0.9}
-    ]
-}
-"""
-            result = await agent.synthesize(findings)
+        with patch.object(agent, "_call_llm", new=AsyncMock(return_value=response)) as mock_llm:
+            result = await agent.analyze("value = item.name", context)
 
-            # Should deduplicate
-            assert len(result.get("consolidated_findings", [])) == 1
+        assert result.success is True
+        assert result.data["findings"] == [
+            {"id": "f1", "title": "Null check", "severity": "medium"}
+        ]
+        prompt = mock_llm.await_args.kwargs["user_prompt"]
+        assert "## Semantic Analysis Results" in prompt
+        assert "## Formal Verification Results" in prompt
 
     @pytest.mark.asyncio
     async def test_generates_summary(self, agent):
-        """Agent generates human-readable summary."""
-        findings = {"semantic": {"issues": []}}
+        """A passing synthesis preserves the structured summary schema."""
+        payload = {
+            "summary": {
+                "total_issues": 0,
+                "critical": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "pass": True,
+                "recommendation": "Ready to merge",
+            },
+            "findings": [],
+            "github_comment": "No issues found",
+        }
+        response = {"content": json.dumps(payload), "tokens": 8, "latency_ms": 0.5}
 
-        with patch.object(agent, "_call_llm") as mock_llm:
-            mock_llm.return_value = """
-{
-    "consolidated_findings": [],
-    "summary": "No issues found. Code looks good!",
-    "pass": true
-}
-"""
-            result = await agent.synthesize(findings)
+        with patch.object(agent, "_call_llm", new=AsyncMock(return_value=response)):
+            result = await agent.analyze(
+                "def safe(): return True",
+                {"semantic_results": {"issues": []}},
+            )
 
-            assert "summary" in result
-            assert result.get("pass") is True
+        assert result.success is True
+        assert result.data["summary"]["pass"] is True
+        assert result.data["summary"]["total_issues"] == 0
+        assert result.data["findings"] == []

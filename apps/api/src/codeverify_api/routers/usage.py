@@ -24,8 +24,8 @@ router = APIRouter(prefix="/usage", tags=["usage"])
 @router.get("/summary")
 async def get_usage_summary(
     organization_id: UUID | None = Query(None),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get usage summary for the current billing period."""
     # Use first org if not specified
@@ -70,8 +70,8 @@ async def get_usage_summary(
 async def get_usage_history(
     organization_id: UUID | None = Query(None),
     months: int = Query(6, ge=1, le=12),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get usage history for past months."""
     org_id = organization_id or UUID("00000000-0000-0000-0000-000000000000")
@@ -88,10 +88,7 @@ async def get_usage_history(
             year -= 1
 
         period_start = datetime(year, month, 1)
-        if month == 12:
-            period_end = datetime(year + 1, 1, 1)
-        else:
-            period_end = datetime(year, month + 1, 1)
+        period_end = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
 
         summary = usage_service.get_usage_summary(org_id, period_start, period_end)
 
@@ -113,8 +110,8 @@ async def get_usage_history(
 @router.get("/billing")
 async def get_billing_info(
     organization_id: UUID | None = Query(None),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get billing information."""
     org_id = organization_id or UUID("00000000-0000-0000-0000-000000000000")
@@ -177,14 +174,14 @@ async def get_billing_info(
 async def request_upgrade(
     organization_id: UUID,
     target_tier: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Request a plan upgrade (placeholder for Stripe integration)."""
     try:
         tier = PlanTier(target_tier)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid tier")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid tier") from e
 
     if tier == PlanTier.ENTERPRISE:
         return {

@@ -599,7 +599,7 @@ class VerificationBudgetOptimizer:
 
     def get_usage_report(self) -> dict[str, Any]:
         """Get usage report."""
-        report = self._usage.copy()
+        report: dict[str, Any] = self._usage.copy()
 
         if self.learner:
             report["learning_stats"] = self.learner.get_statistics()
@@ -610,7 +610,7 @@ class VerificationBudgetOptimizer:
         self,
         avg_prs_per_day: int,
         avg_files_per_pr: int,
-    ) -> dict[str, float]:
+    ) -> dict[str, float | str]:
         """Estimate monthly usage and cost."""
         if self._usage["total_files"] == 0:
             return {"error": "No historical data"}

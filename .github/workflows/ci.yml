@@ -73,10 +73,10 @@ jobs:
 
       - name: Install packages for type checking
         run: |
-          pip install -e "packages/core" -e "packages/verifier"
+          pip install -e "packages/core" -e "packages/verifier" types-PyYAML
 
       - name: Run mypy
-        run: mypy --strict packages/core/ packages/verifier/
+        run: mypy --strict packages/core/src packages/verifier/src
 
   test-python:
     name: Test Python
@@ -119,6 +119,10 @@ jobs:
           pip install -e "packages/core[dev]"
           pip install -e "packages/verifier[dev]"
           pip install -e "packages/ai-agents[dev]"
+          pip install -e "packages/lsp-server[dev]"
+          pip install -e "packages/cli[dev]"
+          pip install -e "packages/sdk-python[pytest]"
+          pip install -e "packages/z3-mcp"
           pip install -e "apps/api[dev]"
           pip install -e "apps/worker[dev]"
 
@@ -127,7 +131,7 @@ jobs:
           DATABASE_URL: postgresql://codeverify:codeverify@localhost:5432/codeverify_test
           REDIS_URL: redis://localhost:6379/0
         run: |
-          pytest packages/ apps/ --cov --cov-report=xml --cov-fail-under=50
+          pytest packages/ apps/ tests/ --cov --cov-report=xml --cov-fail-under=50
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -161,6 +165,34 @@ jobs:
       - name: Run Web tests
         working-directory: apps/web
         run: npm test
+
+      - name: Build Web
+        working-directory: apps/web
+        run: npm run build
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Run Web e2e tests
+        working-directory: apps/web
+        run: npm run test:e2e
+
+      - name: Install VS Code extension dependencies
+        working-directory: packages/vscode-extension
+        run: npm ci
+
+      - name: Compile, lint, and test VS Code extension
+        working-directory: packages/vscode-extension
+        run: npm run compile && npm run lint && npm test
+
+      - name: Install TypeScript SDK dependencies
+        working-directory: packages/sdk-typescript
+        run: npm ci
+
+      - name: Build and test TypeScript SDK
+        working-directory: packages/sdk-typescript
+        run: npm run build && npm test
 
   build-docker:
     name: Build Docker Images

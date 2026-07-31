@@ -394,7 +394,7 @@ class MonorepoAnalyzer:
 
         return None
 
-    def _extract_exports(self, pkg_data: dict) -> list[str]:
+    def _extract_exports(self, pkg_data: dict[str, Any]) -> list[str]:
         """Extract export paths from package.json."""
         exports = []
 
@@ -412,7 +412,7 @@ class MonorepoAnalyzer:
 
         return exports
 
-    def _extract_entry_points(self, pkg_data: dict) -> list[str]:
+    def _extract_entry_points(self, pkg_data: dict[str, Any]) -> list[str]:
         """Extract entry points from package.json."""
         entry_points = []
 
@@ -529,7 +529,6 @@ class MonorepoAnalyzer:
         interface_pattern = r"export\s+interface\s+(\w+)\s*\{([^}]*)\}"
         for match in re.finditer(interface_pattern, content, re.DOTALL):
             name = match.group(1)
-            body = match.group(2)
 
             interfaces.append(
                 InterfaceContract(
@@ -544,7 +543,7 @@ class MonorepoAnalyzer:
 
     def _parse_ts_params(self, params_str: str) -> list[dict[str, Any]]:
         """Parse TypeScript function parameters."""
-        params = []
+        params: list[dict[str, Any]] = []
         if not params_str.strip():
             return params
 
@@ -751,7 +750,7 @@ class MonorepoAnalyzer:
 
     def _generate_impact_recommendations(
         self,
-        changed_package: str,
+        _changed_package: str,
         directly_affected: list[str],
         affected_contracts: list[InterfaceContract],
         risk_level: str,

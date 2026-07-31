@@ -208,7 +208,7 @@ export interface DebuggerSessionState {
   history: Array<{ action: string; timestamp: string }>;
 }
 
-class ApiClient {
+export class ApiClient {
   private token: string | null = null;
 
   setToken(token: string) {

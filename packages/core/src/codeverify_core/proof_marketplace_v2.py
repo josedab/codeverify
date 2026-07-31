@@ -13,6 +13,7 @@ review workflows.  Designed for large-scale proof reuse across organizations.
 from __future__ import annotations
 
 import warnings as _warnings
+
 _warnings.warn(
     "codeverify_core.proof_marketplace_v2 is deprecated. Use codeverify_core.proof_artifact_marketplace instead.",
     DeprecationWarning,
@@ -99,10 +100,15 @@ class ProofMetadata:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "name": self.name, "description": self.description,
-            "category": self.category.value, "author_id": self.author_id,
-            "language": self.language, "framework": self.framework,
-            "tags": self.tags, "version": self.version,
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "category": self.category.value,
+            "author_id": self.author_id,
+            "language": self.language,
+            "framework": self.framework,
+            "tags": self.tags,
+            "version": self.version,
             "quality_tier": self.quality_tier.value,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -123,9 +129,11 @@ class ProofContent:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "proof_id": self.proof_id, "z3_expression": self.z3_expression,
+            "proof_id": self.proof_id,
+            "z3_expression": self.z3_expression,
             "natural_language": self.natural_language,
-            "code_pattern": self.code_pattern, "test_cases": self.test_cases,
+            "code_pattern": self.code_pattern,
+            "test_cases": self.test_cases,
             "applicable_languages": self.applicable_languages,
             "prerequisites": self.prerequisites,
         }
@@ -149,8 +157,10 @@ class ProofQualityMetrics:
             "proof_id": self.proof_id,
             "success_rate": round(self.success_rate, 3),
             "false_positive_rate": round(self.false_positive_rate, 3),
-            "reuse_count": self.reuse_count, "avg_rating": round(self.avg_rating, 2),
-            "review_count": self.review_count, "bug_reports": self.bug_reports,
+            "reuse_count": self.reuse_count,
+            "avg_rating": round(self.avg_rating, 2),
+            "review_count": self.review_count,
+            "bug_reports": self.bug_reports,
             "last_verified": self.last_verified.isoformat() if self.last_verified else None,
         }
 
@@ -171,8 +181,10 @@ class ProofReview:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "proof_id": self.proof_id,
-            "reviewer_id": self.reviewer_id, "rating": self.rating,
+            "id": self.id,
+            "proof_id": self.proof_id,
+            "reviewer_id": self.reviewer_id,
+            "rating": self.rating,
             "comment": self.comment,
             "quality_assessment": self.quality_assessment.value,
             "issues_found": self.issues_found,
@@ -191,17 +203,19 @@ class ContributorProfile:
     proofs_reviewed: int = 0
     reputation_points: int = 0
     badges: list[str] = field(default_factory=list)
-    contributions: list[dict] = field(default_factory=list)
+    contributions: list[dict[str, Any]] = field(default_factory=list)
     rank: int = 0
     joined_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "user_id": self.user_id, "display_name": self.display_name,
+            "user_id": self.user_id,
+            "display_name": self.display_name,
             "proofs_submitted": self.proofs_submitted,
             "proofs_reviewed": self.proofs_reviewed,
             "reputation_points": self.reputation_points,
-            "badges": self.badges, "rank": self.rank,
+            "badges": self.badges,
+            "rank": self.rank,
             "joined_at": self.joined_at.isoformat() if self.joined_at else None,
         }
 
@@ -232,7 +246,8 @@ class SearchResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "proofs": [p.to_dict() for p in self.proofs],
-            "total_count": self.total_count, "facets": self.facets,
+            "total_count": self.total_count,
+            "facets": self.facets,
             "query_time_ms": round(self.query_time_ms, 2),
         }
 
@@ -251,11 +266,13 @@ class LeaderboardEntry:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "rank": self.rank, "user_id": self.user_id,
+            "rank": self.rank,
+            "user_id": self.user_id,
             "display_name": self.display_name,
             "reputation_points": self.reputation_points,
             "proofs_count": self.proofs_count,
-            "avg_rating": round(self.avg_rating, 2), "badges": self.badges,
+            "avg_rating": round(self.avg_rating, 2),
+            "badges": self.badges,
         }
 
 
@@ -284,7 +301,7 @@ class ProofStorage:
             return metadata, content
         return None
 
-    def update_proof(self, proof_id: str, updates: dict) -> bool:
+    def update_proof(self, proof_id: str, updates: dict[str, Any]) -> bool:
         metadata = self._metadata.get(proof_id)
         if not metadata:
             return False
@@ -345,11 +362,16 @@ class ProofSearchEngine:
 
     @staticmethod
     def _tokenize(metadata: ProofMetadata) -> set[str]:
-        text = " ".join([
-            metadata.name, metadata.description, metadata.language,
-            metadata.framework or "", metadata.category.value,
-            " ".join(metadata.tags),
-        ])
+        text = " ".join(
+            [
+                metadata.name,
+                metadata.description,
+                metadata.language,
+                metadata.framework or "",
+                metadata.category.value,
+                " ".join(metadata.tags),
+            ]
+        )
         return set(re.findall(r"[a-z0-9]+", text.lower()))
 
     # -- Search ---------------------------------------------------------------
@@ -371,8 +393,10 @@ class ProofSearchEngine:
         page = filtered[query.offset : query.offset + query.limit]
 
         return SearchResult(
-            proofs=[p for p, _ in page], total_count=total_count,
-            facets=facets, query_time_ms=(time.monotonic() - start) * 1000,
+            proofs=[p for p, _ in page],
+            total_count=total_count,
+            facets=facets,
+            query_time_ms=(time.monotonic() - start) * 1000,
         )
 
     def find_similar(self, code_pattern: str, language: str) -> list[ProofMetadata]:
@@ -409,14 +433,18 @@ class ProofSearchEngine:
             score *= 2.0
         # Boost for quality tier
         tier_boost = {
-            QualityTier.UNREVIEWED: 1.0, QualityTier.COMMUNITY_REVIEWED: 1.1,
-            QualityTier.EXPERT_REVIEWED: 1.25, QualityTier.FORMALLY_VERIFIED: 1.5,
+            QualityTier.UNREVIEWED: 1.0,
+            QualityTier.COMMUNITY_REVIEWED: 1.1,
+            QualityTier.EXPERT_REVIEWED: 1.25,
+            QualityTier.FORMALLY_VERIFIED: 1.5,
         }
         score *= tier_boost.get(proof.quality_tier, 1.0)
         return score
 
     def _apply_filters(
-        self, proofs: list[tuple[ProofMetadata, float]], query: SearchQuery,
+        self,
+        proofs: list[tuple[ProofMetadata, float]],
+        query: SearchQuery,
     ) -> list[tuple[ProofMetadata, float]]:
         filtered: list[tuple[ProofMetadata, float]] = []
         for proof, score in proofs:
@@ -447,22 +475,30 @@ class ProofSearchEngine:
         return {"category": dict(cats), "language": dict(langs), "quality_tier": dict(quals)}
 
     def _sort_results(
-        self, proofs: list[tuple[ProofMetadata, float]], sort_by: SearchSortBy,
+        self,
+        proofs: list[tuple[ProofMetadata, float]],
+        sort_by: SearchSortBy,
     ) -> list[tuple[ProofMetadata, float]]:
         if sort_by == SearchSortBy.RELEVANCE:
             proofs.sort(key=lambda x: x[1], reverse=True)
         elif sort_by == SearchSortBy.DOWNLOADS:
             proofs.sort(key=lambda x: self._downloads.get(x[0].id, 0), reverse=True)
         elif sort_by == SearchSortBy.RATING:
+
             def _avg_rating(pid: str) -> float:
                 r = self._ratings.get(pid, [])
                 return sum(r) / len(r) if r else 0.0
+
             proofs.sort(key=lambda x: _avg_rating(x[0].id), reverse=True)
         elif sort_by == SearchSortBy.RECENT:
             proofs.sort(key=lambda x: x[0].created_at, reverse=True)
         elif sort_by == SearchSortBy.QUALITY:
-            _order = {QualityTier.FORMALLY_VERIFIED: 4, QualityTier.EXPERT_REVIEWED: 3,
-                      QualityTier.COMMUNITY_REVIEWED: 2, QualityTier.UNREVIEWED: 1}
+            _order = {
+                QualityTier.FORMALLY_VERIFIED: 4,
+                QualityTier.EXPERT_REVIEWED: 3,
+                QualityTier.COMMUNITY_REVIEWED: 2,
+                QualityTier.UNREVIEWED: 1,
+            }
             proofs.sort(key=lambda x: _order.get(x[0].quality_tier, 0), reverse=True)
         return proofs
 
@@ -505,7 +541,8 @@ class ProofQualityManager:
         avg_rating = sum(ratings) / len(ratings) if ratings else 0.0
 
         verified_count = sum(
-            1 for r in reviews
+            1
+            for r in reviews
             if r.quality_assessment in (QualityTier.EXPERT_REVIEWED, QualityTier.FORMALLY_VERIFIED)
         )
         success_rate = verified_count / len(reviews) if reviews else 0.0
@@ -513,9 +550,12 @@ class ProofQualityManager:
         false_positive_rate = issue_reviews / len(reviews) if reviews else 0.0
 
         return ProofQualityMetrics(
-            proof_id=proof_id, success_rate=success_rate,
-            false_positive_rate=false_positive_rate, reuse_count=0,
-            avg_rating=avg_rating, review_count=len(reviews),
+            proof_id=proof_id,
+            success_rate=success_rate,
+            false_positive_rate=false_positive_rate,
+            reuse_count=0,
+            avg_rating=avg_rating,
+            review_count=len(reviews),
             bug_reports=len(issues),
             last_verified=self._verification_timestamps.get(proof_id),
         )
@@ -525,19 +565,28 @@ class ProofQualityManager:
         return self._calculate_tier(metrics)
 
     def flag_issue(self, proof_id: str, reporter_id: str, issue: str) -> None:
-        self._issues[proof_id].append({
-            "reporter_id": reporter_id, "issue": issue,
-            "created_at": datetime.now(UTC).isoformat(),
-        })
+        self._issues[proof_id].append(
+            {
+                "reporter_id": reporter_id,
+                "issue": issue,
+                "created_at": datetime.now(UTC).isoformat(),
+            }
+        )
         logger.warning("Issue flagged", proof_id=proof_id, reporter=reporter_id)
 
     def _calculate_tier(self, metrics: ProofQualityMetrics) -> QualityTier:
-        if (metrics.success_rate >= 0.95 and metrics.review_count >= 3
-                and metrics.false_positive_rate < 0.05
-                and metrics.last_verified is not None):
+        if (
+            metrics.success_rate >= 0.95
+            and metrics.review_count >= 3
+            and metrics.false_positive_rate < 0.05
+            and metrics.last_verified is not None
+        ):
             return QualityTier.FORMALLY_VERIFIED
-        if (metrics.avg_rating >= 4.0 and metrics.review_count >= 3
-                and metrics.false_positive_rate < 0.1):
+        if (
+            metrics.avg_rating >= 4.0
+            and metrics.review_count >= 3
+            and metrics.false_positive_rate < 0.1
+        ):
             return QualityTier.EXPERT_REVIEWED
         if metrics.review_count >= 1 and metrics.avg_rating >= 3.0:
             return QualityTier.COMMUNITY_REVIEWED
@@ -578,29 +627,41 @@ class GamificationEngine:
     def _ensure_profile(self, user_id: str) -> ContributorProfile:
         if user_id not in self._profiles:
             self._profiles[user_id] = ContributorProfile(
-                user_id=user_id, display_name=user_id, joined_at=datetime.now(UTC),
+                user_id=user_id,
+                display_name=user_id,
+                joined_at=datetime.now(UTC),
             )
         return self._profiles[user_id]
 
     def award_contribution(
-        self, user_id: str, contribution_type: ContributionType, details: dict | None = None,
+        self,
+        user_id: str,
+        contribution_type: ContributionType,
+        details: dict[str, Any] | None = None,
     ) -> int:
         """Award reputation points for a contribution. Returns new total."""
         profile = self._ensure_profile(user_id)
         points = self._get_point_value(contribution_type)
         profile.reputation_points += points
-        profile.contributions.append({
-            "type": contribution_type.value, "points": points,
-            "details": details or {}, "timestamp": datetime.now(UTC).isoformat(),
-        })
+        profile.contributions.append(
+            {
+                "type": contribution_type.value,
+                "points": points,
+                "details": details or {},
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         if contribution_type == ContributionType.PROOF_SUBMITTED:
             profile.proofs_submitted += 1
         elif contribution_type == ContributionType.PROOF_REVIEWED:
             profile.proofs_reviewed += 1
         profile.badges = self._calculate_badges(profile)
         logger.info(
-            "Contribution awarded", user_id=user_id,
-            type=contribution_type.value, points=points, total=profile.reputation_points,
+            "Contribution awarded",
+            user_id=user_id,
+            type=contribution_type.value,
+            points=points,
+            total=profile.reputation_points,
         )
         return profile.reputation_points
 
@@ -609,26 +670,33 @@ class GamificationEngine:
 
     def get_leaderboard(self, top_n: int = 50) -> list[LeaderboardEntry]:
         sorted_profiles = sorted(
-            self._profiles.values(), key=lambda p: p.reputation_points, reverse=True,
+            self._profiles.values(),
+            key=lambda p: p.reputation_points,
+            reverse=True,
         )
         entries: list[LeaderboardEntry] = []
         for rank, profile in enumerate(sorted_profiles[:top_n], 1):
             profile.rank = rank
             review_contribs = [
-                c for c in profile.contributions
+                c
+                for c in profile.contributions
                 if c["type"] == ContributionType.PROOF_REVIEWED.value
             ]
             avg_rating = 0.0
             if review_contribs:
                 ratings = [c["details"].get("rating", 0) for c in review_contribs]
                 avg_rating = sum(ratings) / len(ratings) if ratings else 0.0
-            entries.append(LeaderboardEntry(
-                rank=rank, user_id=profile.user_id,
-                display_name=profile.display_name,
-                reputation_points=profile.reputation_points,
-                proofs_count=profile.proofs_submitted,
-                avg_rating=avg_rating, badges=list(profile.badges),
-            ))
+            entries.append(
+                LeaderboardEntry(
+                    rank=rank,
+                    user_id=profile.user_id,
+                    display_name=profile.display_name,
+                    reputation_points=profile.reputation_points,
+                    proofs_count=profile.proofs_submitted,
+                    avg_rating=avg_rating,
+                    badges=list(profile.badges),
+                )
+            )
         return entries
 
     def _calculate_badges(self, profile: ContributorProfile) -> list[str]:
@@ -666,14 +734,19 @@ class ProofMarketplaceV2:
         self._imports: dict[str, set[str]] = defaultdict(set)
 
     def publish_proof(
-        self, metadata: ProofMetadata, content: ProofContent, author_id: str,
+        self,
+        metadata: ProofMetadata,
+        content: ProofContent,
+        author_id: str,
     ) -> str:
         """Publish a proof: store, index, and award reputation."""
         metadata.author_id = author_id
         proof_id = self.storage.store_proof(metadata, content)
         self.search_engine.index_proof(metadata)
         self.gamification.award_contribution(
-            author_id, ContributionType.PROOF_SUBMITTED, {"proof_id": proof_id},
+            author_id,
+            ContributionType.PROOF_SUBMITTED,
+            {"proof_id": proof_id},
         )
         logger.info("Proof published to marketplace", proof_id=proof_id, author=author_id)
         return proof_id
@@ -692,26 +765,37 @@ class ProofMarketplaceV2:
         return True
 
     def review_proof(
-        self, proof_id: str, reviewer_id: str, rating: int, comment: str,
+        self,
+        proof_id: str,
+        reviewer_id: str,
+        rating: int,
+        comment: str,
     ) -> None:
         """Submit a review and refresh quality tier."""
         rating = max(1, min(rating, 5))
         review = ProofReview(
-            id=str(uuid.uuid4()), proof_id=proof_id, reviewer_id=reviewer_id,
-            rating=rating, comment=comment,
-            quality_assessment=QualityTier.COMMUNITY_REVIEWED, issues_found=[],
+            id=str(uuid.uuid4()),
+            proof_id=proof_id,
+            reviewer_id=reviewer_id,
+            rating=rating,
+            comment=comment,
+            quality_assessment=QualityTier.COMMUNITY_REVIEWED,
+            issues_found=[],
         )
         self.quality_manager.submit_review(review)
         self.search_engine.record_rating(proof_id, rating)
         new_tier = self.quality_manager.update_quality_tier(proof_id)
         self.storage.update_proof(proof_id, {"quality_tier": new_tier})
         self.gamification.award_contribution(
-            reviewer_id, ContributionType.PROOF_REVIEWED,
+            reviewer_id,
+            ContributionType.PROOF_REVIEWED,
             {"proof_id": proof_id, "rating": rating},
         )
 
     def get_recommendations(
-        self, project_languages: list[str], existing_proofs: list[str],
+        self,
+        project_languages: list[str],
+        existing_proofs: list[str],
     ) -> list[ProofMetadata]:
         """Recommend proofs matching languages but not yet imported."""
         all_proofs = self.storage.list_proofs(author_id=None, limit=1000)
@@ -721,15 +805,17 @@ class ProofMarketplaceV2:
             if proof.id in existing_set or proof.language not in project_languages:
                 continue
             tier_score = {
-                QualityTier.FORMALLY_VERIFIED: 4.0, QualityTier.EXPERT_REVIEWED: 3.0,
-                QualityTier.COMMUNITY_REVIEWED: 2.0, QualityTier.UNREVIEWED: 1.0,
+                QualityTier.FORMALLY_VERIFIED: 4.0,
+                QualityTier.EXPERT_REVIEWED: 3.0,
+                QualityTier.COMMUNITY_REVIEWED: 2.0,
+                QualityTier.UNREVIEWED: 1.0,
             }.get(proof.quality_tier, 1.0)
             downloads = self.search_engine._downloads.get(proof.id, 0)
             candidates.append((proof, tier_score + math.log(downloads + 1)))
         candidates.sort(key=lambda x: x[1], reverse=True)
         return [p for p, _ in candidates[:20]]
 
-    def get_community_stats(self) -> dict:
+    def get_community_stats(self) -> dict[str, Any]:
         """Return aggregate statistics about the marketplace."""
         all_proofs = self.storage.list_proofs(author_id=None, limit=100_000)
         total_downloads = sum(self.search_engine._downloads.get(p.id, 0) for p in all_proofs)
@@ -742,7 +828,8 @@ class ProofMarketplaceV2:
             qual_dist[p.quality_tier.value] += 1
             lang_dist[p.language] += 1
         return {
-            "total_proofs": len(all_proofs), "total_downloads": total_downloads,
+            "total_proofs": len(all_proofs),
+            "total_downloads": total_downloads,
             "total_reviews": total_reviews,
             "total_contributors": len(self.gamification._profiles),
             "category_distribution": dict(cat_dist),

@@ -188,34 +188,62 @@ class AuditReport:
 ERC_STANDARDS: dict[ERCStandard, dict[str, list[str]]] = {
     ERCStandard.ERC20: {
         "functions": [
-            "totalSupply", "balanceOf", "transfer", "transferFrom",
-            "approve", "allowance",
+            "totalSupply",
+            "balanceOf",
+            "transfer",
+            "transferFrom",
+            "approve",
+            "allowance",
         ],
         "events": ["Transfer", "Approval"],
     },
     ERCStandard.ERC721: {
         "functions": [
-            "balanceOf", "ownerOf", "safeTransferFrom", "transferFrom",
-            "approve", "setApprovalForAll", "getApproved", "isApprovedForAll",
+            "balanceOf",
+            "ownerOf",
+            "safeTransferFrom",
+            "transferFrom",
+            "approve",
+            "setApprovalForAll",
+            "getApproved",
+            "isApprovedForAll",
         ],
         "events": ["Transfer", "Approval", "ApprovalForAll"],
     },
     ERCStandard.ERC1155: {
         "functions": [
-            "balanceOf", "balanceOfBatch", "setApprovalForAll",
-            "isApprovedForAll", "safeTransferFrom", "safeBatchTransferFrom",
+            "balanceOf",
+            "balanceOfBatch",
+            "setApprovalForAll",
+            "isApprovedForAll",
+            "safeTransferFrom",
+            "safeBatchTransferFrom",
         ],
         "events": [
-            "TransferSingle", "TransferBatch", "ApprovalForAll", "URI",
+            "TransferSingle",
+            "TransferBatch",
+            "ApprovalForAll",
+            "URI",
         ],
     },
     ERCStandard.ERC4626: {
         "functions": [
-            "asset", "totalAssets", "convertToShares", "convertToAssets",
-            "maxDeposit", "previewDeposit", "deposit",
-            "maxMint", "previewMint", "mint",
-            "maxWithdraw", "previewWithdraw", "withdraw",
-            "maxRedeem", "previewRedeem", "redeem",
+            "asset",
+            "totalAssets",
+            "convertToShares",
+            "convertToAssets",
+            "maxDeposit",
+            "previewDeposit",
+            "deposit",
+            "maxMint",
+            "previewMint",
+            "mint",
+            "maxWithdraw",
+            "previewWithdraw",
+            "withdraw",
+            "maxRedeem",
+            "previewRedeem",
+            "redeem",
         ],
         "events": ["Deposit", "Withdraw"],
     },
@@ -242,9 +270,7 @@ class SolidityAnalyzer:
     DELEGATECALL_PATTERN = re.compile(r"\.delegatecall\(")
     TIMESTAMP_PATTERN = re.compile(r"\bblock\.timestamp\b|\bnow\b")
     UNCHECKED_SEND_PATTERN = re.compile(r"\.send\(|\.transfer\(")
-    OVERFLOW_PATTERN = re.compile(
-        r"\b(?:uint\d*|int\d*)\b\s+\w+\s*=\s*\w+\s*[+\-*/]\s*\w+"
-    )
+    OVERFLOW_PATTERN = re.compile(r"\b(?:uint\d*|int\d*)\b\s+\w+\s*=\s*\w+\s*[+\-*/]\s*\w+")
 
     def analyze(self, code: str, contract_name: str = "Unknown") -> AuditReport:
         """Run all Solidity vulnerability checks."""
@@ -267,13 +293,11 @@ class SolidityAnalyzer:
 
         return report
 
-    def _check_reentrancy(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_reentrancy(self, code: str, _lines: list[str]) -> list[ContractFinding]:
         findings = []
         for pattern, desc in self.REENTRANCY_PATTERNS:
             for match in re.finditer(pattern, code, re.DOTALL):
-                line_num = code[:match.start()].count("\n") + 1
+                line_num = code[: match.start()].count("\n") + 1
                 findings.append(
                     ContractFinding(
                         category=VulnerabilityCategory.REENTRANCY,
@@ -291,12 +315,10 @@ class SolidityAnalyzer:
                 )
         return findings
 
-    def _check_tx_origin(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_tx_origin(self, code: str, lines: list[str]) -> list[ContractFinding]:
         findings = []
         for match in self.TX_ORIGIN_PATTERN.finditer(code):
-            line_num = code[:match.start()].count("\n") + 1
+            line_num = code[: match.start()].count("\n") + 1
             findings.append(
                 ContractFinding(
                     category=VulnerabilityCategory.TX_ORIGIN,
@@ -305,7 +327,9 @@ class SolidityAnalyzer:
                     description="tx.origin can be manipulated by phishing attacks; use msg.sender instead",
                     line_start=line_num,
                     line_end=line_num,
-                    code_snippet=lines[line_num - 1].strip()[:200] if line_num <= len(lines) else "",
+                    code_snippet=lines[line_num - 1].strip()[:200]
+                    if line_num <= len(lines)
+                    else "",
                     fix_suggestion="Replace tx.origin with msg.sender",
                     swc_id="SWC-115",
                     cwe_id=477,
@@ -313,12 +337,10 @@ class SolidityAnalyzer:
             )
         return findings
 
-    def _check_selfdestruct(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_selfdestruct(self, code: str, lines: list[str]) -> list[ContractFinding]:
         findings = []
         for match in self.SELFDESTRUCT_PATTERN.finditer(code):
-            line_num = code[:match.start()].count("\n") + 1
+            line_num = code[: match.start()].count("\n") + 1
             findings.append(
                 ContractFinding(
                     category=VulnerabilityCategory.SELFDESTRUCT,
@@ -327,19 +349,19 @@ class SolidityAnalyzer:
                     description="selfdestruct can permanently destroy the contract and send Ether to arbitrary address",
                     line_start=line_num,
                     line_end=line_num,
-                    code_snippet=lines[line_num - 1].strip()[:200] if line_num <= len(lines) else "",
+                    code_snippet=lines[line_num - 1].strip()[:200]
+                    if line_num <= len(lines)
+                    else "",
                     fix_suggestion="Consider removing selfdestruct or adding strict access control",
                     swc_id="SWC-106",
                 )
             )
         return findings
 
-    def _check_delegatecall(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_delegatecall(self, code: str, lines: list[str]) -> list[ContractFinding]:
         findings = []
         for match in self.DELEGATECALL_PATTERN.finditer(code):
-            line_num = code[:match.start()].count("\n") + 1
+            line_num = code[: match.start()].count("\n") + 1
             findings.append(
                 ContractFinding(
                     category=VulnerabilityCategory.DELEGATECALL,
@@ -348,7 +370,9 @@ class SolidityAnalyzer:
                     description="delegatecall executes code in the caller's context, risking storage corruption",
                     line_start=line_num,
                     line_end=line_num,
-                    code_snippet=lines[line_num - 1].strip()[:200] if line_num <= len(lines) else "",
+                    code_snippet=lines[line_num - 1].strip()[:200]
+                    if line_num <= len(lines)
+                    else "",
                     fix_suggestion="Validate delegatecall target; use a whitelist of trusted contracts",
                     swc_id="SWC-112",
                     cwe_id=829,
@@ -356,12 +380,10 @@ class SolidityAnalyzer:
             )
         return findings
 
-    def _check_timestamp(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_timestamp(self, code: str, lines: list[str]) -> list[ContractFinding]:
         findings = []
         for match in self.TIMESTAMP_PATTERN.finditer(code):
-            line_num = code[:match.start()].count("\n") + 1
+            line_num = code[: match.start()].count("\n") + 1
             findings.append(
                 ContractFinding(
                     category=VulnerabilityCategory.TIMESTAMP_DEPENDENCY,
@@ -370,7 +392,9 @@ class SolidityAnalyzer:
                     description="block.timestamp can be manipulated by miners within ~15 second window",
                     line_start=line_num,
                     line_end=line_num,
-                    code_snippet=lines[line_num - 1].strip()[:200] if line_num <= len(lines) else "",
+                    code_snippet=lines[line_num - 1].strip()[:200]
+                    if line_num <= len(lines)
+                    else "",
                     fix_suggestion="Avoid using block.timestamp for critical logic; use block.number instead",
                     swc_id="SWC-116",
                     cwe_id=829,
@@ -378,12 +402,10 @@ class SolidityAnalyzer:
             )
         return findings
 
-    def _check_unchecked_returns(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_unchecked_returns(self, code: str, lines: list[str]) -> list[ContractFinding]:
         findings = []
         for match in self.UNCHECKED_SEND_PATTERN.finditer(code):
-            line_num = code[:match.start()].count("\n") + 1
+            line_num = code[: match.start()].count("\n") + 1
             line_text = lines[line_num - 1].strip() if line_num <= len(lines) else ""
             # Check if return value is captured
             if not re.match(r"^\s*(bool\s+\w+\s*=|require\()", line_text):
@@ -403,10 +425,8 @@ class SolidityAnalyzer:
                 )
         return findings
 
-    def _check_integer_overflow(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
-        findings = []
+    def _check_integer_overflow(self, code: str, lines: list[str]) -> list[ContractFinding]:
+        findings: list[ContractFinding] = []
         # Only flag for Solidity < 0.8.0 (which has built-in overflow checks)
         version_match = re.search(r"pragma solidity\s+[<>=^~]*\s*(0\.\d+)", code)
         if version_match:
@@ -415,7 +435,7 @@ class SolidityAnalyzer:
                 return findings
 
         for match in self.OVERFLOW_PATTERN.finditer(code):
-            line_num = code[:match.start()].count("\n") + 1
+            line_num = code[: match.start()].count("\n") + 1
             findings.append(
                 ContractFinding(
                     category=VulnerabilityCategory.INTEGER_OVERFLOW,
@@ -424,7 +444,9 @@ class SolidityAnalyzer:
                     description="Arithmetic on uint/int without SafeMath (pre-0.8.0)",
                     line_start=line_num,
                     line_end=line_num,
-                    code_snippet=lines[line_num - 1].strip()[:200] if line_num <= len(lines) else "",
+                    code_snippet=lines[line_num - 1].strip()[:200]
+                    if line_num <= len(lines)
+                    else "",
                     fix_suggestion="Upgrade to Solidity >=0.8.0 or use OpenZeppelin SafeMath",
                     swc_id="SWC-101",
                     cwe_id=190,
@@ -435,9 +457,7 @@ class SolidityAnalyzer:
     def _analyze_gas(self, code: str) -> list[GasReport]:
         """Analyze gas usage patterns per function."""
         reports = []
-        func_pattern = re.compile(
-            r"function\s+(\w+)\s*\([^)]*\)[^{]*\{", re.DOTALL
-        )
+        func_pattern = re.compile(r"function\s+(\w+)\s*\([^)]*\)[^{]*\{", re.DOTALL)
         for match in func_pattern.finditer(code):
             func_name = match.group(1)
             # Find function body (simplified: count braces)
@@ -464,7 +484,9 @@ class SolidityAnalyzer:
             if re.search(r"for\s*\(", body):
                 suggestions.append("Consider bounded loops to avoid gas limit issues")
 
-            base_gas = 21000 + (storage_reads * 2100) + (storage_writes * 20000) + (external_calls * 2600)
+            base_gas = (
+                21000 + (storage_reads * 2100) + (storage_writes * 20000) + (external_calls * 2600)
+            )
             reports.append(
                 GasReport(
                     function_name=func_name,
@@ -477,17 +499,11 @@ class SolidityAnalyzer:
             )
         return reports
 
-    def check_erc_compliance(
-        self, code: str, standard: ERCStandard
-    ) -> ComplianceResult:
+    def check_erc_compliance(self, code: str, standard: ERCStandard) -> ComplianceResult:
         """Check if contract implements all required functions and events."""
         spec = ERC_STANDARDS.get(standard, {"functions": [], "events": []})
-        missing_funcs = [
-            f for f in spec["functions"] if f"function {f}" not in code
-        ]
-        missing_events = [
-            e for e in spec["events"] if f"event {e}" not in code
-        ]
+        missing_funcs = [f for f in spec["functions"] if f"function {f}" not in code]
+        missing_events = [e for e in spec["events"] if f"event {e}" not in code]
         issues = []
         if missing_funcs:
             issues.append(f"Missing required functions: {', '.join(missing_funcs)}")
@@ -506,15 +522,9 @@ class SolidityAnalyzer:
 class RustSolanaAnalyzer:
     """Detects vulnerabilities in Rust/Solana (Anchor) smart contracts."""
 
-    MISSING_SIGNER_CHECK = re.compile(
-        r"pub\s+(\w+)\s*:\s*(?:Account|AccountInfo)(?!.*Signer)"
-    )
-    MISSING_OWNER_CHECK = re.compile(
-        r"pub\s+(\w+)\s*:\s*Account<[^>]+>(?!.*constraint\s*=.*owner)"
-    )
-    UNCHECKED_MATH = re.compile(
-        r"\b(\w+)\s*(?:\+|\-|\*)\s*\b(?!checked_)"
-    )
+    MISSING_SIGNER_CHECK = re.compile(r"pub\s+(\w+)\s*:\s*(?:Account|AccountInfo)(?!.*Signer)")
+    MISSING_OWNER_CHECK = re.compile(r"pub\s+(\w+)\s*:\s*Account<[^>]+>(?!.*constraint\s*=.*owner)")
+    UNCHECKED_MATH = re.compile(r"\b(\w+)\s*(?:\+|\-|\*)\s*\b(?!checked_)")
 
     def analyze(self, code: str, program_name: str = "Unknown") -> AuditReport:
         """Run all Rust/Solana vulnerability checks."""
@@ -533,25 +543,19 @@ class RustSolanaAnalyzer:
 
         return report
 
-    def _check_missing_signer(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_missing_signer(self, code: str, _lines: list[str]) -> list[ContractFinding]:
         findings = []
         # Look for account structs without Signer constraint
         for match in re.finditer(
             r"#\[derive\(Accounts\)\]\s*pub\s+struct\s+\w+[^}]+}", code, re.DOTALL
         ):
             struct_body = match.group(0)
-            for field_match in re.finditer(
-                r"pub\s+(\w+)\s*:\s*Signer", struct_body
-            ):
-                pass  # Signer present is fine
             # Check if any authority/admin field lacks Signer
             for field_match in re.finditer(
                 r"pub\s+(authority|admin|owner|payer)\s*:\s*(?!Signer)(\w+)",
                 struct_body,
             ):
-                line_num = code[:match.start()].count("\n") + 1
+                line_num = code[: match.start()].count("\n") + 1
                 findings.append(
                     ContractFinding(
                         category=VulnerabilityCategory.ACCESS_CONTROL,
@@ -566,14 +570,12 @@ class RustSolanaAnalyzer:
                 )
         return findings
 
-    def _check_account_validation(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_account_validation(self, code: str, _lines: list[str]) -> list[ContractFinding]:
         findings = []
         # Check for AccountInfo without validation
         for match in re.finditer(r"(\w+):\s*AccountInfo", code):
             name = match.group(1)
-            line_num = code[:match.start()].count("\n") + 1
+            line_num = code[: match.start()].count("\n") + 1
             # Check if there's a constraint or manual check
             if f"constraint = {name}" not in code and f"{name}.key" not in code:
                 findings.append(
@@ -590,14 +592,12 @@ class RustSolanaAnalyzer:
                 )
         return findings
 
-    def _check_arithmetic(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_arithmetic(self, code: str, lines: list[str]) -> list[ContractFinding]:
         findings = []
         # Look for unchecked arithmetic operations
         for match in re.finditer(r"(\w+)\s*=\s*(\w+)\s*(\+|\-|\*)\s*(\w+)\s*;", code):
             # Check if it uses checked math
-            line_num = code[:match.start()].count("\n") + 1
+            line_num = code[: match.start()].count("\n") + 1
             full_line = lines[line_num - 1] if line_num <= len(lines) else ""
             if "checked_" not in full_line and "saturating_" not in full_line:
                 findings.append(
@@ -614,16 +614,12 @@ class RustSolanaAnalyzer:
                 )
         return findings
 
-    def _check_pda_validation(
-        self, code: str, lines: list[str]
-    ) -> list[ContractFinding]:
+    def _check_pda_validation(self, code: str, _lines: list[str]) -> list[ContractFinding]:
         findings = []
         # Check for PDA seeds without bump validation
-        for match in re.finditer(
-            r"seeds\s*=\s*\[([^\]]+)\]", code
-        ):
+        for match in re.finditer(r"seeds\s*=\s*\[([^\]]+)\]", code):
             if "bump" not in match.group(0):
-                line_num = code[:match.start()].count("\n") + 1
+                line_num = code[: match.start()].count("\n") + 1
                 findings.append(
                     ContractFinding(
                         category=VulnerabilityCategory.ACCESS_CONTROL,
@@ -678,9 +674,7 @@ class SmartContractVerifier:
         )
         return report
 
-    def check_compliance(
-        self, code: str, standard: ERCStandard
-    ) -> ComplianceResult:
+    def check_compliance(self, code: str, standard: ERCStandard) -> ComplianceResult:
         """Check ERC standard compliance."""
         return self._solidity.check_erc_compliance(code, standard)
 

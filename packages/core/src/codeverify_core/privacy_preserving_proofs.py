@@ -20,7 +20,7 @@ import random
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -112,7 +112,7 @@ class AnonymizedProof:
     upvotes: int = 0
     downloads: int = 0
     created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -144,9 +144,7 @@ class ProofAnonymizer:
         stripped = self._strip_identifiers(raw_proof)
         noise = self._laplace_noise(0.0, 1.0 / epsilon) if epsilon > 0 else 0.0
 
-        pseudonym = hashlib.sha256(
-            raw_proof.encode() + str(time.time()).encode()
-        ).hexdigest()[:12]
+        pseudonym = hashlib.sha256(raw_proof.encode() + str(time.time()).encode()).hexdigest()[:12]
 
         return AnonymizedProof(
             original_hash=hashlib.sha256(raw_proof.encode()).hexdigest(),

@@ -264,7 +264,7 @@ class ArchitectureDetector:
     def detect(
         self,
         file_paths: list[str],
-        file_contents: dict[str, str] | None = None,
+        _file_contents: dict[str, str] | None = None,
     ) -> DetectedArchitecture:
         """Detect architecture from file structure."""
         scores: dict[ArchitectureType, float] = defaultdict(float)
@@ -347,7 +347,7 @@ class PatternExtractor:
 
     def extract(
         self,
-        file_paths: list[str],
+        _file_paths: list[str],
         file_contents: dict[str, str],
     ) -> list[DetectedPattern]:
         """Extract patterns from code."""
@@ -800,7 +800,7 @@ class ContextAwareAnalyzer:
         finding_type: str,
         original_severity: str,
         context_id: str,
-        code_snippet: str | None = None,
+        _code_snippet: str | None = None,
     ) -> ContextualFinding:
         """Adjust finding severity based on context."""
         context = self.contexts.get(context_id)
@@ -883,7 +883,7 @@ class ContextAwareAnalyzer:
 
         return similar[:5]
 
-    def _generate_context_notes(self, finding_type: str, context: ProjectContext) -> list[str]:
+    def _generate_context_notes(self, _finding_type: str, context: ProjectContext) -> list[str]:
         """Generate context notes for a finding."""
         notes: list[str] = []
 

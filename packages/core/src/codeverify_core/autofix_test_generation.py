@@ -20,7 +20,7 @@ import hashlib
 import re
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import uuid4
@@ -142,9 +142,7 @@ class TestGenerationConfig:
     """Tunable knobs for test generation behaviour."""
 
     max_tests_per_fix: int = 5
-    test_types: list[TestType] = field(
-        default_factory=lambda: [TestType.UNIT, TestType.REGRESSION]
-    )
+    test_types: list[TestType] = field(default_factory=lambda: [TestType.UNIT, TestType.REGRESSION])
     framework: TestFramework = TestFramework.PYTEST
     include_edge_cases: bool = True
     include_negative_tests: bool = True
@@ -306,16 +304,16 @@ def test_{function}_property(value):
 '''
 
 # Framework-specific wrappers for non-pytest targets
-_JEST_TEMPLATE = '''const {{ {function} }} = require('./{module}');
+_JEST_TEMPLATE = """const {{ {function} }} = require('./{module}');
 
 describe('{function}', () => {{
   test('basic correctness after fix', () => {{
 {assertions}
   }});
 }});
-'''
+"""
 
-_JUNIT_TEMPLATE = '''import org.junit.jupiter.api.Test;
+_JUNIT_TEMPLATE = """import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class {class_name}Test {{
@@ -324,7 +322,7 @@ class {class_name}Test {{
 {assertions}
     }}
 }}
-'''
+"""
 
 
 # =============================================================================
@@ -422,7 +420,10 @@ class TestGenerator:
         """Emit a basic unit test that calls the fixed function."""
         params = self._extract_parameters(fix.fixed_code, function_name)
         code = self._generate_test_code(
-            TestType.UNIT, function_name, params, self._config.framework,
+            TestType.UNIT,
+            function_name,
+            params,
+            self._config.framework,
         )
         test_id = self._next_id("unit")
         return TestCase(
@@ -478,8 +479,10 @@ class TestGenerator:
 
         parametrize_lines: list[str] = []
         for ec in edge_cases:
-            parametrize_lines.append(f'    ({ec["input"]}, {ec.get("expected", "None")}),')
-        parametrize_values = "\n".join(parametrize_lines) if parametrize_lines else '    (None, None),'
+            parametrize_lines.append(f"    ({ec['input']}, {ec.get('expected', 'None')}),")
+        parametrize_values = (
+            "\n".join(parametrize_lines) if parametrize_lines else "    (None, None),"
+        )
 
         code = _PYTEST_EDGE_CASE_TEMPLATE.format(
             module="module_under_test",
@@ -606,7 +609,10 @@ class TestGenerator:
         return self._render_pytest(test_type, function_name, params)
 
     def _render_pytest(
-        self, test_type: TestType, function_name: str, params: list[dict[str, Any]],
+        self,
+        _test_type: TestType,
+        function_name: str,
+        params: list[dict[str, Any]],
     ) -> str:
         """Build a pytest unit test string with concrete assertions."""
         arg_values = ", ".join(self._default_value_for(p["type"]) for p in params)
@@ -614,16 +620,16 @@ class TestGenerator:
 
         lines = [
             f"    result = {call}",
-            f"    assert result is not None, \"{function_name} returned None\"",
+            f'    assert result is not None, "{function_name} returned None"',
         ]
         # Type-specific assertions
         for p in params:
             ptype = p["type"].lower()
             if "str" in ptype:
-                lines.append(f"    assert isinstance(result, (str, type(None)))")
+                lines.append("    assert isinstance(result, (str, type(None)))")
                 break
             if "int" in ptype or "float" in ptype:
-                lines.append(f"    assert isinstance(result, (int, float, type(None)))")
+                lines.append("    assert isinstance(result, (int, float, type(None)))")
                 break
 
         assertions = "\n".join(lines)
@@ -673,15 +679,15 @@ class TestGenerator:
         lines = [
             f"        # The fix addresses: {fix.issue_description[:50]}",
             f"        result = {function_name}()",
-            f"        assert result is not None",
+            "        assert result is not None",
         ]
         return "\n".join(lines)
 
-    def _build_preservation_assertions(self, fix: FixWithTests, function_name: str) -> str:
+    def _build_preservation_assertions(self, _fix: FixWithTests, function_name: str) -> str:
         """Build assertion lines proving existing behaviour is unchanged."""
         lines = [
             f"        result = {function_name}()",
-            f"        assert result is not None, \"existing behaviour broken\"",
+            '        assert result is not None, "existing behaviour broken"',
         ]
         return "\n".join(lines)
 
@@ -756,7 +762,7 @@ class TestRunner:
     def __init__(self) -> None:
         self._run_count: int = 0
 
-    def run_test(self, test: TestCase, fixed_code: str) -> TestRunResult:
+    def run_test(self, test: TestCase, _fixed_code: str) -> TestRunResult:
         """Validate and simulate execution of a single test."""
         self._run_count += 1
         logger.debug("test_runner.run", test_id=test.id, test_type=test.test_type.value)
@@ -813,7 +819,6 @@ class TestRunner:
             or "assertNotNull" in test.code
         )
 
-        has_import = "import " in test.code or "require(" in test.code
         calls_target = test.target_function in test.code
 
         passed = has_assertions and calls_target
@@ -976,7 +981,7 @@ class AutoFixTestEngine:
             id=str(uuid4()),
             fix_id=fix.fix_id,
             tests=tests,
-            generated_at=datetime.now(tz=timezone.utc),
+            generated_at=datetime.now(tz=UTC),
             coverage_summary={
                 "level": coverage.value,
                 "test_count": len(tests),
@@ -1027,7 +1032,9 @@ class AutoFixTestEngine:
         return report
 
     def get_fix_confidence(
-        self, fix: FixWithTests, test_results: list[TestRunResult],
+        self,
+        fix: FixWithTests,
+        test_results: list[TestRunResult],
     ) -> FixConfidence:
         """Derive confidence from test-pass rate and coverage."""
         if not test_results:
@@ -1059,7 +1066,9 @@ class AutoFixTestEngine:
     # --- Internal helpers -----------------------------------------------------
 
     def _calculate_regression_risk(
-        self, fix: FixWithTests, results: list[TestRunResult],
+        self,
+        fix: FixWithTests,
+        results: list[TestRunResult],
     ) -> float:
         """Return a 0.0–1.0 risk score for regressions."""
         if not results:
@@ -1069,10 +1078,12 @@ class AutoFixTestEngine:
 
         # Larger diffs carry more risk
         diff_size = len(
-            list(difflib.unified_diff(
-                fix.original_code.splitlines(),
-                fix.fixed_code.splitlines(),
-            ))
+            list(
+                difflib.unified_diff(
+                    fix.original_code.splitlines(),
+                    fix.fixed_code.splitlines(),
+                )
+            )
         )
         diff_factor = min(diff_size / 50.0, 1.0)
 

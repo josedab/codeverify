@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-
 from codeverify_cli.config import CLIConfig, load_config, merge_configs, validate_config
 
 

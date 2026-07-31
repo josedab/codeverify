@@ -7,6 +7,7 @@ This module provides:
 - Runtime hooks and lifecycle management
 """
 
+import contextlib
 import hashlib
 import zipfile
 from abc import ABC, abstractmethod
@@ -15,7 +16,7 @@ from datetime import datetime
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, ClassVar, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, computed_field
@@ -181,7 +182,9 @@ class AgentManifest(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @computed_field
+    # mypy cannot type-check a decorator stacked on @property (python/mypy#14461);
+    # this is pydantic's documented pattern for a computed, read-only serialized field.
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def qualified_name(self) -> str:
         """Fully qualified agent name."""
@@ -218,6 +221,10 @@ class BaseAgent(ABC):
                 )
         ```
     """
+
+    # Populated by the @agent decorator on the concrete subclass (not on BaseAgent
+    # itself) for class-level introspection, before any instance is constructed.
+    _manifest: ClassVar[AgentManifest | None] = None
 
     def __init__(self, manifest: AgentManifest, config: dict[str, Any] | None = None):
         self.manifest = manifest
@@ -283,7 +290,7 @@ class BaseAgent(ABC):
 
         return "\n".join(lines)
 
-    def fix(self, finding: Finding, context: AnalysisContext) -> str | None:
+    def fix(self, finding: Finding, _context: AnalysisContext) -> str | None:
         """
         Generate a fix for a finding.
 
@@ -298,7 +305,7 @@ class BaseAgent(ABC):
         """
         return finding.suggested_fix
 
-    def validate(self, context: AnalysisContext) -> bool:
+    def validate(self, _context: AnalysisContext) -> bool:
         """
         Validate that the agent can analyze the given context.
 
@@ -454,9 +461,9 @@ class AgentPackage:
 class AgentLifecycle:
     """Lifecycle management for agent instances."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._agents: dict[str, BaseAgent] = {}
-        self._hooks: dict[str, list[Callable]] = {
+        self._hooks: dict[str, list[Callable[..., Any]]] = {
             "before_analyze": [],
             "after_analyze": [],
             "on_finding": [],
@@ -487,18 +494,16 @@ class AgentLifecycle:
             return sorted(matching, key=lambda x: x[0])[-1][1]
         return None
 
-    def add_hook(self, event: str, callback: Callable) -> None:
+    def add_hook(self, event: str, callback: Callable[..., Any]) -> None:
         """Add a lifecycle hook."""
         if event in self._hooks:
             self._hooks[event].append(callback)
 
-    def run_hooks(self, event: str, *args, **kwargs) -> None:
+    def run_hooks(self, event: str, *args: Any, **kwargs: Any) -> None:
         """Run all hooks for an event."""
         for callback in self._hooks.get(event, []):
-            try:
-                callback(*args, **kwargs)
-            except Exception:
-                pass  # Don't let hooks break execution
+            with contextlib.suppress(Exception):
+                callback(*args, **kwargs)  # Don't let hooks break execution
 
     async def analyze(
         self,
@@ -576,16 +581,20 @@ def agent(
             **kwargs,
         )
 
-        # Store manifest on class
+        # Store manifest on class for introspection.
         cls._manifest = manifest
 
         # Wrap __init__ to inject manifest
         original_init = cls.__init__
 
-        def new_init(self, config: dict[str, Any] | None = None):
-            original_init(self, cls._manifest, config)
+        def new_init(self: T, config: dict[str, Any] | None = None) -> None:
+            original_init(self, manifest, config)
 
-        cls.__init__ = new_init
+        # The decorator intentionally changes the constructor's public signature (manifest
+        # is now baked in instead of passed explicitly), so the new signature is genuinely
+        # incompatible with BaseAgent.__init__ from a static perspective even though it is
+        # the documented, deliberate behavior of this decorator.
+        cls.__init__ = new_init  # type: ignore[assignment]
         return cls
 
     return decorator

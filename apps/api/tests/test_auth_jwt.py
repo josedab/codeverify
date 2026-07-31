@@ -1,11 +1,11 @@
 """Unit tests for auth/jwt.py — token creation and decoding."""
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
-from uuid import UUID, uuid4
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
 from jose import jwt
+from pydantic import ValidationError
 
 from codeverify_api.auth.jwt import (
     TokenData,
@@ -45,8 +45,8 @@ class TestCreateAccessToken:
     def test_default_expiration(self):
         token = create_access_token(user_id=uuid4(), github_id=1, username="u")
         payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
-        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        iat = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
+        exp = datetime.fromtimestamp(payload["exp"], tz=UTC)
+        iat = datetime.fromtimestamp(payload["iat"], tz=UTC)
         delta = exp - iat
         # Default is 24 hours; allow small clock skew
         assert timedelta(hours=23, minutes=59) <= delta <= timedelta(hours=24, minutes=1)
@@ -59,8 +59,8 @@ class TestCreateAccessToken:
             expires_delta=timedelta(minutes=30),
         )
         payload = jwt.decode(token, TEST_SECRET, algorithms=[TEST_ALGORITHM])
-        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        iat = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
+        exp = datetime.fromtimestamp(payload["exp"], tz=UTC)
+        iat = datetime.fromtimestamp(payload["iat"], tz=UTC)
         delta = exp - iat
         assert timedelta(minutes=29) <= delta <= timedelta(minutes=31)
 
@@ -92,8 +92,8 @@ class TestDecodeAccessToken:
     def test_returns_none_for_wrong_secret(self):
         payload = {
             "sub": str(uuid4()),
-            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
-            "iat": datetime.now(timezone.utc),
+            "exp": datetime.now(UTC) + timedelta(hours=1),
+            "iat": datetime.now(UTC),
             "github_id": 1,
             "username": "u",
         }
@@ -104,8 +104,8 @@ class TestDecodeAccessToken:
         """Source code doesn't catch KeyError — missing fields raise."""
         payload = {
             "sub": str(uuid4()),
-            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
-            "iat": datetime.now(timezone.utc),
+            "exp": datetime.now(UTC) + timedelta(hours=1),
+            "iat": datetime.now(UTC),
             # Missing github_id and username
         }
         token = jwt.encode(payload, TEST_SECRET, algorithm=TEST_ALGORITHM)
@@ -116,8 +116,8 @@ class TestDecodeAccessToken:
         """Source code doesn't catch ValueError — bad UUID raises."""
         payload = {
             "sub": "not-a-uuid",
-            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
-            "iat": datetime.now(timezone.utc),
+            "exp": datetime.now(UTC) + timedelta(hours=1),
+            "iat": datetime.now(UTC),
             "github_id": 1,
             "username": "u",
         }
@@ -145,7 +145,7 @@ class TestTokenPayloadModel:
     """Test TokenPayload pydantic model."""
 
     def test_valid_payload(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = TokenPayload(
             sub="abc123",
             exp=now + timedelta(hours=1),
@@ -156,5 +156,5 @@ class TestTokenPayloadModel:
         assert payload.sub == "abc123"
 
     def test_rejects_missing_fields(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             TokenPayload(sub="abc123")  # type: ignore[call-arg]

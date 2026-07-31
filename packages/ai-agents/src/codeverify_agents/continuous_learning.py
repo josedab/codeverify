@@ -267,9 +267,10 @@ class FeedbackCollector:
         records = []
 
         for record in self.feedback_records.values():
-            if record.timestamp >= cutoff:
-                if category is None or record.finding_category == category:
-                    records.append(record)
+            if record.timestamp >= cutoff and (
+                category is None or record.finding_category == category
+            ):
+                records.append(record)
 
         return sorted(records, key=lambda r: r.timestamp, reverse=True)
 
@@ -360,7 +361,7 @@ class PatternLearner:
 
     def _create_pattern(
         self,
-        finding_type: str,
+        _finding_type: str,
         pattern_type: str,
         records: list[FeedbackRecord],
         description: str,
@@ -422,7 +423,7 @@ class PatternLearner:
                 snippet_groups[snippet_hash].append(record)
 
         # Find patterns in frequently occurring snippets
-        for snippet_hash, group in snippet_groups.items():
+        for _snippet_hash, group in snippet_groups.items():
             if len(group) >= self.min_support:
                 # Check if predominantly false positives
                 fp_count = sum(1 for r in group if r.feedback_type == FeedbackType.FALSE_POSITIVE)
@@ -798,7 +799,7 @@ class ContinuousLearningEngine:
         return job
 
     def get_recommendation(
-        self, finding_type: str, code_snippet: str | None = None
+        self, finding_type: str, _code_snippet: str | None = None
     ) -> dict[str, Any]:
         """Get recommendation based on learned patterns."""
         patterns = self.learner.get_active_patterns()
@@ -806,24 +807,25 @@ class ContinuousLearningEngine:
         # Find relevant patterns
         relevant = []
         for pattern in patterns:
-            if pattern.pattern_type == "false_positive_pattern":
-                if finding_type in pattern.description:
-                    relevant.append(
-                        {
-                            "type": "suppress",
-                            "confidence": pattern.confidence,
-                            "reason": pattern.description,
-                        }
-                    )
-            elif pattern.pattern_type == "acceptance_pattern":
-                if finding_type in pattern.description:
-                    relevant.append(
-                        {
-                            "type": "highlight",
-                            "confidence": pattern.confidence,
-                            "reason": pattern.description,
-                        }
-                    )
+            if (
+                pattern.pattern_type == "false_positive_pattern"
+                and finding_type in pattern.description
+            ):
+                relevant.append(
+                    {
+                        "type": "suppress",
+                        "confidence": pattern.confidence,
+                        "reason": pattern.description,
+                    }
+                )
+            if pattern.pattern_type == "acceptance_pattern" and finding_type in pattern.description:
+                relevant.append(
+                    {
+                        "type": "highlight",
+                        "confidence": pattern.confidence,
+                        "reason": pattern.description,
+                    }
+                )
 
         if not relevant:
             return {"recommendation": "standard", "patterns_checked": len(patterns)}
@@ -841,7 +843,6 @@ class ContinuousLearningEngine:
         """Get learning metrics."""
         collector_stats = self.collector.get_statistics()
         learner_stats = self.learner.get_statistics()
-        trainer_stats = self.trainer.get_statistics()
 
         # Calculate improvements
         total_improvement = sum(imp for _, imp in self._accuracy_history)

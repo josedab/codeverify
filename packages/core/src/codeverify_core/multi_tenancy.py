@@ -12,6 +12,7 @@ and data isolation for CodeVerify's multi-tenant SaaS offering.
 from __future__ import annotations
 
 import warnings as _warnings
+
 _warnings.warn(
     "codeverify_core.multi_tenancy is deprecated. Use codeverify_core.hosted_saas instead.",
     DeprecationWarning,
@@ -406,10 +407,9 @@ class TenantIsolation:
             )
             return False
 
-        if self._manager is not None:
-            if self._manager.get_tenant(tenant_id) is None:
-                logger.warning("Access denied for unknown tenant", tenant_id=tenant_id)
-                return False
+        if self._manager is not None and self._manager.get_tenant(tenant_id) is None:
+            logger.warning("Access denied for unknown tenant", tenant_id=tenant_id)
+            return False
 
         return True
 

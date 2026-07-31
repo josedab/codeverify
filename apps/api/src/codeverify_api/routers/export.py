@@ -297,8 +297,8 @@ async def export_analyses_csv(
     repository_id: UUID | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> StreamingResponse:
     """Export analyses to CSV format.
 
@@ -328,8 +328,8 @@ async def export_findings_csv(
     categories: str | None = Query(None, description="Comma-separated categories"),
     start_date: datetime | None = None,
     end_date: datetime | None = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> StreamingResponse:
     """Export findings to CSV format.
 
@@ -362,8 +362,8 @@ async def export_compliance_pdf(
     organization_id: UUID | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> StreamingResponse:
     """Generate PDF compliance report.
 
@@ -406,8 +406,8 @@ async def get_export_summary(
     organization_id: UUID | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get summary of data available for export.
 

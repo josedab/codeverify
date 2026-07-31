@@ -1,16 +1,18 @@
 """Integration tests for verification and analyses API endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from codeverify_api.routers.verification_api import (
-    VerifyCodeRequest,
     _api_subscriptions,
-    _rate_limit_windows,
     _api_usage,
+    _rate_limit_windows,
+)
+from codeverify_api.routers.verification_api import (
     router as verification_router,
 )
 
@@ -199,7 +201,7 @@ class TestAnalysesEndpoint:
 
     def test_list_analyses_requires_db(self):
         """Analyses endpoint returns data with mocked DB."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         app = self._create_analyses_app()
 
@@ -213,9 +215,9 @@ class TestAnalysesEndpoint:
         mock_analysis.head_sha = "abc123"
         mock_analysis.base_sha = "def456"
         mock_analysis.status = "completed"
-        mock_analysis.started_at = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        mock_analysis.completed_at = datetime(2024, 1, 1, 0, 1, tzinfo=timezone.utc)
-        mock_analysis.created_at = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        mock_analysis.started_at = datetime(2024, 1, 1, tzinfo=UTC)
+        mock_analysis.completed_at = datetime(2024, 1, 1, 0, 1, tzinfo=UTC)
+        mock_analysis.created_at = datetime(2024, 1, 1, tzinfo=UTC)
 
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = [mock_analysis]

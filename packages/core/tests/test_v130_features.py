@@ -13,8 +13,6 @@ Covers all 10 next-gen features:
 10. Performance & Cost Dashboard
 """
 
-import pytest
-
 
 # --- Feature 1: GitHub Marketplace & One-Click Install ---
 
@@ -86,9 +84,9 @@ class TestMarketplaceListing:
         from codeverify_core.marketplace_listing import (
             MarketplacePlan,
             PlanLimits,
+            UsageMeter,
             UsageMetric,
         )
-        from codeverify_core.marketplace_listing import UsageMeter
 
         meter = UsageMeter()
         meter.record_usage("inst1", UsageMetric.VERIFICATIONS, 5)
@@ -179,7 +177,7 @@ class TestStreamingIDEVerification:
 
         svc = StreamingIDEVerificationService()
         code = "def hello():\n    return 'world'\n"
-        r1 = svc.verify_file("test.py", code)
+        svc.verify_file("test.py", code)
         r2 = svc.verify_file("test.py", code)
         assert r2.cache_hit_rate == 1.0
 
@@ -209,8 +207,8 @@ class TestGraphQLInsightsAPI:
     def test_rate_limiting(self):
         from codeverify_core.graphql_insights import (
             RateLimitConfig,
-            RateLimitTier,
             RateLimiter,
+            RateLimitTier,
         )
 
         limiter = RateLimiter()
@@ -249,12 +247,12 @@ class TestGraphQLInsightsAPI:
         )
 
         svc = GraphQLInsightsService()
-        wh = svc.create_webhook("user1", "https://example.com/hook", [WebhookEvent.ANALYSIS_COMPLETED])
+        wh = svc.create_webhook(
+            "user1", "https://example.com/hook", [WebhookEvent.ANALYSIS_COMPLETED]
+        )
         assert wh.is_active is True
 
-        deliveries = svc.deliver_webhook(
-            WebhookEvent.ANALYSIS_COMPLETED, {"analysis_id": "123"}
-        )
+        deliveries = svc.deliver_webhook(WebhookEvent.ANALYSIS_COMPLETED, {"analysis_id": "123"})
         assert len(deliveries) == 1
         assert deliveries[0].delivered is True
 
@@ -274,11 +272,9 @@ class TestAutofixVerifiedPatches:
     def test_fix_generation(self):
         from codeverify_core.autofix_verified_patches import (
             AutofixVerifiedService,
+            FindingCategory,
             FixableFinding,
             FixStatus,
-        )
-        from codeverify_core.autofix_verified_patches import (
-            FindingCategory,
         )
 
         svc = AutofixVerifiedService()
@@ -295,10 +291,10 @@ class TestAutofixVerifiedPatches:
 
     def test_fix_verification(self):
         from codeverify_core.autofix_verified_patches import (
+            FindingCategory,
             FixCandidate,
             FixVerifier,
         )
-        from codeverify_core.autofix_verified_patches import FindingCategory
 
         verifier = FixVerifier()
         fix = FixCandidate(
@@ -312,15 +308,17 @@ class TestAutofixVerifiedPatches:
     def test_pr_suggestion_generation(self):
         from codeverify_core.autofix_verified_patches import (
             AutofixVerifiedService,
+            FindingCategory,
+            FixableFinding,
             FixCandidate,
             FixConfidence,
-            FixableFinding,
         )
-        from codeverify_core.autofix_verified_patches import FindingCategory
 
         svc = AutofixVerifiedService()
         finding = FixableFinding(
-            file_path="app.py", line=5, message="Division by zero",
+            file_path="app.py",
+            line=5,
+            message="Division by zero",
             category=FindingCategory.DIVISION_BY_ZERO,
         )
         fix = FixCandidate(
@@ -336,19 +334,21 @@ class TestAutofixVerifiedPatches:
     def test_batch_fix(self):
         from codeverify_core.autofix_verified_patches import (
             AutofixVerifiedService,
+            FindingCategory,
             FixableFinding,
         )
-        from codeverify_core.autofix_verified_patches import FindingCategory
 
         svc = AutofixVerifiedService()
         findings = [
             FixableFinding(
-                file_path="a.py", line=1,
+                file_path="a.py",
+                line=1,
                 category=FindingCategory.NULL_SAFETY,
                 code_snippet="result = obj.method()",
             ),
             FixableFinding(
-                file_path="b.py", line=5,
+                file_path="b.py",
+                line=5,
                 category=FindingCategory.DIVISION_BY_ZERO,
                 code_snippet="result = a / b",
             ),
@@ -360,10 +360,10 @@ class TestAutofixVerifiedPatches:
     def test_safety_guardrails(self):
         from codeverify_core.autofix_verified_patches import (
             AutofixVerifiedService,
+            FindingCategory,
             FixableFinding,
             SafetyGuardrails,
         )
-        from codeverify_core.autofix_verified_patches import FindingCategory
 
         guardrails = SafetyGuardrails(
             allowed_categories=[FindingCategory.NULL_SAFETY],
@@ -385,18 +385,28 @@ class TestOrgSecurityPosture:
         )
 
         svc = OrgSecurityPostureService(org_name="TestOrg")
-        svc.set_repo_metrics(RepositoryMetrics(
-            repo_id="r1", repo_name="api",
-            verification_coverage=0.8, fix_rate=0.9,
-            critical_findings=0, high_findings=1,
-            is_compliant=True,
-        ))
-        svc.set_repo_metrics(RepositoryMetrics(
-            repo_id="r2", repo_name="web",
-            verification_coverage=0.6, fix_rate=0.7,
-            critical_findings=0, high_findings=0,
-            is_compliant=True,
-        ))
+        svc.set_repo_metrics(
+            RepositoryMetrics(
+                repo_id="r1",
+                repo_name="api",
+                verification_coverage=0.8,
+                fix_rate=0.9,
+                critical_findings=0,
+                high_findings=1,
+                is_compliant=True,
+            )
+        )
+        svc.set_repo_metrics(
+            RepositoryMetrics(
+                repo_id="r2",
+                repo_name="web",
+                verification_coverage=0.6,
+                fix_rate=0.7,
+                critical_findings=0,
+                high_findings=0,
+                is_compliant=True,
+            )
+        )
         score = svc.calculate_posture()
         assert 0 <= score.overall_score <= 100
         assert score.coverage_score > 0
@@ -423,10 +433,13 @@ class TestOrgSecurityPosture:
         )
 
         svc = OrgSecurityPostureService()
-        svc.set_repo_metrics(RepositoryMetrics(
-            repo_id="r1", repo_name="critical-repo",
-            critical_findings=3,
-        ))
+        svc.set_repo_metrics(
+            RepositoryMetrics(
+                repo_id="r1",
+                repo_name="critical-repo",
+                critical_findings=3,
+            )
+        )
         heatmap = svc.get_heatmap()
         assert len(heatmap) == 1
         assert heatmap[0].risk_level.value == "critical"
@@ -452,11 +465,15 @@ class TestOrgSecurityPosture:
         )
 
         svc = OrgSecurityPostureService(org_name="ACME Corp")
-        svc.set_repo_metrics(RepositoryMetrics(
-            repo_id="r1", repo_name="api",
-            verification_coverage=0.9, fix_rate=0.95,
-            is_compliant=True,
-        ))
+        svc.set_repo_metrics(
+            RepositoryMetrics(
+                repo_id="r1",
+                repo_name="api",
+                verification_coverage=0.9,
+                fix_rate=0.95,
+                is_compliant=True,
+            )
+        )
         digest = svc.generate_digest()
         assert "ACME Corp" in digest.summary_markdown
         assert digest.posture_score is not None
@@ -503,7 +520,6 @@ class TestCopilotExtension:
 
     def test_session_management(self):
         from codeverify_core.copilot_chat_agent import (
-            ChatContext,
             CopilotExtensionService,
             SessionState,
         )
@@ -608,7 +624,6 @@ class TestHostedSaaS:
     def test_tenant_lifecycle(self):
         from codeverify_core.hosted_saas import (
             HostedSaaSService,
-            SaaSPlan,
             TenantStatus,
         )
 
@@ -682,7 +697,10 @@ class TestProofArtifactMarketplace:
 
         svc = ProofArtifactMarketplaceService()
         artifact = svc.submit_artifact(
-            "Test", "desc", ProofCategory.BOUNDS_CHECK, ProofLanguage.UNIVERSAL,
+            "Test",
+            "desc",
+            ProofCategory.BOUNDS_CHECK,
+            ProofLanguage.UNIVERSAL,
             z3_constraints="i >= 0 && i < len",
         )
         svc.publish_artifact(artifact.id)
@@ -703,8 +721,16 @@ class TestProofArtifactMarketplace:
         )
 
         svc = ProofArtifactMarketplaceService()
-        a1 = svc.submit_artifact("Null Check", "null safety", ProofCategory.NULL_SAFETY, ProofLanguage.PYTHON, "x != None")
-        a2 = svc.submit_artifact("Bounds", "array bounds", ProofCategory.BOUNDS_CHECK, ProofLanguage.PYTHON, "i < len")
+        a1 = svc.submit_artifact(
+            "Null Check",
+            "null safety",
+            ProofCategory.NULL_SAFETY,
+            ProofLanguage.PYTHON,
+            "x != None",
+        )
+        a2 = svc.submit_artifact(
+            "Bounds", "array bounds", ProofCategory.BOUNDS_CHECK, ProofLanguage.PYTHON, "i < len"
+        )
         svc.publish_artifact(a1.id)
         svc.publish_artifact(a2.id)
 
@@ -721,8 +747,10 @@ class TestProofArtifactMarketplace:
 
         svc = ProofArtifactMarketplaceService()
         a = svc.submit_artifact(
-            "Division Guard", "div zero",
-            ProofCategory.DIVISION_ZERO, ProofLanguage.PYTHON,
+            "Division Guard",
+            "div zero",
+            ProofCategory.DIVISION_ZERO,
+            ProofLanguage.PYTHON,
             z3_constraints="b != 0",
             pattern_code="result = a / b if b != 0 else default",
         )
@@ -811,9 +839,7 @@ class TestComplianceEngine:
             "app.py": "import structlog\nlogger = structlog.get_logger()\n",
             "auth.py": "from bcrypt import hashpw\n",
         }
-        report = svc.run_framework_audit(
-            ComplianceFramework.SOC2, "myrepo", files
-        )
+        report = svc.run_framework_audit(ComplianceFramework.SOC2, "myrepo", files)
         assert report.framework == ComplianceFramework.SOC2
         assert len(report.results) >= 3
         assert 0 <= report.pass_rate <= 1.0
@@ -862,8 +888,12 @@ class TestPerformanceCostDashboard:
 
         svc = PerformanceCostDashboardService()
         record = svc.record_token_usage(
-            ModelProvider.OPENAI, "gpt-4", "semantic_analysis",
-            input_tokens=500, output_tokens=200, latency_ms=1200,
+            ModelProvider.OPENAI,
+            "gpt-4",
+            "semantic_analysis",
+            input_tokens=500,
+            output_tokens=200,
+            latency_ms=1200,
         )
         assert record.total_tokens == 700
         assert record.cost_cents > 0
@@ -924,10 +954,13 @@ class TestPerformanceCostDashboard:
 
         svc = PerformanceCostDashboardService()
         # Generate enough data for optimization engine
-        for i in range(60):
+        for _i in range(60):
             svc.record_token_usage(
-                ModelProvider.OPENAI, "gpt-4", "semantic_analysis",
-                input_tokens=2000, output_tokens=1000,
+                ModelProvider.OPENAI,
+                "gpt-4",
+                "semantic_analysis",
+                input_tokens=2000,
+                output_tokens=1000,
             )
 
         data = svc.get_dashboard_data()

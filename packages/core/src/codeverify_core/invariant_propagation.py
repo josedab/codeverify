@@ -16,7 +16,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -42,6 +42,7 @@ class PropagationStatus(str, Enum):
 @dataclass
 class RegisteredInvariant:
     """An invariant registered in the central registry."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     name: str = ""
     description: str = ""
@@ -51,23 +52,25 @@ class RegisteredInvariant:
     target_repos: list[str] = field(default_factory=list)
     check_type: str = ""
     is_active: bool = True
-    verified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    verified_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     created_by: str = ""
 
 
 @dataclass
 class PropagationResult:
     """Result of propagating an invariant to a repo."""
+
     invariant_id: str = ""
     target_repo: str = ""
     status: PropagationStatus = PropagationStatus.PENDING
     violations: list[str] = field(default_factory=list)
-    checked_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    checked_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class PropagationReport:
     """Report from propagating invariants across repos."""
+
     invariant_id: str = ""
     invariant_name: str = ""
     results: list[PropagationResult] = field(default_factory=list)
@@ -80,6 +83,7 @@ class PropagationReport:
 @dataclass
 class GovernanceSummary:
     """Governance dashboard summary."""
+
     total_invariants: int = 0
     active_invariants: int = 0
     repos_covered: int = 0
@@ -94,15 +98,24 @@ class InvariantRegistry:
         self._invariants: dict[str, RegisteredInvariant] = {}
 
     def register(
-        self, name: str, description: str, z3_assertion: str,
-        source_repo: str, scope: InvariantScope = InvariantScope.REPO,
-        target_repos: list[str] | None = None, check_type: str = "",
+        self,
+        name: str,
+        description: str,
+        z3_assertion: str,
+        source_repo: str,
+        scope: InvariantScope = InvariantScope.REPO,
+        target_repos: list[str] | None = None,
+        check_type: str = "",
         created_by: str = "",
     ) -> RegisteredInvariant:
         inv = RegisteredInvariant(
-            name=name, description=description, z3_assertion=z3_assertion,
-            scope=scope, source_repo=source_repo,
-            target_repos=target_repos or [], check_type=check_type,
+            name=name,
+            description=description,
+            z3_assertion=z3_assertion,
+            scope=scope,
+            source_repo=source_repo,
+            target_repos=target_repos or [],
+            check_type=check_type,
             created_by=created_by,
         )
         self._invariants[inv.id] = inv
@@ -113,8 +126,12 @@ class InvariantRegistry:
 
     def list_for_repo(self, repo: str) -> list[RegisteredInvariant]:
         return [
-            inv for inv in self._invariants.values()
-            if inv.is_active and (repo in inv.target_repos or inv.scope in (InvariantScope.ORG, InvariantScope.GLOBAL))
+            inv
+            for inv in self._invariants.values()
+            if inv.is_active
+            and (
+                repo in inv.target_repos or inv.scope in (InvariantScope.ORG, InvariantScope.GLOBAL)
+            )
         ]
 
     def list_all(self, active_only: bool = True) -> list[RegisteredInvariant]:
@@ -149,31 +166,44 @@ class PropagationEngine:
         for repo in target_repos:
             code_files = repo_code.get(repo, {})
             if not code_files:
-                results.append(PropagationResult(
-                    invariant_id=invariant.id, target_repo=repo,
-                    status=PropagationStatus.SKIPPED,
-                ))
+                results.append(
+                    PropagationResult(
+                        invariant_id=invariant.id,
+                        target_repo=repo,
+                        status=PropagationStatus.SKIPPED,
+                    )
+                )
                 continue
 
             violations = self._check_invariant(invariant, code_files)
             if violations:
-                results.append(PropagationResult(
-                    invariant_id=invariant.id, target_repo=repo,
-                    status=PropagationStatus.VIOLATED, violations=violations,
-                ))
+                results.append(
+                    PropagationResult(
+                        invariant_id=invariant.id,
+                        target_repo=repo,
+                        status=PropagationStatus.VIOLATED,
+                        violations=violations,
+                    )
+                )
                 violated += 1
             else:
-                results.append(PropagationResult(
-                    invariant_id=invariant.id, target_repo=repo,
-                    status=PropagationStatus.COMPLIANT,
-                ))
+                results.append(
+                    PropagationResult(
+                        invariant_id=invariant.id,
+                        target_repo=repo,
+                        status=PropagationStatus.COMPLIANT,
+                    )
+                )
                 compliant += 1
 
         total = compliant + violated
         return PropagationReport(
-            invariant_id=invariant.id, invariant_name=invariant.name,
-            results=results, total_repos=total,
-            compliant_repos=compliant, violated_repos=violated,
+            invariant_id=invariant.id,
+            invariant_name=invariant.name,
+            results=results,
+            total_repos=total,
+            compliant_repos=compliant,
+            violated_repos=violated,
             compliance_rate=round(compliant / total, 3) if total > 0 else 0.0,
         )
 
@@ -185,12 +215,21 @@ class PropagationEngine:
             if invariant.check_type == "null_safety":
                 if "None" in content and "is not None" not in content and ".get(" not in content:
                     violations.append(f"{path}: missing null check (invariant: {invariant.name})")
-            elif invariant.check_type == "encryption":
-                if "password" in content.lower() and "encrypt" not in content.lower() and "hash" not in content.lower():
-                    violations.append(f"{path}: unencrypted sensitive data (invariant: {invariant.name})")
-            elif invariant.check_type == "error_handling":
-                if "except:" in content and "except Exception" not in content:
-                    violations.append(f"{path}: bare except clause (invariant: {invariant.name})")
+            elif (
+                invariant.check_type == "encryption"
+                and "password" in content.lower()
+                and "encrypt" not in content.lower()
+                and "hash" not in content.lower()
+            ):
+                violations.append(
+                    f"{path}: unencrypted sensitive data (invariant: {invariant.name})"
+                )
+            if (
+                invariant.check_type == "error_handling"
+                and "except:" in content
+                and "except Exception" not in content
+            ):
+                violations.append(f"{path}: bare except clause (invariant: {invariant.name})")
         return violations
 
 
@@ -219,9 +258,7 @@ class InvariantPropagationService:
         self._reports.append(report)
         return report
 
-    def propagate_all(
-        self, repo_code: dict[str, dict[str, str]]
-    ) -> list[PropagationReport]:
+    def propagate_all(self, repo_code: dict[str, dict[str, str]]) -> list[PropagationReport]:
         reports: list[PropagationReport] = []
         for inv in self._registry.list_all():
             report = self._engine.propagate(inv, repo_code)
@@ -249,8 +286,10 @@ class InvariantPropagationService:
         top = sorted(violation_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
         return GovernanceSummary(
-            total_invariants=len(all_invs), active_invariants=len(active),
-            repos_covered=len(repos), org_compliance_rate=compliance,
+            total_invariants=len(all_invs),
+            active_invariants=len(active),
+            repos_covered=len(repos),
+            org_compliance_rate=compliance,
             top_violations=[{"invariant": k, "violations": v} for k, v in top],
         )
 
@@ -259,11 +298,13 @@ class InvariantPropagationService:
 
 _invariant_prop_instance: InvariantPropagationService | None = None
 
+
 def get_invariant_propagation_service() -> InvariantPropagationService:
     global _invariant_prop_instance
     if _invariant_prop_instance is None:
         _invariant_prop_instance = InvariantPropagationService()
     return _invariant_prop_instance
+
 
 def reset_invariant_propagation_service() -> None:
     global _invariant_prop_instance

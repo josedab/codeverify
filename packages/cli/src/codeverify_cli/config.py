@@ -66,7 +66,7 @@ def load_config(path: Path) -> CLIConfig:
 
         return config
     except yaml.YAMLError as e:
-        raise ValueError(f"Invalid YAML: {e}")
+        raise ValueError(f"Invalid YAML: {e}") from e
 
 
 def validate_config(path: Path) -> tuple[list[str], list[str]]:

@@ -5,7 +5,7 @@ matches what the TypeScript frontend expects.
 """
 
 
-def get_user(user_id: int) -> dict:
+def get_user(_user_id: int) -> dict:
     """Returns a user dict. The frontend expects {name: string, age: number}."""
     # BUG: Returns 'years' instead of 'age' — contract mismatch
     # CodeVerify finds: cross-language contract violation

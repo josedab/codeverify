@@ -1,5 +1,6 @@
 """Security Threat Modeling Agent - Generates threat models from architecture."""
 
+import contextlib
 import json
 import time
 from dataclasses import dataclass, field
@@ -294,10 +295,8 @@ class ThreatModelingAgent(BaseAgent):
 
             owasp_enum = None
             if owasp_cat:
-                try:
+                with contextlib.suppress(ValueError):
                     owasp_enum = OWASPCategory(owasp_cat)
-                except ValueError:
-                    pass
 
             threats.append(
                 Threat(

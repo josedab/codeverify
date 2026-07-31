@@ -190,7 +190,7 @@ class NaturalLanguageParser:
         self,
         match: re.Match,
         constraint_type: ValueConstraint | str,
-        original_text: str,
+        _original_text: str,
     ) -> ParsedConstraint | None:
         """Extract constraint from regex match."""
         groups = match.groups()

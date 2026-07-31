@@ -255,7 +255,7 @@ class FixVerifier:
             return opens == closes
         return True
 
-    def _check_no_new_issues(self, fixed_code: str, language: str) -> list[str]:
+    def _check_no_new_issues(self, fixed_code: str, _language: str) -> list[str]:
         """Scan *fixed_code* for common anti-patterns introduced by the fix."""
         issues: list[str] = []
         if re.search(r"\beval\s*\(", fixed_code):
@@ -314,7 +314,10 @@ class TestGenerator:
     def _generate_typescript_test(self, fix: CodeFix) -> str:
         """Generate a Jest-style regression test."""
         safe = re.sub(r"\W+", "_", fix.finding_id)[:40]
-        esc = lambda s: s.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
+
+        def esc(s: str) -> str:
+            return s.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
+
         lines = [
             f"// Regression test for fix {fix.fix_id}",
             "",

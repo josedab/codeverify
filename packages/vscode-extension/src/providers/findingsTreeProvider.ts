@@ -102,7 +102,11 @@ export class FindingsTreeProvider implements vscode.TreeDataProvider<FindingTree
             return Promise.resolve(items);
         } else if (element.data.type === 'file') {
             // File level - show findings in this file
-            const findings = this.findings.get(element.data.filePath) || [];
+            const filePath = element.data.filePath;
+            if (!filePath) {
+                return Promise.resolve([]);
+            }
+            const findings = this.findings.get(filePath) || [];
             
             // Sort by severity and line number
             const sorted = [...findings].sort((a, b) => {

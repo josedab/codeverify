@@ -477,12 +477,12 @@ class OrgDependencyGraph:
         metrics.avg_risk_score = sum(risk_scores) / len(risk_scores) if risk_scores else 0
 
         # Health metrics (based on verification status)
-        for repo in self._repos.values():
-            if repo.verification_status == "passed":
+        for org_repo in self._repos.values():
+            if org_repo.verification_status == "passed":
                 metrics.healthy_repos += 1
-            elif repo.verification_status == "partial":
+            elif org_repo.verification_status == "partial":
                 metrics.degraded_repos += 1
-            elif repo.verification_status == "failed":
+            elif org_repo.verification_status == "failed":
                 metrics.at_risk_repos += 1
 
         return metrics
@@ -495,7 +495,7 @@ class OrgDependencyGraph:
         """Get all repos affected by a change in the given repo."""
         dependents = self.get_transitive_dependents(repo)
 
-        affected = {
+        affected: dict[str, Any] = {
             "directly_affected": [],
             "transitively_affected": [],
             "total_affected": len(dependents),
@@ -691,7 +691,7 @@ class OrgDependencyAnalyzer:
         self,
         metrics: OrgDependencyMetrics,
         risks: list[TransitiveRisk],
-        cycles: list[list[str]],
+        _cycles: list[list[str]],
     ) -> list[dict[str, str]]:
         """Generate actionable recommendations."""
         recommendations = []

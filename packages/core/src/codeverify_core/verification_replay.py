@@ -236,7 +236,7 @@ class StateComparison:
 class SessionRecorder:
     """Records verification sessions."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._active_sessions: dict[str, VerificationSession] = {}
         self._event_counter: dict[str, int] = {}
 
@@ -368,7 +368,10 @@ class SessionRecorder:
 class ReplayEngine:
     """Replays recorded verification sessions."""
 
-    def __init__(self, verification_func: Callable | None = None):
+    def __init__(
+        self,
+        verification_func: Callable[[str, str, dict[str, Any]], dict[str, Any]] | None = None,
+    ):
         self._verification_func = verification_func or self._default_verify
 
     def replay_session(
@@ -457,15 +460,14 @@ class ReplayEngine:
                     **modified_params,
                 }
 
-        elif event.event_type == EventType.VERIFICATION_COMPLETE:
-            # Re-run verification with modified parameters
-            if modified_params and state.code:
-                result = self._verification_func(
-                    state.code,
-                    state.language,
-                    modified_params,
-                )
-                replay_event.data["result"] = result
+        # Re-run verification with modified parameters
+        elif event.event_type == EventType.VERIFICATION_COMPLETE and modified_params and state.code:
+            result = self._verification_func(
+                state.code,
+                state.language,
+                modified_params,
+            )
+            replay_event.data["result"] = result
 
         return replay_event
 
@@ -501,7 +503,7 @@ class ReplayEngine:
     def _default_verify(
         self,
         code: str,
-        language: str,
+        _language: str,
         parameters: dict[str, Any],
     ) -> dict[str, Any]:
         """Default verification function for replay."""
@@ -648,7 +650,7 @@ class StateComparator:
 class SessionStorage:
     """Stores and retrieves verification sessions."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._sessions: dict[str, VerificationSession] = {}
 
     def save(self, session: VerificationSession) -> None:

@@ -105,7 +105,7 @@ class FindingDeduplicator:
         new_findings = dedup.get_new_findings(findings)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._store: dict[str, TrackedFinding] = {}
         self._suppressions: set[str] = set()  # Suppressed fingerprints
 

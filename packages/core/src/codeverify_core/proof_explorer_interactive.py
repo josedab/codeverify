@@ -15,11 +15,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -137,7 +136,7 @@ class ShareableProof:
     animation: ProofAnimation | None = None
     title: str = ""
     description: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     view_count: int = 0
     is_public: bool = True
@@ -170,9 +169,7 @@ class ProofExplorerState:
 class ProofTreeParser:
     """Parses Z3 output into a navigable proof tree."""
 
-    def parse_z3_output(
-        self, z3_output: str, check_type: str = "general"
-    ) -> ProofNode:
+    def parse_z3_output(self, z3_output: str, check_type: str = "general") -> ProofNode:
         """Parse Z3 solver output into a proof tree."""
         root = ProofNode(
             node_type=ProofNodeType.ROOT,
@@ -346,11 +343,28 @@ class ConstraintAnimator:
     def _extract_variables(self, expression: str) -> list[str]:
         """Extract variable names from a Z3 expression."""
         import re
+
         # Simple variable extraction from SMT-LIB style expressions
-        tokens = re.findall(r'\b([a-zA-Z_]\w*)\b', expression)
-        keywords = {"assert", "define", "declare", "Int", "Bool", "Real",
-                     "and", "or", "not", "ite", "let", "forall", "exists",
-                     "sat", "unsat", "true", "false"}
+        tokens = re.findall(r"\b([a-zA-Z_]\w*)\b", expression)
+        keywords = {
+            "assert",
+            "define",
+            "declare",
+            "Int",
+            "Bool",
+            "Real",
+            "and",
+            "or",
+            "not",
+            "ite",
+            "let",
+            "forall",
+            "exists",
+            "sat",
+            "unsat",
+            "true",
+            "false",
+        }
         return [t for t in tokens if t not in keywords and len(t) > 1]
 
 
@@ -380,9 +394,7 @@ class ProofRenderer:
         self._mermaid_node(node, lines, detail)
         return "\n".join(lines)
 
-    def _mermaid_node(
-        self, node: ProofNode, lines: list[str], detail: DetailLevel
-    ) -> None:
+    def _mermaid_node(self, node: ProofNode, lines: list[str], detail: DetailLevel) -> None:
         status_icon = {
             ProofStatus.VERIFIED: "✅",
             ProofStatus.REFUTED: "❌",
@@ -403,14 +415,12 @@ class ProofRenderer:
 
     def _render_dot(self, node: ProofNode, detail: DetailLevel) -> str:
         """Render as Graphviz DOT format."""
-        lines = ["digraph proof {", '    rankdir=TB;', '    node [shape=box];']
+        lines = ["digraph proof {", "    rankdir=TB;", "    node [shape=box];"]
         self._dot_node(node, lines, detail)
         lines.append("}")
         return "\n".join(lines)
 
-    def _dot_node(
-        self, node: ProofNode, lines: list[str], detail: DetailLevel
-    ) -> None:
+    def _dot_node(self, node: ProofNode, lines: list[str], detail: DetailLevel) -> None:
         color = {
             ProofStatus.VERIFIED: "green",
             ProofStatus.REFUTED: "red",
@@ -445,9 +455,7 @@ class ProofRenderer:
 
     def _html_node(self, node: ProofNode, detail: DetailLevel) -> str:
         status_class = node.status.value
-        icon = {"verified": "✅", "refuted": "❌", "unknown": "❓"}.get(
-            node.status.value, ""
-        )
+        icon = {"verified": "✅", "refuted": "❌", "unknown": "❓"}.get(node.status.value, "")
 
         expr_html = ""
         if detail != DetailLevel.SUMMARY and node.expression:

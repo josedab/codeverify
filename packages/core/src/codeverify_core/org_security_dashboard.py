@@ -15,11 +15,8 @@ Features:
 
 from __future__ import annotations
 
-import math
-import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -79,7 +76,7 @@ class RepoMetrics:
     verification_coverage: float = 0.0
     ai_code_ratio: float = 0.0
     trust_score: float = 0.0
-    last_scan: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_scan: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def risk_level(self) -> RiskLevel:
@@ -156,7 +153,7 @@ class ComplianceRecord:
     status: ComplianceStatus = ComplianceStatus.NOT_ASSESSED
     controls_total: int = 0
     controls_met: int = 0
-    last_assessed: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_assessed: datetime = field(default_factory=lambda: datetime.now(UTC))
     notes: str = ""
 
     @property
@@ -168,7 +165,7 @@ class ComplianceRecord:
 class TrendDataPoint:
     """A data point in a trend series."""
 
-    date: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    date: datetime = field(default_factory=lambda: datetime.now(UTC))
     value: float = 0.0
     label: str = ""
 
@@ -197,9 +194,12 @@ class TrendSeries:
         return self.data_points[-1].value if self.data_points else 0.0
 
     def add_point(self, value: float, date: datetime | None = None) -> None:
-        self.data_points.append(TrendDataPoint(
-            date=date or datetime.now(timezone.utc), value=value,
-        ))
+        self.data_points.append(
+            TrendDataPoint(
+                date=date or datetime.now(UTC),
+                value=value,
+            )
+        )
 
 
 @dataclass
@@ -219,7 +219,7 @@ class OrgSecurityPosture:
     compliance: list[ComplianceRecord] = field(default_factory=list)
     dora: DORAMetrics = field(default_factory=DORAMetrics)
     trends: list[TrendSeries] = field(default_factory=list)
-    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def scan_coverage_pct(self) -> float:
@@ -237,9 +237,7 @@ class OrgSecurityPosture:
             "avg_trust_score": round(self.avg_trust_score, 1),
             "avg_verification_coverage": f"{self.avg_verification_coverage:.0f}%",
             "dora_rating": self.dora.overall_rating,
-            "compliance_summary": {
-                c.framework.value: c.status.value for c in self.compliance
-            },
+            "compliance_summary": {c.framework.value: c.status.value for c in self.compliance},
         }
 
 

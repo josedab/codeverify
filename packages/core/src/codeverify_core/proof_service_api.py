@@ -15,7 +15,7 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -27,19 +27,26 @@ logger = structlog.get_logger()
 # Constants
 # ---------------------------------------------------------------------------
 
-_HMAC_SECRET = os.environ.get("CODEVERIFY_PROOF_HMAC_SECRET", "").encode() or None
-if _HMAC_SECRET is None:
-    raise RuntimeError("CODEVERIFY_PROOF_HMAC_SECRET environment variable must be set")
+_HMAC_SECRET_ENV = "CODEVERIFY_PROOF_HMAC_SECRET"
 _RATE_LIMIT_WINDOW_SECONDS = 60
 _DEFAULT_TIMEOUT_SECONDS = 30
 _MAX_PRIORITY = 10
+
+
+def _resolve_hmac_secret(secret: str | bytes | None) -> bytes | None:
+    """Resolve an injected HMAC secret or the configured environment value."""
+    resolved = os.environ.get(_HMAC_SECRET_ENV) if secret is None else secret
+    if isinstance(resolved, str):
+        resolved = resolved.encode("utf-8")
+    return resolved or None
+
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
 
-class ProofRequestStatus(str, Enum):
+class ProofRequestStatus(str, Enum):  # noqa: UP042
     """Lifecycle status of a proof request."""
 
     QUEUED = "queued"
@@ -50,7 +57,7 @@ class ProofRequestStatus(str, Enum):
     CANCELED = "canceled"
 
 
-class VerificationCheck(str, Enum):
+class VerificationCheck(str, Enum):  # noqa: UP042
     """Categories of verification checks."""
 
     NULL_SAFETY = "null_safety"
@@ -63,7 +70,7 @@ class VerificationCheck(str, Enum):
     RACE_CONDITION = "race_condition"
 
 
-class ProofFormat(str, Enum):
+class ProofFormat(str, Enum):  # noqa: UP042
     """Output formats for proof artifacts."""
 
     SMT_LIB = "smt_lib"
@@ -72,7 +79,7 @@ class ProofFormat(str, Enum):
     CERTIFICATE = "certificate"
 
 
-class PricingModel(str, Enum):
+class PricingModel(str, Enum):  # noqa: UP042
     """Billing models for the service."""
 
     PER_PROOF = "per_proof"
@@ -99,7 +106,7 @@ class ProofRequest:
     timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS
     priority: int = 5
     context: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -154,7 +161,7 @@ class APIKeyConfig:
     rate_limit_per_minute: int = 10
     monthly_quota: int = 100
     allowed_checks: list[VerificationCheck] = field(default_factory=list)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     active: bool = True
 
@@ -277,7 +284,8 @@ class RateLimiter:
 class APIKeyManager:
     """Manages API key lifecycle: creation, validation, rotation, revocation."""
 
-    def __init__(self) -> None:
+    def __init__(self, hmac_secret: str | bytes | None = None) -> None:
+        self._hmac_secret = _resolve_hmac_secret(hmac_secret)
         self._keys_by_id: dict[str, APIKeyConfig] = {}
         self._keys_by_hash: dict[str, APIKeyConfig] = {}
 
@@ -330,7 +338,7 @@ class APIKeyManager:
             logger.warning("api_key_validation_failed", key_id=config.key_id, reason="inactive")
             return None
 
-        if config.expires_at and datetime.now(timezone.utc) > config.expires_at:
+        if config.expires_at and datetime.now(UTC) > config.expires_at:
             logger.warning("api_key_validation_failed", key_id=config.key_id, reason="expired")
             return None
 
@@ -376,7 +384,15 @@ class APIKeyManager:
 
     def _hash_key(self, raw_key: str) -> str:
         """Produce an HMAC-SHA256 hash of the raw API key."""
-        return hmac.new(_HMAC_SECRET, raw_key.encode(), hashlib.sha256).hexdigest()
+        return hmac.new(self._require_hmac_secret(), raw_key.encode(), hashlib.sha256).hexdigest()
+
+    def _require_hmac_secret(self) -> bytes:
+        if self._hmac_secret is None:
+            raise RuntimeError(
+                "API key hashing requires an HMAC secret; pass hmac_secret=... "
+                "to APIKeyManager or set CODEVERIFY_PROOF_HMAC_SECRET"
+            )
+        return self._hmac_secret
 
 
 # ---------------------------------------------------------------------------
@@ -394,7 +410,7 @@ class UsageTracker:
 
     def register_key(self, api_key_id: str, tenant_id: str) -> None:
         """Associate an API key with a tenant for billing summaries."""
-        if api_key_id not in [k for k in self._tenant_keys.get(tenant_id, [])]:
+        if api_key_id not in self._tenant_keys.get(tenant_id, []):
             self._tenant_keys[tenant_id].append(api_key_id)
 
     def record(
@@ -474,7 +490,7 @@ class UsageTracker:
     @staticmethod
     def _current_period() -> str:
         """Return the current billing period as ``YYYY-MM``."""
-        return datetime.now(timezone.utc).strftime("%Y-%m")
+        return datetime.now(UTC).strftime("%Y-%m")
 
     def _ensure_bucket(self, api_key_id: str, period: str) -> UsageBucket:
         bucket_key = f"{api_key_id}:{period}"
@@ -570,7 +586,7 @@ class ProofRequestProcessor:
             self._queue.remove(request_id)
 
         result = self._run_verification(request)
-        result.cost_cents = self._calculate_cost(request, result)
+        result.cost_cents = self._calculate_cost(request)
         self._results[request_id] = result
 
         logger.info(
@@ -681,7 +697,7 @@ class ProofRequestProcessor:
                 flagged.append(idx)
         return flagged
 
-    def _calculate_cost(self, request: ProofRequest, result: ProofResult) -> float:
+    def _calculate_cost(self, request: ProofRequest) -> float:
         """Determine the cost in cents for a completed proof request."""
         pricing = self._pricing
 
@@ -791,7 +807,9 @@ class ProofRequestProcessor:
             "",
         ]
         for idx, finding in enumerate(findings, start=1):
-            parts.append(f"[{idx}] {finding.get('severity', '?').upper()}: {finding.get('message', '')}")
+            parts.append(
+                f"[{idx}] {finding.get('severity', '?').upper()}: {finding.get('message', '')}"
+            )
             parts.append(f"    Check : {finding.get('check', 'unknown')}")
             parts.append(f"    Lines : {finding.get('lines', [])}")
             parts.append("")
@@ -806,7 +824,7 @@ class ProofRequestProcessor:
             "code_hash": hashlib.sha256(code.encode()).hexdigest(),
             "verified": len(findings) == 0,
             "findings_count": len(findings),
-            "issued_at": datetime.now(timezone.utc).isoformat(),
+            "issued_at": datetime.now(UTC).isoformat(),
             "signature": "PLACEHOLDER",  # Real impl would sign with service key
         }
         return json.dumps(payload, indent=2)
@@ -830,9 +848,14 @@ class ProofServiceAPI:
         result = api.verify(raw_key, "x = 1 / y", "python")
     """
 
-    def __init__(self, pricing: PricingConfig | None = None) -> None:
+    def __init__(
+        self,
+        pricing: PricingConfig | None = None,
+        *,
+        hmac_secret: str | bytes | None = None,
+    ) -> None:
         self._pricing = pricing or PricingConfig()
-        self._key_manager = APIKeyManager()
+        self._key_manager = APIKeyManager(hmac_secret=hmac_secret)
         self._rate_limiter = RateLimiter()
         self._usage_tracker = UsageTracker()
         self._processor = ProofRequestProcessor(pricing=self._pricing)

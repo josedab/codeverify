@@ -16,11 +16,9 @@ Features:
 from __future__ import annotations
 
 import hashlib
-import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -77,7 +75,7 @@ class RuntimeViolation:
     error_message: str = ""
     stack_trace: str = ""
     severity: ViolationSeverity = ViolationSeverity.MEDIUM
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     environment: str = "production"
 
 
@@ -91,7 +89,7 @@ class FeedbackRecord:
     static_prediction: str = ""
     runtime_outcome: str = ""
     confidence_delta: float = 0.0
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -165,16 +163,20 @@ class AssertionTranslator:
         assertions: list[RuntimeAssertion] = []
         for var in variables:
             code = template.format(var=var, func=function_name, array="data")
-            assertions.append(RuntimeAssertion(
-                constraint_id=hashlib.sha256(f"{check_type}:{var}:{function_name}".encode()).hexdigest()[:8],
-                check_type=check_type,
-                function_name=function_name,
-                file_path=file_path,
-                language=language,
-                assertion_code=code,
-                original_z3=z3_assertion,
-                variables=[var],
-            ))
+            assertions.append(
+                RuntimeAssertion(
+                    constraint_id=hashlib.sha256(
+                        f"{check_type}:{var}:{function_name}".encode()
+                    ).hexdigest()[:8],
+                    check_type=check_type,
+                    function_name=function_name,
+                    file_path=file_path,
+                    language=language,
+                    assertion_code=code,
+                    original_z3=z3_assertion,
+                    variables=[var],
+                )
+            )
         return assertions
 
     def generate_decorator(self, assertions: list[RuntimeAssertion]) -> str:
@@ -315,7 +317,7 @@ class RuntimeVerificationBridgeService:
         assertions = self._translator.translate(
             check_type, function_name, file_path, variables, language, z3_assertion
         )
-        for a in assertions[:self._config.max_assertions_per_function]:
+        for a in assertions[: self._config.max_assertions_per_function]:
             a.sample_rate = self._config.sample_rate
             self._assertions[a.id] = a
         return assertions
@@ -339,14 +341,15 @@ class RuntimeVerificationBridgeService:
         assertion = self._assertions.get(assertion_id)
         if not assertion:
             return None
-        return self._feedback.process_violation(assertion.constraint_id, "medium", runtime_confirmed=False)
+        return self._feedback.process_violation(
+            assertion.constraint_id, "medium", runtime_confirmed=False
+        )
 
-    def generate_instrumented_code(
-        self, function_name: str, file_path: str
-    ) -> str:
+    def generate_instrumented_code(self, function_name: str, file_path: str) -> str:
         """Generate instrumented code with all assertions for a function."""
         func_assertions = [
-            a for a in self._assertions.values()
+            a
+            for a in self._assertions.values()
             if a.function_name == function_name and a.file_path == file_path
         ]
         return self._translator.generate_decorator(func_assertions)
@@ -372,11 +375,13 @@ class RuntimeVerificationBridgeService:
 
 _runtime_bridge_instance: RuntimeVerificationBridgeService | None = None
 
+
 def get_runtime_bridge_service() -> RuntimeVerificationBridgeService:
     global _runtime_bridge_instance
     if _runtime_bridge_instance is None:
         _runtime_bridge_instance = RuntimeVerificationBridgeService()
     return _runtime_bridge_instance
+
 
 def reset_runtime_bridge_service() -> None:
     global _runtime_bridge_instance

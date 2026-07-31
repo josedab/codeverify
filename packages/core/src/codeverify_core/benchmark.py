@@ -16,11 +16,10 @@ Features:
 from __future__ import annotations
 
 import json
-import statistics
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Protocol
 
@@ -129,7 +128,9 @@ class BenchmarkMetrics:
 
     @property
     def accuracy(self) -> float:
-        total = self.true_positives + self.false_positives + self.true_negatives + self.false_negatives
+        total = (
+            self.true_positives + self.false_positives + self.true_negatives + self.false_negatives
+        )
         return (self.true_positives + self.true_negatives) / total if total > 0 else 0.0
 
     @property
@@ -155,7 +156,7 @@ class LeaderboardEntry:
     tool_version: str = ""
     overall_metrics: BenchmarkMetrics = field(default_factory=BenchmarkMetrics)
     category_metrics: list[CategoryMetrics] = field(default_factory=list)
-    submitted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    submitted_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     run_config: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -174,12 +175,10 @@ class ReviewToolAdapter(Protocol):
         ...
 
     @property
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
-    def version(self) -> str:
-        ...
+    def version(self) -> str: ...
 
 
 class BuiltinBenchmarkAdapter:
@@ -197,9 +196,10 @@ class BuiltinBenchmarkAdapter:
     def version(self) -> str:
         return self._version
 
-    def analyze(self, code: str, language: str) -> list[dict[str, Any]]:
+    def analyze(self, code: str, _language: str) -> list[dict[str, Any]]:
         """Simple pattern-based analysis for benchmarking."""
         import re
+
         detections = []
         lines = code.split("\n")
 
@@ -214,13 +214,15 @@ class BuiltinBenchmarkAdapter:
         for i, line in enumerate(lines, 1):
             for pattern, category, severity, message in patterns:
                 if re.search(pattern, line, re.IGNORECASE):
-                    detections.append({
-                        "line": i,
-                        "category": category,
-                        "severity": severity,
-                        "message": message,
-                        "confidence": 0.8,
-                    })
+                    detections.append(
+                        {
+                            "line": i,
+                            "category": category,
+                            "severity": severity,
+                            "message": message,
+                            "confidence": 0.8,
+                        }
+                    )
 
         return detections
 
@@ -273,7 +275,8 @@ class BenchmarkDataset:
                 code="def divide(a, b):\n    return a / b\n",
                 language=SampleLanguage.PYTHON,
                 category=BugCategory.DIVISION_BY_ZERO,
-                has_bug=True, bug_line=2,
+                has_bug=True,
+                bug_line=2,
                 bug_description="No zero check on divisor",
                 difficulty=SampleDifficulty.EASY,
             ),
@@ -288,7 +291,8 @@ class BenchmarkDataset:
                 code='query = "SELECT * FROM users WHERE id = " + user_id\ncursor.execute(query)\n',
                 language=SampleLanguage.PYTHON,
                 category=BugCategory.SQL_INJECTION,
-                has_bug=True, bug_line=1,
+                has_bug=True,
+                bug_line=1,
                 bug_description="SQL injection via string concatenation",
                 difficulty=SampleDifficulty.EASY,
             ),
@@ -296,7 +300,8 @@ class BenchmarkDataset:
                 code='password = "admin123"\nauth(password)\n',
                 language=SampleLanguage.PYTHON,
                 category=BugCategory.HARDCODED_SECRET,
-                has_bug=True, bug_line=1,
+                has_bug=True,
+                bug_line=1,
                 bug_description="Hardcoded password in source code",
                 difficulty=SampleDifficulty.EASY,
             ),
@@ -311,7 +316,8 @@ class BenchmarkDataset:
                 code="result = data.get('key').strip()\n",
                 language=SampleLanguage.PYTHON,
                 category=BugCategory.NULL_DEREFERENCE,
-                has_bug=True, bug_line=1,
+                has_bug=True,
+                bug_line=1,
                 bug_description="dict.get() may return None, then .strip() fails",
                 difficulty=SampleDifficulty.MEDIUM,
             ),
@@ -327,7 +333,8 @@ class BenchmarkDataset:
                 code="def process(items):\n    for item in items:\n        eval(item)\n",
                 language=SampleLanguage.PYTHON,
                 category=BugCategory.SQL_INJECTION,
-                has_bug=True, bug_line=3,
+                has_bug=True,
+                bug_line=3,
                 bug_description="eval() on untrusted input",
                 difficulty=SampleDifficulty.EASY,
             ),
@@ -450,17 +457,19 @@ class BenchmarkRunner:
         data = []
         for entry in self.results:
             m = entry.overall_metrics
-            data.append({
-                "tool": entry.tool_name,
-                "version": entry.tool_version,
-                "f1": round(m.f1_score, 4),
-                "precision": round(m.precision, 4),
-                "recall": round(m.recall, 4),
-                "accuracy": round(m.accuracy, 4),
-                "avg_latency_ms": round(m.average_latency_ms, 1),
-                "samples": m.total_samples,
-                "submitted_at": entry.submitted_at.isoformat(),
-            })
+            data.append(
+                {
+                    "tool": entry.tool_name,
+                    "version": entry.tool_version,
+                    "f1": round(m.f1_score, 4),
+                    "precision": round(m.precision, 4),
+                    "recall": round(m.recall, 4),
+                    "accuracy": round(m.accuracy, 4),
+                    "avg_latency_ms": round(m.average_latency_ms, 1),
+                    "samples": m.total_samples,
+                    "submitted_at": entry.submitted_at.isoformat(),
+                }
+            )
         return json.dumps(data, indent=2)
 
 

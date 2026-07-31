@@ -6,6 +6,7 @@ lightweight runtime monitors that validate code behavior in production.
 Unique value: Formal methods + observability for safety-critical deployments.
 """
 
+import builtins
 import hashlib
 import time
 from collections.abc import Callable
@@ -42,7 +43,7 @@ class SpecViolation(Exception):
         self.actual = actual
 
 
-class ProbeType(str, Enum):
+class ProbeType(str, Enum):  # noqa: UP042
     """Type of runtime probe."""
 
     PRECONDITION = "precondition"  # Check before function execution
@@ -52,7 +53,7 @@ class ProbeType(str, Enum):
     TYPE_GUARD = "type_guard"  # Type constraint check
 
 
-class MonitorMode(str, Enum):
+class MonitorMode(str, Enum):  # noqa: UP042
     """How to handle spec violations."""
 
     ENFORCE = "enforce"  # Raise exception on violation
@@ -103,6 +104,7 @@ class RuntimeSpec:
     parameters: list[str] = field(default_factory=list)
     enabled: bool = True
     sample_rate: float = 1.0  # For SAMPLE mode
+    mode: MonitorMode | None = None
 
     def compile(self) -> None:
         """Compile the condition string to a callable."""
@@ -111,23 +113,37 @@ class RuntimeSpec:
 
         try:
             # Security: Only allow safe operations
-            safe_names = {"len", "abs", "min", "max", "sum", "all", "any", "isinstance", "type"}
+            safe_names = (
+                "len",
+                "abs",
+                "min",
+                "max",
+                "sum",
+                "all",
+                "any",
+                "isinstance",
+                "type",
+                "bool",
+                "float",
+                "int",
+                "str",
+            )
 
             # Create a restricted namespace
             namespace: dict[str, Any] = {
-                name: getattr(
-                    __builtins__ if hasattr(__builtins__, name) else __builtins__, name, None
-                )
-                for name in safe_names
+                "__builtins__": {},
+                **{name: getattr(builtins, name) for name in safe_names},
+                "True": True,
+                "False": False,
+                "None": None,
             }
-            namespace["True"] = True
-            namespace["False"] = False
-            namespace["None"] = None
 
             # Compile as lambda if it's an expression
             if not self.condition.startswith("lambda"):
-                params = ", ".join(self.parameters) if self.parameters else "_"
-                lambda_str = f"lambda {params}: {self.condition}"
+                params = ", ".join(self.parameters)
+                lambda_str = (
+                    f"lambda {params}: {self.condition}" if params else f"lambda: {self.condition}"
+                )
             else:
                 lambda_str = self.condition
 
@@ -189,6 +205,7 @@ class RuntimeMonitor:
 
     def check_spec(
         self,
+        /,
         spec_id: str,
         **kwargs: Any,
     ) -> bool:
@@ -197,16 +214,21 @@ class RuntimeMonitor:
         if not spec or not spec.enabled:
             return True
 
-        if self.config.mode == MonitorMode.OFF:
+        mode = spec.mode or self.config.mode
+        if mode == MonitorMode.OFF:
             return True
 
         # Rate limiting
-        if self._should_skip_sample(spec):
+        if self._should_skip_sample(spec, mode):
             return True
 
         try:
             if spec.compiled_condition is None:
                 spec.compile()
+            # compile() always sets compiled_condition or raises, so this is
+            # never actually None here; the assertion documents that
+            # invariant for the type checker.
+            assert spec.compiled_condition is not None
 
             # Execute the condition
             result = spec.compiled_condition(**kwargs) if kwargs else spec.compiled_condition()
@@ -214,7 +236,7 @@ class RuntimeMonitor:
             if not result:
                 self._record_violation(spec, kwargs, expected=True, actual=result)
 
-                if self.config.mode == MonitorMode.ENFORCE:
+                if mode == MonitorMode.ENFORCE:
                     raise SpecViolation(
                         message=f"Specification '{spec.name}' violated",
                         spec_id=spec.id,
@@ -232,12 +254,12 @@ class RuntimeMonitor:
             logger.error(f"Error checking spec {spec_id}: {e}")
             return True  # Fail open
 
-    def _should_skip_sample(self, spec: RuntimeSpec) -> bool:
+    def _should_skip_sample(self, spec: RuntimeSpec, mode: MonitorMode) -> bool:
         """Determine if we should skip this check based on sampling."""
         import random
 
         effective_rate = min(spec.sample_rate, self.config.sample_rate)
-        if self.config.mode == MonitorMode.SAMPLE:
+        if mode == MonitorMode.SAMPLE:
             return random.random() > effective_rate
         return False
 
@@ -266,7 +288,7 @@ class RuntimeMonitor:
             inputs=inputs,
             expected=str(expected),
             actual=str(actual),
-            stack_trace=traceback.format_stack()[-5:-1] if traceback else None,
+            stack_trace=("".join(traceback.format_stack()[-5:-1]) if traceback else None),
         )
 
         self.violations.append(event)
@@ -384,6 +406,7 @@ def runtime_precondition(
             function_name=func.__name__,
             condition=condition,
             parameters=params,
+            mode=mode,
         )
         RuntimeMonitor.get_instance().register_spec(spec)
 
@@ -438,6 +461,7 @@ def runtime_postcondition(
             function_name=func.__name__,
             condition=condition,
             parameters=params,
+            mode=mode,
         )
         RuntimeMonitor.get_instance().register_spec(spec)
 
@@ -549,35 +573,48 @@ class ProbeGenerator:
 
     def _z3_to_python(self, z3_spec: str) -> str:
         """Convert Z3 syntax to Python expression."""
-        # Handle common Z3 constructs
-        result = z3_spec
+        expression = z3_spec.strip()
+        open_paren = expression.find("(")
+        if open_paren == -1 or not expression.endswith(")"):
+            return expression
 
-        # Z3 And/Or/Not -> Python and/or/not
-        result = result.replace("And(", "(")
-        result = result.replace("Or(", "(")
-        result = result.replace("Not(", "not (")
-        result = result.replace(", ", " and ")
+        operator = expression[:open_paren].strip()
+        if operator not in {"And", "Or", "Not", "Implies"}:
+            return expression
 
-        # Z3 comparisons are similar to Python
-        result = result.replace("==", "==")
-        result = result.replace("!=", "!=")
-        result = result.replace(">=", ">=")
-        result = result.replace("<=", "<=")
-        result = result.replace(">", ">")
-        result = result.replace("<", "<")
+        arguments = self._split_z3_arguments(expression[open_paren + 1 : -1])
+        converted = [self._z3_to_python(argument) for argument in arguments]
 
-        # Handle Implies(a, b) -> (not a) or b
-        import re
+        if operator == "And":
+            return f"({' and '.join(converted)})" if converted else "True"
+        if operator == "Or":
+            return f"({' or '.join(converted)})" if converted else "False"
+        if operator == "Not" and len(converted) == 1:
+            return f"(not ({converted[0]}))"
+        if operator == "Implies" and len(converted) == 2:
+            return f"(not ({converted[0]}) or ({converted[1]}))"
+        return expression
 
-        implies_pattern = r"Implies\(([^,]+),\s*([^)]+)\)"
-        while re.search(implies_pattern, result):
-            result = re.sub(implies_pattern, r"(not (\1) or (\2))", result)
+    @staticmethod
+    def _split_z3_arguments(arguments: str) -> list[str]:
+        """Split comma-separated Z3 arguments while preserving nested expressions."""
+        parts: list[str] = []
+        start = 0
+        depth = 0
 
-        # Handle ForAll/Exists (simplified: assume single variable)
-        forall_pattern = r"ForAll\((\w+),\s*([^)]+)\)"
-        result = re.sub(forall_pattern, r"all(\2 for \1 in range(len(\1)))", result)
+        for index, character in enumerate(arguments):
+            if character in "([{":
+                depth += 1
+            elif character in ")]}":
+                depth -= 1
+            elif character == "," and depth == 0:
+                parts.append(arguments[start:index].strip())
+                start = index + 1
 
-        return result
+        final_argument = arguments[start:].strip()
+        if final_argument:
+            parts.append(final_argument)
+        return parts
 
     def generate_python_decorator(self, spec: RuntimeSpec) -> str:
         """Generate Python code with decorator for a spec."""
@@ -663,16 +700,11 @@ class RuntimeVerificationReport:
                 spec_id: {
                     "count": len(events),
                     "latest": events[-1].to_dict() if events else None,
-                    "spec_name": self.monitor.specs.get(
-                        spec_id,
-                        RuntimeSpec(
-                            id=spec_id,
-                            name="unknown",
-                            description="",
-                            probe_type=ProbeType.ASSERTION,
-                            function_name="",
-                        ),
-                    ).name,
+                    "spec_name": (
+                        self.monitor.specs[spec_id].name
+                        if spec_id in self.monitor.specs
+                        else "unknown"
+                    ),
                 }
                 for spec_id, events in violations_by_spec.items()
             },
@@ -731,6 +763,9 @@ def check(condition: str, **kwargs: Any) -> bool:
         parameters=list(kwargs.keys()),
     )
     spec.compile()
+    # compile() always sets compiled_condition or raises, so this is never
+    # actually None here; the assertion documents that invariant for mypy.
+    assert spec.compiled_condition is not None
 
     try:
         return spec.compiled_condition(**kwargs) if kwargs else spec.compiled_condition()

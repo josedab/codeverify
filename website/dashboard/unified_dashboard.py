@@ -82,7 +82,7 @@ class DashboardDataProvider:
             "breakdown": {"llm_costs": 89.25, "z3_compute": 28.15, "storage": 10.10},
         }
 
-    def get_cost_breakdown(self, days: int = 30) -> dict:
+    def get_cost_breakdown(self, _days: int = 30) -> dict:
         """Get detailed cost breakdown."""
         return {
             "by_category": [
@@ -102,7 +102,7 @@ class DashboardDataProvider:
             ],
         }
 
-    def get_bug_timeline(self, days: int = 30) -> dict:
+    def get_bug_timeline(self, _days: int = 30) -> dict:
         """Get bug detection timeline."""
         return {
             "bugs": [
@@ -123,7 +123,7 @@ class DashboardDataProvider:
             "by_severity": {"critical": 3, "high": 8, "medium": 10, "low": 3},
         }
 
-    def get_coverage_data(self, repository: str = None) -> dict:
+    def get_coverage_data(self, _repository: str = None) -> dict:
         """Get proof coverage data."""
         return {
             "overall_coverage": 72.5,
@@ -144,7 +144,7 @@ class DashboardDataProvider:
             ],
         }
 
-    def get_coverage_trend(self, days: int = 30) -> dict:
+    def get_coverage_trend(self, _days: int = 30) -> dict:
         """Get coverage trend data."""
         return {
             "trend": [
@@ -157,7 +157,7 @@ class DashboardDataProvider:
             "change_percentage": 11.2,
         }
 
-    def get_recent_findings(self, limit: int = 10) -> list:
+    def get_recent_findings(self, _limit: int = 10) -> list:
         """Get recent verification findings."""
         return [
             {
@@ -230,7 +230,7 @@ class UnifiedDashboardGenerator:
                 <span class="last-updated">Last updated: <span id="update-time">-</span></span>
             </div>
         </header>
-        
+
         <nav class="dashboard-nav">
             <button class="nav-btn active" data-view="overview">📊 Overview</button>
             <button class="nav-btn" data-view="roi">💰 ROI</button>
@@ -238,7 +238,7 @@ class UnifiedDashboardGenerator:
             <button class="nav-btn" data-view="playground">🎮 Playground</button>
             <button class="nav-btn" data-view="findings">🐛 Findings</button>
         </nav>
-        
+
         <main class="dashboard-main">
             <!-- Overview View -->
             <div class="view active" id="view-overview">
@@ -249,7 +249,7 @@ class UnifiedDashboardGenerator:
                     {self._generate_recent_findings_widget()}
                 </div>
             </div>
-            
+
             <!-- ROI View -->
             <div class="view" id="view-roi">
                 <div class="widget-grid">
@@ -258,7 +258,7 @@ class UnifiedDashboardGenerator:
                     {self._generate_bug_timeline_widget()}
                 </div>
             </div>
-            
+
             <!-- Coverage View -->
             <div class="view" id="view-coverage">
                 <div class="widget-grid">
@@ -267,18 +267,18 @@ class UnifiedDashboardGenerator:
                     {self._generate_coverage_by_category_widget()}
                 </div>
             </div>
-            
+
             <!-- Playground View -->
             <div class="view" id="view-playground">
                 {self._generate_playground_widget()}
             </div>
-            
+
             <!-- Findings View -->
             <div class="view" id="view-findings">
                 {self._generate_findings_table_widget()}
             </div>
         </main>
-        
+
         <footer class="dashboard-footer">
             <span>CodeVerify © 2024</span>
             <span>|</span>
@@ -287,7 +287,7 @@ class UnifiedDashboardGenerator:
             <a href="/settings">Settings</a>
         </footer>
     </div>
-    
+
     <script>
         {self._generate_javascript()}
     </script>
@@ -310,7 +310,7 @@ class UnifiedDashboardGenerator:
             --border-color: #30363d;
             --shadow: 0 8px 24px rgba(0,0,0,0.3);
         }
-        
+
         [data-theme="light"] {
             --bg-primary: #ffffff;
             --bg-secondary: #f6f8fa;
@@ -320,52 +320,52 @@ class UnifiedDashboardGenerator:
             --border-color: #d0d7de;
             --shadow: 0 8px 24px rgba(0,0,0,0.1);
         }
-        
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
         }
-        
+
         .dashboard-container { display: flex; flex-direction: column; min-height: 100vh; }
-        
+
         .dashboard-header {
             display: flex; justify-content: space-between; align-items: center;
             padding: 16px 24px; background: var(--bg-secondary);
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .header-left h1 { font-size: 24px; font-weight: 600; }
         .dashboard-name { color: var(--text-secondary); margin-left: 12px; }
         .header-right { display: flex; align-items: center; gap: 12px; }
-        
+
         .btn {
             padding: 8px 16px; border: 1px solid var(--border-color); border-radius: 6px;
             background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer;
         }
         .btn:hover { background: var(--accent-blue); color: white; }
-        
+
         .dashboard-nav {
             display: flex; gap: 8px; padding: 12px 24px;
             background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);
         }
-        
+
         .nav-btn {
             padding: 10px 20px; border: none; border-radius: 6px;
             background: transparent; color: var(--text-secondary); cursor: pointer;
         }
         .nav-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
         .nav-btn.active { background: var(--accent-blue); color: white; }
-        
+
         .dashboard-main { flex: 1; padding: 24px; overflow-y: auto; }
         .view { display: none; }
         .view.active { display: block; }
-        
+
         .widget-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
-        
+
         .widget {
             background: var(--bg-secondary); border: 1px solid var(--border-color);
             border-radius: 12px; padding: 20px; box-shadow: var(--shadow);
@@ -373,51 +373,51 @@ class UnifiedDashboardGenerator:
         .widget-header { display: flex; justify-content: space-between; margin-bottom: 16px; }
         .widget-title { font-size: 16px; font-weight: 600; }
         .widget-full { grid-column: 1 / -1; }
-        
+
         .metric-value { font-size: 36px; font-weight: 700; color: var(--accent-green); }
         .metric-label { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
         .metric-change { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
         .metric-change.up { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); }
-        
+
         .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
         .stat-item { text-align: center; padding: 16px; background: var(--bg-tertiary); border-radius: 8px; }
         .stat-value { font-size: 24px; font-weight: 600; }
         .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-        
+
         .findings-table { width: 100%; border-collapse: collapse; }
         .findings-table th, .findings-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
         .findings-table th { color: var(--text-secondary); font-weight: 500; font-size: 12px; text-transform: uppercase; }
-        
+
         .severity-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
         .severity-critical { background: rgba(248, 81, 73, 0.15); color: var(--accent-red); }
         .severity-high { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); }
         .severity-medium { background: rgba(88, 166, 255, 0.15); color: var(--accent-blue); }
-        
+
         .status-open { background: rgba(248, 81, 73, 0.15); color: var(--accent-red); }
         .status-fixed { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); }
-        
+
         .chart-container { position: relative; height: 250px; }
-        
+
         .coverage-bar { height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; margin-top: 8px; }
         .coverage-fill { height: 100%; background: var(--accent-green); }
-        
+
         .playground-container { display: grid; grid-template-columns: 300px 1fr 300px; gap: 20px; height: calc(100vh - 250px); }
         .playground-panel { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; overflow-y: auto; }
         .playground-panel h3 { margin-bottom: 16px; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; }
-        
+
         .variable-item { display: flex; justify-content: space-between; padding: 8px 12px; background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 8px; }
         .variable-name { color: #9cdcfe; font-family: monospace; }
         .variable-value { color: #ce9178; font-family: monospace; }
-        
+
         .trace-step { padding: 12px; background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 8px; cursor: pointer; }
         .trace-step:hover, .trace-step.active { background: var(--accent-blue); color: white; }
         .trace-step.violation { border-left: 3px solid var(--accent-red); }
-        
+
         .code-viewer { font-family: monospace; font-size: 14px; line-height: 1.6; white-space: pre-wrap; padding: 16px; background: var(--bg-tertiary); border-radius: 8px; }
-        
+
         .dashboard-footer { display: flex; justify-content: center; gap: 16px; padding: 16px; background: var(--bg-secondary); border-top: 1px solid var(--border-color); color: var(--text-secondary); }
         .dashboard-footer a { color: var(--accent-blue); text-decoration: none; }
-        
+
         @media (max-width: 768px) { .widget-grid, .playground-container { grid-template-columns: 1fr; } }
         """
 

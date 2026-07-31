@@ -229,10 +229,7 @@ class VerificationQueue:
         recent = [t for t in timestamps if now - t < 60]
         self._org_timestamps[org_id] = recent
 
-        if len(recent) >= limit.max_per_minute:
-            return False
-
-        return True
+        return len(recent) < limit.max_per_minute
 
     def _record_org_activity(self, org_id: str) -> None:
         self._org_timestamps[org_id].append(time.time())

@@ -18,10 +18,12 @@ import hmac
 import json
 import subprocess
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 
@@ -76,7 +78,7 @@ class Repository:
     api_url: str | None = None
     default_branch: str = "main"
     is_private: bool = False
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -109,16 +111,16 @@ class WebhookPayload:
     ref: str | None = None
     before_sha: str | None = None
     after_sha: str | None = None
-    commits: list[dict] = field(default_factory=list)
+    commits: list[dict[str, Any]] = field(default_factory=list)
     sender: str | None = None
-    raw_payload: dict = field(default_factory=dict)
+    raw_payload: dict[str, Any] = field(default_factory=dict)
 
 
 class GitProviderAdapter(ABC):
     """Abstract adapter for Git hosting providers."""
 
     @abstractmethod
-    def parse_webhook(self, headers: dict, body: dict) -> WebhookPayload:
+    def parse_webhook(self, headers: dict[str, Any], body: dict[str, Any]) -> WebhookPayload:
         """Parse incoming webhook payload."""
         pass
 
@@ -152,7 +154,7 @@ class GitHubAdapter(GitProviderAdapter):
         self.credentials = credentials
         self.api_base = credentials.api_url or "https://api.github.com"
 
-    def parse_webhook(self, headers: dict, body: dict) -> WebhookPayload:
+    def parse_webhook(self, headers: dict[str, Any], body: dict[str, Any]) -> WebhookPayload:
         event_type = headers.get("X-GitHub-Event", headers.get("x-github-event", ""))
 
         repo_data = body.get("repository", {})
@@ -247,7 +249,7 @@ class GitLabAdapter(GitProviderAdapter):
         self.credentials = credentials
         self.api_base = credentials.api_url or "https://gitlab.com/api/v4"
 
-    def parse_webhook(self, headers: dict, body: dict) -> WebhookPayload:
+    def parse_webhook(self, headers: dict[str, Any], body: dict[str, Any]) -> WebhookPayload:
         event_type = headers.get("X-Gitlab-Event", headers.get("x-gitlab-event", ""))
 
         project = body.get("project", body.get("repository", {}))
@@ -337,7 +339,7 @@ class GiteaAdapter(GitProviderAdapter):
         self.credentials = credentials
         self.api_base = credentials.api_url or "https://gitea.example.com/api/v1"
 
-    def parse_webhook(self, headers: dict, body: dict) -> WebhookPayload:
+    def parse_webhook(self, headers: dict[str, Any], body: dict[str, Any]) -> WebhookPayload:
         event_type = headers.get("X-Gitea-Event", headers.get("x-gitea-event", ""))
 
         repo_data = body.get("repository", {})
@@ -425,7 +427,7 @@ class GerritAdapter(GitProviderAdapter):
         self.credentials = credentials
         self.api_base = credentials.api_url
 
-    def parse_webhook(self, headers: dict, body: dict) -> WebhookPayload:
+    def parse_webhook(self, headers: dict[str, Any], body: dict[str, Any]) -> WebhookPayload:
         # Gerrit uses different event format
         event_type = body.get("type", "")
 
@@ -514,7 +516,7 @@ class AzureDevOpsAdapter(GitProviderAdapter):
         self.credentials = credentials
         self.api_base = credentials.api_url or "https://dev.azure.com"
 
-    def parse_webhook(self, headers: dict, body: dict) -> WebhookPayload:
+    def parse_webhook(self, headers: dict[str, Any], body: dict[str, Any]) -> WebhookPayload:
         event_type = body.get("eventType", "")
 
         resource = body.get("resource", {})
@@ -611,7 +613,7 @@ class GenericGitAdapter(GitProviderAdapter):
     def __init__(self, credentials: GitCredentials):
         self.credentials = credentials
 
-    def parse_webhook(self, headers: dict, body: dict) -> WebhookPayload:
+    def parse_webhook(self, headers: dict[str, Any], body: dict[str, Any]) -> WebhookPayload:
         # Try to detect provider from headers
         provider = self._detect_provider(headers, body)
 
@@ -632,7 +634,7 @@ class GenericGitAdapter(GitProviderAdapter):
             raw_payload=body,
         )
 
-    def _detect_provider(self, headers: dict, body: dict) -> GitProvider:
+    def _detect_provider(self, headers: dict[str, Any], body: dict[str, Any]) -> GitProvider:
         # Check headers for provider hints
         if "X-GitHub-Event" in headers or "x-github-event" in headers:
             return GitProvider.GITHUB
@@ -648,7 +650,9 @@ class GenericGitAdapter(GitProviderAdapter):
             return GitProvider.GERRIT
         return GitProvider.GENERIC
 
-    def _detect_event_type(self, headers: dict, body: dict) -> WebhookEventType:
+    def _detect_event_type(
+        self, _headers: dict[str, Any], body: dict[str, Any]
+    ) -> WebhookEventType:
         # Check for common event indicators
         if (
             body.get("pull_request")
@@ -662,7 +666,7 @@ class GenericGitAdapter(GitProviderAdapter):
             return WebhookEventType.PULL_REQUEST
         return WebhookEventType.UNKNOWN
 
-    def _extract_owner(self, repo_data: dict) -> str:
+    def _extract_owner(self, repo_data: dict[str, Any]) -> str:
         return (
             repo_data.get("owner", {}).get("login")
             or repo_data.get("owner", {}).get("username")
@@ -671,12 +675,12 @@ class GenericGitAdapter(GitProviderAdapter):
             or ""
         )
 
-    def _extract_name(self, repo_data: dict) -> str:
+    def _extract_name(self, repo_data: dict[str, Any]) -> str:
         return (
             repo_data.get("name") or repo_data.get("path_with_namespace", "/").split("/")[-1] or ""
         )
 
-    def _extract_clone_url(self, repo_data: dict) -> str:
+    def _extract_clone_url(self, repo_data: dict[str, Any]) -> str:
         return (
             repo_data.get("clone_url")
             or repo_data.get("git_http_url")
@@ -766,7 +770,7 @@ class LocalGitOperations:
         )
         return result.stdout
 
-    def get_commit_info(self, ref: str = "HEAD") -> dict:
+    def get_commit_info(self, ref: str = "HEAD") -> dict[str, str]:
         """Get commit information."""
         format_str = "%H%n%an%n%ae%n%s%n%b"
         result = subprocess.run(
@@ -812,16 +816,16 @@ class LocalGitOperations:
 class WebhookReceiver:
     """Generic webhook receiver that handles all providers."""
 
-    def __init__(self, secrets: dict[GitProvider, str] = None):
+    def __init__(self, secrets: dict[GitProvider, str] | None = None) -> None:
         self.secrets = secrets or {}
         self.adapters: dict[GitProvider, GitProviderAdapter] = {}
 
-    def register_adapter(self, provider: GitProvider, adapter: GitProviderAdapter):
+    def register_adapter(self, provider: GitProvider, adapter: GitProviderAdapter) -> None:
         """Register an adapter for a provider."""
         self.adapters[provider] = adapter
 
     def verify_signature(
-        self, provider: GitProvider, headers: dict, body: bytes, secret: str | None = None
+        self, provider: GitProvider, headers: dict[str, Any], body: bytes, secret: str | None = None
     ) -> bool:
         """Verify webhook signature."""
         secret = secret or self.secrets.get(provider)
@@ -829,18 +833,20 @@ class WebhookReceiver:
             return True  # No secret configured, skip verification
 
         if provider == GitProvider.GITHUB:
-            sig_header = headers.get("X-Hub-Signature-256", headers.get("x-hub-signature-256", ""))
+            sig_header = str(
+                headers.get("X-Hub-Signature-256", headers.get("x-hub-signature-256", ""))
+            )
             if not sig_header:
                 return False
             expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
             return hmac.compare_digest(sig_header, expected)
 
         elif provider == GitProvider.GITLAB:
-            token = headers.get("X-Gitlab-Token", headers.get("x-gitlab-token", ""))
+            token = str(headers.get("X-Gitlab-Token", headers.get("x-gitlab-token", "")))
             return token == secret
 
         elif provider == GitProvider.GITEA:
-            sig_header = headers.get("X-Gitea-Signature", headers.get("x-gitea-signature", ""))
+            sig_header = str(headers.get("X-Gitea-Signature", headers.get("x-gitea-signature", "")))
             if not sig_header:
                 return False
             expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
@@ -849,7 +855,7 @@ class WebhookReceiver:
         # Default: no verification
         return True
 
-    def process_webhook(self, headers: dict, body: bytes) -> WebhookPayload | None:
+    def process_webhook(self, headers: dict[str, Any], body: bytes) -> WebhookPayload | None:
         """Process incoming webhook and return parsed payload."""
         # Try to parse as JSON
         try:
@@ -871,7 +877,7 @@ class WebhookReceiver:
 
         return adapter.parse_webhook(headers, body_dict)
 
-    def _detect_provider(self, headers: dict, body: dict) -> GitProvider:
+    def _detect_provider(self, headers: dict[str, Any], body: dict[str, Any]) -> GitProvider:
         """Detect provider from headers."""
         if "X-GitHub-Event" in headers or "x-github-event" in headers:
             return GitProvider.GITHUB
@@ -913,7 +919,7 @@ class AirGappedVerifier:
         self.rules_loaded = self.config.rules_path.exists()
         return self.model_loaded and self.rules_loaded
 
-    def verify_diff(self, diff: str) -> dict:
+    def verify_diff(self, _diff: str) -> dict[str, Any]:
         """Verify a diff using local models."""
         if not self.model_loaded:
             return {"error": "Model not loaded", "verified": False}
@@ -921,7 +927,7 @@ class AirGappedVerifier:
         # In a real implementation, would run local ML model
         return {"verified": True, "offline": True, "model_version": "1.0.0", "findings": []}
 
-    def update_rules(self, rules_bundle: bytes) -> bool:
+    def update_rules(self, _rules_bundle: bytes) -> bool:
         """Update rules from a signed bundle (manual transfer)."""
         # Verify bundle signature
         # Extract and update rules
@@ -941,9 +947,9 @@ class UniversalGitSupport:
         # Initialize adapters
         self._initialize_adapters()
 
-    def _initialize_adapters(self):
+    def _initialize_adapters(self) -> None:
         """Initialize adapters for configured providers."""
-        adapter_classes = {
+        adapter_classes: dict[GitProvider, Callable[[GitCredentials], GitProviderAdapter]] = {
             GitProvider.GITHUB: GitHubAdapter,
             GitProvider.GITLAB: GitLabAdapter,
             GitProvider.GITEA: GiteaAdapter,
@@ -976,11 +982,11 @@ class UniversalGitSupport:
                 self.adapters[provider] = GenericGitAdapter(creds)
         return self.adapters[provider]
 
-    def process_webhook(self, headers: dict, body: bytes) -> WebhookPayload | None:
+    def process_webhook(self, headers: dict[str, Any], body: bytes) -> WebhookPayload | None:
         """Process incoming webhook from any provider."""
         return self.webhook_receiver.process_webhook(headers, body)
 
-    def verify_local_changes(self, base: str = "HEAD~1", target: str = "HEAD") -> dict:
+    def verify_local_changes(self, base: str = "HEAD~1", target: str = "HEAD") -> dict[str, Any]:
         """Verify local Git changes (CLI workflow)."""
         diff = self.local_ops.get_diff(base, target)
         changed_files = self.local_ops.get_changed_files(base, target)
@@ -995,7 +1001,7 @@ class UniversalGitSupport:
             "provider": self.local_ops.detect_provider().value,
         }
 
-    def verify_staged_changes(self) -> dict:
+    def verify_staged_changes(self) -> dict[str, Any]:
         """Verify staged changes before commit (pre-commit hook)."""
         diff = self.local_ops.get_staged_diff()
 
@@ -1035,7 +1041,7 @@ class UniversalGitSupport:
 
 
 # CLI interface
-def cli_verify(args: list[str] = None) -> int:
+def cli_verify(args: list[str] | None = None) -> int:
     """CLI entry point for verification."""
     import argparse
 

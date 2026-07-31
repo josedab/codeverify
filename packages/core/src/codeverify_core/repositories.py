@@ -7,15 +7,20 @@ database-backed versions of these interfaces.
 
 from __future__ import annotations
 
+import builtins
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 from uuid import UUID
 
 import structlog
 
 logger = structlog.get_logger()
+
+if TYPE_CHECKING:
+    from codeverify_core.notifications import NotificationConfig
+    from codeverify_core.scanning import CodebaseScanResult, ScheduledScan
 
 # Generic type variable for repository entities
 T = TypeVar("T")
@@ -134,15 +139,6 @@ class NotificationConfigRepository(Repository["NotificationConfig"]):
         pass
 
 
-# Forward references for type hints (actual classes are defined elsewhere)
-# These are imported at runtime to avoid circular imports
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from codeverify_core.notifications import NotificationConfig
-    from codeverify_core.scanning import CodebaseScanResult, ScheduledScan
-
-
 # In-memory implementations
 
 
@@ -195,7 +191,7 @@ class InMemoryNotificationConfigRepository(NotificationConfigRepository):
     def __init__(self) -> None:
         self._storage: dict[str, list[Any]] = {}
 
-    async def get(self, id: str | UUID) -> Any | None:
+    async def get(self, _id: str | UUID) -> Any | None:
         # Not directly applicable - configs are stored by repo
         return None
 
@@ -203,17 +199,17 @@ class InMemoryNotificationConfigRepository(NotificationConfigRepository):
         # Not directly applicable
         raise NotImplementedError("Use add_for_repo instead")
 
-    async def delete(self, id: str | UUID) -> bool:
+    async def delete(self, _id: str | UUID) -> bool:
         # Not directly applicable
         return False
 
-    async def list(self, **filters: Any) -> list[Any]:
+    async def list(self, **_filters: Any) -> list[Any]:
         all_configs = []
         for configs in self._storage.values():
             all_configs.extend(configs)
         return all_configs
 
-    async def get_by_repo(self, repo_full_name: str) -> list[Any]:
+    async def get_by_repo(self, repo_full_name: str) -> builtins.list[Any]:
         return self._storage.get(repo_full_name, [])
 
     async def add_for_repo(self, repo_full_name: str, config: Any) -> Any:

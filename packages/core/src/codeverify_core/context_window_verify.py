@@ -17,9 +17,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -46,6 +44,7 @@ class ContextQuality(str, Enum):
 @dataclass
 class ContextSnippet:
     """A code snippet in the context window."""
+
     file_path: str = ""
     start_line: int = 0
     end_line: int = 0
@@ -58,6 +57,7 @@ class ContextSnippet:
 @dataclass
 class ConsistencyIssue:
     """An issue found in the context window."""
+
     issue_type: ConsistencyIssueType = ConsistencyIssueType.INCOMPLETE_CONTEXT
     severity: str = "medium"
     message: str = ""
@@ -68,6 +68,7 @@ class ConsistencyIssue:
 @dataclass
 class ContextWindow:
     """A composed context window for LLM analysis."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     snippets: list[ContextSnippet] = field(default_factory=list)
     total_tokens: int = 0
@@ -81,6 +82,7 @@ class ContextWindow:
 @dataclass
 class ContextOptimizationResult:
     """Result of optimizing context selection."""
+
     original_snippets: int = 0
     selected_snippets: int = 0
     tokens_saved: int = 0
@@ -114,45 +116,51 @@ class ConsistencyChecker:
             open_count = content.count("{") + content.count("(")
             close_count = content.count("}") + content.count(")")
             if abs(open_count - close_count) > 2:
-                issues.append(ConsistencyIssue(
-                    issue_type=ConsistencyIssueType.TRUNCATED_FUNCTION,
-                    severity="high",
-                    message=f"Snippet {i} appears truncated (unbalanced brackets: {open_count} open, {close_count} close)",
-                    snippet_index=i,
-                ))
+                issues.append(
+                    ConsistencyIssue(
+                        issue_type=ConsistencyIssueType.TRUNCATED_FUNCTION,
+                        severity="high",
+                        message=f"Snippet {i} appears truncated (unbalanced brackets: {open_count} open, {close_count} close)",
+                        snippet_index=i,
+                    )
+                )
 
             # Track function definitions
-            for match in re.finditer(r'def\s+(\w+)\s*\(', content):
+            for match in re.finditer(r"def\s+(\w+)\s*\(", content):
                 name = match.group(1)
                 all_defs.setdefault(name, []).append(i)
 
             # Track type annotations
-            for match in re.finditer(r'(\w+)\s*:\s*(\w+)', content):
+            for match in re.finditer(r"(\w+)\s*:\s*(\w+)", content):
                 var_name, type_name = match.groups()
                 all_types.setdefault(var_name, []).append((i, type_name))
 
         # Check duplicate definitions
         for name, indices in all_defs.items():
             if len(indices) > 1:
-                issues.append(ConsistencyIssue(
-                    issue_type=ConsistencyIssueType.DUPLICATE_DEFINITION,
-                    severity="medium",
-                    message=f"Function '{name}' defined in multiple snippets: {indices}",
-                    snippet_index=indices[0],
-                    conflicting_index=indices[1],
-                ))
+                issues.append(
+                    ConsistencyIssue(
+                        issue_type=ConsistencyIssueType.DUPLICATE_DEFINITION,
+                        severity="medium",
+                        message=f"Function '{name}' defined in multiple snippets: {indices}",
+                        snippet_index=indices[0],
+                        conflicting_index=indices[1],
+                    )
+                )
 
         # Check type conflicts
         for var, type_list in all_types.items():
-            types = set(t for _, t in type_list)
+            types = {t for _, t in type_list}
             if len(types) > 1:
-                issues.append(ConsistencyIssue(
-                    issue_type=ConsistencyIssueType.TYPE_CONFLICT,
-                    severity="high",
-                    message=f"Variable '{var}' has conflicting types: {types}",
-                    snippet_index=type_list[0][0],
-                    conflicting_index=type_list[-1][0],
-                ))
+                issues.append(
+                    ConsistencyIssue(
+                        issue_type=ConsistencyIssueType.TYPE_CONFLICT,
+                        severity="high",
+                        message=f"Variable '{var}' has conflicting types: {types}",
+                        snippet_index=type_list[0][0],
+                        conflicting_index=type_list[-1][0],
+                    )
+                )
 
         return issues
 
@@ -206,17 +214,25 @@ class TruncationDetector:
         warnings: list[str] = []
 
         if window.total_tokens >= window.max_tokens * 0.95:
-            warnings.append(f"Context window at {window.total_tokens}/{window.max_tokens} tokens (≥95% capacity)")
+            warnings.append(
+                f"Context window at {window.total_tokens}/{window.max_tokens} tokens (≥95% capacity)"
+            )
             window.is_truncated = True
 
         last = window.snippets[-1] if window.snippets else None
-        if last and last.content and not last.content.rstrip().endswith(("}", ")", ":", "\n", "pass")):
+        if (
+            last
+            and last.content
+            and not last.content.rstrip().endswith(("}", ")", ":", "\n", "pass"))
+        ):
             warnings.append("Last snippet may be truncated mid-statement")
             window.is_truncated = True
 
         for i, s in enumerate(window.snippets):
             if s.content.count("def ") > s.content.count("return ") + s.content.count("pass"):
-                warnings.append(f"Snippet {i} has more function definitions than return statements — possible truncation")
+                warnings.append(
+                    f"Snippet {i} has more function definitions than return statements — possible truncation"
+                )
 
         return warnings
 
@@ -242,10 +258,13 @@ class ContextWindowVerificationService:
         window.issues = self._checker.check(window)
         truncation_warnings = self._truncation.detect(window)
         for w in truncation_warnings:
-            window.issues.append(ConsistencyIssue(
-                issue_type=ConsistencyIssueType.INCOMPLETE_CONTEXT,
-                severity="medium", message=w,
-            ))
+            window.issues.append(
+                ConsistencyIssue(
+                    issue_type=ConsistencyIssueType.INCOMPLETE_CONTEXT,
+                    severity="medium",
+                    message=w,
+                )
+            )
 
         high_issues = sum(1 for i in window.issues if i.severity == "high")
         total_issues = len(window.issues)
@@ -282,11 +301,13 @@ class ContextWindowVerificationService:
 
 _context_window_instance: ContextWindowVerificationService | None = None
 
+
 def get_context_window_service() -> ContextWindowVerificationService:
     global _context_window_instance
     if _context_window_instance is None:
         _context_window_instance = ContextWindowVerificationService()
     return _context_window_instance
+
 
 def reset_context_window_service() -> None:
     global _context_window_instance

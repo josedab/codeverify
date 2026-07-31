@@ -636,7 +636,7 @@ def _perform_quick_check(code: str, language: str) -> dict[str, Any]:
 
 def _perform_deep_verify(
     code: str,
-    language: str,
+    _language: str,
     constraints: list[str] | None = None,
 ) -> dict[str, Any]:
     """Perform deep formal verification."""

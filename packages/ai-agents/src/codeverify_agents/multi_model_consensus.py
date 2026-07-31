@@ -323,8 +323,8 @@ Identify all issues including bugs, security vulnerabilities, and code quality p
 
         total_models = len([m for m, findings in model_results.items() if findings])
 
-        for group_key, findings in finding_groups.items():
-            agreeing_models = list(set(f.model for f in findings))
+        for _group_key, findings in finding_groups.items():
+            agreeing_models = list({f.model for f in findings})
             dissenting_models = [m for m in model_results if m not in agreeing_models]
 
             # Check if consensus is reached based on strategy
@@ -487,7 +487,7 @@ Identify all issues including bugs, security vulnerabilities, and code quality p
         consensus_confidence = min(consensus_confidence * (1 + agreement_boost * 0.2), 0.99)
 
         # Merge descriptions
-        descriptions = list(set(f.description for f in findings))
+        descriptions = list({f.description for f in findings})
         merged_description = primary.description
         if len(descriptions) > 1:
             merged_description += "\n\n[Additional perspectives from other models:]"

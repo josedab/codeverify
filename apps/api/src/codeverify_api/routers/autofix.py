@@ -152,7 +152,7 @@ def _apply_simple_fix(code: str, finding: Finding, language: str) -> tuple[str, 
         array="items",
         original_line=original_line.strip(),
     )
-    fixed_lines = [f"{indent_str}{l}" for l in fixed_line.splitlines()]
+    fixed_lines = [f"{indent_str}{line}" for line in fixed_line.splitlines()]
     lines[line_idx] = "\n".join(fixed_lines)
 
     explanation = f"Added {finding.type} guard to prevent {finding.message}"

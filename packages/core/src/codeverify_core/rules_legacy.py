@@ -1,6 +1,7 @@
 """Custom Rule Builder - No-code interface for creating verification rules."""
 
 import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -203,7 +204,7 @@ class CustomRule:
         """Convert to YAML format for .codeverify.yml."""
         import yaml
 
-        rule_dict = {
+        rule_dict: dict[str, Any] = {
             "id": str(self.id),
             "name": self.name,
             "description": self.description,
@@ -228,9 +229,6 @@ class CustomRule:
 
 
 # Strategy pattern for rule evaluation
-from abc import ABC, abstractmethod
-
-
 class RuleEvaluationStrategy(ABC):
     """Abstract strategy for evaluating rules of a specific type."""
 
@@ -423,21 +421,21 @@ class RuleEvaluator:
         from fnmatch import fnmatch
 
         # Check language
-        if rule.languages and language:
-            if language.lower() not in [l.lower() for l in rule.languages]:
-                return False
+        if (
+            rule.languages
+            and language
+            and language.lower() not in [lang.lower() for lang in rule.languages]
+        ):
+            return False
 
         # Check file patterns
-        if rule.file_patterns:
-            if not any(fnmatch(file_path, p) for p in rule.file_patterns):
-                return False
+        if rule.file_patterns and not any(fnmatch(file_path, p) for p in rule.file_patterns):
+            return False
 
         # Check exclusions
-        if rule.exclude_patterns:
-            if any(fnmatch(file_path, p) for p in rule.exclude_patterns):
-                return False
-
-        return True
+        return not (
+            rule.exclude_patterns and any(fnmatch(file_path, p) for p in rule.exclude_patterns)
+        )
 
     def _evaluate_rule(
         self,
@@ -495,9 +493,9 @@ class RuleEvaluator:
         elif condition.operator == ConditionOperator.NOT_MATCHES:
             return not bool(re.search(str(value), str(field_value)))
         elif condition.operator == ConditionOperator.EQUALS:
-            return field_value == value
+            return bool(field_value == value)
         elif condition.operator == ConditionOperator.NOT_EQUALS:
-            return field_value != value
+            return bool(field_value != value)
         elif condition.operator == ConditionOperator.EXISTS:
             return bool(field_value)
         elif condition.operator == ConditionOperator.NOT_EXISTS:

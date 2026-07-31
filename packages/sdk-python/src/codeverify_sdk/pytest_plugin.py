@@ -13,7 +13,6 @@ Usage:
 from __future__ import annotations
 
 import inspect
-from typing import Any
 
 import pytest
 
@@ -27,9 +26,7 @@ def pytest_configure(config: pytest.Config) -> None:
     )
 
 
-def pytest_collection_modifyitems(
-    config: pytest.Config, items: list[pytest.Item]
-) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Process items with @pytest.mark.verified."""
     for item in items:
         marker = item.get_closest_marker("verified")
@@ -74,8 +71,7 @@ def _codeverify_check(request: pytest.FixtureRequest) -> None:
     if not safety.safe:
         issues = [f"  - [{i.severity}] {i.title}" for i in safety.issues]
         pytest.fail(
-            f"CodeVerify safety check failed ({safety.risk_level} risk):\n"
-            + "\n".join(issues),
+            f"CodeVerify safety check failed ({safety.risk_level} risk):\n" + "\n".join(issues),
             pytrace=False,
         )
 

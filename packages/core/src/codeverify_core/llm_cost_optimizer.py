@@ -7,13 +7,11 @@ analysis to cloud models, with cost tracking and budget management.
 
 from __future__ import annotations
 
-import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -22,6 +20,7 @@ logger = structlog.get_logger()
 
 class ModelProvider(str, Enum):
     """Available model providers."""
+
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     OLLAMA = "ollama"
@@ -32,6 +31,7 @@ class ModelProvider(str, Enum):
 
 class RoutingStrategy(str, Enum):
     """How to decide which model to use."""
+
     COST_OPTIMIZED = "cost_optimized"
     QUALITY_FIRST = "quality_first"
     LOCAL_FIRST = "local_first"
@@ -40,6 +40,7 @@ class RoutingStrategy(str, Enum):
 
 class CheckComplexity(str, Enum):
     """Complexity classification for a verification check."""
+
     TRIVIAL = "trivial"
     SIMPLE = "simple"
     MODERATE = "moderate"
@@ -49,6 +50,7 @@ class CheckComplexity(str, Enum):
 @dataclass
 class ModelEndpoint:
     """Configuration for a model endpoint."""
+
     provider: ModelProvider
     model_name: str
     endpoint_url: str = ""
@@ -67,6 +69,7 @@ class ModelEndpoint:
 @dataclass
 class RoutingDecision:
     """Result of the routing decision."""
+
     endpoint: ModelEndpoint
     reason: str = ""
     estimated_cost: float = 0.0
@@ -77,6 +80,7 @@ class RoutingDecision:
 @dataclass
 class CostRecord:
     """Records the cost of a single LLM call."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     provider: ModelProvider = ModelProvider.OPENAI
     model_name: str = ""
@@ -86,12 +90,13 @@ class CostRecord:
     latency_ms: float = 0.0
     check_type: str = ""
     complexity: CheckComplexity = CheckComplexity.SIMPLE
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class CostBudget:
     """Monthly cost budget configuration."""
+
     monthly_limit_usd: float = 100.0
     alert_threshold_pct: float = 80.0
     current_spend_usd: float = 0.0
@@ -119,6 +124,7 @@ class CostBudget:
 @dataclass
 class CostReport:
     """Summary cost report."""
+
     total_cost_usd: float = 0.0
     total_calls: int = 0
     cost_by_provider: dict[str, float] = field(default_factory=dict)
@@ -133,7 +139,7 @@ class CostReport:
 class ComplexityClassifier:
     """Classifies the complexity of a verification check."""
 
-    def classify(self, code: str, check_type: str) -> CheckComplexity:
+    def classify(self, code: str, _check_type: str) -> CheckComplexity:
         """Classify check complexity based on code and check type."""
         lines = len(code.strip().split("\n"))
         has_loops = any(kw in code for kw in ["for ", "while ", "loop "])
@@ -158,7 +164,7 @@ class CostOptimizer:
         budget: CostBudget | None = None,
     ) -> None:
         self._strategy = strategy
-        self._budget = budget or CostBudget(month=datetime.now(timezone.utc).strftime("%Y-%m"))
+        self._budget = budget or CostBudget(month=datetime.now(UTC).strftime("%Y-%m"))
         self._endpoints: list[ModelEndpoint] = []
         self._records: list[CostRecord] = []
         self._classifier = ComplexityClassifier()
@@ -246,10 +252,9 @@ class CostOptimizer:
         )
         cost = 0.0
         if endpoint:
-            cost = (
-                (input_tokens / 1000) * endpoint.cost_per_1k_input_tokens
-                + (output_tokens / 1000) * endpoint.cost_per_1k_output_tokens
-            )
+            cost = (input_tokens / 1000) * endpoint.cost_per_1k_input_tokens + (
+                output_tokens / 1000
+            ) * endpoint.cost_per_1k_output_tokens
 
         record = CostRecord(
             provider=provider,
@@ -268,11 +273,15 @@ class CostOptimizer:
     def get_report(self, period: str = "") -> CostReport:
         """Generate a cost report."""
         if not period:
-            period = datetime.now(timezone.utc).strftime("%Y-%m")
+            period = datetime.now(UTC).strftime("%Y-%m")
 
         records = [r for r in self._records if r.timestamp.strftime("%Y-%m") == period]
         total_cost = sum(r.cost_usd for r in records)
-        local_calls = sum(1 for r in records if r.provider in (ModelProvider.OLLAMA, ModelProvider.VLLM, ModelProvider.LOCAL))
+        local_calls = sum(
+            1
+            for r in records
+            if r.provider in (ModelProvider.OLLAMA, ModelProvider.VLLM, ModelProvider.LOCAL)
+        )
         cloud_calls = len(records) - local_calls
 
         cost_by_provider: dict[str, float] = defaultdict(float)
@@ -287,10 +296,9 @@ class CostOptimizer:
         if cloud_default:
             for r in records:
                 if r.provider in (ModelProvider.OLLAMA, ModelProvider.VLLM, ModelProvider.LOCAL):
-                    savings += (
-                        (r.input_tokens / 1000) * cloud_default.cost_per_1k_input_tokens
-                        + (r.output_tokens / 1000) * cloud_default.cost_per_1k_output_tokens
-                    )
+                    savings += (r.input_tokens / 1000) * cloud_default.cost_per_1k_input_tokens + (
+                        r.output_tokens / 1000
+                    ) * cloud_default.cost_per_1k_output_tokens
 
         return CostReport(
             total_cost_usd=total_cost,
@@ -308,16 +316,17 @@ class CostOptimizer:
         return self._budget
 
     def _cheapest(self, endpoints: list[ModelEndpoint]) -> ModelEndpoint:
-        return min(endpoints, key=lambda e: e.cost_per_1k_input_tokens + e.cost_per_1k_output_tokens)
+        return min(
+            endpoints, key=lambda e: e.cost_per_1k_input_tokens + e.cost_per_1k_output_tokens
+        )
 
     def _estimate_cost(self, endpoint: ModelEndpoint, code: str) -> float:
         # Rough estimate: ~4 chars per token
         est_input_tokens = len(code) / 4
         est_output_tokens = est_input_tokens * 0.3
-        return (
-            (est_input_tokens / 1000) * endpoint.cost_per_1k_input_tokens
-            + (est_output_tokens / 1000) * endpoint.cost_per_1k_output_tokens
-        )
+        return (est_input_tokens / 1000) * endpoint.cost_per_1k_input_tokens + (
+            est_output_tokens / 1000
+        ) * endpoint.cost_per_1k_output_tokens
 
 
 # Singleton

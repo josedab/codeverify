@@ -234,7 +234,9 @@ def hello():
             severity=RuleSeverity.INFO,
         )
 
-        code = "# Line 1\n# Line 2\n# TODO: Fix this on line 3\n# Line 4\n# TODO: And this on line 5\n"
+        code = (
+            "# Line 1\n# Line 2\n# TODO: Fix this on line 3\n# Line 4\n# TODO: And this on line 5\n"
+        )
         evaluator = RuleEvaluator([rule])
         violations = evaluator.evaluate(code, "test.py", "python")
 

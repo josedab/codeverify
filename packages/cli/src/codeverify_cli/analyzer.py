@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -136,13 +137,16 @@ class LocalAnalyzer:
         if path.is_file():
             return [path]
 
-        for ext in extensions:
+        for _ext in extensions:
             for pattern in include_patterns:
                 for file_path in path.glob(pattern):
-                    if file_path.is_file() and file_path.suffix in extensions:
-                        # Check exclusions
-                        if not self._is_excluded(file_path, exclude_patterns):
-                            files.append(file_path)
+                    # Check exclusions
+                    if (
+                        file_path.is_file()
+                        and file_path.suffix in extensions
+                        and not self._is_excluded(file_path, exclude_patterns)
+                    ):
+                        files.append(file_path)
 
         # Also do simple recursive search
         for ext in extensions:
@@ -286,32 +290,27 @@ class LocalAnalyzer:
                 )
 
         # Run Z3 verification if available
-        try:
-            from codeverify_verifier.z3_verifier import Z3Verifier
-
-            verifier = Z3Verifier()
-
+        if importlib.util.find_spec("codeverify_verifier.z3_verifier") is not None:
             for func in parsed.functions:
                 # Check for potential issues in function body
                 for condition in func.conditions:
                     # Integer overflow checks
-                    if any(op in condition for op in ["*", "+", "-"]):
-                        # Simplified check - would be more sophisticated in production
-                        if "int" in str(func.parameters):
-                            findings.append(
-                                {
-                                    "category": "verification",
-                                    "severity": "medium",
-                                    "title": "Potential Integer Overflow",
-                                    "description": "Arithmetic operation in condition may overflow",
-                                    "file_path": str(file_path),
-                                    "line_start": func.line_start,
-                                    "confidence": 0.7,
-                                    "verification_type": "z3",
-                                }
-                            )
-        except ImportError:
-            pass
+                    # Simplified check - would be more sophisticated in production
+                    if any(op in condition for op in ["*", "+", "-"]) and "int" in str(
+                        func.parameters
+                    ):
+                        findings.append(
+                            {
+                                "category": "verification",
+                                "severity": "medium",
+                                "title": "Potential Integer Overflow",
+                                "description": "Arithmetic operation in condition may overflow",
+                                "file_path": str(file_path),
+                                "line_start": func.line_start,
+                                "confidence": 0.7,
+                                "verification_type": "z3",
+                            }
+                        )
 
         # Pattern-based security checks
         security_findings = self._security_patterns(content, file_path)
@@ -367,9 +366,11 @@ class LocalAnalyzer:
                 if re.search(pattern, line):
                     # Skip if it's a comment (basic check)
                     stripped = line.strip()
-                    if stripped.startswith("#") or stripped.startswith("//"):
-                        if severity in ("critical", "high"):
-                            continue
+                    if (stripped.startswith("#") or stripped.startswith("//")) and severity in (
+                        "critical",
+                        "high",
+                    ):
+                        continue
 
                     findings.append(
                         {

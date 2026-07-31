@@ -13,6 +13,7 @@ Features:
 """
 
 import hashlib
+import importlib.util
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -296,13 +297,10 @@ Provide a clear, helpful explanation."""
 
     def _check_z3(self) -> bool:
         """Check if Z3 is available."""
-        try:
-            import z3
-
-            return True
-        except ImportError:
+        available = importlib.util.find_spec("z3") is not None
+        if not available:
             logger.warning("Z3 not available, some features will be limited")
-            return False
+        return available
 
     async def analyze(self, code: str, context: dict[str, Any]) -> AgentResult:
         """Analyze verification for debugging."""
@@ -532,7 +530,7 @@ Provide a clear, helpful explanation."""
     def _get_unsat_core(
         self,
         session: DebugSession,
-        z3_vars: dict,
+        _z3_vars: dict,
         z3_context: dict,
     ) -> list[str]:
         """Get the unsatisfiable core of constraints."""

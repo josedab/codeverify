@@ -88,6 +88,20 @@ class TestRuntimeSpec:
         assert spec.compiled_condition(result=None) is False
         assert spec.compiled_condition(result=-1) is False
 
+    def test_compile_without_parameters(self):
+        spec = RuntimeSpec(
+            id="test-5",
+            name="test_constant",
+            description="Test constant condition",
+            probe_type=ProbeType.ASSERTION,
+            function_name="test_func",
+            condition="True",
+        )
+
+        spec.compile()
+
+        assert spec.compiled_condition() is True
+
 
 class TestRuntimeMonitor:
     """Tests for RuntimeMonitor."""
@@ -261,6 +275,17 @@ class TestDecorators:
         assert result == 2.0
         assert len(monitor.violations) == 1
 
+    def test_runtime_precondition_honors_decorator_mode(self):
+        monitor = RuntimeMonitor(ProbeConfig(mode=MonitorMode.LOG))
+        RuntimeMonitor._instance = monitor
+
+        @runtime_precondition("x > 0", mode=MonitorMode.ENFORCE)
+        def positive_only(x: int) -> int:
+            return x
+
+        with pytest.raises(SpecViolation):
+            positive_only(-1)
+
     def test_runtime_postcondition_passes(self):
         @runtime_postcondition("result >= 0")
         def abs_value(x: float) -> float:
@@ -321,7 +346,21 @@ class TestProbeGenerator:
         gen = ProbeGenerator()
 
         result = gen._z3_to_python("Implies(x > 0, result > 0)")
-        assert "not" in result or "or" in result
+        condition = eval(f"lambda x, result: {result}")
+
+        assert condition(1, 1) is True
+        assert condition(1, 0) is False
+        assert condition(0, 0) is True
+
+    def test_z3_to_python_nested_boolean_operators(self):
+        gen = ProbeGenerator()
+
+        result = gen._z3_to_python("Implies(And(x > 0, y > 0), Or(x > 1, y > 1))")
+        condition = eval(f"lambda x, y: {result}")
+
+        assert condition(1, 1) is False
+        assert condition(2, 1) is True
+        assert condition(0, 0) is True
 
     def test_from_z3_spec(self):
         gen = ProbeGenerator()

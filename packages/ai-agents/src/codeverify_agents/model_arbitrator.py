@@ -427,7 +427,6 @@ class CompetingModelArbitrator(BaseAgent):
 
         start_time = time.time()
 
-        file_path = context.get("file_path", "unknown")
         language = context.get("language", "python")
 
         try:
@@ -751,9 +750,12 @@ class CompetingModelArbitrator(BaseAgent):
             return severity_order[idx - 1]
 
         # Raise severity if unanimous high-confidence confirmation
-        if confidence > 0.9 and all(v.vote == "confirm" for v in votes):
-            if idx < len(severity_order) - 1:
-                return severity_order[idx + 1]
+        if (
+            confidence > 0.9
+            and all(v.vote == "confirm" for v in votes)
+            and idx < len(severity_order) - 1
+        ):
+            return severity_order[idx + 1]
 
         return original_severity
 

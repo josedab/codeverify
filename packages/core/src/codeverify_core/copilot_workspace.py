@@ -14,12 +14,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -149,7 +147,7 @@ class WorkspacePlan:
     status: WorkspacePlanStatus = WorkspacePlanStatus.PENDING
     constraints: list[VerificationConstraint] = field(default_factory=list)
     verification_result: PlanVerificationResult | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     verified_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -164,14 +162,16 @@ class WorkspaceSession:
     plans: list[WorkspacePlan] = field(default_factory=list)
     active_constraints: list[VerificationConstraint] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def add_event(self, event_type: WorkspaceEventType, data: dict[str, Any] | None = None) -> None:
-        self.events.append({
-            "type": event_type.value,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "data": data or {},
-        })
+        self.events.append(
+            {
+                "type": event_type.value,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "data": data or {},
+            }
+        )
 
 
 class CopilotWorkspaceIntegration:
@@ -194,9 +194,7 @@ class CopilotWorkspaceIntegration:
         self.global_constraints: list[VerificationConstraint] = []
         self._default_constraints = self._build_default_constraints()
 
-    def create_session(
-        self, workspace_id: str, user_id: str = ""
-    ) -> WorkspaceSession:
+    def create_session(self, workspace_id: str, user_id: str = "") -> WorkspaceSession:
         """Create a new workspace verification session."""
         session = WorkspaceSession(
             workspace_id=workspace_id,
@@ -305,7 +303,7 @@ class CopilotWorkspaceIntegration:
             if gate != VerificationGate.BLOCK
             else WorkspacePlanStatus.FAILED
         )
-        plan.verified_at = datetime.now(timezone.utc)
+        plan.verified_at = datetime.now(UTC)
 
         session.add_event(
             WorkspaceEventType.PLAN_VERIFIED,
@@ -340,9 +338,7 @@ class CopilotWorkspaceIntegration:
         )
         return constraint
 
-    def get_generation_prompt(
-        self, session_id: str
-    ) -> str:
+    def get_generation_prompt(self, session_id: str) -> str:
         """Generate a prompt injection with verification constraints.
 
         This is injected into the Copilot Workspace generation prompt
@@ -396,9 +392,7 @@ class CopilotWorkspaceIntegration:
 
         return findings
 
-    def _check_null_safety(
-        self, code: str, file_path: str, language: str
-    ) -> list[PlanFinding]:
+    def _check_null_safety(self, code: str, file_path: str, language: str) -> list[PlanFinding]:
         """Check for potential null/None dereference issues."""
         findings = []
         import re
@@ -406,48 +400,59 @@ class CopilotWorkspaceIntegration:
         lines = code.split("\n")
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
-            if language in ("python", "py"):
-                if re.search(r"\.\w+\(", stripped) and "if " not in stripped and "is not None" not in stripped:
-                    if "= None" in code[:code.index(line)] if line in code else False:
-                        findings.append(PlanFinding(
-                            file_path=file_path,
-                            line=i,
-                            severity="medium",
-                            message="Potential None dereference — variable may be None",
-                            fix_suggestion="Add a None check before accessing attributes",
-                            auto_fixable=True,
-                        ))
-            elif language in ("typescript", "ts", "javascript", "js"):
-                if ".length" in stripped or "." in stripped:
-                    if "undefined" in code or "null" in code:
-                        if "?" not in stripped and "!= null" not in stripped:
-                            pass  # Only flag obvious cases
+            if (
+                language in ("python", "py")
+                and (
+                    re.search(r"\.\w+\(", stripped)
+                    and "if " not in stripped
+                    and "is not None" not in stripped
+                )
+                and ("= None" in code[: code.index(line)] if line in code else False)
+            ):
+                findings.append(
+                    PlanFinding(
+                        file_path=file_path,
+                        line=i,
+                        severity="medium",
+                        message="Potential None dereference — variable may be None",
+                        fix_suggestion="Add a None check before accessing attributes",
+                        auto_fixable=True,
+                    )
+                )
+            if (
+                language in ("typescript", "ts", "javascript", "js")
+                and (".length" in stripped or "." in stripped)
+                and ("undefined" in code or "null" in code)
+                and "?" not in stripped
+                and "!= null" not in stripped
+            ):
+                pass  # Only flag obvious cases
         return findings
 
-    def _check_bounds(
-        self, code: str, file_path: str, language: str
-    ) -> list[PlanFinding]:
+    def _check_bounds(self, code: str, file_path: str, language: str) -> list[PlanFinding]:
         """Check for array bounds issues."""
         import re
+
         findings = []
         lines = code.split("\n")
         for i, line in enumerate(lines, 1):
             if re.search(r"\[\s*-\d+\s*\]", line) and language not in ("python", "py"):
-                findings.append(PlanFinding(
-                    file_path=file_path,
-                    line=i,
-                    severity="high",
-                    message="Negative array index detected",
-                    fix_suggestion="Ensure array index is non-negative",
-                    auto_fixable=False,
-                ))
+                findings.append(
+                    PlanFinding(
+                        file_path=file_path,
+                        line=i,
+                        severity="high",
+                        message="Negative array index detected",
+                        fix_suggestion="Ensure array index is non-negative",
+                        auto_fixable=False,
+                    )
+                )
         return findings
 
-    def _check_security(
-        self, code: str, file_path: str, language: str
-    ) -> list[PlanFinding]:
+    def _check_security(self, code: str, file_path: str, _language: str) -> list[PlanFinding]:
         """Check for common security issues."""
         import re
+
         findings = []
         patterns = [
             (r"eval\(", "critical", "Use of eval() — potential code injection"),
@@ -460,24 +465,22 @@ class CopilotWorkspaceIntegration:
         for i, line in enumerate(lines, 1):
             for pattern, severity, message in patterns:
                 if re.search(pattern, line, re.IGNORECASE):
-                    findings.append(PlanFinding(
-                        file_path=file_path,
-                        line=i,
-                        severity=severity,
-                        message=message,
-                        fix_suggestion="Remove or secure the flagged pattern",
-                    ))
+                    findings.append(
+                        PlanFinding(
+                            file_path=file_path,
+                            line=i,
+                            severity=severity,
+                            message=message,
+                            fix_suggestion="Remove or secure the flagged pattern",
+                        )
+                    )
         return findings
 
-    def _check_type_safety(
-        self, code: str, file_path: str, language: str
-    ) -> list[PlanFinding]:
+    def _check_type_safety(self, _code: str, _file_path: str, _language: str) -> list[PlanFinding]:
         """Check for type safety issues."""
         return []  # Placeholder for AST-based type checking
 
-    def _calculate_trust_score(
-        self, plan: WorkspacePlan, findings: list[PlanFinding]
-    ) -> float:
+    def _calculate_trust_score(self, plan: WorkspacePlan, findings: list[PlanFinding]) -> float:
         """Calculate trust score for the plan (0-100)."""
         base_score = 100.0
 
@@ -491,17 +494,13 @@ class CopilotWorkspaceIntegration:
         for f in findings:
             base_score -= severity_penalties.get(f.severity, 5)
 
-        total_lines = sum(
-            len(f.proposed_content.split("\n")) for f in plan.files if f.has_changes
-        )
+        total_lines = sum(len(f.proposed_content.split("\n")) for f in plan.files if f.has_changes)
         if total_lines > 500:
             base_score -= min(10, (total_lines - 500) / 100)
 
         return max(0.0, min(100.0, base_score))
 
-    def _determine_gate(
-        self, findings: list[PlanFinding], trust_score: float
-    ) -> VerificationGate:
+    def _determine_gate(self, findings: list[PlanFinding], trust_score: float) -> VerificationGate:
         """Determine the verification gate decision."""
         critical_count = sum(1 for f in findings if f.severity == "critical")
         high_count = sum(1 for f in findings if f.severity == "high")
@@ -515,9 +514,15 @@ class CopilotWorkspaceIntegration:
     def _detect_language(self, path: str) -> str:
         """Detect language from file extension."""
         ext_map = {
-            ".py": "python", ".ts": "typescript", ".js": "javascript",
-            ".rs": "rust", ".go": "go", ".java": "java",
-            ".c": "c", ".cpp": "cpp", ".h": "c",
+            ".py": "python",
+            ".ts": "typescript",
+            ".js": "javascript",
+            ".rs": "rust",
+            ".go": "go",
+            ".java": "java",
+            ".c": "c",
+            ".cpp": "cpp",
+            ".h": "c",
         }
         for ext, lang in ext_map.items():
             if path.endswith(ext):

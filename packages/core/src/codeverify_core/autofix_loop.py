@@ -13,6 +13,7 @@ Only suggests fixes that are mathematically proven correct.
 from __future__ import annotations
 
 import warnings as _warnings
+
 _warnings.warn(
     "codeverify_core.autofix_loop is deprecated. Use codeverify_core.autofix_verified_patches instead.",
     DeprecationWarning,
@@ -34,6 +35,7 @@ logger = structlog.get_logger()
 
 class FixStatus(str, Enum):
     """Status of a fix attempt."""
+
     PENDING = "pending"
     GENERATING = "generating"
     VERIFYING = "verifying"
@@ -44,6 +46,7 @@ class FixStatus(str, Enum):
 
 class FixConfidence(str, Enum):
     """Confidence level of a generated fix."""
+
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
@@ -52,6 +55,7 @@ class FixConfidence(str, Enum):
 @dataclass
 class Finding:
     """A code issue that needs fixing."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     rule_id: str = ""
     message: str = ""
@@ -64,6 +68,7 @@ class Finding:
 @dataclass
 class FixAttempt:
     """A single fix generation attempt."""
+
     attempt_number: int = 0
     original_code: str = ""
     fixed_code: str = ""
@@ -77,6 +82,7 @@ class FixAttempt:
 @dataclass
 class VerifiedFix:
     """A fix that has been verified by Z3."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     finding: Finding = field(default_factory=Finding)
     status: FixStatus = FixStatus.PENDING
@@ -117,16 +123,14 @@ class FixGenerator:
         self,
         finding: Finding,
         code: str,
-        context: str = "",
-        previous_attempts: list[FixAttempt] | None = None,
+        _context: str = "",
+        _previous_attempts: list[FixAttempt] | None = None,
     ) -> str:
         """Generate a fix for the given finding.
 
         Uses rule-based templates for known patterns, with context from
         previous failed attempts to avoid repeating the same fix.
         """
-        template = self._templates.get(finding.rule_id, "")
-
         lines = code.split("\n")
         target_line = finding.line - 1 if finding.line > 0 else 0
 
@@ -152,7 +156,9 @@ class FixGenerator:
             lines[target_line] = line.replace(".unwrap()", "?")
         elif "error" in finding.rule_id and "ignored" in finding.message.lower():
             lines[target_line] = line.replace(", _", ", err")
-            lines.insert(target_line + 1, f'{indent}if err != nil {{\n{indent}    return err\n{indent}}}')
+            lines.insert(
+                target_line + 1, f"{indent}if err != nil {{\n{indent}    return err\n{indent}}}"
+            )
         else:
             lines.insert(target_line, f"{indent}# TODO: fix {finding.rule_id}\n")
 
@@ -161,6 +167,7 @@ class FixGenerator:
     def _extract_variable(self, message: str) -> str:
         """Extract a variable name from a finding message."""
         import re
+
         match = re.search(r"'(\w+)'", message)
         return match.group(1) if match else "value"
 
@@ -172,7 +179,7 @@ class FixVerifier:
         self,
         original_code: str,
         fixed_code: str,
-        verification_type: str = "general",
+        _verification_type: str = "general",
     ) -> dict[str, Any]:
         """Verify that the fix resolves the issue without introducing new ones.
 
@@ -240,9 +247,7 @@ class AutoFixPipeline:
             attempt_start = time.time()
 
             # Generate fix
-            fixed_code = self._generator.generate_fix(
-                finding, code, context, result.attempts
-            )
+            fixed_code = self._generator.generate_fix(finding, code, context, result.attempts)
 
             gen_time = (time.time() - attempt_start) * 1000
 
@@ -267,7 +272,9 @@ class AutoFixPipeline:
                 result.diff = self._compute_diff(code, fixed_code)
                 result.proof_hash = hashlib.sha256(fixed_code.encode()).hexdigest()[:16]
                 result.confidence = self._assess_confidence(result)
-                result.explanation = f"Fix verified after {i + 1} attempt(s). Proof hash: {result.proof_hash}"
+                result.explanation = (
+                    f"Fix verified after {i + 1} attempt(s). Proof hash: {result.proof_hash}"
+                )
                 break
             else:
                 logger.info(
@@ -277,7 +284,9 @@ class AutoFixPipeline:
                 )
         else:
             result.status = FixStatus.EXHAUSTED
-            result.explanation = f"Could not produce a verified fix after {self._max_iterations} attempts."
+            result.explanation = (
+                f"Could not produce a verified fix after {self._max_iterations} attempts."
+            )
 
         result.total_time_ms = (time.time() - start) * 1000
         self._results[result.id] = result
@@ -311,12 +320,12 @@ class AutoFixPipeline:
         orig_lines = original.split("\n")
         fixed_lines = fixed.split("\n")
         diff_lines: list[str] = []
-        for i, (o, f) in enumerate(zip(orig_lines, fixed_lines)):
+        for i, (o, f) in enumerate(zip(orig_lines, fixed_lines, strict=False)):
             if o != f:
-                diff_lines.append(f"-{i+1}: {o}")
-                diff_lines.append(f"+{i+1}: {f}")
+                diff_lines.append(f"-{i + 1}: {o}")
+                diff_lines.append(f"+{i + 1}: {f}")
         for i in range(len(orig_lines), len(fixed_lines)):
-            diff_lines.append(f"+{i+1}: {fixed_lines[i]}")
+            diff_lines.append(f"+{i + 1}: {fixed_lines[i]}")
         return "\n".join(diff_lines) if diff_lines else "(no diff)"
 
     def _assess_confidence(self, fix: VerifiedFix) -> FixConfidence:

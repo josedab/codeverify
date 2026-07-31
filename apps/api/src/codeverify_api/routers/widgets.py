@@ -15,7 +15,9 @@ router = APIRouter()
 class WidgetCreateRequest(BaseModel):
     """Request to create a widget."""
 
-    widget_type: str = Field(default="badge", description="badge, trust_score, finding_summary, full_dashboard")
+    widget_type: str = Field(
+        default="badge", description="badge, trust_score, finding_summary, full_dashboard"
+    )
     repo: str = Field(..., description="Repository (owner/name)")
     theme: str = Field(default="light", description="light, dark, auto")
     width: int = Field(default=200, ge=50, le=800)
@@ -62,8 +64,8 @@ class FindingDataRequest(BaseModel):
 async def create_widget(request: WidgetCreateRequest) -> WidgetResponse:
     """Create a new embeddable widget."""
     from codeverify_core.embed_widget import (
-        EmbedFormat,
         EmbeddableWidgetService,
+        EmbedFormat,
         WidgetTheme,
         WidgetType,
     )

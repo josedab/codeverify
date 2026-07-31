@@ -156,11 +156,11 @@ func complex(x int) int {
     } else if x < 0 {
         return -x
     }
-    
+
     for i := 0; i < 10; i++ {
         x += i
     }
-    
+
     switch x {
     case 1:
         return 1

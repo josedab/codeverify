@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import time
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import structlog
 
@@ -19,6 +19,12 @@ from codeverify_core.vcs.base import (
     VCSClient,
     VCSConfig,
 )
+
+if TYPE_CHECKING:
+    # httpx is a real runtime dependency (see packages/core/pyproject.toml) but is
+    # imported lazily inside methods below to avoid the import cost at module load
+    # time; this TYPE_CHECKING-only import lets mypy type the client precisely.
+    import httpx
 
 logger = structlog.get_logger()
 
@@ -46,7 +52,7 @@ class GitHubAppAuthenticator:
         try:
             import jwt
         except ImportError:
-            raise ImportError("PyJWT is required for GitHub App authentication")
+            raise ImportError("PyJWT is required for GitHub App authentication") from None
 
         now = int(time.time())
         payload = {
@@ -54,7 +60,10 @@ class GitHubAppAuthenticator:
             "exp": now + (10 * 60),  # Expires in 10 minutes
             "iss": self.app_id,
         }
-        return jwt.encode(payload, self.private_key, algorithm="RS256")
+        # PyJWT is an optional runtime dependency (imported lazily, see except clause
+        # above) and isn't installed/stubbed in this environment, so mypy sees it as
+        # Any; jwt.encode() is documented to return str, hence the explicit cast.
+        return cast(str, jwt.encode(payload, self.private_key, algorithm="RS256"))
 
     async def get_installation_token(self) -> str:
         """Get or refresh installation access token."""
@@ -113,7 +122,7 @@ class GitHubClient(VCSClient):
             authenticator: Optional pre-configured GitHub App authenticator
         """
         super().__init__(config)
-        self._client: Any = None
+        self._client: httpx.AsyncClient | None = None
         self.base_url = config.base_url or "https://api.github.com"
         self._authenticator = authenticator
 
@@ -168,7 +177,7 @@ class GitHubClient(VCSClient):
             return await self._authenticator.get_installation_token()
         return self.config.token
 
-    def _get_client(self) -> Any:
+    def _get_client(self) -> "httpx.AsyncClient":
         """Get or create HTTP client (without auth header - set per-request)."""
         if self._client is None:
             import httpx
@@ -195,7 +204,7 @@ class GitHubClient(VCSClient):
         method: str,
         url: str,
         **kwargs: Any,
-    ) -> Any:
+    ) -> "httpx.Response":
         """Make an authenticated request."""
         client = self._get_client()
         headers = await self._get_headers()
@@ -276,10 +285,10 @@ class GitHubClient(VCSClient):
 
         response = await self._request("GET", url, params=params)
 
-        data = response.json()
+        data: dict[str, Any] = response.json()
         if data.get("encoding") == "base64":
             return base64.b64decode(data["content"]).decode("utf-8")
-        return data.get("content", "")
+        return str(data.get("content", ""))
 
     async def list_files(
         self,
@@ -448,7 +457,7 @@ class GitHubClient(VCSClient):
         if check_run.external_id:
             payload["external_id"] = check_run.external_id
         if check_run.details_url:
-            payload["details_url"] = check_run.details_id
+            payload["details_url"] = check_run.details_url
         if check_run.started_at:
             payload["started_at"] = check_run.started_at.isoformat()
 
@@ -530,7 +539,7 @@ class GitHubClient(VCSClient):
                     for a in check_run.annotations
                 ]
 
-        response = await self._request(
+        await self._request(
             "PATCH",
             f"/repos/{repo_full_name}/check-runs/{check_run_id}",
             json=payload,
@@ -563,7 +572,10 @@ class GitHubClient(VCSClient):
             f"/repos/{repo_full_name}/statuses/{sha}",
             json=payload,
         )
-        return response.json()
+        result = response.json()
+        if not isinstance(result, dict):
+            raise ValueError("GitHub API returned an unexpected response for commit status")
+        return result
 
     def verify_webhook_signature(
         self,

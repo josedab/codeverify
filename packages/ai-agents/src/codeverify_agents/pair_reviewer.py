@@ -9,6 +9,7 @@ This agent provides:
 """
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import time
@@ -198,10 +199,8 @@ class SmartThrottler:
         # Cancel existing pending task
         if region_id in self._pending_tasks:
             self._pending_tasks[region_id].cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._pending_tasks[region_id]
-            except asyncio.CancelledError:
-                pass
 
         delay = self.calculate_delay(region_id, content)
 
@@ -377,10 +376,8 @@ GUIDELINES:
         # Cancel any existing review for this region
         if region_id in self._active_reviews:
             self._active_reviews[region_id].cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._active_reviews[region_id]
-            except asyncio.CancelledError:
-                pass
 
         # Check cache first
         cache_key = context.change_region.content_hash

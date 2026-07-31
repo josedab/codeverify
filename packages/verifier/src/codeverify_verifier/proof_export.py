@@ -6,7 +6,6 @@ and counterexample data suitable for browser-based visualization.
 
 from __future__ import annotations
 
-import hashlib
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -43,7 +42,7 @@ class ProofNode:
     label: str = ""
     expression: str = ""
     status: ProofStatus = ProofStatus.UNKNOWN
-    children: list["ProofNode"] = field(default_factory=list)
+    children: list[ProofNode] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -134,9 +133,7 @@ class ProofExport:
             "status": self.status.value,
             "proof_tree": self.proof_tree.to_dict() if self.proof_tree else None,
             "constraint_graph": self.constraint_graph.to_dict() if self.constraint_graph else None,
-            "counterexamples": [
-                [v.to_dict() for v in ce] for ce in self.counterexamples
-            ],
+            "counterexamples": [[v.to_dict() for v in ce] for ce in self.counterexamples],
             "execution_trace": self.execution_trace,
             "explanation": self.explanation,
             "solver_time_ms": self.solver_time_ms,
@@ -179,9 +176,7 @@ class ProofExporter:
             solver_time_ms=solver_result.get("time_ms", 0.0) if solver_result else 0.0,
         )
 
-    def _build_proof_tree(
-        self, function_name: str, properties: list[dict[str, Any]]
-    ) -> ProofNode:
+    def _build_proof_tree(self, function_name: str, properties: list[dict[str, Any]]) -> ProofNode:
         root = ProofNode(
             node_type=NodeType.ROOT,
             label=f"Verify: {function_name}",
@@ -202,7 +197,9 @@ class ProofExporter:
                     node_type=NodeType.CONSTRAINT,
                     label=constraint.get("label", ""),
                     expression=constraint.get("expression", ""),
-                    status=ProofStatus.PROVED if constraint.get("holds", True) else ProofStatus.DISPROVED,
+                    status=ProofStatus.PROVED
+                    if constraint.get("holds", True)
+                    else ProofStatus.DISPROVED,
                 )
                 child.children.append(sub)
 
@@ -213,9 +210,7 @@ class ProofExporter:
 
         return root
 
-    def _build_constraint_graph(
-        self, properties: list[dict[str, Any]]
-    ) -> ConstraintGraph:
+    def _build_constraint_graph(self, properties: list[dict[str, Any]]) -> ConstraintGraph:
         variables: dict[str, dict[str, Any]] = {}
         edges: list[ConstraintEdge] = []
 
@@ -231,13 +226,15 @@ class ProofExporter:
             for constraint in prop.get("constraints", []):
                 vars_in_constraint = constraint.get("variables", [])
                 for i, v1 in enumerate(vars_in_constraint):
-                    for v2 in vars_in_constraint[i + 1:]:
-                        edges.append(ConstraintEdge(
-                            source=v1,
-                            target=v2,
-                            constraint=constraint.get("expression", ""),
-                            satisfied=constraint.get("holds", True),
-                        ))
+                    for v2 in vars_in_constraint[i + 1 :]:
+                        edges.append(
+                            ConstraintEdge(
+                                source=v1,
+                                target=v2,
+                                constraint=constraint.get("expression", ""),
+                                satisfied=constraint.get("holds", True),
+                            )
+                        )
 
         return ConstraintGraph(
             variables=list(variables.values()),
@@ -256,30 +253,36 @@ class ProofExporter:
             values = []
             for var_name, var_data in ce.items():
                 if isinstance(var_data, dict):
-                    values.append(CounterexampleValue(
-                        name=var_name,
-                        value=var_data.get("value"),
-                        type=var_data.get("type", "int"),
-                        is_input=var_data.get("is_input", True),
-                    ))
+                    values.append(
+                        CounterexampleValue(
+                            name=var_name,
+                            value=var_data.get("value"),
+                            type=var_data.get("type", "int"),
+                            is_input=var_data.get("is_input", True),
+                        )
+                    )
                 else:
-                    values.append(CounterexampleValue(
-                        name=var_name,
-                        value=var_data,
-                    ))
+                    values.append(
+                        CounterexampleValue(
+                            name=var_name,
+                            value=var_data,
+                        )
+                    )
             result.append(values)
         return result
 
     def _build_execution_trace(
-        self, properties: list[dict[str, Any]], solver_result: dict[str, Any] | None
+        self, properties: list[dict[str, Any]], _solver_result: dict[str, Any] | None
     ) -> list[dict[str, Any]]:
         trace: list[dict[str, Any]] = []
         for i, prop in enumerate(properties):
-            trace.append({
-                "step": i + 1,
-                "type": "check_property",
-                "property": prop.get("name", f"property_{i}"),
-                "expression": prop.get("expression", ""),
-                "result": "holds" if prop.get("holds", True) else "violated",
-            })
+            trace.append(
+                {
+                    "step": i + 1,
+                    "type": "check_property",
+                    "property": prop.get("name", f"property_{i}"),
+                    "expression": prop.get("expression", ""),
+                    "result": "holds" if prop.get("holds", True) else "violated",
+                }
+            )
         return trace

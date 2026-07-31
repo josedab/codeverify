@@ -211,7 +211,7 @@ class DependencyGraph:
     - Cycle detection
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.repositories: dict[str, Repository] = {}
         self.dependencies: list[Dependency] = []
         self.contracts: dict[str, Contract] = {}
@@ -444,12 +444,11 @@ class ContractAnalyzer:
         breaking_reasons = []
 
         # Check return type changes
-        if old_sig.get("return_type") != new_sig.get("return_type"):
-            if old_sig.get("return_type"):
-                breaking_reasons.append(
-                    f"Return type changed from {old_sig.get('return_type')} "
-                    f"to {new_sig.get('return_type')}"
-                )
+        if old_sig.get("return_type") != new_sig.get("return_type") and old_sig.get("return_type"):
+            breaking_reasons.append(
+                f"Return type changed from {old_sig.get('return_type')} "
+                f"to {new_sig.get('return_type')}"
+            )
 
         # Check parameter changes
         old_params = {p["name"]: p for p in old_sig.get("parameters", [])}
@@ -472,9 +471,8 @@ class ContractAnalyzer:
 
         # Added required parameters (breaking)
         for name, new_param in new_params.items():
-            if name not in old_params:
-                if not new_param.get("optional", False):
-                    breaking_reasons.append(f"Required parameter '{name}' added")
+            if name not in old_params and not new_param.get("optional", False):
+                breaking_reasons.append(f"Required parameter '{name}' added")
 
         if breaking_reasons:
             change.breaking = True
@@ -724,9 +722,11 @@ class ImpactAnalyzer:
             if dep_repo:
                 # Check if this repo uses any changed contracts
                 for change in analysis.contract_changes:
-                    if change.contract_id in dep_repo.imported_contracts:
-                        if dependent not in analysis.affected_repos:
-                            analysis.affected_repos.append(dependent)
+                    if (
+                        change.contract_id in dep_repo.imported_contracts
+                        and dependent not in analysis.affected_repos
+                    ):
+                        analysis.affected_repos.append(dependent)
 
         analysis.total_affected = len(analysis.affected_repos)
 
@@ -753,7 +753,7 @@ class ImpactAnalyzer:
 
         Returns ordered list of repositories to update and actions needed.
         """
-        plan = {
+        plan: dict[str, Any] = {
             "source_repo": analysis.source_repo,
             "steps": [],
             "total_steps": 0,
@@ -764,7 +764,7 @@ class ImpactAnalyzer:
         sorted_repos = [r for r in self.graph.topological_sort() if r in affected]
 
         for i, repo in enumerate(sorted_repos):
-            step = {
+            step: dict[str, Any] = {
                 "order": i + 1,
                 "repository": repo,
                 "actions": [],
@@ -774,15 +774,14 @@ class ImpactAnalyzer:
             repo_data = self.graph.repositories.get(repo)
             if repo_data:
                 for change in analysis.contract_changes:
-                    if change.contract_id in repo_data.imported_contracts:
-                        if change.breaking:
-                            step["actions"].append(
-                                {
-                                    "type": "update_code",
-                                    "contract": change.contract_id,
-                                    "description": change.description,
-                                }
-                            )
+                    if change.contract_id in repo_data.imported_contracts and change.breaking:
+                        step["actions"].append(
+                            {
+                                "type": "update_code",
+                                "contract": change.contract_id,
+                                "description": change.description,
+                            }
+                        )
 
             if step["actions"]:
                 plan["steps"].append(step)

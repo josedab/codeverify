@@ -273,28 +273,32 @@ def _run_ai_stage(code: str, language: str) -> list[dict[str, Any]]:
     return diagnostics
 
 
-def _run_formal_stage(code: str, language: str) -> list[dict[str, Any]]:
+def _run_formal_stage(code: str, _language: str) -> list[dict[str, Any]]:
     """Simulate formal verification stage (~5s)."""
     diagnostics = []
     lines = code.splitlines()
 
     # Detect potential division by zero
     for i, line in enumerate(lines):
-        if "/" in line and "import" not in line and "#" not in line.split("/")[0]:
-            if re.search(r"\b\w+\s*/\s*\w+", line):
-                diagnostics.append(
-                    {
-                        "line": i + 1,
-                        "character": 0,
-                        "end_line": i + 1,
-                        "end_character": len(line),
-                        "severity": 2,
-                        "message": "Potential division by zero (formal verification pending)",
-                        "source": "codeverify-z3",
-                        "code": "Z3001",
-                        "stage": "formal",
-                    }
-                )
+        if (
+            "/" in line
+            and "import" not in line
+            and "#" not in line.split("/")[0]
+            and re.search(r"\b\w+\s*/\s*\w+", line)
+        ):
+            diagnostics.append(
+                {
+                    "line": i + 1,
+                    "character": 0,
+                    "end_line": i + 1,
+                    "end_character": len(line),
+                    "severity": 2,
+                    "message": "Potential division by zero (formal verification pending)",
+                    "source": "codeverify-z3",
+                    "code": "Z3001",
+                    "stage": "formal",
+                }
+            )
 
     return diagnostics
 

@@ -290,11 +290,11 @@ async def record_verification_outcome(
 
     try:
         depth = VerificationDepth(selected_depth)
-    except ValueError:
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid depth: {selected_depth}",
-        )
+        ) from e
 
     optimizer = VerificationCostOptimizer()
 

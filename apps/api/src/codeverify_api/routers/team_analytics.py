@@ -7,7 +7,6 @@ heatmaps, top recurring bug patterns, team leaderboard, and export endpoints.
 import csv
 import io
 import random
-import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -21,6 +20,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+
 
 class DefectDensityTrend(BaseModel):
     date: str
@@ -85,6 +85,7 @@ class SlackSummaryConfig(BaseModel):
 # Demo data generators
 # ---------------------------------------------------------------------------
 
+
 def _generate_defect_trends(days: int = 30) -> list[DefectDensityTrend]:
     trends = []
     base = datetime.utcnow() - timedelta(days=days)
@@ -95,15 +96,17 @@ def _generate_defect_trends(days: int = 30) -> list[DefectDensityTrend]:
         medium = random.randint(5, 20)
         low = random.randint(10, 30)
         total = critical + high + medium + low
-        trends.append(DefectDensityTrend(
-            date=date,
-            total_findings=total,
-            critical=critical,
-            high=high,
-            medium=medium,
-            low=low,
-            defect_density=round(total / 10.0, 2),
-        ))
+        trends.append(
+            DefectDensityTrend(
+                date=date,
+                total_findings=total,
+                critical=critical,
+                high=high,
+                medium=medium,
+                low=low,
+                defect_density=round(total / 10.0, 2),
+            )
+        )
     return trends
 
 
@@ -125,7 +128,11 @@ def _generate_coverage_heatmap() -> list[CoverageHeatmapEntry]:
             files_verified=verified,
             coverage_pct=round(verified / max(total, 1) * 100, 1),
             findings_count=findings,
-            risk_level="high" if verified / max(total, 1) < 0.5 else "medium" if verified / max(total, 1) < 0.8 else "low",
+            risk_level="high"
+            if verified / max(total, 1) < 0.5
+            else "medium"
+            if verified / max(total, 1) < 0.8
+            else "low",
         )
         for d, total, verified, findings in dirs
     ]
@@ -134,40 +141,95 @@ def _generate_coverage_heatmap() -> list[CoverageHeatmapEntry]:
 def _generate_bug_patterns() -> list[BugPattern]:
     return [
         BugPattern(
-            pattern_id="bp-1", name="Null pointer dereference", category="null_safety",
-            occurrences=45, trend="decreasing", affected_repos=["api-service", "web-app"],
-            first_seen="2025-11-01", last_seen="2026-02-15",
+            pattern_id="bp-1",
+            name="Null pointer dereference",
+            category="null_safety",
+            occurrences=45,
+            trend="decreasing",
+            affected_repos=["api-service", "web-app"],
+            first_seen="2025-11-01",
+            last_seen="2026-02-15",
         ),
         BugPattern(
-            pattern_id="bp-2", name="SQL injection risk", category="injection",
-            occurrences=12, trend="decreasing", affected_repos=["api-service"],
-            first_seen="2025-12-10", last_seen="2026-01-20",
+            pattern_id="bp-2",
+            name="SQL injection risk",
+            category="injection",
+            occurrences=12,
+            trend="decreasing",
+            affected_repos=["api-service"],
+            first_seen="2025-12-10",
+            last_seen="2026-01-20",
         ),
         BugPattern(
-            pattern_id="bp-3", name="Unhandled promise rejection", category="async_safety",
-            occurrences=28, trend="stable", affected_repos=["web-app", "mobile-app"],
-            first_seen="2026-01-01", last_seen="2026-02-25",
+            pattern_id="bp-3",
+            name="Unhandled promise rejection",
+            category="async_safety",
+            occurrences=28,
+            trend="stable",
+            affected_repos=["web-app", "mobile-app"],
+            first_seen="2026-01-01",
+            last_seen="2026-02-25",
         ),
         BugPattern(
-            pattern_id="bp-4", name="Hardcoded credentials", category="secrets",
-            occurrences=6, trend="increasing", affected_repos=["data-pipeline"],
-            first_seen="2026-02-01", last_seen="2026-02-27",
+            pattern_id="bp-4",
+            name="Hardcoded credentials",
+            category="secrets",
+            occurrences=6,
+            trend="increasing",
+            affected_repos=["data-pipeline"],
+            first_seen="2026-02-01",
+            last_seen="2026-02-27",
         ),
         BugPattern(
-            pattern_id="bp-5", name="Array index out of bounds", category="bounds_check",
-            occurrences=18, trend="decreasing", affected_repos=["api-service", "data-pipeline"],
-            first_seen="2025-10-15", last_seen="2026-02-20",
+            pattern_id="bp-5",
+            name="Array index out of bounds",
+            category="bounds_check",
+            occurrences=18,
+            trend="decreasing",
+            affected_repos=["api-service", "data-pipeline"],
+            first_seen="2025-10-15",
+            last_seen="2026-02-20",
         ),
     ]
 
 
 def _generate_leaderboard() -> list[TeamMember]:
     return [
-        TeamMember(username="alice", analyses_triggered=156, findings_resolved=89, fixes_applied=72, verification_score=94.2),
-        TeamMember(username="bob", analyses_triggered=123, findings_resolved=67, fixes_applied=45, verification_score=88.5),
-        TeamMember(username="carol", analyses_triggered=98, findings_resolved=55, fixes_applied=38, verification_score=91.0),
-        TeamMember(username="dave", analyses_triggered=87, findings_resolved=42, fixes_applied=31, verification_score=85.3),
-        TeamMember(username="eve", analyses_triggered=145, findings_resolved=78, fixes_applied=60, verification_score=92.7),
+        TeamMember(
+            username="alice",
+            analyses_triggered=156,
+            findings_resolved=89,
+            fixes_applied=72,
+            verification_score=94.2,
+        ),
+        TeamMember(
+            username="bob",
+            analyses_triggered=123,
+            findings_resolved=67,
+            fixes_applied=45,
+            verification_score=88.5,
+        ),
+        TeamMember(
+            username="carol",
+            analyses_triggered=98,
+            findings_resolved=55,
+            fixes_applied=38,
+            verification_score=91.0,
+        ),
+        TeamMember(
+            username="dave",
+            analyses_triggered=87,
+            findings_resolved=42,
+            fixes_applied=31,
+            verification_score=85.3,
+        ),
+        TeamMember(
+            username="eve",
+            analyses_triggered=145,
+            findings_resolved=78,
+            fixes_applied=60,
+            verification_score=92.7,
+        ),
     ]
 
 
@@ -181,6 +243,7 @@ _slack_configs: dict[str, SlackSummaryConfig] = {}
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/summary/{org_id}", response_model=AnalyticsSummary)
 async def get_analytics_summary(
@@ -250,15 +313,40 @@ async def export_analytics_csv(
     if report_type == "defect_trends":
         writer.writerow(["date", "total", "critical", "high", "medium", "low", "density"])
         for t in _generate_defect_trends(30):
-            writer.writerow([t.date, t.total_findings, t.critical, t.high, t.medium, t.low, t.defect_density])
+            writer.writerow(
+                [t.date, t.total_findings, t.critical, t.high, t.medium, t.low, t.defect_density]
+            )
     elif report_type == "coverage":
-        writer.writerow(["directory", "files_total", "files_verified", "coverage_pct", "findings", "risk"])
+        writer.writerow(
+            ["directory", "files_total", "files_verified", "coverage_pct", "findings", "risk"]
+        )
         for h in _generate_coverage_heatmap():
-            writer.writerow([h.directory, h.files_total, h.files_verified, h.coverage_pct, h.findings_count, h.risk_level])
+            writer.writerow(
+                [
+                    h.directory,
+                    h.files_total,
+                    h.files_verified,
+                    h.coverage_pct,
+                    h.findings_count,
+                    h.risk_level,
+                ]
+            )
     elif report_type == "bugs":
-        writer.writerow(["pattern", "category", "occurrences", "trend", "repos", "first_seen", "last_seen"])
+        writer.writerow(
+            ["pattern", "category", "occurrences", "trend", "repos", "first_seen", "last_seen"]
+        )
         for b in _generate_bug_patterns():
-            writer.writerow([b.name, b.category, b.occurrences, b.trend, ";".join(b.affected_repos), b.first_seen, b.last_seen])
+            writer.writerow(
+                [
+                    b.name,
+                    b.category,
+                    b.occurrences,
+                    b.trend,
+                    ";".join(b.affected_repos),
+                    b.first_seen,
+                    b.last_seen,
+                ]
+            )
 
     output.seek(0)
     filename = f"codeverify-{report_type}-{org_id}-{datetime.utcnow().strftime('%Y%m%d')}.csv"

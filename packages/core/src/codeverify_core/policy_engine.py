@@ -122,7 +122,7 @@ class PolicyEngine:
             raise ValueError("YAML content must be a mapping at the top level")
         return self.load_from_dict(data)
 
-    def load_from_dict(self, data: dict) -> PolicySet:
+    def load_from_dict(self, data: dict[str, Any]) -> PolicySet:
         """Build a *PolicySet* from a plain dictionary."""
         rules: list[PolicyRule] = []
         for rd in data.get("rules", []):
@@ -168,7 +168,9 @@ class PolicyEngine:
     # Evaluation
     # ------------------------------------------------------------------
 
-    def evaluate(self, policy_set: PolicySet, context: dict) -> list[PolicyEvaluationResult]:
+    def evaluate(
+        self, policy_set: PolicySet, context: dict[str, Any]
+    ) -> list[PolicyEvaluationResult]:
         """Evaluate all enabled rules against *context* (descending priority)."""
         results: list[PolicyEvaluationResult] = []
         sorted_rules = sorted(policy_set.rules, key=lambda r: r.priority, reverse=True)
@@ -252,7 +254,7 @@ class PolicyEngine:
         self,
         policy_set: PolicySet,
         file_path: str,
-        context: dict,
+        context: dict[str, Any],
     ) -> str:
         """Return the verification depth for *file_path* or ``"static"``."""
         enriched = dict(context)
@@ -275,7 +277,7 @@ class PolicyEngine:
     # Condition matching
     # ------------------------------------------------------------------
 
-    def _match_condition(self, condition: PolicyCondition, context: dict) -> bool:
+    def _match_condition(self, condition: PolicyCondition, context: dict[str, Any]) -> bool:
         """Evaluate a single condition against the context."""
         ctx_value = context.get(condition.field)
         if ctx_value is None:

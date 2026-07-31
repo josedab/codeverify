@@ -170,18 +170,35 @@ from codeverify_agents.fine_tuning import (
     TrainingConfig,
     TrainingDataset,
     TrainingExample,
-    TrainingJob,
     TrainingMetrics,
     TrainingPipeline,
     TrainingStatus,
     get_fine_tuning_manager,
     reset_fine_tuning_manager,
 )
+from codeverify_agents.fine_tuning import (
+    TrainingJob as FineTuningTrainingJob,
+)
+
+# Next-Gen Feature: Fix Approval Workflow (v0.4.0)
+from codeverify_agents.fix_approval import (
+    ApprovalNotifier,
+    ApprovalPolicy,
+    ApprovalRequest,
+    ApprovalStatus,
+    ApprovalUrgency,
+    ChannelAdapter,
+    GitHubAdapter,
+    NotificationChannel,
+    NotificationPayload,
+    SlackAdapter,
+    TeamsAdapter,
+    WebhookAdapter,
+)
 
 # Next-Gen Feature: Automated Fix Verification
 from codeverify_agents.fix_verification import (
     Fix,
-    FixStatus,
     FixVerificationEngine,
     Issue,
     IssueResolver,
@@ -193,6 +210,9 @@ from codeverify_agents.fix_verification import (
     SafetyVerifier,
     VerificationMethod,
     VerificationResult,
+)
+from codeverify_agents.fix_verification import (
+    FixStatus as FixVerificationStatus,
 )
 
 # Next-Gen Feature: Formal Specification Assistant
@@ -235,6 +255,18 @@ from codeverify_agents.model_arbitrator import (
     VotingMethod,
 )
 
+# Next-Gen Feature: Model Comparison Engine (v0.4.0)
+from codeverify_agents.model_comparison import (
+    AccuracyMetrics,
+    BenchmarkSample,
+    ModelBenchmark,
+    ModelComparisonEngine,
+    ModelCostProfile,
+    ModelProvider,
+    ModelResult,
+    RoutingRecommendation,
+)
+
 # Follow-up Item 4: AI Model Integration for Fingerprinting
 from codeverify_agents.model_integration import (
     AICodeDetector,
@@ -262,8 +294,10 @@ from codeverify_agents.multi_model_consensus import (
     ConsensusStrategy,
     ModelConfig,
     ModelFinding,
-    ModelProvider,
     MultiModelConsensus,
+)
+from codeverify_agents.multi_model_consensus import (
+    ModelProvider as ConsensusModelProvider,
 )
 
 # Next-Gen Feature 5: Natural Language Invariant Specs
@@ -289,6 +323,14 @@ from codeverify_agents.pair_reviewer import (
     ReviewFeedback,
     ReviewPriority,
     SmartThrottler,
+)
+
+# LLM-Powered Proof Explanation Agent (v1.5.0)
+from codeverify_agents.proof_explanation_agent import (
+    ExplanationMode,
+    ExplanationRequest,
+    ExplanationResponse,
+    ProofExplanationAgent,
 )
 
 # Feature 5: Regression Oracle
@@ -403,6 +445,16 @@ from codeverify_agents.trust_score import (
     calculate_code_hash,
 )
 
+# Next-Gen Feature: Verification Budget Optimizer (v0.4.0)
+from codeverify_agents.verification_budget import (
+    BudgetConfig,
+    BudgetUsage,
+    CostReport,
+    VerificationAllocation,
+    VerificationBudgetOptimizer,
+    VerificationDepth,
+)
+
 # Next-Gen Feature: Verification Debugger
 from codeverify_agents.verification_debugger import (
     Constraint,
@@ -415,52 +467,6 @@ from codeverify_agents.verification_debugger import (
     Variable,
     VerificationDebugger,
     VerificationStatus,
-)
-
-# Next-Gen Feature: Fix Approval Workflow (v0.4.0)
-from codeverify_agents.fix_approval import (
-    ApprovalNotifier,
-    ApprovalPolicy,
-    ApprovalRequest,
-    ApprovalStatus,
-    ApprovalUrgency,
-    ChannelAdapter,
-    GitHubAdapter,
-    NotificationChannel,
-    NotificationPayload,
-    SlackAdapter,
-    TeamsAdapter,
-    WebhookAdapter,
-)
-
-# Next-Gen Feature: Verification Budget Optimizer (v0.4.0)
-from codeverify_agents.verification_budget import (
-    BudgetConfig,
-    BudgetUsage,
-    CostReport,
-    VerificationAllocation,
-    VerificationBudgetOptimizer,
-    VerificationDepth,
-)
-
-# Next-Gen Feature: Model Comparison Engine (v0.4.0)
-from codeverify_agents.model_comparison import (
-    AccuracyMetrics,
-    BenchmarkSample,
-    ModelBenchmark,
-    ModelComparisonEngine,
-    ModelCostProfile,
-    ModelProvider,
-    ModelResult,
-    RoutingRecommendation,
-)
-
-# LLM-Powered Proof Explanation Agent (v1.5.0)
-from codeverify_agents.proof_explanation_agent import (
-    ExplanationMode,
-    ExplanationRequest,
-    ExplanationResponse,
-    ProofExplanationAgent,
 )
 
 __all__ = [
@@ -539,7 +545,7 @@ __all__ = [
     "ConsensusStrategy",
     "ModelConfig",
     "ModelFinding",
-    "ModelProvider",
+    "ConsensusModelProvider",
     "MultiModelConsensus",
     # Compliance Attestation (Feature 8)
     "ComplianceAttestationEngine",
@@ -597,7 +603,7 @@ __all__ = [
     "TrainingConfig",
     "TrainingDataset",
     "TrainingExample",
-    "TrainingJob",
+    "FineTuningTrainingJob",
     "TrainingMetrics",
     "TrainingPipeline",
     "TrainingStatus",
@@ -752,7 +758,7 @@ __all__ = [
     "TrendDirection",
     # Next-Gen Feature: Automated Fix Verification
     "Fix",
-    "FixStatus",
+    "FixVerificationStatus",
     "FixVerificationEngine",
     "Issue",
     "IssueResolver",

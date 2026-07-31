@@ -1,12 +1,15 @@
 """Core data models for CodeVerify."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Generic, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from codeverify_core.severity import FindingSeverity
 
 # ============================================================================
 # Timestamp mixins for consistent datetime handling
@@ -68,12 +71,6 @@ class AnalysisStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
-
-# Import FindingSeverity from severity module for backwards compatibility
-from codeverify_core.severity import (
-    FindingSeverity,
-)
 
 
 class FindingCategory(str, Enum):
@@ -276,8 +273,6 @@ class WebhookEvent(BaseModel):
 # Result type pattern for consistent error handling
 # ============================================================================
 
-from typing import Generic, TypeVar
-
 T = TypeVar("T")
 E = TypeVar("E")
 
@@ -342,29 +337,33 @@ class Result(Generic[T, E]):
         """Get the value, raising ValueError if result is an error."""
         if not self._is_ok:
             raise ValueError(f"Called unwrap on error result: {self._error}")
-        return self._value  # type: ignore
+        # _value is only None when _is_ok is False (see ok()/err() constructors);
+        # mypy cannot correlate the two fields, so the narrowing is manual here.
+        return self._value  # type: ignore[return-value]
 
     def unwrap_or(self, default: T) -> T:
         """Get the value or a default if result is an error."""
-        return self._value if self._is_ok else default  # type: ignore
+        return self._value if self._is_ok else default  # type: ignore[return-value]
 
     def unwrap_err(self) -> E:
         """Get the error, raising ValueError if result is successful."""
         if self._is_ok:
             raise ValueError("Called unwrap_err on successful result")
-        return self._error  # type: ignore
+        return self._error  # type: ignore[return-value]
 
-    def map(self, func: "callable[[T], T]") -> "Result[T, E]":
+    def map(self, func: Callable[[T], T]) -> "Result[T, E]":
         """Apply a function to the value if successful."""
         if self._is_ok:
-            return Result.ok(func(self._value))  # type: ignore
-        return self  # type: ignore
+            # _value is only None when _is_ok is False, so this is always a T here.
+            return Result.ok(func(self._value))  # type: ignore[arg-type]
+        return self
 
-    def map_err(self, func: "callable[[E], E]") -> "Result[T, E]":
+    def map_err(self, func: Callable[[E], E]) -> "Result[T, E]":
         """Apply a function to the error if failed."""
         if not self._is_ok:
-            return Result.err(func(self._error))  # type: ignore
-        return self  # type: ignore
+            # _error is only None when _is_ok is True, so this is always an E here.
+            return Result.err(func(self._error))  # type: ignore[arg-type]
+        return self
 
 
 # Common Result type aliases

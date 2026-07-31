@@ -7,6 +7,7 @@ This module provides:
 4. Coverage trends over time
 """
 
+import contextlib
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -225,10 +226,8 @@ class ProofCoverageCalculator:
                 for r in results:
                     cat = r.get("category")
                     if cat:
-                        try:
+                        with contextlib.suppress(ValueError):
                             categories.append(VerificationCategory(cat))
-                        except ValueError:
-                            pass
 
                 coverage.append(
                     LineCoverage(
@@ -295,10 +294,7 @@ class ProofCoverageCalculator:
         disproven_lines = len([lc for lc in func_lines if lc.proof_status == ProofStatus.DISPROVEN])
 
         # Calculate proof strength
-        if covered_lines > 0:
-            proof_strength = proven_lines / covered_lines
-        else:
-            proof_strength = 0.0
+        proof_strength = proven_lines / covered_lines if covered_lines > 0 else 0.0
 
         # Count by category
         preconditions = sum(
@@ -458,9 +454,8 @@ class ProofCoverageDashboard:
             len(
                 [
                     lc
-                    for lc in (
-                        func.line_coverage for func in fc.functions for lc in func.line_coverage
-                    )
+                    for func in fc.functions
+                    for lc in func.line_coverage
                     if lc.proof_status == ProofStatus.DISPROVEN
                 ]
             )
@@ -571,10 +566,7 @@ class ProofCoverageDashboard:
         for fc in file_coverages:
             # Group by directory
             parts = fc.file_path.split("/")
-            if len(parts) > 1:
-                directory = "/".join(parts[:-1])
-            else:
-                directory = ""
+            directory = "/".join(parts[:-1]) if len(parts) > 1 else ""
 
             heatmap.append(
                 {

@@ -646,7 +646,7 @@ async def execute_marketplace_rule(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Missing parameter: {e}",
-        )
+        ) from e
 
     # Execute the check
     result = z3_server.check_sat(formula)
@@ -662,7 +662,7 @@ async def execute_marketplace_rule(
 @app.get("/marketplace/categories")
 async def list_categories() -> dict[str, Any]:
     """List rule categories in the marketplace."""
-    categories = set(r.category for r in MARKETPLACE_RULES.values())
+    categories = {r.category for r in MARKETPLACE_RULES.values()}
     return {
         "categories": [
             {"id": c, "count": sum(1 for r in MARKETPLACE_RULES.values() if r.category == c)}

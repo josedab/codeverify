@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -17,6 +17,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+
 
 class PolicyRule(BaseModel):
     """A single verification policy rule."""
@@ -52,7 +53,9 @@ class RepoGroup(BaseModel):
     name: str
     description: str = ""
     policy_set_id: str
-    repo_patterns: list[str] = Field(default_factory=list, description="Glob patterns or repo names")
+    repo_patterns: list[str] = Field(
+        default_factory=list, description="Glob patterns or repo names"
+    )
     repos: list[str] = Field(default_factory=list, description="Explicit repo full_names")
     inherit_from: str | None = Field(default=None, description="Parent group ID for inheritance")
     mode: str = Field(default="enforce", description="enforce or observe")
@@ -134,20 +137,31 @@ _exceptions: dict[str, PolicyException] = {}
 _governance_audit: list[GovernanceAuditEntry] = []
 
 
-def _audit(org_id: str, action: str, actor: str, resource_type: str, resource_id: str, details: dict[str, Any]) -> None:
-    _governance_audit.append(GovernanceAuditEntry(
-        id=str(uuid.uuid4()),
-        org_id=org_id,
-        action=action,
-        actor=actor,
-        resource_type=resource_type,
-        resource_id=resource_id,
-        details=details,
-        timestamp=datetime.utcnow().isoformat(),
-    ))
+def _audit(
+    org_id: str,
+    action: str,
+    actor: str,
+    resource_type: str,
+    resource_id: str,
+    details: dict[str, Any],
+) -> None:
+    _governance_audit.append(
+        GovernanceAuditEntry(
+            id=str(uuid.uuid4()),
+            org_id=org_id,
+            action=action,
+            actor=actor,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=details,
+            timestamp=datetime.utcnow().isoformat(),
+        )
+    )
 
 
-def _find_policy_for_repo(org_id: str, repo_full_name: str) -> tuple[PolicySet | None, RepoGroup | None]:
+def _find_policy_for_repo(
+    org_id: str, repo_full_name: str
+) -> tuple[PolicySet | None, RepoGroup | None]:
     """Find the policy set that applies to a repo, considering group inheritance."""
     for group in _repo_groups.values():
         if group.org_id != org_id:
@@ -182,12 +196,19 @@ def _glob_match(name: str, pattern: str) -> bool:
 # Policy Set CRUD
 # ---------------------------------------------------------------------------
 
+
 @router.post("/policies", response_model=PolicySet, status_code=201)
 async def create_policy_set(policy_set: PolicySet) -> PolicySet:
     """Create a new policy set."""
     _policy_sets[policy_set.id] = policy_set
-    _audit(policy_set.org_id, "policy.created", "system", "policy_set", policy_set.id,
-           {"name": policy_set.name, "rules_count": len(policy_set.rules)})
+    _audit(
+        policy_set.org_id,
+        "policy.created",
+        "system",
+        "policy_set",
+        policy_set.id,
+        {"name": policy_set.name, "rules_count": len(policy_set.rules)},
+    )
     return policy_set
 
 
@@ -220,8 +241,14 @@ async def update_policy_set(policy_id: str, update: PolicySet) -> PolicySet:
     update.updated_at = datetime.utcnow().isoformat()
     _policy_sets[policy_id] = update
 
-    _audit(update.org_id, "policy.updated", "system", "policy_set", policy_id,
-           {"version": update.version, "rules_count": len(update.rules)})
+    _audit(
+        update.org_id,
+        "policy.updated",
+        "system",
+        "policy_set",
+        policy_id,
+        {"version": update.version, "rules_count": len(update.rules)},
+    )
     return update
 
 
@@ -238,14 +265,21 @@ async def delete_policy_set(policy_id: str) -> None:
 # Repo Group CRUD
 # ---------------------------------------------------------------------------
 
+
 @router.post("/groups", response_model=RepoGroup, status_code=201)
 async def create_repo_group(group: RepoGroup) -> RepoGroup:
     """Create a repo group with a policy assignment."""
     if group.policy_set_id not in _policy_sets:
         raise HTTPException(status_code=400, detail="Policy set not found")
     _repo_groups[group.id] = group
-    _audit(group.org_id, "group.created", "system", "repo_group", group.id,
-           {"name": group.name, "repos": len(group.repos), "mode": group.mode})
+    _audit(
+        group.org_id,
+        "group.created",
+        "system",
+        "repo_group",
+        group.id,
+        {"name": group.name, "repos": len(group.repos), "mode": group.mode},
+    )
     return group
 
 
@@ -278,6 +312,7 @@ async def delete_repo_group(group_id: str) -> None:
 # Merge-blocking enforcement
 # ---------------------------------------------------------------------------
 
+
 @router.post("/check-merge", response_model=MergeCheckResponse)
 async def check_merge_eligibility(request: MergeCheckRequest) -> MergeCheckResponse:
     """Check if a PR can be merged under the org's governance policies."""
@@ -309,7 +344,9 @@ async def check_merge_eligibility(request: MergeCheckRequest) -> MergeCheckRespo
                 continue
 
             severity_order = {"low": 0, "medium": 1, "high": 2, "critical": 3}
-            if severity_order.get(finding_severity, 0) < severity_order.get(rule.severity_threshold, 0):
+            if severity_order.get(finding_severity, 0) < severity_order.get(
+                rule.severity_threshold, 0
+            ):
                 continue
 
             action = rule.action if mode == "enforce" else "observed"
@@ -333,18 +370,26 @@ async def check_merge_eligibility(request: MergeCheckRequest) -> MergeCheckRespo
     blocking_violations = [v for v in violations if v.action_taken == "block"]
     for v in blocking_violations:
         for exc in _exceptions.values():
-            if (exc.status == "approved" and exc.rule_id == v.rule_id
-                    and exc.repo_full_name == v.repo_full_name
-                    and exc.pr_number == v.pr_number):
+            if (
+                exc.status == "approved"
+                and exc.rule_id == v.rule_id
+                and exc.repo_full_name == v.repo_full_name
+                and exc.pr_number == v.pr_number
+            ):
                 exceptions_applied.append(exc.id)
                 v.action_taken = "exception_applied"
                 break
 
     can_merge = all(v.action_taken != "block" for v in violations)
 
-    _audit(request.org_id, "merge.checked", "system", "pull_request",
-           f"{request.repo_full_name}#{request.pr_number}",
-           {"can_merge": can_merge, "violations": len(violations), "mode": mode})
+    _audit(
+        request.org_id,
+        "merge.checked",
+        "system",
+        "pull_request",
+        f"{request.repo_full_name}#{request.pr_number}",
+        {"can_merge": can_merge, "violations": len(violations), "mode": mode},
+    )
 
     return MergeCheckResponse(
         can_merge=can_merge,
@@ -359,13 +404,19 @@ async def check_merge_eligibility(request: MergeCheckRequest) -> MergeCheckRespo
 # Exception workflows
 # ---------------------------------------------------------------------------
 
+
 @router.post("/exceptions", response_model=PolicyException, status_code=201)
 async def request_exception(exception: PolicyException) -> PolicyException:
     """Request an exception to bypass a policy rule."""
     _exceptions[exception.id] = exception
-    _audit(exception.org_id, "exception.requested", exception.requested_by,
-           "policy_exception", exception.id,
-           {"rule_id": exception.rule_id, "reason": exception.reason})
+    _audit(
+        exception.org_id,
+        "exception.requested",
+        exception.requested_by,
+        "policy_exception",
+        exception.id,
+        {"rule_id": exception.rule_id, "reason": exception.reason},
+    )
     return exception
 
 
@@ -383,8 +434,14 @@ async def approve_exception(
 
     exc.status = "approved"
     exc.approved_by = approver
-    _audit(exc.org_id, "exception.approved", approver, "policy_exception", exception_id,
-           {"rule_id": exc.rule_id})
+    _audit(
+        exc.org_id,
+        "exception.approved",
+        approver,
+        "policy_exception",
+        exception_id,
+        {"rule_id": exc.rule_id},
+    )
     return exc
 
 
@@ -398,8 +455,14 @@ async def reject_exception(
     if not exc:
         raise HTTPException(status_code=404, detail="Exception not found")
     exc.status = "rejected"
-    _audit(exc.org_id, "exception.rejected", rejector, "policy_exception", exception_id,
-           {"rule_id": exc.rule_id})
+    _audit(
+        exc.org_id,
+        "exception.rejected",
+        rejector,
+        "policy_exception",
+        exception_id,
+        {"rule_id": exc.rule_id},
+    )
     return exc
 
 
@@ -418,6 +481,7 @@ async def list_exceptions(
 # ---------------------------------------------------------------------------
 # Violations & Audit
 # ---------------------------------------------------------------------------
+
 
 @router.get("/violations", response_model=list[PolicyViolation])
 async def list_violations(

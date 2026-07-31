@@ -16,9 +16,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -58,6 +56,7 @@ class TypeCompatibility(str, Enum):
 @dataclass
 class ContractElement:
     """A single element of an API contract."""
+
     name: str = ""
     element_type: ContractElementType = ContractElementType.PARAMETER
     type_name: str = ""
@@ -69,6 +68,7 @@ class ContractElement:
 @dataclass
 class ServiceContract:
     """Contract for a single API endpoint/function."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     service_name: str = ""
     endpoint: str = ""
@@ -83,6 +83,7 @@ class ServiceContract:
 @dataclass
 class ContractMismatch:
     """A mismatch detected between two contracts."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     severity: MismatchSeverity = MismatchSeverity.WARNING
     source_service: str = ""
@@ -97,6 +98,7 @@ class ContractMismatch:
 @dataclass
 class BridgeReport:
     """Report from cross-language verification."""
+
     mismatches: list[ContractMismatch] = field(default_factory=list)
     contracts_checked: int = 0
     pairs_verified: int = 0
@@ -106,6 +108,7 @@ class BridgeReport:
 @dataclass
 class ServiceNode:
     """A node in the service dependency graph."""
+
     name: str = ""
     language: BridgeLanguage = BridgeLanguage.PYTHON
     contracts: list[ServiceContract] = field(default_factory=list)
@@ -127,7 +130,9 @@ TYPE_EQUIVALENCE: dict[str, set[str]] = {
 class ContractExtractor:
     """Extracts API contracts from source code."""
 
-    def extract(self, service_name: str, code: str, language: BridgeLanguage) -> list[ServiceContract]:
+    def extract(
+        self, service_name: str, code: str, language: BridgeLanguage
+    ) -> list[ServiceContract]:
         if language == BridgeLanguage.PYTHON:
             return self._extract_python(service_name, code)
         if language == BridgeLanguage.TYPESCRIPT:
@@ -136,7 +141,7 @@ class ContractExtractor:
 
     def _extract_python(self, service: str, code: str) -> list[ServiceContract]:
         contracts: list[ServiceContract] = []
-        for match in re.finditer(r'def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*(\w+))?', code):
+        for match in re.finditer(r"def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*(\w+))?", code):
             name, params_str, ret = match.groups()
             params: list[ContractElement] = []
             for p in params_str.split(","):
@@ -149,17 +154,26 @@ class ContractExtractor:
                 nullable = "None" in ptype or "Optional" in ptype
                 params.append(ContractElement(name=pname, type_name=ptype, nullable=nullable))
 
-            ret_elem = ContractElement(name="return", element_type=ContractElementType.RETURN_TYPE,
-                                       type_name=ret or "None")
-            contracts.append(ServiceContract(
-                service_name=service, endpoint=name, language=BridgeLanguage.PYTHON,
-                parameters=params, return_type=ret_elem,
-            ))
+            ret_elem = ContractElement(
+                name="return", element_type=ContractElementType.RETURN_TYPE, type_name=ret or "None"
+            )
+            contracts.append(
+                ServiceContract(
+                    service_name=service,
+                    endpoint=name,
+                    language=BridgeLanguage.PYTHON,
+                    parameters=params,
+                    return_type=ret_elem,
+                )
+            )
         return contracts
 
     def _extract_typescript(self, service: str, code: str) -> list[ServiceContract]:
         contracts: list[ServiceContract] = []
-        for match in re.finditer(r'(?:function|async function|export function)\s+(\w+)\s*\(([^)]*)\)(?:\s*:\s*(\w+))?', code):
+        for match in re.finditer(
+            r"(?:function|async function|export function)\s+(\w+)\s*\(([^)]*)\)(?:\s*:\s*(\w+))?",
+            code,
+        ):
             name, params_str, ret = match.groups()
             params: list[ContractElement] = []
             for p in params_str.split(","):
@@ -172,15 +186,23 @@ class ContractExtractor:
                 optional = "?" in parts[0]
                 params.append(ContractElement(name=pname, type_name=ptype, optional=optional))
 
-            ret_elem = ContractElement(name="return", element_type=ContractElementType.RETURN_TYPE,
-                                       type_name=ret or "void")
-            contracts.append(ServiceContract(
-                service_name=service, endpoint=name, language=BridgeLanguage.TYPESCRIPT,
-                parameters=params, return_type=ret_elem,
-            ))
+            ret_elem = ContractElement(
+                name="return", element_type=ContractElementType.RETURN_TYPE, type_name=ret or "void"
+            )
+            contracts.append(
+                ServiceContract(
+                    service_name=service,
+                    endpoint=name,
+                    language=BridgeLanguage.TYPESCRIPT,
+                    parameters=params,
+                    return_type=ret_elem,
+                )
+            )
         return contracts
 
-    def _extract_generic(self, service: str, code: str, lang: BridgeLanguage) -> list[ServiceContract]:
+    def _extract_generic(
+        self, service: str, _code: str, lang: BridgeLanguage
+    ) -> list[ServiceContract]:
         return [ServiceContract(service_name=service, endpoint="main", language=lang)]
 
 
@@ -198,7 +220,9 @@ class TypeChecker:
             return TypeCompatibility.COMPATIBLE
 
         for _, equivalents in TYPE_EQUIVALENCE.items():
-            if s_norm in {e.lower() for e in equivalents} and t_norm in {e.lower() for e in equivalents}:
+            if s_norm in {e.lower() for e in equivalents} and t_norm in {
+                e.lower() for e in equivalents
+            }:
                 return TypeCompatibility.COMPATIBLE
 
         numeric = {"int", "float", "number", "integer", "double", "i32", "i64", "f32", "f64"}
@@ -220,12 +244,16 @@ class PolyglotBridgeService:
         self._services: dict[str, ServiceNode] = {}
 
     def register_service(
-        self, name: str, code: str, language: BridgeLanguage,
+        self,
+        name: str,
+        code: str,
+        language: BridgeLanguage,
         depends_on: list[str] | None = None,
     ) -> ServiceNode:
         contracts = self._extractor.extract(name, code, language)
-        node = ServiceNode(name=name, language=language, contracts=contracts,
-                           depends_on=depends_on or [])
+        node = ServiceNode(
+            name=name, language=language, contracts=contracts, depends_on=depends_on or []
+        )
         self._services[name] = node
         return node
 
@@ -258,32 +286,47 @@ class PolyglotBridgeService:
             for pname, s_param in s_params.items():
                 t_param = t_params.get(pname)
                 if not t_param:
-                    mismatches.append(ContractMismatch(
-                        severity=MismatchSeverity.BREAKING, source_service=source_service,
-                        target_service=target_service, element_name=pname,
-                        source_type=s_param.type_name, target_type="missing",
-                        message=f"Parameter '{pname}' exists in {source_service} but not in {target_service}",
-                        suggestion=f"Add parameter '{pname}: {s_param.type_name}' to {target_service}.{endpoint}",
-                    ))
+                    mismatches.append(
+                        ContractMismatch(
+                            severity=MismatchSeverity.BREAKING,
+                            source_service=source_service,
+                            target_service=target_service,
+                            element_name=pname,
+                            source_type=s_param.type_name,
+                            target_type="missing",
+                            message=f"Parameter '{pname}' exists in {source_service} but not in {target_service}",
+                            suggestion=f"Add parameter '{pname}: {s_param.type_name}' to {target_service}.{endpoint}",
+                        )
+                    )
                     pair_ok = False
                     continue
 
                 compat = self._type_checker.check(s_param.type_name, t_param.type_name)
                 if compat == TypeCompatibility.INCOMPATIBLE:
-                    mismatches.append(ContractMismatch(
-                        severity=MismatchSeverity.BREAKING, source_service=source_service,
-                        target_service=target_service, element_name=pname,
-                        source_type=s_param.type_name, target_type=t_param.type_name,
-                        message=f"Type mismatch for '{pname}': {s_param.type_name} vs {t_param.type_name}",
-                    ))
+                    mismatches.append(
+                        ContractMismatch(
+                            severity=MismatchSeverity.BREAKING,
+                            source_service=source_service,
+                            target_service=target_service,
+                            element_name=pname,
+                            source_type=s_param.type_name,
+                            target_type=t_param.type_name,
+                            message=f"Type mismatch for '{pname}': {s_param.type_name} vs {t_param.type_name}",
+                        )
+                    )
                     pair_ok = False
                 elif compat == TypeCompatibility.COERCIBLE:
-                    mismatches.append(ContractMismatch(
-                        severity=MismatchSeverity.WARNING, source_service=source_service,
-                        target_service=target_service, element_name=pname,
-                        source_type=s_param.type_name, target_type=t_param.type_name,
-                        message=f"Type coercion needed for '{pname}': {s_param.type_name} → {t_param.type_name}",
-                    ))
+                    mismatches.append(
+                        ContractMismatch(
+                            severity=MismatchSeverity.WARNING,
+                            source_service=source_service,
+                            target_service=target_service,
+                            element_name=pname,
+                            source_type=s_param.type_name,
+                            target_type=t_param.type_name,
+                            message=f"Type coercion needed for '{pname}': {s_param.type_name} → {t_param.type_name}",
+                        )
+                    )
 
             # Check return type
             if s_contract.return_type and t_contract.return_type:
@@ -291,26 +334,34 @@ class PolyglotBridgeService:
                     s_contract.return_type.type_name, t_contract.return_type.type_name
                 )
                 if compat == TypeCompatibility.INCOMPATIBLE:
-                    mismatches.append(ContractMismatch(
-                        severity=MismatchSeverity.BREAKING, source_service=source_service,
-                        target_service=target_service, element_name=f"{endpoint}_return",
-                        source_type=s_contract.return_type.type_name,
-                        target_type=t_contract.return_type.type_name,
-                        message=f"Return type mismatch: {s_contract.return_type.type_name} vs {t_contract.return_type.type_name}",
-                    ))
+                    mismatches.append(
+                        ContractMismatch(
+                            severity=MismatchSeverity.BREAKING,
+                            source_service=source_service,
+                            target_service=target_service,
+                            element_name=f"{endpoint}_return",
+                            source_type=s_contract.return_type.type_name,
+                            target_type=t_contract.return_type.type_name,
+                            message=f"Return type mismatch: {s_contract.return_type.type_name} vs {t_contract.return_type.type_name}",
+                        )
+                    )
                     pair_ok = False
 
             if pair_ok:
                 compatible += 1
 
         return BridgeReport(
-            mismatches=mismatches, contracts_checked=len(source_map) + len(target_map),
-            pairs_verified=pairs_verified, compatible_pairs=compatible,
+            mismatches=mismatches,
+            contracts_checked=len(source_map) + len(target_map),
+            pairs_verified=pairs_verified,
+            compatible_pairs=compatible,
         )
 
     def get_service_graph(self) -> dict[str, Any]:
-        nodes = [{"name": n.name, "language": n.language.value, "contracts": len(n.contracts)}
-                 for n in self._services.values()]
+        nodes = [
+            {"name": n.name, "language": n.language.value, "contracts": len(n.contracts)}
+            for n in self._services.values()
+        ]
         edges = []
         for n in self._services.values():
             for dep in n.depends_on:

@@ -15,11 +15,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -101,9 +100,7 @@ class FixCandidate:
     verification_passed: bool = False
     verification_details: str = ""
     diff_lines: int = 0
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -155,9 +152,7 @@ class SafetyGuardrails:
     max_fixes_per_pr: int = 10
     require_verification: bool = True
     block_on_new_findings: bool = True
-    allowed_categories: list[FindingCategory] = field(
-        default_factory=lambda: list(FindingCategory)
-    )
+    allowed_categories: list[FindingCategory] = field(default_factory=lambda: list(FindingCategory))
 
 
 class FixTemplateEngine:
@@ -311,7 +306,10 @@ class AutofixVerifiedService:
         self._guardrails = guardrails or SafetyGuardrails()
         self._fix_history: list[FixCandidate] = []
         self._acceptance_stats: dict[str, int] = {
-            "generated": 0, "verified": 0, "applied": 0, "rejected": 0
+            "generated": 0,
+            "verified": 0,
+            "applied": 0,
+            "rejected": 0,
         }
 
     @property
@@ -347,9 +345,7 @@ class AutofixVerifiedService:
                     verified.append(candidate)
                 else:
                     candidate.status = FixStatus.VERIFICATION_FAILED
-                    candidate.verification_details = (
-                        f"Failed: {', '.join(result.checks_failed)}"
-                    )
+                    candidate.verification_details = f"Failed: {', '.join(result.checks_failed)}"
                     if result.new_findings and self._guardrails.block_on_new_findings:
                         continue
                     self._acceptance_stats["verified"] += 1

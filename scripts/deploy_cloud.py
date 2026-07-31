@@ -12,13 +12,10 @@ Dashboard, GitHub App — with auto-scaling and monitoring.
 
 from __future__ import annotations
 
-import json
 import os
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Any
 
 
@@ -41,6 +38,7 @@ class DeployStage(str, Enum):
 @dataclass
 class DeployConfig:
     """Deployment configuration."""
+
     provider: CloudProvider = CloudProvider.AWS
     region: str = "us-east-1"
     project_name: str = "codeverify"
@@ -71,12 +69,16 @@ class DeployConfig:
     def validate(self) -> list[str]:
         errors: list[str] = []
         if not self.openai_api_key and not self.anthropic_api_key:
-            errors.append("At least one LLM API key (OPENAI_API_KEY or ANTHROPIC_API_KEY) is required")
+            errors.append(
+                "At least one LLM API key (OPENAI_API_KEY or ANTHROPIC_API_KEY) is required"
+            )
         if not self.jwt_secret:
             import secrets
+
             self.jwt_secret = secrets.token_urlsafe(32)
         if not self.github_webhook_secret:
             import secrets
+
             self.github_webhook_secret = secrets.token_urlsafe(16)
         return errors
 
@@ -108,6 +110,7 @@ class DeployConfig:
 @dataclass
 class DeployResult:
     """Result of a deployment."""
+
     success: bool = False
     api_url: str = ""
     dashboard_url: str = ""
@@ -131,6 +134,7 @@ class DeployOrchestrator:
 
     def deploy(self, config: DeployConfig) -> DeployResult:
         import time
+
         start = time.time()
         result = DeployResult()
 
@@ -156,7 +160,6 @@ class DeployOrchestrator:
 
         # Stage 2: Infrastructure
         print("\n🏗️  Provisioning infrastructure...")
-        tf_vars = config.to_terraform_vars()
         print(f"  Provider: {config.provider.value}, Region: {config.region}")
         print(f"  Database: {config.db_instance_type}")
         print(f"  Redis: {config.redis_instance_type}")
@@ -193,21 +196,27 @@ class DeployOrchestrator:
         elapsed = int(time.time() - start)
         result.duration_seconds = elapsed
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print(f"🎉 Deployment complete in {elapsed}s!")
         print(f"  API:        {result.api_url}")
         print(f"  Dashboard:  {result.dashboard_url}")
         print(f"  GitHub App: {result.github_app_url}")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
 
         return result
 
     def estimate_cost(self, config: DeployConfig) -> dict[str, float]:
         """Estimate monthly cost in USD."""
         costs = {
-            "database": {"db.t3.micro": 15, "db.t3.small": 30, "db.t3.medium": 65}.get(config.db_instance_type, 65),
-            "redis": {"cache.t3.micro": 12, "cache.t3.small": 25}.get(config.redis_instance_type, 25),
-            "compute": config.api_replicas * 35 + config.worker_replicas * 35 + config.web_replicas * 20,
+            "database": {"db.t3.micro": 15, "db.t3.small": 30, "db.t3.medium": 65}.get(
+                config.db_instance_type, 65
+            ),
+            "redis": {"cache.t3.micro": 12, "cache.t3.small": 25}.get(
+                config.redis_instance_type, 25
+            ),
+            "compute": config.api_replicas * 35
+            + config.worker_replicas * 35
+            + config.web_replicas * 20,
             "load_balancer": 20,
             "storage": config.db_storage_gb * 0.1,
         }
@@ -221,12 +230,16 @@ def interactive_setup() -> DeployConfig:
     print("🚀 CodeVerify Cloud Deployment Setup\n")
 
     config.provider = CloudProvider(
-        input(f"Cloud provider [aws/gcp/azure/local] (default: aws): ").strip() or "aws"
+        input("Cloud provider [aws/gcp/azure/local] (default: aws): ").strip() or "aws"
     )
-    config.region = input(f"Region (default: us-east-1): ").strip() or "us-east-1"
-    config.domain = input(f"Domain (e.g., verify.mycompany.com): ").strip()
-    config.openai_api_key = os.environ.get("OPENAI_API_KEY", "") or input("OpenAI API Key: ").strip()
-    config.anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "") or input("Anthropic API Key (optional): ").strip()
+    config.region = input("Region (default: us-east-1): ").strip() or "us-east-1"
+    config.domain = input("Domain (e.g., verify.mycompany.com): ").strip()
+    config.openai_api_key = (
+        os.environ.get("OPENAI_API_KEY", "") or input("OpenAI API Key: ").strip()
+    )
+    config.anthropic_api_key = (
+        os.environ.get("ANTHROPIC_API_KEY", "") or input("Anthropic API Key (optional): ").strip()
+    )
 
     return config
 
@@ -234,6 +247,7 @@ def interactive_setup() -> DeployConfig:
 def main() -> None:
     """CLI entry point."""
     import argparse
+
     parser = argparse.ArgumentParser(description="Deploy CodeVerify to the cloud")
     parser.add_argument("--provider", choices=["aws", "gcp", "azure", "local"], default=None)
     parser.add_argument("--region", default=None)

@@ -13,7 +13,6 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import re
 import time
 import uuid
@@ -238,7 +237,7 @@ class AttackVectorGenerator:
 
     def generate_vectors(
         self,
-        function_name: str,
+        _function_name: str,
         param_names: list[str] | None = None,
         source_code: str = "",
     ) -> list[AttackVector]:
@@ -253,13 +252,15 @@ class AttackVectorGenerator:
             patterns = _ATTACK_PATTERNS.get(category, [])
             for pattern in patterns[: self.max_per_category]:
                 for param in params:
-                    vectors.append(AttackVector(
-                        category=category,
-                        input_name=param,
-                        payload=pattern["payload"],
-                        description=pattern["desc"],
-                        rationale=f"Testing {param} against {category.value}",
-                    ))
+                    vectors.append(
+                        AttackVector(
+                            category=category,
+                            input_name=param,
+                            payload=pattern["payload"],
+                            description=pattern["desc"],
+                            rationale=f"Testing {param} against {category.value}",
+                        )
+                    )
 
         # Prioritize vectors for relevant categories
         vectors.sort(key=lambda v: (v.category not in relevant, v.category.value))
@@ -293,32 +294,84 @@ class VulnerabilityScanner:
 
     # Vulnerability patterns: (regex, category, severity, description)
     _PATTERNS: list[tuple[str, AttackCategory, ExploitSeverity, str]] = [
-        (r"eval\s*\(", AttackCategory.INJECTION, ExploitSeverity.CRITICAL,
-         "eval() executes arbitrary code"),
-        (r"exec\s*\(", AttackCategory.INJECTION, ExploitSeverity.CRITICAL,
-         "exec() executes arbitrary code"),
-        (r"subprocess\.\w+\(.*shell\s*=\s*True", AttackCategory.INJECTION,
-         ExploitSeverity.CRITICAL, "Shell injection via subprocess"),
-        (r"os\.system\s*\(", AttackCategory.INJECTION, ExploitSeverity.CRITICAL,
-         "Command injection via os.system()"),
-        (r"\.format\(.*\)", AttackCategory.INJECTION, ExploitSeverity.MEDIUM,
-         "Potential format string injection"),
-        (r"open\s*\([^)]*\+", AttackCategory.PATH_TRAVERSAL, ExploitSeverity.HIGH,
-         "Path traversal via string concatenation in file open"),
-        (r"/\s*(?:0|zero)\b", AttackCategory.DIVISION_BY_ZERO, ExploitSeverity.MEDIUM,
-         "Potential division by zero"),
-        (r"\.unwrap\s*\(", AttackCategory.NULL_DEREFERENCE, ExploitSeverity.MEDIUM,
-         "unwrap() may panic on None/Error"),
-        (r"pickle\.loads?\s*\(", AttackCategory.INJECTION, ExploitSeverity.CRITICAL,
-         "Deserialization of untrusted data"),
-        (r"yaml\.load\s*\((?!.*Loader)", AttackCategory.INJECTION, ExploitSeverity.HIGH,
-         "Unsafe YAML loading without Loader"),
-        (r"\.innerHTML\s*=", AttackCategory.INJECTION, ExploitSeverity.HIGH,
-         "XSS via innerHTML assignment"),
-        (r"password.*=.*['\"]", AttackCategory.PRIVILEGE_ESCALATION, ExploitSeverity.CRITICAL,
-         "Hardcoded password detected"),
-        (r"(api[_-]?key|secret|token).*=.*['\"]", AttackCategory.PRIVILEGE_ESCALATION,
-         ExploitSeverity.HIGH, "Hardcoded secret detected"),
+        (
+            r"eval\s*\(",
+            AttackCategory.INJECTION,
+            ExploitSeverity.CRITICAL,
+            "eval() executes arbitrary code",
+        ),
+        (
+            r"exec\s*\(",
+            AttackCategory.INJECTION,
+            ExploitSeverity.CRITICAL,
+            "exec() executes arbitrary code",
+        ),
+        (
+            r"subprocess\.\w+\(.*shell\s*=\s*True",
+            AttackCategory.INJECTION,
+            ExploitSeverity.CRITICAL,
+            "Shell injection via subprocess",
+        ),
+        (
+            r"os\.system\s*\(",
+            AttackCategory.INJECTION,
+            ExploitSeverity.CRITICAL,
+            "Command injection via os.system()",
+        ),
+        (
+            r"\.format\(.*\)",
+            AttackCategory.INJECTION,
+            ExploitSeverity.MEDIUM,
+            "Potential format string injection",
+        ),
+        (
+            r"open\s*\([^)]*\+",
+            AttackCategory.PATH_TRAVERSAL,
+            ExploitSeverity.HIGH,
+            "Path traversal via string concatenation in file open",
+        ),
+        (
+            r"/\s*(?:0|zero)\b",
+            AttackCategory.DIVISION_BY_ZERO,
+            ExploitSeverity.MEDIUM,
+            "Potential division by zero",
+        ),
+        (
+            r"\.unwrap\s*\(",
+            AttackCategory.NULL_DEREFERENCE,
+            ExploitSeverity.MEDIUM,
+            "unwrap() may panic on None/Error",
+        ),
+        (
+            r"pickle\.loads?\s*\(",
+            AttackCategory.INJECTION,
+            ExploitSeverity.CRITICAL,
+            "Deserialization of untrusted data",
+        ),
+        (
+            r"yaml\.load\s*\((?!.*Loader)",
+            AttackCategory.INJECTION,
+            ExploitSeverity.HIGH,
+            "Unsafe YAML loading without Loader",
+        ),
+        (
+            r"\.innerHTML\s*=",
+            AttackCategory.INJECTION,
+            ExploitSeverity.HIGH,
+            "XSS via innerHTML assignment",
+        ),
+        (
+            r"password.*=.*['\"]",
+            AttackCategory.PRIVILEGE_ESCALATION,
+            ExploitSeverity.CRITICAL,
+            "Hardcoded password detected",
+        ),
+        (
+            r"(api[_-]?key|secret|token).*=.*['\"]",
+            AttackCategory.PRIVILEGE_ESCALATION,
+            ExploitSeverity.HIGH,
+            "Hardcoded secret detected",
+        ),
     ]
 
     def scan(self, source: str, file_path: str = "") -> list[Exploit]:
@@ -333,17 +386,19 @@ class VulnerabilityScanner:
             for pattern, category, severity, description in self._PATTERNS:
                 try:
                     if re.search(pattern, line):
-                        exploits.append(Exploit(
-                            title=description,
-                            category=category,
-                            severity=severity,
-                            file_path=file_path,
-                            line=i,
-                            description=f"{description} at line {i}",
-                            poc_code=line.strip(),
-                            remediation=self._get_remediation(category),
-                            cvss_score=self._severity_to_cvss(severity),
-                        ))
+                        exploits.append(
+                            Exploit(
+                                title=description,
+                                category=category,
+                                severity=severity,
+                                file_path=file_path,
+                                line=i,
+                                description=f"{description} at line {i}",
+                                poc_code=line.strip(),
+                                remediation=self._get_remediation(category),
+                                cvss_score=self._severity_to_cvss(severity),
+                            )
+                        )
                 except re.error:
                     continue
 
@@ -404,7 +459,9 @@ class AdversarialTester:
 
         # Generate attack vectors
         vectors = self._vector_gen.generate_vectors(
-            function_name, param_names, source,
+            function_name,
+            param_names,
+            source,
         )
         vectors = vectors[: self.max_vectors]
 

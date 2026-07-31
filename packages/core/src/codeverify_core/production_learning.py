@@ -317,23 +317,17 @@ class IncidentCollector:
         results.sort(key=lambda i: i.timestamp, reverse=True)
         return results
 
-    def correlate_with_commits(
-        self, incident: ProductionIncident
-    ) -> IncidentCorrelation | None:
+    def correlate_with_commits(self, incident: ProductionIncident) -> IncidentCorrelation | None:
         """Attempt to correlate an incident with the commit that introduced it."""
         if not incident.commit_sha:
             return None
 
-        verification_id = self._verification_results.get(
-            incident.commit_sha, {}
-        ).get("id")
+        verification_id = self._verification_results.get(incident.commit_sha, {}).get("id")
         was_detected = False
         detection_rule = None
 
         if verification_id:
-            findings = self._verification_results[incident.commit_sha].get(
-                "findings", []
-            )
+            findings = self._verification_results[incident.commit_sha].get("findings", [])
             for finding in findings:
                 if (
                     finding.get("file_path") == incident.file_path
@@ -399,9 +393,7 @@ class IncidentCollector:
                 undetected.append(incident)
         return undetected
 
-    def register_verification_result(
-        self, commit_sha: str, result: dict[str, Any]
-    ) -> None:
+    def register_verification_result(self, commit_sha: str, result: dict[str, Any]) -> None:
         """Register a verification result to enable commit correlation."""
         self._verification_results[commit_sha] = result
 
@@ -446,8 +438,10 @@ class ThresholdTuner:
             caught = any(
                 any(
                     f.get("rule_id") == rule_id
-                    and (f.get("file_path") == incident.file_path
-                         or f.get("error_type") == incident.error_type)
+                    and (
+                        f.get("file_path") == incident.file_path
+                        or f.get("error_type") == incident.error_type
+                    )
                     for f in r.get("findings", [])
                 )
                 for r in verification_results
@@ -483,9 +477,7 @@ class ThresholdTuner:
         )
         return threshold
 
-    def recommend_adjustments(
-        self, thresholds: list[DetectionThreshold]
-    ) -> list[RuleUpdate]:
+    def recommend_adjustments(self, thresholds: list[DetectionThreshold]) -> list[RuleUpdate]:
         """Generate rule update recommendations from threshold analysis."""
         updates: list[RuleUpdate] = []
         for t in thresholds:
@@ -502,25 +494,27 @@ class ThresholdTuner:
                 parts.append(f"Optimization from {t.sample_size} samples")
 
             confidence = min(0.95, 0.5 + (t.sample_size / 200) + (delta * 0.5))
-            updates.append(RuleUpdate(
-                rule_id=t.rule_id,
-                action=RuleUpdateAction.TUNE_THRESHOLD,
-                before_state={"threshold": t.current_value, "fp_rate": t.false_positive_rate},
-                after_state={"threshold": t.recommended_value},
-                justification="; ".join(parts),
-                confidence=round(confidence, 3),
-            ))
-            self._history.append({
-                "rule_id": t.rule_id,
-                "from": t.current_value,
-                "to": t.recommended_value,
-                "timestamp": datetime.utcnow().isoformat(),
-            })
+            updates.append(
+                RuleUpdate(
+                    rule_id=t.rule_id,
+                    action=RuleUpdateAction.TUNE_THRESHOLD,
+                    before_state={"threshold": t.current_value, "fp_rate": t.false_positive_rate},
+                    after_state={"threshold": t.recommended_value},
+                    justification="; ".join(parts),
+                    confidence=round(confidence, 3),
+                )
+            )
+            self._history.append(
+                {
+                    "rule_id": t.rule_id,
+                    "from": t.current_value,
+                    "to": t.recommended_value,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
         return updates
 
-    def _calculate_optimal_threshold(
-        self, fp_rate: float, fn_rate: float, current: float
-    ) -> float:
+    def _calculate_optimal_threshold(self, fp_rate: float, fn_rate: float, current: float) -> float:
         """Calculate optimal threshold balancing false positives and negatives.
 
         False negatives (missed bugs) are weighted 2x since they are more
@@ -547,9 +541,7 @@ class PatternExtractor:
     def __init__(self) -> None:
         self._patterns: dict[str, LearnedPattern] = {}
 
-    def extract_patterns(
-        self, incidents: list[ProductionIncident]
-    ) -> list[LearnedPattern]:
+    def extract_patterns(self, incidents: list[ProductionIncident]) -> list[LearnedPattern]:
         """Analyze incidents and extract common patterns for detection rules."""
         if not incidents:
             return []
@@ -568,10 +560,7 @@ class PatternExtractor:
             pid = hashlib.sha256(f"{key}:{code_pattern}".encode()).hexdigest()[:12]
 
             services = {i.service for i in group}
-            desc = (
-                f"Pattern '{key}' from {len(group)} incidents in "
-                f"{', '.join(sorted(services))}."
-            )
+            desc = f"Pattern '{key}' from {len(group)} incidents in {', '.join(sorted(services))}."
             root_causes = [i.root_cause for i in group if i.root_cause]
             if root_causes:
                 desc += f" Causes: {'; '.join(root_causes[:3])}."
@@ -617,9 +606,7 @@ class PatternExtractor:
                 seen.append(ids)
         return filtered
 
-    def _generate_detection_rule(
-        self, pattern: str, examples: list[ProductionIncident]
-    ) -> str:
+    def _generate_detection_rule(self, _pattern: str, examples: list[ProductionIncident]) -> str:
         """Generate a detection rule definition from a pattern and examples."""
         error_types = sorted({e.error_type for e in examples})
         services = sorted({e.service for e in examples})
@@ -633,9 +620,7 @@ class PatternExtractor:
                 parts.append(f"path_prefix: {prefix}")
         return "; ".join(parts)
 
-    def _extract_code_pattern(
-        self, incidents: list[ProductionIncident]
-    ) -> str:
+    def _extract_code_pattern(self, incidents: list[ProductionIncident]) -> str:
         """Extract a common code pattern from incident stack traces."""
         func_counts: dict[str, int] = defaultdict(int)
         for incident in incidents:
@@ -676,8 +661,18 @@ class ABTestManager:
             status=ABTestStatus.DRAFT,
             control_rule=control_rule,
             variant_rule=variant_rule,
-            control_metrics={"detections": 0, "true_positives": 0, "false_positives": 0, "total_checks": 0},
-            variant_metrics={"detections": 0, "true_positives": 0, "false_positives": 0, "total_checks": 0},
+            control_metrics={
+                "detections": 0,
+                "true_positives": 0,
+                "false_positives": 0,
+                "total_checks": 0,
+            },
+            variant_metrics={
+                "detections": 0,
+                "true_positives": 0,
+                "false_positives": 0,
+                "total_checks": 0,
+            },
             traffic_split=max(0.1, min(0.9, traffic_split)),
         )
         self._tests[test_id] = test
@@ -739,9 +734,7 @@ class ABTestManager:
         )
         return test
 
-    def _calculate_significance(
-        self, control: dict[str, Any], variant: dict[str, Any]
-    ) -> float:
+    def _calculate_significance(self, control: dict[str, Any], variant: dict[str, Any]) -> float:
         """Calculate statistical significance using a z-test approximation."""
         n_c = control.get("total_checks", 0)
         n_v = variant.get("total_checks", 0)
@@ -792,9 +785,7 @@ class ProductionLearningEngine:
         self._applied_updates: list[RuleUpdate] = []
         self._active_rules: dict[str, dict[str, Any]] = {}
 
-    def run_learning_cycle(
-        self, since: datetime | None = None
-    ) -> LearningReport:
+    def run_learning_cycle(self, since: datetime | None = None) -> LearningReport:
         """Execute a full learning cycle: collect, analyze, recommend, report."""
         cycle_start = datetime.utcnow()
         if since is None:
@@ -818,9 +809,7 @@ class ProductionLearningEngine:
         thresholds: list[DetectionThreshold] = []
         ver_results = list(self.collector._verification_results.values())
         for rid in rule_ids:
-            thresholds.append(
-                self.tuner.analyze_threshold(rid, incidents, ver_results)
-            )
+            thresholds.append(self.tuner.analyze_threshold(rid, incidents, ver_results))
 
         # 4. Collect all recommended updates
         updates = self.tuner.recommend_adjustments(thresholds)
@@ -839,11 +828,11 @@ class ProductionLearningEngine:
         detection_rate = detected_count / len(correlations) if correlations else 0.0
         fp_reduction = 0.0
         if thresholds:
-            fp_reduction = sum(max(0, 0.3 - t.false_positive_rate) for t in thresholds) / len(thresholds)
+            fp_reduction = sum(max(0, 0.3 - t.false_positive_rate) for t in thresholds) / len(
+                thresholds
+            )
 
-        recommendations = self._generate_recommendations(
-            incidents, undetected, patterns, updates
-        )
+        recommendations = self._generate_recommendations(incidents, undetected, patterns, updates)
         cycle_end = datetime.utcnow()
 
         report = LearningReport(
@@ -893,7 +882,9 @@ class ProductionLearningEngine:
                     self._active_rules.pop(update.rule_id, None)
                 self._applied_updates.append(update)
                 applied += 1
-                logger.info("Rule update applied", rule_id=update.rule_id, action=update.action.value)
+                logger.info(
+                    "Rule update applied", rule_id=update.rule_id, action=update.action.value
+                )
             except Exception as exc:
                 logger.error("Failed to apply update", rule_id=update.rule_id, error=str(exc))
         return applied
@@ -905,12 +896,15 @@ class ProductionLearningEngine:
         incidents = self.collector.get_incidents(since=start)
         patterns = [p for p in self.extractor._patterns.values() if p.created_at >= start]
         completed_tests = sum(
-            1 for t in self.ab_manager._tests.values()
+            1
+            for t in self.ab_manager._tests.values()
             if t.status == ABTestStatus.COMPLETED and t.end_date and t.end_date >= start
         )
 
         fp_reduction = 0.0
-        tuned = [t for t in self.tuner._thresholds.values() if t.last_tuned and t.last_tuned >= start]
+        tuned = [
+            t for t in self.tuner._thresholds.values() if t.last_tuned and t.last_tuned >= start
+        ]
         if tuned:
             fp_reduction = sum(max(0, t.false_positive_rate - 0.1) for t in tuned) / len(tuned)
 
@@ -938,23 +932,25 @@ class ProductionLearningEngine:
             rule_id = f"learned_{p.id}"
             if rule_id in self._active_rules:
                 continue
-            updates.append(RuleUpdate(
-                rule_id=rule_id,
-                action=RuleUpdateAction.CREATE,
-                before_state={},
-                after_state={
-                    "pattern_type": p.pattern_type,
-                    "code_pattern": p.code_pattern,
-                    "detection_rule": p.detection_rule,
-                    "confidence": p.confidence,
-                    "source": "production_learning",
-                },
-                justification=(
-                    f"Learned from {len(p.source_incidents)} incidents "
-                    f"with {p.confidence:.0%} confidence."
-                ),
-                confidence=p.confidence,
-            ))
+            updates.append(
+                RuleUpdate(
+                    rule_id=rule_id,
+                    action=RuleUpdateAction.CREATE,
+                    before_state={},
+                    after_state={
+                        "pattern_type": p.pattern_type,
+                        "code_pattern": p.code_pattern,
+                        "detection_rule": p.detection_rule,
+                        "confidence": p.confidence,
+                        "source": "production_learning",
+                    },
+                    justification=(
+                        f"Learned from {len(p.source_incidents)} incidents "
+                        f"with {p.confidence:.0%} confidence."
+                    ),
+                    confidence=p.confidence,
+                )
+            )
         return updates
 
     def _generate_recommendations(
@@ -989,9 +985,13 @@ class ProductionLearningEngine:
         if high_conf:
             recs.append(f"{len(high_conf)} high-confidence patterns ready for rule creation.")
 
-        resolved = [i for i in incidents if i.resolved and i.resolution_time_hours]
-        if resolved:
-            avg_h = sum(i.resolution_time_hours for i in resolved) / len(resolved)  # type: ignore[arg-type]
+        resolved_hours = [
+            i.resolution_time_hours
+            for i in incidents
+            if i.resolved and i.resolution_time_hours is not None
+        ]
+        if resolved_hours:
+            avg_h = sum(resolved_hours) / len(resolved_hours)
             if avg_h > 24:
                 recs.append(f"Avg resolution time is {avg_h:.1f}h. Faster detection could help.")
 
@@ -1012,7 +1012,7 @@ def _common_prefix(paths: list[str]) -> str:
         return parts[0] if len(parts) > 1 else ""
     split = [p.split("/") for p in paths]
     prefix: list[str] = []
-    for segments in zip(*split):
+    for segments in zip(*split, strict=False):
         if len(set(segments)) == 1:
             prefix.append(segments[0])
         else:

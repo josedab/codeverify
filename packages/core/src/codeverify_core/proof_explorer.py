@@ -7,7 +7,6 @@ rendering, and natural language explanations of proof steps.
 
 from __future__ import annotations
 
-import hashlib
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -21,6 +20,7 @@ logger = structlog.get_logger()
 
 class ProofStepType(str, Enum):
     """Type of a proof step."""
+
     DECLARE = "declare"
     ASSERT = "assert"
     CHECK = "check"
@@ -32,6 +32,7 @@ class ProofStepType(str, Enum):
 
 class ProofOutcome(str, Enum):
     """Final outcome of a proof."""
+
     VERIFIED = "verified"
     COUNTEREXAMPLE_FOUND = "counterexample_found"
     TIMEOUT = "timeout"
@@ -40,6 +41,7 @@ class ProofOutcome(str, Enum):
 
 class VisualizationFormat(str, Enum):
     """Output format for proof visualization."""
+
     JSON = "json"
     MERMAID = "mermaid"
     DOT = "dot"
@@ -48,6 +50,7 @@ class VisualizationFormat(str, Enum):
 @dataclass
 class VariableBinding:
     """A variable and its value at a proof step."""
+
     name: str
     type: str = "Int"
     value: str | None = None
@@ -57,6 +60,7 @@ class VariableBinding:
 @dataclass
 class ProofStep:
     """A single step in a proof trace."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     step_number: int = 0
     step_type: ProofStepType = ProofStepType.ASSERT
@@ -72,6 +76,7 @@ class ProofStep:
 @dataclass
 class Counterexample:
     """A counterexample found during verification."""
+
     variables: dict[str, str] = field(default_factory=dict)
     description: str = ""
     source_function: str = ""
@@ -82,6 +87,7 @@ class Counterexample:
 @dataclass
 class ProofTrace:
     """Complete proof trace for a verification."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     function_name: str = ""
     file_path: str = ""
@@ -171,7 +177,9 @@ class ProofTraceSerializer:
             elif line.startswith("(check-sat"):
                 step.step_type = ProofStepType.CHECK
                 step.description = "Check satisfiability"
-                step.explanation = "The solver now checks if all constraints can be satisfied simultaneously."
+                step.explanation = (
+                    "The solver now checks if all constraints can be satisfied simultaneously."
+                )
             else:
                 continue
 
@@ -189,7 +197,9 @@ class ProofTraceSerializer:
         if "<" in assertion and "len" in assertion.lower():
             return "This constraint ensures the index stays within array bounds."
         if ">=" in assertion and "<=" in assertion:
-            return "This constraint bounds the value within a valid integer range to prevent overflow."
+            return (
+                "This constraint bounds the value within a valid integer range to prevent overflow."
+            )
         return f"Constraint: {assertion[:80]}"
 
     def _explain_outcome(self, trace: ProofTrace) -> str:
@@ -264,10 +274,10 @@ class ProofExplorer:
                     shape_l, shape_r = ("{{", "}}")
             elif step.step_type == ProofStepType.CHECK:
                 shape_l, shape_r = ("{", "}")
-            lines.append(f"    S{step.step_number}{shape_l}\"{label}\"{shape_r}")
+            lines.append(f'    S{step.step_number}{shape_l}"{label}"{shape_r}')
 
         for i in range(len(trace.steps) - 1):
-            lines.append(f"    S{i} --> S{i+1}")
+            lines.append(f"    S{i} --> S{i + 1}")
 
         return "\n".join(lines)
 
@@ -292,8 +302,7 @@ class ProofExplorer:
                     "explanation": s.explanation,
                     "smt": s.smt_expression,
                     "variables": [
-                        {"name": v.name, "type": v.type, "value": v.value}
-                        for v in s.variables
+                        {"name": v.name, "type": v.type, "value": v.value} for v in s.variables
                     ],
                 }
                 for s in trace.steps

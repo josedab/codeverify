@@ -7,8 +7,6 @@ Tests the complete CodeVerify pipeline:
 These tests use real codeverify_core modules (no external services needed).
 """
 
-import pytest
-
 
 class TestFullPipelineIntegration:
     """End-to-end pipeline: PR → plan → dispatch → verify → resolve → explain."""
@@ -18,7 +16,8 @@ class TestFullPipelineIntegration:
         from codeverify_core.agentic_orchestrator import AgenticReviewOrchestrator, PRContext
 
         ctx = PRContext(
-            pr_id="42", repo="acme/api",
+            pr_id="42",
+            repo="acme/api",
             changed_files=[
                 {"path": "auth.py"},
                 {"path": "utils.py"},
@@ -42,14 +41,20 @@ class TestFullPipelineIntegration:
         svc = NLProofExplanationService()
         contexts = [
             ExplanationContext(
-                check_type="null_safety", function_name="get_user",
-                file_path="api.py", line=42,
-                variable_assignments={"user": None}, severity="high",
+                check_type="null_safety",
+                function_name="get_user",
+                file_path="api.py",
+                line=42,
+                variable_assignments={"user": None},
+                severity="high",
             ),
             ExplanationContext(
-                check_type="division_by_zero", function_name="calculate",
-                file_path="math.py", line=15,
-                variable_assignments={"divisor": 0}, severity="critical",
+                check_type="division_by_zero",
+                function_name="calculate",
+                file_path="math.py",
+                line=15,
+                variable_assignments={"divisor": 0},
+                severity="critical",
             ),
         ]
         comment = svc.generate_pr_comment(contexts)
@@ -68,7 +73,9 @@ class TestFullPipelineIntegration:
         )
         assert result.status == "failed"
         assert result.finding_count >= 1
-        assert any("eval" in f.message.lower() or "injection" in f.message.lower() for f in result.findings)
+        assert any(
+            "eval" in f.message.lower() or "injection" in f.message.lower() for f in result.findings
+        )
         assert len(result.proofs) >= 1
 
     def test_verified_codegen_loop_integration(self):
@@ -104,10 +111,20 @@ class TestFullPipelineIntegration:
         from codeverify_core.verification_replay_regression import VerificationReplayService
 
         replay_svc = VerificationReplayService()
-        session = replay_svc.record_session("repo", "v1", [
-            {"check_type": "null_safety", "function_name": "calc",
-             "file_path": "app.py", "result": "pass", "code": old["app.py"]},
-        ], old)
+        session = replay_svc.record_session(
+            "repo",
+            "v1",
+            [
+                {
+                    "check_type": "null_safety",
+                    "function_name": "calc",
+                    "file_path": "app.py",
+                    "result": "pass",
+                    "code": old["app.py"],
+                },
+            ],
+            old,
+        )
         replay = replay_svc.replay_session(session.id, new, "v2")
         assert replay.total_checks >= 1
 
@@ -126,10 +143,13 @@ class TestFullPipelineIntegration:
         )
 
         search_svc = VerificationSearchService()
-        search_svc.index_entity(CodeEntity(
-            file_path="main.tf", verification_status=VerificationStatus.FAILING,
-            critical_findings=len(result.findings),
-        ))
+        search_svc.index_entity(
+            CodeEntity(
+                file_path="main.tf",
+                verification_status=VerificationStatus.FAILING,
+                critical_findings=len(result.findings),
+            )
+        )
         results = search_svc.search_structured({"verification_status": "failing"})
         assert results.total_count >= 1
 
@@ -139,8 +159,10 @@ class TestFullPipelineIntegration:
 
         svc = SelfHealingService()
         incident = RuntimeIncident(
-            function_name="get_user", file_path="api.py",
-            error_type="TypeError", error_message="'NoneType' has no attribute 'name'",
+            function_name="get_user",
+            file_path="api.py",
+            error_type="TypeError",
+            error_message="'NoneType' has no attribute 'name'",
             variable_state={"user": None},
         )
         action = svc.report_incident(incident)
@@ -156,21 +178,35 @@ class TestFullPipelineIntegration:
         files = {"auth.py": "import bcrypt\npassword = bcrypt.hashpw(pwd, salt)\n"}
         report = comp_svc.run_framework_audit(ComplianceFramework.SOC2, "repo", files)
 
-        from codeverify_core.review_assignments import ExpertiseArea, Reviewer, ReviewAssignmentService
+        from codeverify_core.review_assignments import (
+            ExpertiseArea,
+            ReviewAssignmentService,
+            Reviewer,
+        )
 
         rev_svc = ReviewAssignmentService()
-        rev_svc.register_reviewer(Reviewer(
-            id="r1", name="Alice Security",
-            expertise=[ExpertiseArea.SECURITY], seniority="senior",
-        ))
-        rev_svc.register_reviewer(Reviewer(
-            id="r2", name="Bob General",
-            expertise=[ExpertiseArea.GENERAL], seniority="mid",
-        ))
+        rev_svc.register_reviewer(
+            Reviewer(
+                id="r1",
+                name="Alice Security",
+                expertise=[ExpertiseArea.SECURITY],
+                seniority="senior",
+            )
+        )
+        rev_svc.register_reviewer(
+            Reviewer(
+                id="r2",
+                name="Bob General",
+                expertise=[ExpertiseArea.GENERAL],
+                seniority="mid",
+            )
+        )
 
         has_failures = any(r.status.value == "fail" for r in report.results)
         assignments = rev_svc.assign_reviewer(
-            "PR-1", high=2 if has_failures else 0, has_security=True,
+            "PR-1",
+            high=2 if has_failures else 0,
+            has_security=True,
         )
         assert len(assignments) >= 1
 
@@ -180,16 +216,21 @@ class TestFullPipelineIntegration:
 
         tel_svc = VerificationTelemetryService()
         for i in range(6):
-            tel_svc.submit_telemetry(f"org{i}", {
-                "verification_coverage": 0.7 + i * 0.05,
-                "false_positive_rate": 0.15 - i * 0.02,
-            })
+            tel_svc.submit_telemetry(
+                f"org{i}",
+                {
+                    "verification_coverage": 0.7 + i * 0.05,
+                    "false_positive_rate": 0.15 - i * 0.02,
+                },
+            )
 
         from codeverify_core.credit_system import VerificationCreditService
 
         credit_svc = VerificationCreditService()
         credit_svc.register_org("org0", "Org Zero")
-        awarded = credit_svc.evaluate_rules("org0", {"verification_coverage": 0.95, "fix_rate": 0.92})
+        awarded = credit_svc.evaluate_rules(
+            "org0", {"verification_coverage": 0.95, "fix_rate": 0.92}
+        )
         assert len(awarded) >= 1
         assert credit_svc.get_balance("org0") > 0
 

@@ -18,7 +18,7 @@ import hashlib
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -165,7 +165,7 @@ class ProofExplanation:
     file_path: str = ""
     line_number: int = 0
     raw_z3_output: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def is_safe(self) -> bool:
@@ -173,7 +173,13 @@ class ProofExplanation:
 
     def to_markdown(self) -> str:
         parts = []
-        icon = "✅" if self.is_safe else "❌" if self.outcome == ProofOutcome.COUNTEREXAMPLE_FOUND else "⚠️"
+        icon = (
+            "✅"
+            if self.is_safe
+            else "❌"
+            if self.outcome == ProofOutcome.COUNTEREXAMPLE_FOUND
+            else "⚠️"
+        )
         parts.append(f"{icon} **{self.check_category.value.replace('_', ' ').title()}**")
         parts.append(f"\n{self.summary}")
 
@@ -193,10 +199,14 @@ class ProofExplanation:
             if self.code_example:
                 parts.append(f"\n**Example Fix:**\n```python\n{self.code_example}\n```")
             if self.raw_z3_output:
-                parts.append(f"\n<details><summary>Raw Z3 Output</summary>\n\n```\n{self.raw_z3_output}\n```\n</details>")
+                parts.append(
+                    f"\n<details><summary>Raw Z3 Output</summary>\n\n```\n{self.raw_z3_output}\n```\n</details>"
+                )
 
         if self.educational_link:
-            parts.append(f"\n📚 [{self.educational_link.get('title', 'Learn more')}]({self.educational_link.get('url', '')})")
+            parts.append(
+                f"\n📚 [{self.educational_link.get('title', 'Learn more')}]({self.educational_link.get('url', '')})"
+            )
 
         return "\n".join(parts)
 
@@ -220,12 +230,8 @@ class ProofExplanation:
 class CounterexampleParser:
     """Parses raw Z3 output into structured counterexamples."""
 
-    _ASSIGNMENT_PATTERN = re.compile(
-        r"(\w+)\s*(?:->|=|:=)\s*(.+?)(?:\s*\((\w+)\))?$", re.MULTILINE
-    )
-    _DEFINE_FUN_PATTERN = re.compile(
-        r"\(define-fun\s+(\w+)\s*\(\)\s*(\w+)\s+(.+?)\)", re.DOTALL
-    )
+    _ASSIGNMENT_PATTERN = re.compile(r"(\w+)\s*(?:->|=|:=)\s*(.+?)(?:\s*\((\w+)\))?$", re.MULTILINE)
+    _DEFINE_FUN_PATTERN = re.compile(r"\(define-fun\s+(\w+)\s*\(\)\s*(\w+)\s+(.+?)\)", re.DOTALL)
 
     def parse(self, raw_output: str) -> ParsedCounterexample:
         """Parse Z3 counterexample output into structured form."""
@@ -238,11 +244,13 @@ class CounterexampleParser:
         for match in self._DEFINE_FUN_PATTERN.finditer(raw_output):
             name, type_name, value = match.group(1), match.group(2), match.group(3).strip()
             value = self._clean_value(value)
-            values.append(CounterexampleValue(
-                variable=name,
-                value=self._coerce_value(value, type_name),
-                type_name=type_name.lower(),
-            ))
+            values.append(
+                CounterexampleValue(
+                    variable=name,
+                    value=self._coerce_value(value, type_name),
+                    type_name=type_name.lower(),
+                )
+            )
 
         # Try assignment format (name -> value)
         if not values:
@@ -250,11 +258,13 @@ class CounterexampleParser:
                 name = match.group(1)
                 value = match.group(2).strip()
                 type_name = match.group(3) or self._infer_type(value)
-                values.append(CounterexampleValue(
-                    variable=name,
-                    value=self._coerce_value(value, type_name),
-                    type_name=type_name.lower(),
-                ))
+                values.append(
+                    CounterexampleValue(
+                        variable=name,
+                        value=self._coerce_value(value, type_name),
+                        type_name=type_name.lower(),
+                    )
+                )
 
         return ParsedCounterexample(values=values, raw_output=raw_output)
 
@@ -368,8 +378,12 @@ class ProofExplainerEngine:
         if outcome == ProofOutcome.COUNTEREXAMPLE_FOUND and raw_z3_output:
             counterexample = self._parser.parse(raw_z3_output)
 
-        summary = self._generate_summary(check_category, outcome, counterexample, variable_name, line_number)
-        detailed = self._generate_detailed(check_category, outcome, counterexample, variable_name, line_number)
+        summary = self._generate_summary(
+            check_category, outcome, counterexample, variable_name, line_number
+        )
+        detailed = self._generate_detailed(
+            check_category, outcome, counterexample, variable_name, line_number
+        )
         fixes = self._generate_fixes(check_category, outcome, counterexample, variable_name)
         code_example = self._generate_code_example(check_category, variable_name)
         edu_link = _EDUCATIONAL_LINKS.get(check_category, {})
@@ -463,7 +477,9 @@ class ProofExplainerEngine:
             return ""
 
         parts = []
-        parts.append(f"Z3 found a concrete input that triggers this {category.value.replace('_', ' ')} violation.")
+        parts.append(
+            f"Z3 found a concrete input that triggers this {category.value.replace('_', ' ')} violation."
+        )
         if counterexample and counterexample.values:
             parts.append("When the following values are used:")
             for v in counterexample.values:
@@ -475,7 +491,7 @@ class ProofExplainerEngine:
         self,
         category: CheckCategory,
         outcome: ProofOutcome,
-        counterexample: ParsedCounterexample | None,
+        _counterexample: ParsedCounterexample | None,
         variable: str,
     ) -> list[str]:
         if outcome == ProofOutcome.PROVED_SAFE:
@@ -489,7 +505,7 @@ class ProofExplainerEngine:
 
         if category == CheckCategory.NULL_SAFETY:
             fixes.append(f"Use a default value: `{var} = {var} or default_value`")
-            fixes.append(f"Use Optional type annotation and handle None explicitly")
+            fixes.append("Use Optional type annotation and handle None explicitly")
         elif category == CheckCategory.ARRAY_BOUNDS:
             fixes.append("Use `min(index, len(arr) - 1)` to clamp the index")
             fixes.append("Consider using `.get()` for dict-like access with defaults")
@@ -504,10 +520,10 @@ class ProofExplainerEngine:
     def _generate_code_example(self, category: CheckCategory, variable: str) -> str:
         var = variable or "value"
         examples: dict[CheckCategory, str] = {
-            CheckCategory.NULL_SAFETY: f"# Before (unsafe)\nresult = {var}.strip()\n\n# After (safe)\nif {var} is not None:\n    result = {var}.strip()\nelse:\n    result = \"\"",
+            CheckCategory.NULL_SAFETY: f'# Before (unsafe)\nresult = {var}.strip()\n\n# After (safe)\nif {var} is not None:\n    result = {var}.strip()\nelse:\n    result = ""',
             CheckCategory.DIVISION_BY_ZERO: f"# Before (unsafe)\nresult = total / {var}\n\n# After (safe)\nif {var} != 0:\n    result = total / {var}\nelse:\n    result = 0  # or raise ValueError",
             CheckCategory.ARRAY_BOUNDS: f"# Before (unsafe)\nitem = arr[{var}]\n\n# After (safe)\nif 0 <= {var} < len(arr):\n    item = arr[{var}]\nelse:\n    item = None  # or handle error",
-            CheckCategory.INTEGER_OVERFLOW: f"# Before (unsafe)\nresult = a * b\n\n# After (safe)\nMAX_VAL = 2**31 - 1\nif a != 0 and abs(b) > MAX_VAL // abs(a):\n    raise OverflowError(\"multiplication overflow\")\nresult = a * b",
+            CheckCategory.INTEGER_OVERFLOW: '# Before (unsafe)\nresult = a * b\n\n# After (safe)\nMAX_VAL = 2**31 - 1\nif a != 0 and abs(b) > MAX_VAL // abs(a):\n    raise OverflowError("multiplication overflow")\nresult = a * b',
         }
         return examples.get(category, "")
 

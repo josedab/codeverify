@@ -14,13 +14,9 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
-import math
-import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -98,7 +94,7 @@ class RiskProfile:
     critical_findings: int = 0
     historical_incidents: int = 0
     last_assessed: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     @property
@@ -208,13 +204,13 @@ class InsurancePolicy:
     status: PolicyStatus = PolicyStatus.DRAFT
     risk_profile: RiskProfile | None = None
     effective_date: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     expiry_date: datetime | None = None
     claims: list[str] = field(default_factory=list)
     total_paid_claims: float = 0.0
     created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     @property
@@ -223,12 +219,10 @@ class InsurancePolicy:
 
     @property
     def is_active(self) -> bool:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self.status != PolicyStatus.ACTIVE:
             return False
-        if self.expiry_date and now > self.expiry_date:
-            return False
-        return True
+        return not (self.expiry_date and now > self.expiry_date)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -262,7 +256,7 @@ class InsuranceClaim:
     rejection_reason: ClaimRejectionReason | None = None
     paid_amount: float = 0.0
     submitted_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     resolved_at: datetime | None = None
 
@@ -317,12 +311,8 @@ class PremiumCalculator:
             volume_disc = base * 0.05
 
         final = (
-            (base * risk_mult - coverage_disc)
-            * industry_factor
-            * coverage_factor
-            * deductible_factor
-            - volume_disc
-        )
+            base * risk_mult - coverage_disc
+        ) * industry_factor * coverage_factor * deductible_factor - volume_disc
         final = max(10.0, final)  # Minimum $10/month
 
         return PremiumCalculation(
@@ -351,9 +341,11 @@ class ClaimValidator:
         if claim.repo_id not in policy.repo_ids:
             return False, ClaimRejectionReason.OUTSIDE_COVERAGE
 
-        if claim.coverage_type not in policy.coverage_types:
-            if CoverageType.FULL not in policy.coverage_types:
-                return False, ClaimRejectionReason.OUTSIDE_COVERAGE
+        if (
+            claim.coverage_type not in policy.coverage_types
+            and CoverageType.FULL not in policy.coverage_types
+        ):
+            return False, ClaimRejectionReason.OUTSIDE_COVERAGE
 
         if not claim.evidence_proof_ids:
             return False, ClaimRejectionReason.INSUFFICIENT_EVIDENCE
@@ -384,7 +376,7 @@ class InsuranceUnderwriter:
 
     def assess_risk(self, profile: RiskProfile) -> RiskProfile:
         """Assess and store a risk profile for a repository."""
-        profile.last_assessed = datetime.now(timezone.utc)
+        profile.last_assessed = datetime.now(UTC)
         self._risk_profiles[profile.repo_id] = profile
         logger.info(
             "risk_assessed",
@@ -495,12 +487,12 @@ class InsuranceUnderwriter:
             claim.status = ClaimStatus.VALIDATED
             claim.paid_amount = paid
             policy.total_paid_claims += paid
-            claim.resolved_at = datetime.now(timezone.utc)
+            claim.resolved_at = datetime.now(UTC)
             logger.info("claim_validated", claim_id=claim_id, paid=round(paid, 2))
         else:
             claim.status = ClaimStatus.REJECTED
             claim.rejection_reason = reason
-            claim.resolved_at = datetime.now(timezone.utc)
+            claim.resolved_at = datetime.now(UTC)
             logger.info("claim_rejected", claim_id=claim_id, reason=reason)
 
         return claim

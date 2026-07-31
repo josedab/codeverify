@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict
 from typing import Any
 
 import structlog
@@ -34,7 +33,11 @@ class _RedisBase:
             try:
                 import redis
 
-                self._client = redis.from_url(self._redis_url, decode_responses=True)
+                # redis-py's from_url() (and Redis.from_url) leave **kwargs unannotated,
+                # so mypy treats the whole call as untyped even though it returns Redis.
+                self._client = redis.from_url(  # type: ignore[no-untyped-call]
+                    self._redis_url, decode_responses=True
+                )
             except ImportError:
                 logger.warning("redis package not installed")
                 raise
@@ -213,13 +216,15 @@ class RedisCostStore(_RedisBase):
         """Record an LLM call for budget tracking."""
         try:
             client = self._get_client()
-            entry = json.dumps({
-                "model": model,
-                "tokens": tokens,
-                "cost": cost,
-                "complexity": complexity,
-                "timestamp": time.time(),
-            })
+            entry = json.dumps(
+                {
+                    "model": model,
+                    "tokens": tokens,
+                    "cost": cost,
+                    "complexity": complexity,
+                    "timestamp": time.time(),
+                }
+            )
             client.rpush(f"{self.PREFIX}calls", entry)
             # Roll up daily totals
             day_key = time.strftime("%Y-%m-%d")

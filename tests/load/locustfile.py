@@ -138,12 +138,12 @@ def on_request(request_type, name, response_time, response_length, **kwargs):
 
 
 @events.test_start.add_listener
-def on_test_start(environment, **kwargs):
+def on_test_start(environment, **_kwargs):
     """Called when load test starts."""
     print("Load test starting...")
 
 
 @events.test_stop.add_listener
-def on_test_stop(environment, **kwargs):
+def on_test_stop(environment, **_kwargs):
     """Called when load test stops."""
     print("Load test completed.")

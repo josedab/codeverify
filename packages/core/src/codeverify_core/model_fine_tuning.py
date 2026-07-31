@@ -17,7 +17,7 @@ import math
 import random
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import uuid4
@@ -161,9 +161,7 @@ class TrainingConfig:
         """Validate configuration parameters. Returns list of errors."""
         errors: list[str] = []
         if self.learning_rate <= 0 or self.learning_rate > 1.0:
-            errors.append(
-                f"learning_rate must be in (0, 1.0], got {self.learning_rate}"
-            )
+            errors.append(f"learning_rate must be in (0, 1.0], got {self.learning_rate}")
         if self.batch_size < 1:
             errors.append(f"batch_size must be >= 1, got {self.batch_size}")
         if self.num_epochs < 1:
@@ -173,17 +171,13 @@ class TrainingConfig:
         if self.lora_alpha < 1:
             errors.append(f"lora_alpha must be >= 1, got {self.lora_alpha}")
         if self.max_seq_length < 128:
-            errors.append(
-                f"max_seq_length must be >= 128, got {self.max_seq_length}"
-            )
+            errors.append(f"max_seq_length must be >= 128, got {self.max_seq_length}")
         if self.warmup_steps < 0:
             errors.append(f"warmup_steps must be >= 0, got {self.warmup_steps}")
         if self.weight_decay < 0:
             errors.append(f"weight_decay must be >= 0, got {self.weight_decay}")
         if self.gradient_accumulation < 1:
-            errors.append(
-                f"gradient_accumulation must be >= 1, got {self.gradient_accumulation}"
-            )
+            errors.append(f"gradient_accumulation must be >= 1, got {self.gradient_accumulation}")
         return errors
 
 
@@ -226,9 +220,7 @@ class TrainingJob:
         """Training progress as a percentage."""
         if self.config.num_epochs == 0:
             return 0.0
-        return min(
-            (self.current_epoch / self.config.num_epochs) * 100, 100.0
-        )
+        return min((self.current_epoch / self.config.num_epochs) * 100, 100.0)
 
 
 @dataclass
@@ -241,7 +233,7 @@ class ModelArtifact:
     version: ModelVersion
     adapter_path: str | None = None
     metrics: dict[str, float] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     size_mb: float = 0.0
     description: str = ""
 
@@ -287,9 +279,7 @@ class EvaluationResult:
             "false_negative_rate": round(self.false_negative_rate, 4),
             "latency_ms": round(self.latency_ms, 2),
             "cost_per_inference": round(self.cost_per_inference, 6),
-            "benchmark_results": {
-                k: round(v, 4) for k, v in self.benchmark_results.items()
-            },
+            "benchmark_results": {k: round(v, 4) for k, v in self.benchmark_results.items()},
         }
 
 
@@ -374,9 +364,7 @@ class DatasetBuilder:
         )
         return example
 
-    def from_verification_history(
-        self, history: list[dict[str, Any]]
-    ) -> list[TrainingExample]:
+    def from_verification_history(self, history: list[dict[str, Any]]) -> list[TrainingExample]:
         """Build training examples from a list of verification history records.
 
         Each record should contain 'code', 'finding', 'result', and 'language'.
@@ -475,9 +463,7 @@ class DatasetBuilder:
             languages[ex.code_language] = languages.get(ex.code_language, 0) + 1
             categories[ex.category] = categories.get(ex.category, 0) + 1
             splits[ex.split.value] = splits.get(ex.split.value, 0) + 1
-            results[ex.verification_result] = (
-                results.get(ex.verification_result, 0) + 1
-            )
+            results[ex.verification_result] = results.get(ex.verification_result, 0) + 1
 
         return {
             "total": len(self._examples),
@@ -530,9 +516,7 @@ class TrainingOrchestrator:
     def __init__(self) -> None:
         self._jobs: dict[str, TrainingJob] = {}
 
-    def create_job(
-        self, config: TrainingConfig, dataset_size: int
-    ) -> TrainingJob:
+    def create_job(self, config: TrainingConfig, dataset_size: int) -> TrainingJob:
         """Create a new training job with the given configuration."""
         errors = config.validate()
         if errors:
@@ -544,7 +528,7 @@ class TrainingOrchestrator:
             config=config,
             status=TrainingStatus.PREPARING,
             dataset_size=dataset_size,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self._jobs[job_id] = job
         logger.info(
@@ -563,12 +547,10 @@ class TrainingOrchestrator:
             raise ValueError(f"Job not found: {job_id}")
 
         if job.status != TrainingStatus.PREPARING:
-            raise ValueError(
-                f"Job {job_id} cannot be started from status {job.status.value}"
-            )
+            raise ValueError(f"Job {job_id} cannot be started from status {job.status.value}")
 
         job.status = TrainingStatus.TRAINING
-        job.started_at = datetime.now(timezone.utc)
+        job.started_at = datetime.now(UTC)
 
         logger.info("Training started", job_id=job_id)
 
@@ -586,7 +568,7 @@ class TrainingOrchestrator:
             job.metrics["best_loss"] = job.best_loss
             job.metrics["total_epochs"] = float(job.current_epoch)
             job.status = TrainingStatus.COMPLETED
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(UTC)
             logger.info(
                 "Training completed",
                 job_id=job_id,
@@ -614,7 +596,7 @@ class TrainingOrchestrator:
             return False
 
         job.status = TrainingStatus.CANCELED
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.now(UTC)
         logger.info("Training job canceled", job_id=job_id)
         return True
 
@@ -681,9 +663,7 @@ class ModelRegistry:
         """Link to a training orchestrator for job lookups."""
         self._orchestrator = orchestrator
 
-    def register_model(
-        self, job_id: str, description: str = ""
-    ) -> ModelArtifact:
+    def register_model(self, job_id: str, description: str = "") -> ModelArtifact:
         """Register a new model artifact from a completed training job."""
         model_id = f"model-{uuid4().hex[:12]}"
 
@@ -714,9 +694,7 @@ class ModelRegistry:
         )
         return artifact
 
-    def promote(
-        self, model_id: str, target_version: ModelVersion
-    ) -> ModelArtifact:
+    def promote(self, model_id: str, target_version: ModelVersion) -> ModelArtifact:
         """Promote a model to a target version stage."""
         artifact = self._models.get(model_id)
         if not artifact:
@@ -730,20 +708,15 @@ class ModelRegistry:
         ]
 
         current_idx = (
-            _PROMOTION_ORDER.index(artifact.version)
-            if artifact.version in _PROMOTION_ORDER
-            else -1
+            _PROMOTION_ORDER.index(artifact.version) if artifact.version in _PROMOTION_ORDER else -1
         )
         target_idx = (
-            _PROMOTION_ORDER.index(target_version)
-            if target_version in _PROMOTION_ORDER
-            else -1
+            _PROMOTION_ORDER.index(target_version) if target_version in _PROMOTION_ORDER else -1
         )
 
         if target_idx <= current_idx and target_version != ModelVersion.DEPRECATED:
             raise ValueError(
-                f"Cannot promote from {artifact.version.value} to "
-                f"{target_version.value}"
+                f"Cannot promote from {artifact.version.value} to {target_version.value}"
             )
 
         # Demote current production model when promoting a new one
@@ -804,9 +777,7 @@ class ModelRegistry:
                 return artifact
         return None
 
-    def list_models(
-        self, version: ModelVersion | None = None
-    ) -> list[ModelArtifact]:
+    def list_models(self, version: ModelVersion | None = None) -> list[ModelArtifact]:
         """List all models, optionally filtered by version stage."""
         models = list(self._models.values())
         if version is not None:
@@ -814,9 +785,7 @@ class ModelRegistry:
         models.sort(key=lambda m: m.created_at)
         return models
 
-    def compare_models(
-        self, model_a_id: str, model_b_id: str
-    ) -> ModelComparison:
+    def compare_models(self, model_a_id: str, model_b_id: str) -> ModelComparison:
         """Compare two models by their evaluation metrics."""
         model_a = self._models.get(model_a_id)
         model_b = self._models.get(model_b_id)
@@ -894,9 +863,7 @@ class ModelEvaluator:
     def __init__(self) -> None:
         self._results: dict[str, EvaluationResult] = {}
 
-    def evaluate(
-        self, model_id: str, test_set: list[TrainingExample]
-    ) -> EvaluationResult:
+    def evaluate(self, model_id: str, test_set: list[TrainingExample]) -> EvaluationResult:
         """Evaluate a model against a labeled test set.
 
         Simulates predictions and computes classification metrics.
@@ -973,7 +940,7 @@ class ModelEvaluator:
             raise ValueError("Predictions and ground truth must have same length")
 
         tp = fp = tn = fn = 0
-        for pred, actual in zip(predictions, ground_truth):
+        for pred, actual in zip(predictions, ground_truth, strict=True):
             pred_positive = pred != "pass"
             actual_positive = actual != "pass"
 
@@ -990,11 +957,7 @@ class ModelEvaluator:
         accuracy = (tp + tn) / total if total > 0 else 0.0
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
-        )
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
         fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
         fnr = fn / (fn + tp) if (fn + tp) > 0 else 0.0
 
@@ -1066,9 +1029,7 @@ class FineTuningPipeline:
             config = TrainingConfig(base_model=ModelType.CODE_LLAMA)
 
         # Step 1: Build dataset
-        examples = self._dataset_builder.from_verification_history(
-            verification_history
-        )
+        examples = self._dataset_builder.from_verification_history(verification_history)
         if not examples:
             return {
                 "run_id": run_id,
@@ -1133,20 +1094,14 @@ class FineTuningPipeline:
 
     def get_pipeline_status(self) -> dict[str, Any]:
         """Get summary status of all pipeline runs."""
+        active_model = self._registry.get_active_model()
         return {
             "total_runs": len(self._pipeline_runs),
             "dataset_stats": self._dataset_builder.get_statistics(),
             "training_jobs": len(self._orchestrator.get_training_history()),
             "registered_models": len(self._registry.list_models()),
-            "active_model": (
-                self._registry.get_active_model().to_dict()
-                if self._registry.get_active_model()
-                else None
-            ),
-            "runs": [
-                {"run_id": r["run_id"], "status": r["status"]}
-                for r in self._pipeline_runs
-            ],
+            "active_model": active_model.to_dict() if active_model else None,
+            "runs": [{"run_id": r["run_id"], "status": r["status"]} for r in self._pipeline_runs],
         }
 
     def get_cost_comparison(self) -> ModelComparison:

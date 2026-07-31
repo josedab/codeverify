@@ -8,6 +8,7 @@ This module provides:
 """
 
 import hashlib
+import importlib.util
 import json
 import os
 from dataclasses import dataclass, field
@@ -180,7 +181,8 @@ class OllamaClient:
 
                 if response.status_code == 200:
                     data = response.json()
-                    return data.get("response")
+                    result = data.get("response")
+                    return result if isinstance(result, str) else None
 
         except Exception as e:
             logger.error("Ollama generation failed", model=model, error=str(e))
@@ -214,7 +216,8 @@ class OllamaClient:
 
                 if response.status_code == 200:
                     data = response.json()
-                    return data.get("message", {}).get("content")
+                    content = data.get("message", {}).get("content")
+                    return content if isinstance(content, str) else None
 
         except Exception as e:
             logger.error("Ollama chat failed", model=model, error=str(e))
@@ -232,12 +235,7 @@ class LocalZ3Verifier:
 
     def _check_z3(self) -> bool:
         """Check if Z3 is available locally."""
-        try:
-            import z3
-
-            return True
-        except ImportError:
-            return False
+        return importlib.util.find_spec("z3") is not None
 
     @property
     def is_available(self) -> bool:
@@ -294,7 +292,7 @@ class LocalZ3Verifier:
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    def verify_bounds(self, code: str, language: str) -> dict[str, Any]:
+    def verify_bounds(self, code: str, _language: str) -> dict[str, Any]:
         """Verify array bounds using Z3."""
         if not self._z3_available:
             return {"status": "unavailable", "error": "Z3 not installed"}
@@ -342,7 +340,7 @@ class LocalZ3Verifier:
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    def verify_division(self, code: str, language: str) -> dict[str, Any]:
+    def verify_division(self, code: str, _language: str) -> dict[str, Any]:
         """Verify division safety using Z3."""
         if not self._z3_available:
             return {"status": "unavailable", "error": "Z3 not installed"}
@@ -389,7 +387,7 @@ class LocalZ3Verifier:
         all_findings = []
         all_proven = False
 
-        for check_name, check_fn in [
+        for _check_name, check_fn in [
             ("null_safety", self.verify_null_safety),
             ("bounds", self.verify_bounds),
             ("division", self.verify_division),
@@ -429,7 +427,7 @@ class OfflineModeManager:
 
     async def check_offline_readiness(self) -> dict[str, Any]:
         """Check if offline mode is ready to use."""
-        status = {
+        status: dict[str, Any] = {
             "ready": False,
             "ollama_available": False,
             "z3_available": self.z3_verifier.is_available,
@@ -468,7 +466,7 @@ class OfflineModeManager:
         download_model: bool = True,
     ) -> dict[str, Any]:
         """Set up offline mode with required models."""
-        result = {
+        result: dict[str, Any] = {
             "success": False,
             "steps_completed": [],
             "errors": [],
@@ -580,7 +578,7 @@ class OfflineModeManager:
         model: str,
     ) -> list[dict[str, Any]]:
         """Perform LLM-based analysis."""
-        system_prompt = """You are a code analyzer. Analyze the given code for potential bugs, 
+        system_prompt = """You are a code analyzer. Analyze the given code for potential bugs,
 security issues, and code quality problems. Return findings in JSON format:
 {
     "findings": [
@@ -613,7 +611,10 @@ Only report real issues with high confidence. If no issues found, return {"findi
                 json_match = re.search(r"\{.*\}", response, re.DOTALL)
                 if json_match:
                     data = json.loads(json_match.group())
-                    return data.get("findings", [])
+                    if isinstance(data, dict):
+                        findings = data.get("findings", [])
+                        if isinstance(findings, list):
+                            return [f for f in findings if isinstance(f, dict)]
             except (json.JSONDecodeError, AttributeError):
                 pass
 

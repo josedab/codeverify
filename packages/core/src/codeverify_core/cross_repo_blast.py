@@ -16,9 +16,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -220,8 +218,11 @@ class CrossRepoBlastAnalyzer:
         is_critical: bool = False,
     ) -> OrgRepository:
         repo = OrgRepository(
-            name=name, owner=owner, team=team,
-            language=language, is_critical=is_critical,
+            name=name,
+            owner=owner,
+            team=team,
+            language=language,
+            is_critical=is_critical,
         )
         self.graph.add_repo(repo)
         return repo
@@ -234,16 +235,17 @@ class CrossRepoBlastAnalyzer:
         package_name: str = "",
     ) -> CrossRepoDependency:
         dep = CrossRepoDependency(
-            source_repo=source, target_repo=target,
-            dep_type=dep_type, package_name=package_name,
+            source_repo=source,
+            target_repo=target,
+            dep_type=dep_type,
+            package_name=package_name,
         )
         self.graph.add_edge(dep)
         return dep
 
-    def analyze(
-        self, change: CrossRepoChange, max_depth: int = 5
-    ) -> CrossRepoBlastReport:
+    def analyze(self, change: CrossRepoChange, max_depth: int = 5) -> CrossRepoBlastReport:
         import time
+
         start = time.monotonic()
 
         dependents = self.graph.get_transitive_dependents(change.repository, max_depth)
@@ -254,25 +256,34 @@ class CrossRepoBlastAnalyzer:
             level = self._calc_impact(change, repo, distance)
             if level == CrossRepoImpactLevel.NONE:
                 continue
-            impacted.append(CrossRepoImpactedRepo(
-                repository=repo_name,
-                impact_level=level,
-                path=path,
-                distance=distance,
-                team=repo.team if repo else "",
-                affected_apis=change.apis_changed,
-                needs_testing=level in (CrossRepoImpactLevel.CRITICAL, CrossRepoImpactLevel.HIGH),
-                needs_deployment=level == CrossRepoImpactLevel.CRITICAL,
-            ))
+            impacted.append(
+                CrossRepoImpactedRepo(
+                    repository=repo_name,
+                    impact_level=level,
+                    path=path,
+                    distance=distance,
+                    team=repo.team if repo else "",
+                    affected_apis=change.apis_changed,
+                    needs_testing=level
+                    in (CrossRepoImpactLevel.CRITICAL, CrossRepoImpactLevel.HIGH),
+                    needs_deployment=level == CrossRepoImpactLevel.CRITICAL,
+                )
+            )
 
-        impacted.sort(key=lambda r: {"critical": 0, "high": 1, "medium": 2, "low": 3}.get(r.impact_level.value, 4))
+        impacted.sort(
+            key=lambda r: {"critical": 0, "high": 1, "medium": 2, "low": 3}.get(
+                r.impact_level.value, 4
+            )
+        )
 
         report = CrossRepoBlastReport(
             change=change,
             impacted_repos=impacted,
             total_repos=len(self.graph.repos),
             total_impacted=len(impacted),
-            critical_count=sum(1 for r in impacted if r.impact_level == CrossRepoImpactLevel.CRITICAL),
+            critical_count=sum(
+                1 for r in impacted if r.impact_level == CrossRepoImpactLevel.CRITICAL
+            ),
             high_count=sum(1 for r in impacted if r.impact_level == CrossRepoImpactLevel.HIGH),
             teams_affected=list({r.team for r in impacted if r.team}),
             analysis_time_ms=int((time.monotonic() - start) * 1000),
@@ -291,9 +302,17 @@ class CrossRepoBlastAnalyzer:
             return CrossRepoImpactLevel.NONE
         if change.impact_type == CrossRepoChangeImpact.BREAKING:
             if dist == 1:
-                return CrossRepoImpactLevel.CRITICAL if (repo and repo.is_critical) else CrossRepoImpactLevel.HIGH
+                return (
+                    CrossRepoImpactLevel.CRITICAL
+                    if (repo and repo.is_critical)
+                    else CrossRepoImpactLevel.HIGH
+                )
             if dist == 2:
-                return CrossRepoImpactLevel.HIGH if (repo and repo.is_critical) else CrossRepoImpactLevel.MEDIUM
+                return (
+                    CrossRepoImpactLevel.HIGH
+                    if (repo and repo.is_critical)
+                    else CrossRepoImpactLevel.MEDIUM
+                )
             return CrossRepoImpactLevel.LOW
         if dist <= 2:
             return CrossRepoImpactLevel.MEDIUM
@@ -303,7 +322,13 @@ class CrossRepoBlastAnalyzer:
         if report.total_repos == 0:
             return 0.0
         pct = report.total_impacted / report.total_repos
-        return min(10.0, pct * 4 + report.critical_count * 2.0 + report.high_count + len(report.teams_affected) * 0.5)
+        return min(
+            10.0,
+            pct * 4
+            + report.critical_count * 2.0
+            + report.high_count
+            + len(report.teams_affected) * 0.5,
+        )
 
     def _gen_recs(self, report: CrossRepoBlastReport) -> list[str]:
         recs = []
@@ -329,7 +354,9 @@ class CrossRepoBlastAnalyzer:
         lines.append(f"    style {src} fill:#fee2e2,stroke:#ef4444")
         for imp in report.impacted_repos:
             n = imp.repository.replace("-", "_")
-            icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(imp.impact_level.value, "⚪")
+            icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(
+                imp.impact_level.value, "⚪"
+            )
             lines.append(f'    {n}["{imp.repository} {icon}"]')
             if len(imp.path) >= 2:
                 prev = imp.path[-2].replace("-", "_")

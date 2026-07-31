@@ -47,25 +47,15 @@ class TestLoginEndpoint:
             "codeverify_api.routers.auth.settings.CORS_ORIGINS",
             ["http://localhost:3000"],
         )
-        monkeypatch.setattr(
-            "codeverify_api.routers.auth.settings.GITHUB_CLIENT_ID", "test-client"
-        )
+        monkeypatch.setattr("codeverify_api.routers.auth.settings.GITHUB_CLIENT_ID", "test-client")
         monkeypatch.setattr(
             "codeverify_api.routers.auth.settings.GITHUB_CLIENT_SECRET", "test-secret"
         )
-        monkeypatch.setattr(
-            "codeverify_api.routers.auth.settings.ENVIRONMENT", "development"
-        )
-        monkeypatch.setattr(
-            "codeverify_api.routers.auth.settings.API_HOST", "http://localhost"
-        )
-        monkeypatch.setattr(
-            "codeverify_api.routers.auth.settings.API_PORT", 8000
-        )
+        monkeypatch.setattr("codeverify_api.routers.auth.settings.ENVIRONMENT", "development")
+        monkeypatch.setattr("codeverify_api.routers.auth.settings.API_HOST", "http://localhost")
+        monkeypatch.setattr("codeverify_api.routers.auth.settings.API_PORT", 8000)
 
-        with patch(
-            "codeverify_api.routers.auth._store_oauth_state", new_callable=AsyncMock
-        ):
+        with patch("codeverify_api.routers.auth._store_oauth_state", new_callable=AsyncMock):
             response = client.get(
                 "/api/v1/auth/login",
                 params={"redirect_uri": "http://localhost:3000/callback"},
@@ -127,12 +117,8 @@ class TestCallbackEndpoint:
 
     def test_callback_rejects_failed_code_exchange(self, client, monkeypatch):
         self._mock_db(client)
-        monkeypatch.setattr(
-            "codeverify_api.routers.auth.settings.GITHUB_CLIENT_ID", "test"
-        )
-        monkeypatch.setattr(
-            "codeverify_api.routers.auth.settings.GITHUB_CLIENT_SECRET", "test"
-        )
+        monkeypatch.setattr("codeverify_api.routers.auth.settings.GITHUB_CLIENT_ID", "test")
+        monkeypatch.setattr("codeverify_api.routers.auth.settings.GITHUB_CLIENT_SECRET", "test")
 
         with (
             patch(
@@ -176,7 +162,7 @@ class TestMeEndpoint:
         )
         assert response.status_code == 401
 
-    def test_me_returns_user_with_valid_token(self, client, monkeypatch):
+    def test_me_returns_user_with_valid_token(self, client):
         user_id = uuid4()
         token = create_access_token(user_id=user_id, github_id=42, username="testuser")
 

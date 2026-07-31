@@ -12,11 +12,9 @@ Features:
 
 from __future__ import annotations
 
-import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -49,6 +47,7 @@ class ExporterType(str, Enum):
 @dataclass
 class SpanContext:
     """Trace and span identifiers for context propagation."""
+
     trace_id: str = field(default_factory=lambda: uuid.uuid4().hex[:32])
     span_id: str = field(default_factory=lambda: uuid.uuid4().hex[:16])
     parent_span_id: str = ""
@@ -57,11 +56,12 @@ class SpanContext:
 @dataclass
 class Span:
     """A single trace span."""
+
     name: str = ""
     context: SpanContext = field(default_factory=SpanContext)
     kind: SpanKind = SpanKind.INTERNAL
     status: SpanStatus = SpanStatus.UNSET
-    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    start_time: datetime = field(default_factory=lambda: datetime.now(UTC))
     end_time: datetime | None = None
     attributes: dict[str, Any] = field(default_factory=dict)
     events: list[dict[str, Any]] = field(default_factory=list)
@@ -74,22 +74,26 @@ class Span:
         return 0.0
 
     def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
-        self.events.append({
-            "name": name, "timestamp": datetime.now(timezone.utc).isoformat(),
-            "attributes": attributes or {},
-        })
+        self.events.append(
+            {
+                "name": name,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "attributes": attributes or {},
+            }
+        )
 
     def set_attribute(self, key: str, value: Any) -> None:
         self.attributes[key] = value
 
     def end(self, status: SpanStatus = SpanStatus.OK) -> None:
-        self.end_time = datetime.now(timezone.utc)
+        self.end_time = datetime.now(UTC)
         self.status = status
 
 
 @dataclass
 class OTelConfig:
     """Configuration for OpenTelemetry."""
+
     service_name: str = "codeverify"
     exporter: ExporterType = ExporterType.CONSOLE
     otlp_endpoint: str = "http://localhost:4317"
@@ -107,7 +111,9 @@ class Tracer:
         self._current_context: SpanContext | None = None
 
     def start_span(
-        self, name: str, kind: SpanKind = SpanKind.INTERNAL,
+        self,
+        name: str,
+        kind: SpanKind = SpanKind.INTERNAL,
         attributes: dict[str, Any] | None = None,
         parent: Span | None = None,
     ) -> Span:
@@ -154,28 +160,42 @@ class VerificationTracer:
     """Pre-configured tracer for CodeVerify verification pipelines."""
 
     PIPELINE_STAGES = [
-        "webhook.receive", "webhook.validate", "job.queue",
-        "worker.dequeue", "code.parse", "agent.semantic", "agent.security",
-        "z3.verify", "synthesis.merge", "pr.comment", "check.update",
+        "webhook.receive",
+        "webhook.validate",
+        "job.queue",
+        "worker.dequeue",
+        "code.parse",
+        "agent.semantic",
+        "agent.security",
+        "z3.verify",
+        "synthesis.merge",
+        "pr.comment",
+        "check.update",
     ]
 
     def __init__(self, config: OTelConfig | None = None) -> None:
         self._tracer = Tracer(config)
 
     def trace_verification(
-        self, pr_id: str, repo: str, stages_data: list[dict[str, Any]] | None = None,
+        self,
+        pr_id: str,
+        repo: str,
+        stages_data: list[dict[str, Any]] | None = None,
     ) -> Span:
         """Create a complete verification trace."""
         root = self._tracer.start_span(
-            "verification.pipeline", kind=SpanKind.SERVER,
+            "verification.pipeline",
+            kind=SpanKind.SERVER,
             attributes={"pr.id": pr_id, "repo": repo},
         )
 
         stages = stages_data or [{"name": s, "duration_ms": 10} for s in self.PIPELINE_STAGES[:5]]
         for stage_data in stages:
             child = self._tracer.start_span(
-                stage_data.get("name", "unknown"), kind=SpanKind.INTERNAL,
-                parent=root, attributes=stage_data.get("attributes", {}),
+                stage_data.get("name", "unknown"),
+                kind=SpanKind.INTERNAL,
+                parent=root,
+                attributes=stage_data.get("attributes", {}),
             )
             if stage_data.get("error"):
                 self._tracer.end_span(child, SpanStatus.ERROR)
@@ -188,7 +208,8 @@ class VerificationTracer:
     def trace_api_request(self, method: str, path: str, status_code: int) -> Span:
         """Create a trace for an API request."""
         span = self._tracer.start_span(
-            f"{method} {path}", kind=SpanKind.SERVER,
+            f"{method} {path}",
+            kind=SpanKind.SERVER,
             attributes={"http.method": method, "http.route": path, "http.status_code": status_code},
         )
         self._tracer.end_span(span, SpanStatus.OK if status_code < 400 else SpanStatus.ERROR)
@@ -199,10 +220,15 @@ class VerificationTracer:
 
 
 _otel_instance: VerificationTracer | None = None
+
+
 def get_verification_tracer() -> VerificationTracer:
     global _otel_instance
-    if _otel_instance is None: _otel_instance = VerificationTracer()
+    if _otel_instance is None:
+        _otel_instance = VerificationTracer()
     return _otel_instance
+
+
 def reset_verification_tracer() -> None:
     global _otel_instance
     _otel_instance = None

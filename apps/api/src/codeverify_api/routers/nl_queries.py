@@ -355,25 +355,28 @@ def _parse_query(question: str) -> dict[str, Any]:
                 break
 
     # Termination patterns
-    if parsed["query_type"] == "unknown":
-        if "terminate" in question_lower or "finish" in question_lower or "end" in question_lower:
-            if (
-                "loop" in question_lower
-                or "function" in question_lower
-                or "recursion" in question_lower
-            ):
-                parsed["query_type"] = "termination"
-                parsed["subject"] = "loop"
-                parsed["predicate"] = "terminates"
-                parsed["confidence"] = 0.85
+    if (
+        parsed["query_type"] == "unknown"
+        and ("terminate" in question_lower or "finish" in question_lower or "end" in question_lower)
+        and (
+            "loop" in question_lower
+            or "function" in question_lower
+            or "recursion" in question_lower
+        )
+    ):
+        parsed["query_type"] = "termination"
+        parsed["subject"] = "loop"
+        parsed["predicate"] = "terminates"
+        parsed["confidence"] = 0.85
 
     # Exception patterns
-    if parsed["query_type"] == "unknown":
-        if "exception" in question_lower or "throw" in question_lower or "raise" in question_lower:
-            parsed["query_type"] = "exception"
-            parsed["subject"] = "function"
-            parsed["predicate"] = "throws"
-            parsed["confidence"] = 0.85
+    if parsed["query_type"] == "unknown" and (
+        "exception" in question_lower or "throw" in question_lower or "raise" in question_lower
+    ):
+        parsed["query_type"] = "exception"
+        parsed["subject"] = "function"
+        parsed["predicate"] = "throws"
+        parsed["confidence"] = 0.85
 
     # Comparison patterns
     if parsed["query_type"] == "unknown":
@@ -459,7 +462,7 @@ def _generate_constraint(parsed: dict[str, Any]) -> str | None:
 def _verify(
     parsed: dict[str, Any],
     code: str,
-    language: str,
+    _language: str,
 ) -> tuple[str, dict[str, Any]]:
     """Perform verification."""
     query_type = parsed["query_type"]
@@ -567,16 +570,15 @@ def _verify_exceptions(code: str) -> tuple[str, dict[str, Any]]:
 def _verify_termination(code: str) -> tuple[str, dict[str, Any]]:
     """Verify termination."""
     # Simple heuristic
-    if "while True" in code:
-        if "break" not in code and "return" not in code:
-            return "disproven", {
-                "reason": "Infinite while True loop without break",
-            }
+    if "while True" in code and "break" not in code and "return" not in code:
+        return "disproven", {
+            "reason": "Infinite while True loop without break",
+        }
 
     return "unknown", {}
 
 
-def _verify_comparison(parsed: dict[str, Any], code: str) -> tuple[str, dict[str, Any]]:
+def _verify_comparison(_parsed: dict[str, Any], _code: str) -> tuple[str, dict[str, Any]]:
     """Verify comparison."""
     return "unknown", {}
 

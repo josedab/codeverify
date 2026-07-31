@@ -131,7 +131,7 @@ class Z3Verifier:
 
         start_time = time.time()
 
-        # Create bit-vector variables for precise overflow checking
+        # Bound mathematical integers to the requested signed-width range.
         max_val = (1 << (bit_width - 1)) - 1  # Max signed value
         min_val = -(1 << (bit_width - 1))  # Min signed value
 
@@ -169,10 +169,10 @@ class Z3Verifier:
         if check_result == sat:
             model = solver.model()
             counterexample = {
-                "a": model[a].as_long() if model[a] else None,
+                "a": model.eval(a, model_completion=True).as_long(),
             }
             if b is not None:
-                counterexample["b"] = model[b].as_long() if model[b] else None
+                counterexample["b"] = model.eval(b, model_completion=True).as_long()
             counterexample["result"] = "overflow"
 
             logger.info(
@@ -229,7 +229,7 @@ class Z3Verifier:
 
         start_time = time.time()
 
-        idx = Int("index")
+        idx = Int(index_var)
 
         # Add constraints on index if known
         if index_range:
@@ -245,7 +245,7 @@ class Z3Verifier:
 
         if result == sat:
             model = solver.model()
-            bad_index = model[idx].as_long() if model[idx] else "unknown"
+            bad_index = model.eval(idx, model_completion=True).as_long()
             return {
                 "satisfiable": True,
                 "counterexample": {"index": bad_index, "array_length": array_length},

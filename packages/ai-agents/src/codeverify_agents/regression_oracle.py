@@ -663,10 +663,7 @@ Files: {", ".join(context.get("file_paths", []))}
 
         allocations = {}
         for pred in predictions:
-            if total_risk > 0:
-                share = pred.risk_score / total_risk
-            else:
-                share = 1 / len(predictions)
+            share = pred.risk_score / total_risk if total_risk > 0 else 1 / len(predictions)
 
             minutes = max(1, int(total_budget_minutes * share))
             allocations[pred.change_id] = minutes

@@ -314,15 +314,12 @@ def _get_remaining_quota(api_key_id: str, tier: SubscriptionTier) -> dict[str, i
 async def _verify_code_impl(
     code: str,
     language: str,
-    context: str | None,
+    _context: str | None,
     include_proof: bool,
     include_fixes: bool,
-    categories: list[str] | None,
+    _categories: list[str] | None,
 ) -> tuple[list[VerificationFinding], str | None, float, int]:
     """Internal verification implementation."""
-    import time
-
-    start = time.time()
     findings = []
     proof_summary = None
     tokens_used = len(code.split()) * 2  # Rough estimate
@@ -345,33 +342,35 @@ async def _verify_code_impl(
                 )
             )
 
-        if "[]" in code or "[i]" in code:
-            if "len(" not in code and "range(" not in code:
-                findings.append(
-                    VerificationFinding(
-                        id=f"finding-{uuid4().hex[:8]}",
-                        category="bounds",
-                        severity="medium",
-                        title="Potential array out of bounds",
-                        description="Array access without bounds check",
-                        confidence=0.70,
-                        proof="∀i,n. (0 ≤ i < n) → safe_access(arr, i)" if include_proof else None,
-                    )
+        if ("[]" in code or "[i]" in code) and "len(" not in code and "range(" not in code:
+            findings.append(
+                VerificationFinding(
+                    id=f"finding-{uuid4().hex[:8]}",
+                    category="bounds",
+                    severity="medium",
+                    title="Potential array out of bounds",
+                    description="Array access without bounds check",
+                    confidence=0.70,
+                    proof="∀i,n. (0 ≤ i < n) → safe_access(arr, i)" if include_proof else None,
                 )
+            )
 
-        if ".value" in code or ".attribute" in code:
-            if "is not None" not in code and "is None" not in code:
-                findings.append(
-                    VerificationFinding(
-                        id=f"finding-{uuid4().hex[:8]}",
-                        category="null_safety",
-                        severity="high",
-                        title="Potential null dereference",
-                        description="Object access without null check",
-                        confidence=0.80,
-                        proof="∀x. (x ≠ null → safe_access(x))" if include_proof else None,
-                    )
+        if (
+            (".value" in code or ".attribute" in code)
+            and "is not None" not in code
+            and "is None" not in code
+        ):
+            findings.append(
+                VerificationFinding(
+                    id=f"finding-{uuid4().hex[:8]}",
+                    category="null_safety",
+                    severity="high",
+                    title="Potential null dereference",
+                    description="Object access without null check",
+                    confidence=0.80,
+                    proof="∀x. (x ≠ null → safe_access(x))" if include_proof else None,
                 )
+            )
 
     # Calculate trust score
     trust_score = 1.0 - (len(findings) * 0.15)
@@ -432,10 +431,10 @@ async def verify_code(
     findings, proof_summary, trust_score, tokens_used = await _verify_code_impl(
         code=request.code,
         language=request.language,
-        context=request.context,
+        _context=request.context,
         include_proof=include_proof,
         include_fixes=include_fixes,
-        categories=request.categories,
+        _categories=request.categories,
     )
 
     # Record usage
@@ -506,10 +505,10 @@ async def verify_files(
         findings, proof_summary, trust_score, tokens = await _verify_code_impl(
             code=content,
             language=request.language,
-            context=request.project_context,
+            _context=request.project_context,
             include_proof=limits.include_proof,
             include_fixes=limits.include_fix_suggestions,
-            categories=None,
+            _categories=None,
         )
 
         for f in findings:
@@ -601,7 +600,7 @@ async def get_subscription(
 async def create_or_update_subscription(
     request: CreateSubscriptionRequest,
     x_api_key: str = Header(..., alias="X-API-Key"),
-    current_user: dict = Depends(get_current_user),
+    _current_user: dict = Depends(get_current_user),
 ) -> SubscriptionResponse:
     """Create or upgrade subscription."""
     subscription = _get_subscription(x_api_key)

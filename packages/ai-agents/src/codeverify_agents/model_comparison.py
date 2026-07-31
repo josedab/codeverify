@@ -4,10 +4,7 @@ Benchmarks multiple LLM providers on the same code samples, tracks accuracy
 and cost, and recommends optimal model routing per use case.
 """
 
-import time
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -201,9 +198,7 @@ class ModelComparisonEngine:
         """Add a benchmark sample with known expected findings."""
         self._samples[sample.id] = sample
 
-    def set_cost_profile(
-        self, model: ModelProvider, profile: ModelCostProfile
-    ) -> None:
+    def set_cost_profile(self, model: ModelProvider, profile: ModelCostProfile) -> None:
         """Override cost profile for a model."""
         self._cost_profiles[model] = profile
 
@@ -215,9 +210,7 @@ class ModelComparisonEngine:
         self._results[key].append(result)
 
         # Update benchmark
-        benchmark = self._benchmarks.setdefault(
-            key, ModelBenchmark(model=result.model)
-        )
+        benchmark = self._benchmarks.setdefault(key, ModelBenchmark(model=result.model))
         benchmark.samples_tested += 1
         benchmark.total_latency_ms += result.latency_ms
         benchmark.total_cost += result.cost
@@ -355,13 +348,9 @@ class ModelComparisonEngine:
     ) -> None:
         """Update accuracy metrics by comparing result to expected findings."""
         expected_ids = {
-            f.get("category", "") + ":" + f.get("title", "")
-            for f in sample.expected_findings
+            f.get("category", "") + ":" + f.get("title", "") for f in sample.expected_findings
         }
-        actual_ids = {
-            f.get("category", "") + ":" + f.get("title", "")
-            for f in result.findings
-        }
+        actual_ids = {f.get("category", "") + ":" + f.get("title", "") for f in result.findings}
 
         benchmark.accuracy.true_positives += len(expected_ids & actual_ids)
         benchmark.accuracy.false_positives += len(actual_ids - expected_ids)

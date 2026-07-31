@@ -461,17 +461,20 @@ class ContractComparator:
 
             changes.extend(self._compare_params(name, old_func, new_func))
 
-            if old_func.return_type and new_func.return_type:
-                if old_func.return_type != new_func.return_type:
-                    changes.append(
-                        BreakingChange(
-                            change_type=BreakingChangeType.RETURN_TYPE_CHANGED,
-                            entity_name=name,
-                            description=f"Return type of '{name}' changed.",
-                            old_value=old_func.return_type,
-                            new_value=new_func.return_type,
-                        )
+            if (
+                old_func.return_type
+                and new_func.return_type
+                and old_func.return_type != new_func.return_type
+            ):
+                changes.append(
+                    BreakingChange(
+                        change_type=BreakingChangeType.RETURN_TYPE_CHANGED,
+                        entity_name=name,
+                        description=f"Return type of '{name}' changed.",
+                        old_value=old_func.return_type,
+                        new_value=new_func.return_type,
                     )
+                )
 
         return changes
 

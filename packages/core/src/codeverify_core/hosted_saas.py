@@ -14,12 +14,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
-import secrets
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -154,9 +152,7 @@ class Tenant:
     stripe_customer_id: str = ""
     stripe_subscription_id: str = ""
     billing_cycle: BillingCycle = BillingCycle.MONTHLY
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     settings: dict[str, Any] = field(default_factory=dict)
     user_count: int = 1
     repo_count: int = 0
@@ -167,12 +163,8 @@ class UsageMeter:
     """Usage tracking for a tenant in a billing period."""
 
     tenant_id: str = ""
-    period_start: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    period_end: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=30)
-    )
+    period_start: datetime = field(default_factory=lambda: datetime.now(UTC))
+    period_end: datetime = field(default_factory=lambda: datetime.now(UTC) + timedelta(days=30))
     verifications: int = 0
     ai_analyses: int = 0
     storage_used_gb: float = 0.0
@@ -192,17 +184,11 @@ class Invoice:
     amount_cents: int = 0
     currency: str = "usd"
     status: PaymentStatus = PaymentStatus.PENDING
-    period_start: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    period_end: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=30)
-    )
+    period_start: datetime = field(default_factory=lambda: datetime.now(UTC))
+    period_end: datetime = field(default_factory=lambda: datetime.now(UTC) + timedelta(days=30))
     line_items: list[dict[str, Any]] = field(default_factory=list)
     stripe_invoice_id: str = ""
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     paid_at: datetime | None = None
 
 
@@ -266,9 +252,7 @@ class BillingEngine:
         )
         return tenant
 
-    def generate_invoice(
-        self, tenant: Tenant, usage: UsageMeter
-    ) -> Invoice:
+    def generate_invoice(self, tenant: Tenant, usage: UsageMeter) -> Invoice:
         """Generate an invoice for a billing period."""
         plan_config = PlanConfig.for_plan(tenant.plan)
         base_price = (
@@ -277,7 +261,9 @@ class BillingEngine:
             else plan_config.price_monthly_cents
         )
 
-        line_items = [{"description": f"{tenant.plan.value} plan", "amount": base_price}]
+        line_items: list[dict[str, Any]] = [
+            {"description": f"{tenant.plan.value} plan", "amount": base_price}
+        ]
 
         # Overage charges for Pro plan
         if tenant.plan == SaaSPlan.PRO:
@@ -285,12 +271,14 @@ class BillingEngine:
             if ver_limit > 0 and usage.verifications > ver_limit:
                 overage = usage.verifications - ver_limit
                 overage_cost = overage * 1  # $0.01 per overage verification
-                line_items.append({
-                    "description": f"Verification overage ({overage} extra)",
-                    "amount": overage_cost,
-                })
+                line_items.append(
+                    {
+                        "description": f"Verification overage ({overage} extra)",
+                        "amount": overage_cost,
+                    }
+                )
 
-        total = sum(item["amount"] for item in line_items)
+        total = sum(int(item["amount"]) for item in line_items)
 
         invoice = Invoice(
             tenant_id=tenant.id,
@@ -307,7 +295,7 @@ class BillingEngine:
         for inv in self._invoices.get(tenant_id, []):
             if inv.id == invoice_id:
                 inv.status = PaymentStatus.PAID
-                inv.paid_at = datetime.now(timezone.utc)
+                inv.paid_at = datetime.now(UTC)
                 return True
         return False
 
@@ -322,9 +310,7 @@ class FeatureGate:
         config = PlanConfig.for_plan(tenant.plan)
         return feature in config.features
 
-    def check_quota(
-        self, tenant: Tenant, usage: UsageMeter, metric: str
-    ) -> tuple[bool, int]:
+    def check_quota(self, tenant: Tenant, usage: UsageMeter, metric: str) -> tuple[bool, int]:
         """Check if quota is available. Returns (allowed, remaining)."""
         config = PlanConfig.for_plan(tenant.plan)
         limit_map = {
@@ -398,9 +384,7 @@ class HostedSaaSService:
         self._billing.change_plan(tenant, new_plan, billing_cycle)
         return True
 
-    def record_usage(
-        self, tenant_id: str, metric: str, count: int = 1
-    ) -> bool:
+    def record_usage(self, tenant_id: str, metric: str, count: int = 1) -> bool:
         """Record usage and check quota."""
         tenant = self._tenants.get(tenant_id)
         usage = self._usage.get(tenant_id)
@@ -422,17 +406,13 @@ class HostedSaaSService:
             return None
         return self._billing.generate_invoice(tenant, usage)
 
-    def is_feature_enabled(
-        self, tenant_id: str, feature: FeatureFlag
-    ) -> bool:
+    def is_feature_enabled(self, tenant_id: str, feature: FeatureFlag) -> bool:
         tenant = self._tenants.get(tenant_id)
         if not tenant:
             return False
         return self._feature_gate.is_enabled(tenant, feature)
 
-    def list_tenants(
-        self, status: TenantStatus | None = None
-    ) -> list[Tenant]:
+    def list_tenants(self, status: TenantStatus | None = None) -> list[Tenant]:
         tenants = list(self._tenants.values())
         if status:
             tenants = [t for t in tenants if t.status == status]

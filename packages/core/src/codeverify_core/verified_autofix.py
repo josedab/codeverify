@@ -159,7 +159,7 @@ class FixGenerator:
         },
     ]
 
-    def generate_fix(self, issue: CodeIssue, context: str) -> GeneratedPatch:
+    def generate_fix(self, issue: CodeIssue, _context: str) -> GeneratedPatch:
         """Generate a fix for the given code issue.
 
         Tries each known fix pattern against the issue snippet and context.
@@ -261,10 +261,7 @@ class DifferentialVerifier:
         if patch.original_code != patch.fixed_code:
             return True
 
-        for kw in keywords:
-            if kw in snippet_lower and len(kw) > 4:
-                return False
-        return True
+        return all(not (kw in snippet_lower and len(kw) > 4) for kw in keywords)
 
     def _check_no_new_bugs(self, original_code: str, fixed_code: str) -> bool:
         """Return True when no new suspicious patterns appear."""
@@ -283,7 +280,7 @@ class DifferentialVerifier:
         if not orig_lines:
             return True
 
-        diff_count = sum(1 for a, b in zip(orig_lines, fix_lines) if a != b)
+        diff_count = sum(1 for a, b in zip(orig_lines, fix_lines, strict=False) if a != b)
         diff_count += abs(len(orig_lines) - len(fix_lines))
 
         # Allow up to 40 % of lines to differ
@@ -448,7 +445,7 @@ def _make_diff(original: str, fixed: str) -> str:
     fix_lines = fixed.splitlines(keepends=True)
 
     diff_parts: list[str] = []
-    for i, (a, b) in enumerate(zip(orig_lines, fix_lines)):
+    for a, b in zip(orig_lines, fix_lines, strict=False):
         if a != b:
             diff_parts.append(f"-{a.rstrip()}")
             diff_parts.append(f"+{b.rstrip()}")

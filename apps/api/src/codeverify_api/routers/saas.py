@@ -5,14 +5,12 @@ multi-tenant subscription handling, and SOC 2-ready audit logging.
 """
 
 import hashlib
-import hmac
 import secrets
-import time
 import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -21,6 +19,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
+
 
 class SubscriptionTier(BaseModel):
     id: str
@@ -222,14 +221,14 @@ def _get_current_month_usage(org_id: str, event_type: str) -> int:
     return sum(
         r["quantity"]
         for r in records
-        if r["event_type"] == event_type
-        and datetime.fromisoformat(r["recorded_at"]) >= month_start
+        if r["event_type"] == event_type and datetime.fromisoformat(r["recorded_at"]) >= month_start
     )
 
 
 # ---------------------------------------------------------------------------
 # Subscription endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/tiers", response_model=list[SubscriptionTier])
 async def list_tiers() -> list[SubscriptionTier]:
@@ -321,6 +320,7 @@ async def cancel_subscription(org_id: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Usage metering endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/usage/record", response_model=UsageMeterResponse)
 async def record_usage_event(event: UsageMeterEvent) -> UsageMeterResponse:
@@ -423,15 +423,14 @@ async def get_usage_summary(
         }
 
     summary["breakdown"] = breakdown
-    summary["overage"] = any(
-        v["used"] > v["limit"] for v in breakdown.values()
-    )
+    summary["overage"] = any(v["used"] > v["limit"] for v in breakdown.values())
     return summary
 
 
 # ---------------------------------------------------------------------------
 # API key management
 # ---------------------------------------------------------------------------
+
 
 @router.post("/api-keys/{org_id}", response_model=ApiKeyCreatedResponse, status_code=201)
 async def create_api_key(org_id: str, request: ApiKeyCreateRequest) -> ApiKeyCreatedResponse:
@@ -450,7 +449,11 @@ async def create_api_key(org_id: str, request: ApiKeyCreateRequest) -> ApiKeyCre
     key_id = str(uuid.uuid4())
 
     now = datetime.utcnow()
-    expires_at = (now + timedelta(days=request.expires_in_days)).isoformat() if request.expires_in_days else None
+    expires_at = (
+        (now + timedelta(days=request.expires_in_days)).isoformat()
+        if request.expires_in_days
+        else None
+    )
 
     record = {
         "id": key_id,
@@ -514,10 +517,11 @@ async def revoke_api_key(org_id: str, key_id: str) -> None:
 # Stripe webhook handler
 # ---------------------------------------------------------------------------
 
+
 @router.post("/webhooks/stripe")
 async def handle_stripe_webhook(
     request: Request,
-    stripe_signature: str | None = Header(None, alias="Stripe-Signature"),
+    _stripe_signature: str | None = Header(None, alias="Stripe-Signature"),
 ) -> dict[str, str]:
     """Handle Stripe webhook events for subscription lifecycle."""
     body = await request.body()
@@ -526,9 +530,10 @@ async def handle_stripe_webhook(
     # For now, parse the JSON directly
     try:
         import json
+
         payload = json.loads(body)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid payload")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid payload") from e
 
     event_type = payload.get("type", "unknown")
     event_id = payload.get("id", str(uuid.uuid4()))
@@ -569,12 +574,14 @@ async def handle_stripe_webhook(
             if org_id in _subscriptions:
                 _subscriptions[org_id]["status"] = "past_due"
 
-        _stripe_events.append({
-            "event_type": event_type,
-            "stripe_event_id": event_id,
-            "data": data,
-            "processed_at": datetime.utcnow().isoformat(),
-        })
+        _stripe_events.append(
+            {
+                "event_type": event_type,
+                "stripe_event_id": event_id,
+                "data": data,
+                "processed_at": datetime.utcnow().isoformat(),
+            }
+        )
 
         _log_audit(org_id, f"stripe.{event_type}", "billing", event_id, {"type": event_type})
 
@@ -584,6 +591,7 @@ async def handle_stripe_webhook(
 # ---------------------------------------------------------------------------
 # SOC 2 audit log endpoint
 # ---------------------------------------------------------------------------
+
 
 @router.get("/audit-log/{org_id}")
 async def get_saas_audit_log(

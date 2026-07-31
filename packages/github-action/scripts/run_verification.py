@@ -237,7 +237,11 @@ class FreeTierVerifier(TierVerifier):
             (r"\b\w+,\s*_\s*:?=\s*\w+\(", "ERROR_IGNORED", "Error return value is ignored"),
         ],
         ".java": [
-            (r"\bcatch\s*\([^)]+\)\s*\{\s*\}", "EMPTY_CATCH", "Empty catch block swallows exceptions"),
+            (
+                r"\bcatch\s*\([^)]+\)\s*\{\s*\}",
+                "EMPTY_CATCH",
+                "Empty catch block swallows exceptions",
+            ),
             (r'==\s*"[^"]*"|"[^"]*"\s*==', "STRING_EQUALS", "Use .equals() for String comparison"),
         ],
     }
@@ -547,10 +551,15 @@ class GitHubActionRunner:
 
         # Try using the quality gate evaluator for richer gate logic
         try:
-            from codeverify_core.cicd_actions import QualityGateEvaluator, QualityGateConfig
+            from codeverify_core.cicd_actions import QualityGateConfig, QualityGateEvaluator
+
             severity_map = {"critical": 0, "high": 0, "medium": 0, "low": 0}
             for issue in issues:
-                sev = issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity)
+                sev = (
+                    issue.severity.value
+                    if hasattr(issue.severity, "value")
+                    else str(issue.severity)
+                )
                 if sev in severity_map:
                     severity_map[sev] += 1
             gate_config = QualityGateConfig(

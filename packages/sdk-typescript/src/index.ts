@@ -62,6 +62,17 @@ export interface CodeVerifyConfig {
   timeout?: number;
 }
 
+function getEnvironmentVariable(name: string): string | undefined {
+  const runtime = globalThis as typeof globalThis & {
+    process?: { env?: Record<string, string | undefined> };
+  };
+  return runtime.process?.env?.[name];
+}
+
+function isProofStatus(status: unknown): status is ProofResult['status'] {
+  return status === 'proved' || status === 'disproved' || status === 'unknown' || status === 'timeout';
+}
+
 // ---------------------------------------------------------------------------
 // Client
 // ---------------------------------------------------------------------------
@@ -72,9 +83,13 @@ export class CodeVerifyClient {
   private timeout: number;
 
   constructor(config: CodeVerifyConfig = {}) {
-    this.apiKey = config.apiKey || process.env.CODEVERIFY_API_KEY || '';
-    this.apiUrl = (config.apiUrl || process.env.CODEVERIFY_API_URL || 'https://api.codeverify.dev').replace(/\/$/, '');
-    this.timeout = config.timeout || 30000;
+    this.apiKey = config.apiKey || getEnvironmentVariable('CODEVERIFY_API_KEY') || '';
+    this.apiUrl = (
+      config.apiUrl ||
+      getEnvironmentVariable('CODEVERIFY_API_URL') ||
+      'https://api.codeverify.dev'
+    ).replace(/\/$/, '');
+    this.timeout = config.timeout ?? 30000;
   }
 
   private async request<T>(path: string, body: Record<string, unknown>): Promise<T> {
@@ -193,12 +208,19 @@ export class CodeVerifyClient {
         properties: property ? [{ expression: property }] : [],
       });
 
+      const proofTree = data.proof_tree;
+      const explanation = data.explanation;
       return {
-        status: (data.status as ProofResult['status']) || 'unknown',
+        status: isProofStatus(data.status) ? data.status : 'unknown',
         propertyChecked: property || 'auto-inferred',
-        counterexamples: (data.counterexamples as Record<string, unknown>[]) || [],
-        proofTree: data.proof_tree as Record<string, unknown>,
-        solverTimeMs: (data.solver_time_ms as number) || 0,
+        counterexamples: Array.isArray(data.counterexamples)
+          ? (data.counterexamples as Record<string, unknown>[])
+          : [],
+        ...(proofTree && typeof proofTree === 'object'
+          ? { proofTree: proofTree as Record<string, unknown> }
+          : {}),
+        solverTimeMs: typeof data.solver_time_ms === 'number' ? data.solver_time_ms : 0,
+        ...(typeof explanation === 'string' ? { explanation } : {}),
       };
     } catch {
       return { status: 'unknown', propertyChecked: property || 'auto-inferred', counterexamples: [], solverTimeMs: 0 };

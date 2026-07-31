@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import re
 import uuid
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -248,7 +248,9 @@ class CodeSmellDetector:
             try:
                 smells.extend(detector(code, file_path))
             except Exception:
-                logger.warning("smell_detector_failed", detector=detector.__name__, file_path=file_path)
+                logger.warning(
+                    "smell_detector_failed", detector=detector.__name__, file_path=file_path
+                )
         logger.info("smells_detected", file_path=file_path, count=len(smells), language=language)
         return smells
 
@@ -272,14 +274,20 @@ class CodeSmellDetector:
                 end_line = i + 1
             length = end_line - start_line + 1
             if length > _LONG_METHOD_LINES:
-                smells.append(CodeSmell(
-                    id=str(uuid.uuid4()), smell_type=SmellType.LONG_METHOD,
-                    file_path=file_path, line_start=start_line, line_end=end_line,
-                    description=f"Method '{func_name}' is {length} lines (threshold: {_LONG_METHOD_LINES})",
-                    severity=min(1.0, length / (_LONG_METHOD_LINES * 3)),
-                    confidence=0.9, affected_symbols=[func_name],
-                    metrics={"lines": float(length)},
-                ))
+                smells.append(
+                    CodeSmell(
+                        id=str(uuid.uuid4()),
+                        smell_type=SmellType.LONG_METHOD,
+                        file_path=file_path,
+                        line_start=start_line,
+                        line_end=end_line,
+                        description=f"Method '{func_name}' is {length} lines (threshold: {_LONG_METHOD_LINES})",
+                        severity=min(1.0, length / (_LONG_METHOD_LINES * 3)),
+                        confidence=0.9,
+                        affected_symbols=[func_name],
+                        metrics={"lines": float(length)},
+                    )
+                )
         return smells
 
     def _detect_god_class(self, code: str, file_path: str) -> list[CodeSmell]:
@@ -302,18 +310,30 @@ class CodeSmellDetector:
             methods = method_pat.findall(class_body)
             method_count = len(methods)
             if method_count > _GOD_CLASS_METHODS or class_lines > _GOD_CLASS_LINES:
-                severity = min(1.0, max(
-                    method_count / (_GOD_CLASS_METHODS * 2),
-                    class_lines / (_GOD_CLASS_LINES * 2),
-                ))
-                smells.append(CodeSmell(
-                    id=str(uuid.uuid4()), smell_type=SmellType.GOD_CLASS,
-                    file_path=file_path, line_start=start_line, line_end=end_line,
-                    description=f"Class '{class_name}' has {method_count} methods and {class_lines} lines",
-                    severity=severity, confidence=0.85,
-                    affected_symbols=[class_name] + methods,
-                    metrics={"method_count": float(method_count), "class_lines": float(class_lines)},
-                ))
+                severity = min(
+                    1.0,
+                    max(
+                        method_count / (_GOD_CLASS_METHODS * 2),
+                        class_lines / (_GOD_CLASS_LINES * 2),
+                    ),
+                )
+                smells.append(
+                    CodeSmell(
+                        id=str(uuid.uuid4()),
+                        smell_type=SmellType.GOD_CLASS,
+                        file_path=file_path,
+                        line_start=start_line,
+                        line_end=end_line,
+                        description=f"Class '{class_name}' has {method_count} methods and {class_lines} lines",
+                        severity=severity,
+                        confidence=0.85,
+                        affected_symbols=[class_name] + methods,
+                        metrics={
+                            "method_count": float(method_count),
+                            "class_lines": float(class_lines),
+                        },
+                    )
+                )
         return smells
 
     def _detect_duplicated_code(self, code: str, file_path: str) -> list[CodeSmell]:
@@ -329,21 +349,29 @@ class CodeSmellDetector:
             digest = hashlib.md5(window.encode()).hexdigest()  # noqa: S324
             fingerprints.setdefault(digest, []).append(i + 1)
         reported: set[str] = set()
-        for digest, positions in fingerprints.items():
+        for _digest, positions in fingerprints.items():
             if len(positions) < 2:
                 continue
             key_str = str(tuple(sorted(positions)))
             if key_str in reported:
                 continue
             reported.add(key_str)
-            smells.append(CodeSmell(
-                id=str(uuid.uuid4()), smell_type=SmellType.DUPLICATED_CODE,
-                file_path=file_path, line_start=positions[0],
-                line_end=positions[0] + _DUPLICATE_MIN_LINES - 1,
-                description=f"Duplicated block ({_DUPLICATE_MIN_LINES}+ lines) at lines {positions}",
-                severity=min(1.0, len(positions) * 0.3), confidence=0.8,
-                metrics={"duplicate_count": float(len(positions)), "block_size": float(_DUPLICATE_MIN_LINES)},
-            ))
+            smells.append(
+                CodeSmell(
+                    id=str(uuid.uuid4()),
+                    smell_type=SmellType.DUPLICATED_CODE,
+                    file_path=file_path,
+                    line_start=positions[0],
+                    line_end=positions[0] + _DUPLICATE_MIN_LINES - 1,
+                    description=f"Duplicated block ({_DUPLICATE_MIN_LINES}+ lines) at lines {positions}",
+                    severity=min(1.0, len(positions) * 0.3),
+                    confidence=0.8,
+                    metrics={
+                        "duplicate_count": float(len(positions)),
+                        "block_size": float(_DUPLICATE_MIN_LINES),
+                    },
+                )
+            )
         return smells
 
     def _detect_dead_code(self, code: str, file_path: str) -> list[CodeSmell]:
@@ -357,13 +385,20 @@ class CodeSmellDetector:
             references = len(re.findall(r"(?<!\bdef\s)" + re.escape(name), code)) - 1
             if references <= 0:
                 start_line = code[: match.start()].count("\n") + 1
-                smells.append(CodeSmell(
-                    id=str(uuid.uuid4()), smell_type=SmellType.DEAD_CODE,
-                    file_path=file_path, line_start=start_line, line_end=start_line,
-                    description=f"Private function '{name}' appears unused",
-                    severity=0.4, confidence=0.6, affected_symbols=[name],
-                    metrics={"references": 0.0},
-                ))
+                smells.append(
+                    CodeSmell(
+                        id=str(uuid.uuid4()),
+                        smell_type=SmellType.DEAD_CODE,
+                        file_path=file_path,
+                        line_start=start_line,
+                        line_end=start_line,
+                        description=f"Private function '{name}' appears unused",
+                        severity=0.4,
+                        confidence=0.6,
+                        affected_symbols=[name],
+                        metrics={"references": 0.0},
+                    )
+                )
         return smells
 
     def _detect_feature_envy(self, code: str, file_path: str) -> list[CodeSmell]:
@@ -389,15 +424,23 @@ class CodeSmellDetector:
             self_refs = len(re.findall(r"\bself\.\w+", body))
             other_refs = len(re.findall(r"\b(?!self\b)[a-z_]\w*\.\w+", body))
             if other_refs > self_refs * 2 and other_refs > 4:
-                smells.append(CodeSmell(
-                    id=str(uuid.uuid4()), smell_type=SmellType.FEATURE_ENVY,
-                    file_path=file_path, line_start=start_line,
-                    line_end=start_line + len(body_lines) - 1,
-                    description=f"Method '{func_name}' references external objects ({other_refs}) more than self ({self_refs})",
-                    severity=min(1.0, other_refs / 15), confidence=0.7,
-                    affected_symbols=[func_name],
-                    metrics={"self_references": float(self_refs), "external_references": float(other_refs)},
-                ))
+                smells.append(
+                    CodeSmell(
+                        id=str(uuid.uuid4()),
+                        smell_type=SmellType.FEATURE_ENVY,
+                        file_path=file_path,
+                        line_start=start_line,
+                        line_end=start_line + len(body_lines) - 1,
+                        description=f"Method '{func_name}' references external objects ({other_refs}) more than self ({self_refs})",
+                        severity=min(1.0, other_refs / 15),
+                        confidence=0.7,
+                        affected_symbols=[func_name],
+                        metrics={
+                            "self_references": float(self_refs),
+                            "external_references": float(other_refs),
+                        },
+                    )
+                )
         return smells
 
 
@@ -418,19 +461,23 @@ class ComplexityAnalyzer:
         self._attr_pat = re.compile(r"\bself\.(\w+)\b")
         self._method_pat = re.compile(r"^\s+(?:def|async\s+def)\s+(\w+)", re.MULTILINE)
 
-    def analyze(self, code: str, language: str = "python") -> ComplexityMetrics:
+    def analyze(self, code: str, _language: str = "python") -> ComplexityMetrics:
         """Return aggregated complexity metrics for *code*."""
         loc = sum(1 for ln in code.splitlines() if ln.strip() and not ln.strip().startswith("#"))
         max_params = 0
         for m in self._param_pat.finditer(code):
-            params = [p.strip() for p in m.group(1).split(",")
-                      if p.strip() and p.strip() not in ("self", "cls")]
+            params = [
+                p.strip()
+                for p in m.group(1).split(",")
+                if p.strip() and p.strip() not in ("self", "cls")
+            ]
             max_params = max(max_params, len(params))
         return ComplexityMetrics(
             cyclomatic_complexity=self._calculate_cyclomatic(code),
             cognitive_complexity=self._calculate_cognitive(code),
             nesting_depth=self._calculate_nesting_depth(code),
-            lines_of_code=loc, parameter_count=max_params,
+            lines_of_code=loc,
+            parameter_count=max_params,
             dependency_count=len(set(self._import_pat.findall(code))),
             coupling_score=self._calculate_coupling(code),
             cohesion_score=self._calculate_cohesion(code),
@@ -527,7 +574,9 @@ class RefactoringPlanner:
             SmellType.DUPLICATED_CODE: self._plan_extract_method,
         }
 
-    def create_plan(self, smells: list[CodeSmell], code: str, language: str = "python") -> list[RefactoringPlan]:
+    def create_plan(
+        self, smells: list[CodeSmell], code: str, language: str = "python"
+    ) -> list[RefactoringPlan]:
         """Create refactoring plans for the given smells."""
         plans: list[RefactoringPlan] = []
         for smell in smells:
@@ -556,76 +605,109 @@ class RefactoringPlanner:
         extracted = f"_extracted_from_{func_name}"
         steps = [
             RefactoringStep(
-                order=1, description=f"Extract lines {smell.line_start}-{mid + 1} into '{extracted}'",
-                file_path=smell.file_path, original_code=first_half,
+                order=1,
+                description=f"Extract lines {smell.line_start}-{mid + 1} into '{extracted}'",
+                file_path=smell.file_path,
+                original_code=first_half,
                 refactored_code=f"def {extracted}(self):\n    {first_half}",
                 refactoring_type=RefactoringType.EXTRACT_METHOD,
             ),
             RefactoringStep(
-                order=2, description=f"Replace extracted lines with call to '{extracted}'",
-                file_path=smell.file_path, original_code=original,
+                order=2,
+                description=f"Replace extracted lines with call to '{extracted}'",
+                file_path=smell.file_path,
+                original_code=original,
                 refactored_code=f"self.{extracted}()\n{second_half}",
                 refactoring_type=RefactoringType.EXTRACT_METHOD,
             ),
         ]
         risk = RefactoringRisk.MEDIUM if smell.severity > 0.5 else RefactoringRisk.LOW
         return RefactoringPlan(
-            id=str(uuid.uuid4()), name=f"Extract method from '{func_name}'",
+            id=str(uuid.uuid4()),
+            name=f"Extract method from '{func_name}'",
             description=f"Break '{func_name}' into smaller methods to reduce complexity",
-            target_smells=[smell.id], steps=steps, risk=risk,
+            target_smells=[smell.id],
+            steps=steps,
+            risk=risk,
             affected_files=[smell.file_path],
         )
 
-    def _plan_extract_class(self, smell: CodeSmell, code: str) -> RefactoringPlan:
+    def _plan_extract_class(self, smell: CodeSmell, _code: str) -> RefactoringPlan:
         """Generate plan to split a god class into cohesive units."""
         class_name = smell.affected_symbols[0] if smell.affected_symbols else "Target"
         methods = smell.affected_symbols[1:] if len(smell.affected_symbols) > 1 else []
         split = len(methods) // 2 if methods else 0
         keep, move = methods[:split], methods[split:]
         new_class = f"{class_name}Helper"
-        steps = [RefactoringStep(
-            order=1, description=f"Create new class '{new_class}'",
-            file_path=smell.file_path, original_code="",
-            refactored_code=f"class {new_class}:\n    pass",
-            refactoring_type=RefactoringType.EXTRACT_CLASS,
-        )]
+        steps = [
+            RefactoringStep(
+                order=1,
+                description=f"Create new class '{new_class}'",
+                file_path=smell.file_path,
+                original_code="",
+                refactored_code=f"class {new_class}:\n    pass",
+                refactoring_type=RefactoringType.EXTRACT_CLASS,
+            )
+        ]
         for i, method in enumerate(move):
-            steps.append(RefactoringStep(
-                order=i + 2, description=f"Move method '{method}' to '{new_class}'",
-                file_path=smell.file_path, original_code=f"def {method}(self",
-                refactored_code=f"# Moved to {new_class}\n# def {method}(self",
-                refactoring_type=RefactoringType.MOVE_METHOD,
-            ))
+            steps.append(
+                RefactoringStep(
+                    order=i + 2,
+                    description=f"Move method '{method}' to '{new_class}'",
+                    file_path=smell.file_path,
+                    original_code=f"def {method}(self",
+                    refactored_code=f"# Moved to {new_class}\n# def {method}(self",
+                    refactoring_type=RefactoringType.MOVE_METHOD,
+                )
+            )
         risk = RefactoringRisk.HIGH if smell.severity > 0.7 else RefactoringRisk.MEDIUM
         return RefactoringPlan(
-            id=str(uuid.uuid4()), name=f"Extract class from '{class_name}'",
+            id=str(uuid.uuid4()),
+            name=f"Extract class from '{class_name}'",
             description=f"Split '{class_name}' into '{class_name}' (keeps {len(keep)} methods) and '{new_class}' (receives {len(move)} methods)",
-            target_smells=[smell.id], steps=steps, risk=risk,
+            target_smells=[smell.id],
+            steps=steps,
+            risk=risk,
             affected_files=[smell.file_path],
         )
 
-    def _plan_decompose_conditional(self, smell: CodeSmell, code: str) -> RefactoringPlan:
+    def _plan_decompose_conditional(self, smell: CodeSmell, _code: str) -> RefactoringPlan:
         """Fallback plan that proposes decomposing complex logic."""
-        ref_type = self._SMELL_TO_REFACTORING.get(smell.smell_type, RefactoringType.DECOMPOSE_CONDITIONAL)
+        ref_type = self._SMELL_TO_REFACTORING.get(
+            smell.smell_type, RefactoringType.DECOMPOSE_CONDITIONAL
+        )
         func_name = smell.affected_symbols[0] if smell.affected_symbols else "target"
         step = RefactoringStep(
-            order=1, description=f"Refactor '{func_name}' to address {smell.smell_type.value}",
-            file_path=smell.file_path, original_code="", refactored_code="",
+            order=1,
+            description=f"Refactor '{func_name}' to address {smell.smell_type.value}",
+            file_path=smell.file_path,
+            original_code="",
+            refactored_code="",
             refactoring_type=ref_type,
         )
-        risk = RefactoringRisk.HIGH if smell.severity > 0.7 else (
-            RefactoringRisk.MEDIUM if smell.severity > 0.4 else RefactoringRisk.LOW
+        risk = (
+            RefactoringRisk.HIGH
+            if smell.severity > 0.7
+            else (RefactoringRisk.MEDIUM if smell.severity > 0.4 else RefactoringRisk.LOW)
         )
         return RefactoringPlan(
-            id=str(uuid.uuid4()), name=f"Refactor '{func_name}' ({smell.smell_type.value})",
-            description=smell.description, target_smells=[smell.id],
-            steps=[step], risk=risk, affected_files=[smell.file_path],
+            id=str(uuid.uuid4()),
+            name=f"Refactor '{func_name}' ({smell.smell_type.value})",
+            description=smell.description,
+            target_smells=[smell.id],
+            steps=[step],
+            risk=risk,
+            affected_files=[smell.file_path],
         )
 
     def _prioritize_plans(self, plans: list[RefactoringPlan]) -> list[RefactoringPlan]:
         """Sort plans by risk (low first) then by number of target smells."""
-        risk_order = {RefactoringRisk.LOW: 0, RefactoringRisk.MEDIUM: 1,
-                      RefactoringRisk.HIGH: 2, RefactoringRisk.CRITICAL: 3}
+        risk_order = {
+            RefactoringRisk.LOW: 0,
+            RefactoringRisk.MEDIUM: 1,
+            RefactoringRisk.HIGH: 2,
+            RefactoringRisk.CRITICAL: 3,
+        }
         return sorted(plans, key=lambda p: (risk_order.get(p.risk, 99), -len(p.target_smells)))
 
 
@@ -663,18 +745,26 @@ class RefactoringEngine:
             improvements.append(est)
         avg_improvement = 0.0
         if improvements:
-            totals: Counter[str] = Counter()
+            totals: defaultdict[str, float] = defaultdict(float)
             for imp in improvements:
                 for k, v in imp.items():
                     totals[k] += v
             avg_improvement = sum(totals.values()) / (len(totals) or 1)
         recommendations = self._generate_recommendations(all_smells, overall, debt)
-        logger.info("project_analysis_complete", files=len(files),
-                     smells=len(all_smells), plans=len(all_plans), debt=round(debt, 2))
+        logger.info(
+            "project_analysis_complete",
+            files=len(files),
+            smells=len(all_smells),
+            plans=len(all_plans),
+            debt=round(debt, 2),
+        )
         return RefactoringReport(
-            project_path=next(iter(files), ""), smells_detected=all_smells,
-            plans_generated=all_plans, overall_metrics=overall,
-            technical_debt_score=debt, improvement_potential=min(1.0, avg_improvement),
+            project_path=next(iter(files), ""),
+            smells_detected=all_smells,
+            plans_generated=all_plans,
+            overall_metrics=overall,
+            technical_debt_score=debt,
+            improvement_potential=min(1.0, avg_improvement),
             recommendations=recommendations,
         )
 
@@ -688,10 +778,16 @@ class RefactoringEngine:
         plan.status = RefactoringStatus.COMPLETED
         return result
 
-    def estimate_improvement(self, plan: RefactoringPlan, original_metrics: ComplexityMetrics) -> dict[str, float]:
+    def estimate_improvement(
+        self, plan: RefactoringPlan, _original_metrics: ComplexityMetrics
+    ) -> dict[str, float]:
         """Estimate the percentage improvement a plan would bring."""
-        factor = {RefactoringRisk.LOW: 0.15, RefactoringRisk.MEDIUM: 0.10,
-                  RefactoringRisk.HIGH: 0.08, RefactoringRisk.CRITICAL: 0.05}
+        factor = {
+            RefactoringRisk.LOW: 0.15,
+            RefactoringRisk.MEDIUM: 0.10,
+            RefactoringRisk.HIGH: 0.08,
+            RefactoringRisk.CRITICAL: 0.05,
+        }
         base = factor.get(plan.risk, 0.10) * len(plan.steps)
         improvements: dict[str, float] = {
             "cyclomatic_reduction": min(0.5, base * 1.2),
@@ -714,8 +810,9 @@ class RefactoringEngine:
         )
         return min(1.0, max(0.0, debt))
 
-    def _generate_recommendations(self, smells: list[CodeSmell],
-                                   metrics: ComplexityMetrics, debt: float) -> list[str]:
+    def _generate_recommendations(
+        self, smells: list[CodeSmell], metrics: ComplexityMetrics, debt: float
+    ) -> list[str]:
         """Produce human-readable recommendations based on analysis."""
         recs: list[str] = []
         counts: Counter[SmellType] = Counter(s.smell_type for s in smells)
@@ -731,13 +828,21 @@ class RefactoringEngine:
             if n > 0:
                 recs.append(f"Found {n} {smell_type.value} smell(s). {advice}")
         if metrics.cyclomatic_complexity > _HIGH_CYCLOMATIC:
-            recs.append(f"Cyclomatic complexity is {metrics.cyclomatic_complexity} (threshold: {_HIGH_CYCLOMATIC}). Simplify control flow.")
+            recs.append(
+                f"Cyclomatic complexity is {metrics.cyclomatic_complexity} (threshold: {_HIGH_CYCLOMATIC}). Simplify control flow."
+            )
         if metrics.coupling_score > 0.6:
-            recs.append("High coupling detected. Introduce abstractions to reduce direct dependencies.")
+            recs.append(
+                "High coupling detected. Introduce abstractions to reduce direct dependencies."
+            )
         if metrics.cohesion_score < 0.4:
-            recs.append("Low cohesion detected. Ensure classes have a single, well-defined responsibility.")
+            recs.append(
+                "Low cohesion detected. Ensure classes have a single, well-defined responsibility."
+            )
         if debt > 0.7:
-            recs.append(f"Technical debt score is {debt:.0%}. Prioritise refactoring to prevent increasing costs.")
+            recs.append(
+                f"Technical debt score is {debt:.0%}. Prioritise refactoring to prevent increasing costs."
+            )
         if not recs:
             recs.append("Code quality looks good — no major issues detected.")
         return recs

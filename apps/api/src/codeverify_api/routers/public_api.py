@@ -98,7 +98,7 @@ _webhook_deliveries: list[dict[str, Any]] = []
 @router.post("/keys", response_model=APIKeyWithSecret, status_code=status.HTTP_201_CREATED)
 async def create_api_key(
     request: APIKeyCreate,
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> APIKeyWithSecret:
     """
     Create a new API key.
@@ -145,7 +145,7 @@ async def create_api_key(
 
 @router.get("/keys", response_model=list[APIKey])
 async def list_api_keys(
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> list[APIKey]:
     """List all API keys (without secrets)."""
     return [
@@ -165,7 +165,7 @@ async def list_api_keys(
 @router.delete("/keys/{key_id}")
 async def revoke_api_key(
     key_id: str,
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> dict[str, Any]:
     """Revoke an API key."""
     if key_id not in _api_keys:
@@ -184,7 +184,7 @@ async def revoke_api_key(
 @router.post("/webhooks", response_model=Webhook, status_code=status.HTTP_201_CREATED)
 async def create_webhook(
     request: WebhookCreate,
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> Webhook:
     """Create a new webhook subscription."""
     webhook_id = str(uuid4())
@@ -214,7 +214,7 @@ async def create_webhook(
 
 @router.get("/webhooks", response_model=list[Webhook])
 async def list_webhooks(
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> list[Webhook]:
     """List all webhooks."""
     return [
@@ -234,7 +234,7 @@ async def list_webhooks(
 @router.get("/webhooks/{webhook_id}", response_model=Webhook)
 async def get_webhook(
     webhook_id: str,
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> Webhook:
     """Get webhook details."""
     if webhook_id not in _webhooks:
@@ -258,7 +258,7 @@ async def get_webhook(
 @router.patch("/webhooks/{webhook_id}")
 async def update_webhook(
     webhook_id: str,
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
     url: str | None = None,
     events: list[str] | None = None,
     active: bool | None = None,
@@ -292,7 +292,7 @@ async def update_webhook(
 @router.delete("/webhooks/{webhook_id}")
 async def delete_webhook(
     webhook_id: str,
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> dict[str, Any]:
     """Delete a webhook."""
     if webhook_id not in _webhooks:
@@ -308,7 +308,7 @@ async def delete_webhook(
 @router.post("/webhooks/{webhook_id}/test")
 async def test_webhook(
     webhook_id: str,
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> dict[str, Any]:
     """Send a test event to a webhook."""
     if webhook_id not in _webhooks:
@@ -339,7 +339,7 @@ async def test_webhook(
 @router.get("/webhooks/{webhook_id}/deliveries", response_model=list[WebhookDelivery])
 async def get_webhook_deliveries(
     webhook_id: str,
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
     limit: int = Query(default=20, le=100),
 ) -> list[WebhookDelivery]:
     """Get recent deliveries for a webhook."""
@@ -372,14 +372,14 @@ async def get_webhook_deliveries(
 
 @router.get("/v1/analyses")
 async def api_list_analyses(
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
     repo: str | None = Query(default=None, description="Filter by repository (full_name)"),
     analysis_status: str | None = Query(
         default=None, alias="status", description="Filter by status"
     ),
     limit: int = Query(default=20, le=100),
     offset: int = Query(default=0, ge=0),
-    db: AsyncSession = Depends(get_db),
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> dict[str, Any]:
     """
     List analyses via public API.
@@ -431,8 +431,8 @@ async def api_list_analyses(
 @router.get("/v1/analyses/{analysis_id}")
 async def api_get_analysis(
     analysis_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> dict[str, Any]:
     """
     Get analysis details via public API.
@@ -447,7 +447,7 @@ async def api_get_analysis(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid analysis ID format",
-        )
+        ) from None
 
     repo = AnalysisRepository(db)
     analysis = await repo.get_with_findings(analysis_uuid)
@@ -489,10 +489,10 @@ async def api_get_analysis(
 @router.post("/v1/analyses")
 async def api_trigger_analysis(
     repo: str,
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
     ref: str = "HEAD",
     pr_number: int | None = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> dict[str, Any]:
     """
     Trigger a new analysis via API.
@@ -537,14 +537,14 @@ async def api_trigger_analysis(
 
 @router.get("/v1/findings")
 async def api_list_findings(
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
     analysis_id: str | None = None,
     repo: str | None = None,
     severity: str | None = None,
     category: str | None = None,
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
-    db: AsyncSession = Depends(get_db),
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> dict[str, Any]:
     """List findings via public API."""
     from sqlalchemy import func, select
@@ -609,10 +609,10 @@ async def api_list_findings(
 
 @router.get("/v1/stats")
 async def api_get_stats(
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
     repo: str | None = None,
     days: int = Query(default=30, le=90),
-    db: AsyncSession = Depends(get_db),
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> dict[str, Any]:
     """Get statistics via public API."""
     from datetime import timedelta
@@ -678,7 +678,7 @@ WEBHOOK_EVENTS = {
 
 @router.get("/events")
 async def list_webhook_events(
-    current_user: Annotated[TokenData, Depends(get_current_user)],
+    _current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> dict[str, Any]:
     """List available webhook events."""
     return {

@@ -213,6 +213,7 @@ class AnalysisPipeline:
         adapter_registry = None
         try:
             from codeverify_core.language_adapter import get_adapter_registry
+
             adapter_registry = get_adapter_registry()
         except ImportError:
             pass
@@ -239,12 +240,15 @@ class AnalysisPipeline:
             if not parsed_by_treesitter and adapter_registry is not None:
                 try:
                     from codeverify_core.language_support import detect_language
+
                     detected = detect_language(path)
                     if detected is not None:
                         result = adapter_registry.analyze_file(content, detected)
                         if result is not None:
                             functions_found += len(result.functions)
-                            languages_parsed[detected.value] = languages_parsed.get(detected.value, 0) + 1
+                            languages_parsed[detected.value] = (
+                                languages_parsed.get(detected.value, 0) + 1
+                            )
                 except Exception:
                     pass
 
@@ -277,6 +281,7 @@ class AnalysisPipeline:
                 try:
                     from codeverify_core.language_adapter import get_adapter_registry
                     from codeverify_core.language_support import detect_language as detect_lang
+
                     detected = detect_lang(path)
                     if detected is not None:
                         adapter = get_adapter_registry().get(detected)
@@ -498,11 +503,15 @@ class AnalysisPipeline:
         # Attempt auto-fix for high/critical findings
         auto_fixed = 0
         try:
-            from codeverify_core.autofix_loop import AutoFixPipeline, Finding as AFLFinding
+            from codeverify_core.autofix_loop import AutoFixPipeline
+            from codeverify_core.autofix_loop import Finding as AFLFinding
 
             pipeline = AutoFixPipeline(max_iterations=3)
             for finding in self.findings:
-                if finding.severity in ("critical", "high") and finding.file_path in self.file_contents:
+                if (
+                    finding.severity in ("critical", "high")
+                    and finding.file_path in self.file_contents
+                ):
                     afl_finding = AFLFinding(
                         rule_id=finding.category,
                         message=finding.description,
@@ -510,7 +519,9 @@ class AnalysisPipeline:
                         file_path=finding.file_path,
                         line=finding.line_start or 1,
                     )
-                    fix_result = pipeline.fix_finding(afl_finding, self.file_contents[finding.file_path])
+                    fix_result = pipeline.fix_finding(
+                        afl_finding, self.file_contents[finding.file_path]
+                    )
                     if fix_result.is_verified and not finding.fix_suggestion:
                         finding.fix_suggestion = f"[Verified Fix] {fix_result.explanation}"
                         auto_fixed += 1
@@ -543,6 +554,7 @@ class AnalysisPipeline:
         """Detect programming language from file path."""
         try:
             from codeverify_core.language_support import detect_language
+
             lang = detect_language(path)
             if lang is not None:
                 return lang.value
@@ -811,8 +823,6 @@ async def post_results_to_github(
                     }
                 )
 
-            review_body = f"## 🔧 CodeVerify Suggested Fixes\n\nFound {len(findings_with_fixes)} issues with suggested fixes. Click 'Apply suggestion' to fix with one click."
-
             # Note: In production, would use create_pr_review from GitHub client
             # For now, this shows the structure
             logger.info(
@@ -857,7 +867,7 @@ def _format_suggestion_comment(finding: dict[str, Any]) -> str:
 
 @app.task(bind=True, name="analyze_pr")
 def analyze_pr(
-    self: Any,
+    _self: Any,
     repo_full_name: str,
     repo_id: int,
     pr_number: int,

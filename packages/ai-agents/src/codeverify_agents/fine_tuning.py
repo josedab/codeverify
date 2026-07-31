@@ -555,8 +555,8 @@ class TrainingPipeline:
 
     async def _validate_model(
         self,
-        model_path: str,
-        val_data: list[dict[str, Any]],
+        _model_path: str,
+        _val_data: list[dict[str, Any]],
     ) -> TrainingMetrics:
         """Validate the fine-tuned model."""
         # In production: load model and run validation
@@ -636,9 +636,9 @@ class ModelServer:
     async def _generate_with_finetuned(
         self,
         model: FineTunedModel,
-        prompt: str,
-        system_prompt: str | None,
-        max_tokens: int,
+        _prompt: str,
+        _system_prompt: str | None,
+        _max_tokens: int,
     ) -> dict[str, Any]:
         """Generate using fine-tuned model.
 

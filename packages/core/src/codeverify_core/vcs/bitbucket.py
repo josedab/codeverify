@@ -3,7 +3,7 @@
 import hashlib
 import hmac
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -20,6 +20,12 @@ from codeverify_core.vcs.base import (
     VCSConfig,
 )
 
+if TYPE_CHECKING:
+    # httpx is a real runtime dependency (see packages/core/pyproject.toml) but is
+    # imported lazily inside methods below to avoid the import cost at module load
+    # time; this TYPE_CHECKING-only import lets mypy type the client precisely.
+    import httpx
+
 logger = structlog.get_logger()
 
 
@@ -29,7 +35,7 @@ class BitbucketClient(VCSClient):
     def __init__(self, config: VCSConfig) -> None:
         """Initialize Bitbucket client."""
         super().__init__(config)
-        self._client: Any = None
+        self._client: httpx.AsyncClient | None = None
         self.base_url = config.base_url or "https://api.bitbucket.org/2.0"
 
     @property
@@ -37,7 +43,7 @@ class BitbucketClient(VCSClient):
         """Return the provider name."""
         return "bitbucket"
 
-    def _get_client(self) -> Any:
+    def _get_client(self) -> "httpx.AsyncClient":
         """Get or create HTTP client."""
         if self._client is None:
             import httpx
@@ -87,7 +93,11 @@ class BitbucketClient(VCSClient):
             default_branch=data.get("mainbranch", {}).get("name", "main"),
             private=data.get("is_private", False),
             clone_url=next(
-                (l["href"] for l in data.get("links", {}).get("clone", []) if l["name"] == "https"),
+                (
+                    link["href"]
+                    for link in data.get("links", {}).get("clone", [])
+                    if link["name"] == "https"
+                ),
                 None,
             ),
             html_url=data.get("links", {}).get("html", {}).get("href"),
@@ -372,7 +382,10 @@ class BitbucketClient(VCSClient):
             json=payload,
         )
         response.raise_for_status()
-        return response.json()
+        result = response.json()
+        if not isinstance(result, dict):
+            raise ValueError("Bitbucket API returned an unexpected response for commit status")
+        return result
 
     def verify_webhook_signature(
         self,

@@ -4,7 +4,6 @@ Replaces import-only tests with meaningful behavioral assertions
 covering constructors, methods, enums, and error paths.
 """
 
-import time
 import warnings
 
 import pytest
@@ -35,9 +34,7 @@ class TestContinuousVerification:
     def test_ast_node_fields(self):
         from codeverify_core.continuous_verification import ASTNode
 
-        node = ASTNode(
-            id="n1", node_type="function", name="foo", range=(0, 10), content_hash="abc"
-        )
+        node = ASTNode(id="n1", node_type="function", name="foo", range=(0, 10), content_hash="abc")
         assert node.id == "n1"
         assert node.node_type == "function"
         assert node.name == "foo"
@@ -213,7 +210,11 @@ class TestMemoryGraph:
     """Test VerificationKnowledgeGraph node operations."""
 
     def test_add_and_get_node(self):
-        from codeverify_core.memory_graph import GraphNode, GraphNodeType, VerificationKnowledgeGraph
+        from codeverify_core.memory_graph import (
+            GraphNode,
+            GraphNodeType,
+            VerificationKnowledgeGraph,
+        )
 
         graph = VerificationKnowledgeGraph()
         node = GraphNode(id="proof-1", node_type=GraphNodeType.PROOF, data={"result": "valid"})
@@ -266,8 +267,13 @@ class TestMultiTenancy:
 
         tracker = UsageTracker()
         config = TenantConfig(
-            id="t1", name="Test", slug="test", tier=TenantTier.FREE,
-            max_repos=5, max_analyses_per_month=100, max_users=3,
+            id="t1",
+            name="Test",
+            slug="test",
+            tier=TenantTier.FREE,
+            max_repos=5,
+            max_analyses_per_month=100,
+            max_users=3,
         )
         tracker.register_tenant(config)
         allowed, remaining = tracker.check_limit("t1", "analyses")
@@ -279,8 +285,13 @@ class TestMultiTenancy:
 
         tracker = UsageTracker()
         config = TenantConfig(
-            id="t1", name="Test", slug="test", tier=TenantTier.FREE,
-            max_repos=5, max_analyses_per_month=2, max_users=3,
+            id="t1",
+            name="Test",
+            slug="test",
+            tier=TenantTier.FREE,
+            max_repos=5,
+            max_analyses_per_month=2,
+            max_users=3,
         )
         tracker.register_tenant(config)
         tracker.record_usage("t1", "analyses", count=2)
@@ -424,12 +435,7 @@ class TestRulesLegacy:
     def test_rule_builder_creates_rule(self):
         from codeverify_core.rules_legacy import RuleBuilder
 
-        rule = (
-            RuleBuilder()
-            .name("No eval()")
-            .pattern(r"eval\s*\(")
-            .build()
-        )
+        rule = RuleBuilder().name("No eval()").pattern(r"eval\s*\(").build()
         assert rule.name == "No eval()"
 
     def test_rule_severity_enum(self):

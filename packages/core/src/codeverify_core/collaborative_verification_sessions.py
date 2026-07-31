@@ -14,12 +14,11 @@ Features:
 
 from __future__ import annotations
 
-import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
@@ -78,16 +77,16 @@ class SessionParticipant:
     cursor_col: int = 0
     is_active: bool = True
     joined_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     last_activity: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
     edits_count: int = 0
 
     @property
     def idle_seconds(self) -> float:
-        return (datetime.now(timezone.utc) - self.last_activity).total_seconds()
+        return (datetime.now(UTC) - self.last_activity).total_seconds()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -132,7 +131,7 @@ class SessionMessage:
     content: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -202,7 +201,7 @@ class CollaborativeVerificationSession:
         self._messages: list[SessionMessage] = []
         self._recording: SessionRecording | None = None
         self._stats = SessionStats()
-        self._created_at = datetime.now(timezone.utc)
+        self._created_at = datetime.now(UTC)
         self._trust_scores: list[float] = []
 
         # Add host
@@ -210,7 +209,9 @@ class CollaborativeVerificationSession:
         self._participants[host.id] = host
         self._add_system_message(f"{host_name} created the session.")
 
-    def join(self, name: str, role: ParticipantRole = ParticipantRole.EDITOR) -> SessionParticipant | None:
+    def join(
+        self, name: str, role: ParticipantRole = ParticipantRole.EDITOR
+    ) -> SessionParticipant | None:
         """Join the session."""
         if len(self._participants) >= self.MAX_PARTICIPANTS:
             return None
@@ -244,20 +245,24 @@ class CollaborativeVerificationSession:
     def end(self) -> SessionStats:
         """End the session and return stats."""
         self.phase = SessionPhase.ENDED
-        elapsed = (datetime.now(timezone.utc) - self._created_at).total_seconds()
+        elapsed = (datetime.now(UTC) - self._created_at).total_seconds()
         self._stats.duration_seconds = elapsed
         if self._trust_scores:
             self._stats.avg_trust_score = sum(self._trust_scores) / len(self._trust_scores)
         self._add_system_message("Session ended.")
 
         if self._recording:
-            self._recording.ended_at = datetime.now(timezone.utc)
+            self._recording.ended_at = datetime.now(UTC)
             self._recording.duration_seconds = elapsed
 
         return self._stats
 
     def update_cursor(
-        self, participant_id: str, file_path: str, line: int, col: int = 0,
+        self,
+        participant_id: str,
+        file_path: str,
+        line: int,
+        col: int = 0,
     ) -> None:
         """Update a participant's cursor position."""
         p = self._participants.get(participant_id)
@@ -265,10 +270,13 @@ class CollaborativeVerificationSession:
             p.cursor_file = file_path
             p.cursor_line = line
             p.cursor_col = col
-            p.last_activity = datetime.now(timezone.utc)
+            p.last_activity = datetime.now(UTC)
 
     def submit_code_change(
-        self, participant_id: str, file_path: str, content: str,
+        self,
+        participant_id: str,
+        file_path: str,
+        content: str,
     ) -> None:
         """Submit a code change from a participant."""
         p = self._participants.get(participant_id)
@@ -276,7 +284,7 @@ class CollaborativeVerificationSession:
             return
 
         p.edits_count += 1
-        p.last_activity = datetime.now(timezone.utc)
+        p.last_activity = datetime.now(UTC)
         self._stats.total_edits += 1
 
         msg = SessionMessage(
@@ -342,7 +350,7 @@ class CollaborativeVerificationSession:
         """Start recording the session."""
         self._recording = SessionRecording(
             session_id=self.id,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
         self.phase = SessionPhase.RECORDING
         return self._recording
@@ -412,7 +420,8 @@ class CollaborativeSessionManager:
 
     def list_active_sessions(self) -> list[CollaborativeVerificationSession]:
         return [
-            s for s in self._sessions.values()
+            s
+            for s in self._sessions.values()
             if s.phase in (SessionPhase.LOBBY, SessionPhase.ACTIVE, SessionPhase.RECORDING)
         ]
 

@@ -246,7 +246,7 @@ async def verify_fix(request: VerifyRequest) -> dict[str, Any]:
             context=request.context,
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
     return result.to_dict()
 

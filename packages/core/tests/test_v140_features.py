@@ -13,8 +13,6 @@ Covers all 10 next-gen features:
 10. Embeddable Verification Widget
 """
 
-import pytest
-
 
 # --- Feature 1: Agentic Review Orchestrator ---
 
@@ -25,7 +23,8 @@ class TestAgenticOrchestrator:
 
         planner = PlannerAgent()
         ctx = PRContext(
-            pr_id="123", repo="myorg/myrepo",
+            pr_id="123",
+            repo="myorg/myrepo",
             changed_files=[{"path": "app.py"}, {"path": "utils.ts"}],
         )
         plan = planner.create_plan(ctx)
@@ -40,19 +39,20 @@ class TestAgenticOrchestrator:
             changed_files=[{"path": f"file{i}.py"} for i in range(20)],
         )
         plan = planner.create_plan(ctx, budget_cents=5.0)
-        skipped = [t for t in plan.tasks if t.status == TaskStatus.SKIPPED]
         active = [t for t in plan.tasks if t.status != TaskStatus.SKIPPED]
         total_active_cost = sum(t.estimated_cost_cents for t in active)
         assert total_active_cost <= 5.0
 
     def test_full_review(self):
         from codeverify_core.agentic_orchestrator import (
-            AgenticReviewOrchestrator, PRContext,
+            AgenticReviewOrchestrator,
+            PRContext,
         )
 
         orch = AgenticReviewOrchestrator(budget_cents=100.0)
         ctx = PRContext(
-            pr_id="42", repo="org/repo",
+            pr_id="42",
+            repo="org/repo",
             changed_files=[{"path": "main.py"}, {"path": "auth.py"}],
         )
         result = orch.review(ctx)
@@ -61,14 +61,29 @@ class TestAgenticOrchestrator:
 
     def test_conflict_resolution(self):
         from codeverify_core.agentic_orchestrator import (
-            AgentFinding, ConflictResolver, ConflictStrategy, TaskType,
+            AgentFinding,
+            ConflictResolver,
+            ConflictStrategy,
+            TaskType,
         )
 
         resolver = ConflictResolver()
-        f1 = AgentFinding(agent_type=TaskType.SEMANTIC_ANALYSIS, file_path="a.py",
-                          line=10, severity="high", category="null", confidence=0.9)
-        f2 = AgentFinding(agent_type=TaskType.SECURITY_SCAN, file_path="a.py",
-                          line=10, severity="medium", category="null", confidence=0.7)
+        f1 = AgentFinding(
+            agent_type=TaskType.SEMANTIC_ANALYSIS,
+            file_path="a.py",
+            line=10,
+            severity="high",
+            category="null",
+            confidence=0.9,
+        )
+        f2 = AgentFinding(
+            agent_type=TaskType.SECURITY_SCAN,
+            file_path="a.py",
+            line=10,
+            severity="medium",
+            category="null",
+            confidence=0.7,
+        )
         resolved, conflicts = resolver.resolve([f1, f2], ConflictStrategy.CONFIDENCE_WEIGHTED)
         assert len(resolved) <= 2
 
@@ -83,11 +98,17 @@ class TestAgenticOrchestrator:
         assert cb.is_available(TaskType.SEMANTIC_ANALYSIS) is False
 
     def test_security_label_boosts_priority(self):
-        from codeverify_core.agentic_orchestrator import PlannerAgent, PRContext, TaskPriority, TaskType
+        from codeverify_core.agentic_orchestrator import (
+            PlannerAgent,
+            PRContext,
+            TaskPriority,
+            TaskType,
+        )
 
         planner = PlannerAgent()
         ctx = PRContext(
-            changed_files=[{"path": "app.py"}], labels=["security"],
+            changed_files=[{"path": "app.py"}],
+            labels=["security"],
         )
         plan = planner.create_plan(ctx)
         sec_tasks = [t for t in plan.tasks if t.task_type == TaskType.SECURITY_SCAN]
@@ -109,11 +130,14 @@ class TestVerifiedCodegen:
         )
         constraints = translator.translate(ce)
         assert len(constraints) >= 1
-        assert "None" in constraints[0].natural_language or "null" in constraints[0].natural_language
+        assert (
+            "None" in constraints[0].natural_language or "null" in constraints[0].natural_language
+        )
 
     def test_generate_verify_loop_success(self):
         from codeverify_core.verified_codegen_loop import (
-            Counterexample, VerificationAwareCodeGenService,
+            Counterexample,
+            VerificationAwareCodeGenService,
         )
 
         svc = VerificationAwareCodeGenService()
@@ -129,7 +153,10 @@ class TestVerifiedCodegen:
         assert result.iterations_used <= result.max_iterations
 
     def test_proof_certificate(self):
-        from codeverify_core.verified_codegen_loop import Counterexample, VerificationAwareCodeGenService
+        from codeverify_core.verified_codegen_loop import (
+            Counterexample,
+            VerificationAwareCodeGenService,
+        )
 
         svc = VerificationAwareCodeGenService()
         ce = Counterexample(check_type="null_safety", variable_assignments={"obj": "None"})
@@ -139,7 +166,10 @@ class TestVerifiedCodegen:
             assert len(result.certificate.constraints_verified) > 0
 
     def test_cost_tracking(self):
-        from codeverify_core.verified_codegen_loop import Counterexample, VerificationAwareCodeGenService
+        from codeverify_core.verified_codegen_loop import (
+            Counterexample,
+            VerificationAwareCodeGenService,
+        )
 
         svc = VerificationAwareCodeGenService()
         ce = Counterexample(check_type="division_by_zero", variable_assignments={"b": 0})
@@ -148,7 +178,10 @@ class TestVerifiedCodegen:
         assert result.total_cost_cents > 0
 
     def test_all_attempts_tracked(self):
-        from codeverify_core.verified_codegen_loop import Counterexample, VerificationAwareCodeGenService
+        from codeverify_core.verified_codegen_loop import (
+            Counterexample,
+            VerificationAwareCodeGenService,
+        )
 
         svc = VerificationAwareCodeGenService(max_iterations=3)
         ce = Counterexample(check_type="division_by_zero", variable_assignments={"b": 0})
@@ -261,6 +294,7 @@ class TestLiveDebugger:
         svc = LiveVerificationDebuggerService()
         session = svc.create_session("Test", ["x >= 0", "y != 0"], {"x": 5, "y": 3})
         from codeverify_core.live_debugger import ExportFormat
+
         mermaid = svc.export(session.id, ExportFormat.MERMAID)
         assert "graph TD" in mermaid
 
@@ -314,11 +348,14 @@ class TestDriftMonitor:
         from codeverify_core.drift_monitor import DriftMonitorService, VerifiedInvariant
 
         svc = DriftMonitorService()
-        svc.register_invariant("repo", VerifiedInvariant(
-            function_name="validate_input",
-            file_path="app.py",
-            invariant_text="input must be validated",
-        ))
+        svc.register_invariant(
+            "repo",
+            VerifiedInvariant(
+                function_name="validate_input",
+                file_path="app.py",
+                invariant_text="input must be validated",
+            ),
+        )
         # Function removed → invariant violated
         report = svc.scan("repo", {"app.py": "def other_func(): pass\n"})
         inv_alerts = [a for a in report.alerts if a.drift_type.value == "invariant_violation"]
@@ -366,7 +403,7 @@ function get_user:
         assert sf.specs[0].target_function == "divide"
 
     def test_spec_compilation(self):
-        from codeverify_core.spec_first import SpecCompiler, SpecStatus, Specification, SpecType
+        from codeverify_core.spec_first import SpecCompiler, Specification, SpecStatus, SpecType
 
         compiler = SpecCompiler()
         spec = Specification(
@@ -449,15 +486,18 @@ class TestPolyglotBridge:
         ts_code = "export function get_user(user_id: number): string { return ''; }\n"
 
         svc.register_service("api", py_code, BridgeLanguage.PYTHON)
-        svc.register_service("frontend", ts_code, BridgeLanguage.TYPESCRIPT,
-                             depends_on=["api"])
+        svc.register_service("frontend", ts_code, BridgeLanguage.TYPESCRIPT, depends_on=["api"])
 
         report = svc.verify_boundary("api", "frontend")
         assert report.pairs_verified >= 1
         assert report.compatible_pairs >= 1
 
     def test_type_mismatch_detection(self):
-        from codeverify_core.polyglot_bridge import BridgeLanguage, MismatchSeverity, PolyglotBridgeService
+        from codeverify_core.polyglot_bridge import (
+            BridgeLanguage,
+            MismatchSeverity,
+            PolyglotBridgeService,
+        )
 
         svc = PolyglotBridgeService()
         py_code = "def process(data: str) -> int:\n    pass\n"
@@ -475,8 +515,9 @@ class TestPolyglotBridge:
 
         svc = PolyglotBridgeService()
         svc.register_service("api", "def main(): pass", BridgeLanguage.PYTHON)
-        svc.register_service("web", "function main() {}", BridgeLanguage.TYPESCRIPT,
-                             depends_on=["api"])
+        svc.register_service(
+            "web", "function main() {}", BridgeLanguage.TYPESCRIPT, depends_on=["api"]
+        )
         graph = svc.get_service_graph()
         assert len(graph["nodes"]) == 2
         assert len(graph["edges"]) == 1
@@ -487,14 +528,18 @@ class TestPolyglotBridge:
 
 class TestOrgLearning:
     def test_feedback_recording(self):
-        from codeverify_core.org_learning import FindingFeedback, FeedbackType, OrgLearningService
+        from codeverify_core.org_learning import FeedbackType, FindingFeedback, OrgLearningService
 
         svc = OrgLearningService()
-        svc.record_feedback(FindingFeedback(
-            org_id="org1", finding_category="null_safety",
-            finding_severity="high", rule_id="NS001",
-            feedback_type=FeedbackType.ACCEPTED,
-        ))
+        svc.record_feedback(
+            FindingFeedback(
+                org_id="org1",
+                finding_category="null_safety",
+                finding_severity="high",
+                rule_id="NS001",
+                feedback_type=FeedbackType.ACCEPTED,
+            )
+        )
         profile = svc.get_profile("org1")
         assert profile.total_feedback == 1
         assert profile.rule_performance["NS001"].accepted == 1
@@ -509,15 +554,21 @@ class TestOrgLearning:
 
     def test_severity_calibration(self):
         from codeverify_core.org_learning import (
-            FindingFeedback, FeedbackType, OrgLearningService,
+            FeedbackType,
+            FindingFeedback,
+            OrgLearningService,
         )
 
         svc = OrgLearningService()
         for _ in range(10):
-            svc.record_feedback(FindingFeedback(
-                org_id="org1", rule_id="R1", finding_severity="high",
-                feedback_type=FeedbackType.FALSE_POSITIVE,
-            ))
+            svc.record_feedback(
+                FindingFeedback(
+                    org_id="org1",
+                    rule_id="R1",
+                    finding_severity="high",
+                    feedback_type=FeedbackType.FALSE_POSITIVE,
+                )
+            )
         profile = svc.train("org1")
         assert "R1" in profile.suppressed_rules  # 100% FP rate → suppressed
 
@@ -531,15 +582,21 @@ class TestOrgLearning:
 
     def test_training_updates_profile(self):
         from codeverify_core.org_learning import (
-            FindingFeedback, FeedbackType, OrgLearningService,
+            FeedbackType,
+            FindingFeedback,
+            OrgLearningService,
         )
 
         svc = OrgLearningService()
-        for i in range(5):
-            svc.record_feedback(FindingFeedback(
-                org_id="org2", rule_id="R2", finding_severity="medium",
-                feedback_type=FeedbackType.ACCEPTED,
-            ))
+        for _i in range(5):
+            svc.record_feedback(
+                FindingFeedback(
+                    org_id="org2",
+                    rule_id="R2",
+                    finding_severity="medium",
+                    feedback_type=FeedbackType.ACCEPTED,
+                )
+            )
         profile = svc.train("org2")
         assert profile.last_trained is not None
         assert len(profile.severity_calibrations) >= 1
@@ -550,10 +607,12 @@ class TestOrgLearning:
 
 class TestCostOptimizer:
     def test_risk_scoring(self):
-        from codeverify_core.smart_router import RiskBucket, RiskScorer
+        from codeverify_core.smart_router import RiskScorer
 
         scorer = RiskScorer()
-        high_risk = scorer.score("auth/login.py", change_lines=200, is_new_file=True, author_commits=2)
+        high_risk = scorer.score(
+            "auth/login.py", change_lines=200, is_new_file=True, author_commits=2
+        )
         assert high_risk.risk_score > 0.5
 
         low_risk = scorer.score("tests/test_utils.py", change_lines=5, author_commits=100)
@@ -574,9 +633,15 @@ class TestCostOptimizer:
         # High-risk file should get deeper analysis
         crypto_route = next(r for r in decision.file_routes if "crypto" in r.file_path)
         test_route = next(r for r in decision.file_routes if "test" in r.file_path)
-        depth_order = {VerificationDepth.PATTERN: 0, VerificationDepth.STATIC: 1,
-                       VerificationDepth.AI: 2, VerificationDepth.FORMAL: 3}
-        assert depth_order[crypto_route.recommended_depth] >= depth_order[test_route.recommended_depth]
+        depth_order = {
+            VerificationDepth.PATTERN: 0,
+            VerificationDepth.STATIC: 1,
+            VerificationDepth.AI: 2,
+            VerificationDepth.FORMAL: 3,
+        }
+        assert (
+            depth_order[crypto_route.recommended_depth] >= depth_order[test_route.recommended_depth]
+        )
 
     def test_savings_estimation(self):
         from codeverify_core.smart_router import CostOptimizerService
@@ -591,8 +656,10 @@ class TestCostOptimizer:
         from codeverify_core.smart_router import CostOptimizerService
 
         svc = CostOptimizerService()
-        files = [{"path": f"f{i}.py", "change_lines": 100, "is_new": True, "author_commits": 1}
-                 for i in range(50)]
+        files = [
+            {"path": f"f{i}.py", "change_lines": 100, "is_new": True, "author_commits": 1}
+            for i in range(50)
+        ]
         decision = svc.optimize(files, budget_cents=10.0)
         assert decision.total_estimated_cost_cents <= 10.0
 
@@ -639,7 +706,7 @@ class TestEmbedWidget:
         assert "#e05d44" in html  # failing color
 
     def test_embed_code_generation(self):
-        from codeverify_core.embed_widget import EmbedFormat, EmbeddableWidgetService, WidgetType
+        from codeverify_core.embed_widget import EmbeddableWidgetService, EmbedFormat, WidgetType
 
         svc = EmbeddableWidgetService()
         config = svc.create_widget(WidgetType.BADGE, "repo")

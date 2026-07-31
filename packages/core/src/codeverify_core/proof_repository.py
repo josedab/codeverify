@@ -229,9 +229,12 @@ class InMemoryProofStorage(ProofStorage):
                 continue
             if not query.include_community and proof.is_community:
                 continue
-            if query.organization_id and proof.organization_id != query.organization_id:
-                if not proof.is_community:
-                    continue
+            if (
+                query.organization_id
+                and proof.organization_id != query.organization_id
+                and not proof.is_community
+            ):
+                continue
 
             # Score relevance
             score, reasons = self._score_relevance(proof, query)
@@ -466,7 +469,7 @@ class ProofArtifactRepository:
         self,
         code: str,
         language: str,
-        context: dict[str, Any] | None = None,
+        _context: dict[str, Any] | None = None,
     ) -> list[tuple[ProofArtifact, float]]:
         """
         Find proofs that may apply to the given code.
@@ -541,7 +544,7 @@ class ProofArtifactRepository:
         self,
         proof_id: str,
         success: bool,
-        context: dict[str, Any] | None = None,
+        _context: dict[str, Any] | None = None,
     ) -> None:
         """Record that a proof was reused."""
         await self.storage.update_stats(proof_id, success)
@@ -606,7 +609,7 @@ class ProofArtifactRepository:
 
         return proof
 
-    def _abstract_code(self, code: str, language: str) -> str:
+    def _abstract_code(self, code: str, _language: str) -> str:
         """Abstract code into a reusable template."""
         import re
 
@@ -652,14 +655,11 @@ class ProofArtifactRepository:
         if not proof.constraints and not proof.z3_model:
             return False
 
-        if not proof.pattern_name:
-            return False
-
         # Future enhancement: Re-run Z3 verification to validate proof is still valid.
         # This would catch proofs that have become stale due to code changes.
         # Implementation would involve: 1) Parse constraints 2) Run Z3 solver
         # 3) Compare result with stored proof status
-        return True
+        return bool(proof.pattern_name)
 
     def get_template(self, template_id: str) -> ProofTemplate | None:
         """Get a proof template by ID."""

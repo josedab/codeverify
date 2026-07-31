@@ -6,54 +6,27 @@
  */
 
 import * as vscode from "vscode";
+import {
+  getDefaultInterceptorConfig,
+  InterceptorConfig,
+  MockCodeVerifyClient,
+  SuggestionContext,
+  SuggestionVerification,
+  SuggestionVerificationClient,
+  VerificationIssue,
+  VerificationStatus,
+} from "../copilotVerification";
 
-/**
- * Verification status for a Copilot suggestion
- */
-export enum VerificationStatus {
-  Pending = "pending",
-  Verified = "verified",
-  Warning = "warning",
-  Error = "error",
-  Timeout = "timeout",
-}
-
-/**
- * Issue found during verification
- */
-export interface VerificationIssue {
-  line: number;
-  column: number;
-  message: string;
-  severity: "error" | "warning" | "info";
-  category: string;
-  fix?: string;
-}
-
-/**
- * Result of verifying a suggestion
- */
-export interface SuggestionVerification {
-  suggestionId: string;
-  status: VerificationStatus;
-  issues: VerificationIssue[];
-  score: number; // 0-100 trust score
-  verificationTimeMs: number;
-  metadata: Record<string, unknown>;
-}
-
-/**
- * Configuration for the interceptor
- */
-export interface InterceptorConfig {
-  enabled: boolean;
-  autoVerify: boolean;
-  showInlineStatus: boolean;
-  blockOnError: boolean;
-  verificationTimeout: number;
-  minTrustScore: number;
-  checks: string[];
-}
+// Re-exported for backward compatibility with any external importers of
+// this module; the canonical definitions now live in copilotVerification.ts
+// so they can be unit tested without a `vscode` mock.
+export {
+  VerificationStatus,
+  VerificationIssue,
+  SuggestionVerification,
+  InterceptorConfig,
+  MockCodeVerifyClient,
+};
 
 /**
  * Decoration types for inline status display
@@ -93,43 +66,21 @@ const decorationTypes = {
 };
 
 /**
- * CodeVerify client interface
- */
-interface CodeVerifyClient {
-  verifySuggestion(
-    code: string,
-    context: SuggestionContext
-  ): Promise<SuggestionVerification>;
-  getConfig(): Promise<InterceptorConfig>;
-}
-
-/**
- * Context for a Copilot suggestion
- */
-interface SuggestionContext {
-  filePath: string;
-  language: string;
-  surroundingCode: string;
-  cursorPosition: vscode.Position;
-  documentVersion: number;
-}
-
-/**
  * Copilot Interceptor Provider
  *
  * Monitors Copilot suggestions and runs verification before acceptance.
  */
 export class CopilotInterceptorProvider implements vscode.Disposable {
-  private client: CodeVerifyClient;
+  private client: SuggestionVerificationClient;
   private config: InterceptorConfig;
   private statusBarItem: vscode.StatusBarItem;
   private pendingVerifications: Map<string, SuggestionVerification> = new Map();
   private disposables: vscode.Disposable[] = [];
   private outputChannel: vscode.OutputChannel;
 
-  constructor(client: CodeVerifyClient) {
+  constructor(client: SuggestionVerificationClient) {
     this.client = client;
-    this.config = this.getDefaultConfig();
+    this.config = getDefaultInterceptorConfig();
     this.outputChannel = vscode.window.createOutputChannel(
       "CodeVerify Interceptor"
     );
@@ -144,18 +95,6 @@ export class CopilotInterceptorProvider implements vscode.Disposable {
     this.statusBarItem.show();
 
     this.initialize();
-  }
-
-  private getDefaultConfig(): InterceptorConfig {
-    return {
-      enabled: true,
-      autoVerify: true,
-      showInlineStatus: true,
-      blockOnError: false,
-      verificationTimeout: 5000,
-      minTrustScore: 60,
-      checks: ["null_safety", "overflow", "bounds", "security"],
-    };
   }
 
   private async initialize(): Promise<void> {
@@ -268,7 +207,6 @@ export class CopilotInterceptorProvider implements vscode.Disposable {
       }
     }
   }
-
   private looksLikeCopilotSuggestion(text: string): boolean {
     if (!text || text.length < 10) return false;
 
@@ -658,82 +596,5 @@ export class CopilotInterceptorProvider implements vscode.Disposable {
     for (const disposable of this.disposables) {
       disposable.dispose();
     }
-  }
-}
-
-/**
- * Mock client for testing without server connection
- */
-export class MockCodeVerifyClient implements CodeVerifyClient {
-  async verifySuggestion(
-    code: string,
-    context: SuggestionContext
-  ): Promise<SuggestionVerification> {
-    // Simulate verification delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const issues: VerificationIssue[] = [];
-
-    // Check for common issues
-    if (code.includes("eval(")) {
-      issues.push({
-        line: 0,
-        column: code.indexOf("eval("),
-        message: "Potentially unsafe eval() usage detected",
-        severity: "error",
-        category: "security",
-        fix: "// Consider using JSON.parse() or a safer alternative",
-      });
-    }
-
-    if (code.includes("password") && code.includes("=")) {
-      issues.push({
-        line: 0,
-        column: 0,
-        message: "Potential hardcoded password detected",
-        severity: "error",
-        category: "security",
-      });
-    }
-
-    if (/\[\s*\w+\s*\]/.test(code) && !code.includes("length")) {
-      issues.push({
-        line: 0,
-        column: 0,
-        message: "Array access without bounds checking",
-        severity: "warning",
-        category: "bounds",
-      });
-    }
-
-    const status =
-      issues.filter((i) => i.severity === "error").length > 0
-        ? VerificationStatus.Error
-        : issues.length > 0
-          ? VerificationStatus.Warning
-          : VerificationStatus.Verified;
-
-    const score = Math.max(0, 100 - issues.length * 20);
-
-    return {
-      suggestionId: `mock-${Date.now()}`,
-      status,
-      issues,
-      score,
-      verificationTimeMs: 500,
-      metadata: {},
-    };
-  }
-
-  async getConfig(): Promise<InterceptorConfig> {
-    return {
-      enabled: true,
-      autoVerify: true,
-      showInlineStatus: true,
-      blockOnError: false,
-      verificationTimeout: 5000,
-      minTrustScore: 60,
-      checks: ["null_safety", "overflow", "bounds", "security"],
-    };
   }
 }

@@ -190,9 +190,7 @@ class ComplianceReport:
             ],
             "summary": {
                 "total_components": len(self.records),
-                "ai_components": sum(
-                    1 for r in self.records if r.source != ProvenanceSource.HUMAN
-                ),
+                "ai_components": sum(1 for r in self.records if r.source != ProvenanceSource.HUMAN),
                 "ai_percentage": round(self.ai_percentage, 1),
             },
         }
@@ -219,16 +217,15 @@ class AICodeDetector:
         scores.append(entropy_score * 0.15)
 
         # 2. Average line length (AI tends to write medium-length lines)
-        non_empty = [l for l in lines if l.strip()]
-        avg_len = sum(len(l) for l in non_empty) / len(non_empty) if non_empty else 0
+        non_empty = [line for line in lines if line.strip()]
+        avg_len = sum(len(line) for line in non_empty) / len(non_empty) if non_empty else 0
         if 40 <= avg_len <= 80:
             scores.append(0.1)
             signals.append("avg_line_length_typical_ai")
 
         # 3. Comment ratio (AI typically adds comments at ~15-25% density)
         comment_lines = sum(
-            1 for l in lines
-            if l.strip().startswith("#") or l.strip().startswith("//")
+            1 for line in lines if line.strip().startswith("#") or line.strip().startswith("//")
         )
         comment_ratio = comment_lines / len(non_empty) if non_empty else 0
         if 0.10 <= comment_ratio <= 0.30:
@@ -290,9 +287,7 @@ class AICodeDetector:
         freq = Counter(text)
         length = len(text)
         return -sum(
-            (count / length) * math.log2(count / length)
-            for count in freq.values()
-            if count > 0
+            (count / length) * math.log2(count / length) for count in freq.values() if count > 0
         )
 
     def _check_repetition(self, lines: list[str]) -> float:
@@ -300,11 +295,11 @@ class AICodeDetector:
         if len(lines) < 4:
             return 0.0
         # Compare structural similarity of consecutive blocks
-        stripped = [l.strip() for l in lines if l.strip()]
+        stripped = [line.strip() for line in lines if line.strip()]
         if len(stripped) < 4:
             return 0.0
         # Count lines that share the same leading pattern
-        patterns = [l[:10] for l in stripped]
+        patterns = [line[:10] for line in stripped]
         pattern_counts = Counter(patterns)
         most_common_count = pattern_counts.most_common(1)[0][1] if pattern_counts else 0
         return most_common_count / len(stripped)
@@ -363,7 +358,8 @@ class ProvenanceTracker:
         return record
 
     def get_records(
-        self, file_path: str | None = None,
+        self,
+        file_path: str | None = None,
     ) -> list[ProvenanceRecord]:
         if file_path:
             return [r for r in self._records if r.file_path == file_path]
@@ -380,7 +376,8 @@ class ProvenanceTracker:
         return ai_count / len(self._records) * 100
 
     def generate_report(
-        self, framework: ComplianceFramework = ComplianceFramework.EU_AI_ACT,
+        self,
+        framework: ComplianceFramework = ComplianceFramework.EU_AI_ACT,
     ) -> ComplianceReport:
         """Generate a compliance report."""
         total_lines = sum(r.line_end - r.line_start + 1 for r in self._records)
@@ -392,7 +389,7 @@ class ProvenanceTracker:
 
         report = ComplianceReport(
             framework=framework,
-            total_files=len(set(r.file_path for r in self._records)),
+            total_files=len({r.file_path for r in self._records}),
             total_lines=total_lines,
             ai_generated_lines=ai_lines,
             records=list(self._records),

@@ -15,7 +15,6 @@ Covers all 10 next-gen features:
 
 import pytest
 
-
 # --- Feature 1: Rust & C/C++ Memory Safety Verification ---
 
 
@@ -31,7 +30,8 @@ class TestMemorySafety:
         verifier = MemorySafetyVerifier()
         report = verifier.verify_rust(code)
         move_violations = [
-            v for v in report.violations
+            v
+            for v in report.violations
             if v.violation_type == MemoryViolationType.OWNERSHIP_VIOLATION
         ]
         assert len(move_violations) > 0
@@ -47,8 +47,7 @@ class TestMemorySafety:
         verifier = MemorySafetyVerifier()
         report = verifier.verify_rust(code)
         borrow_violations = [
-            v for v in report.violations
-            if v.violation_type == MemoryViolationType.BORROW_VIOLATION
+            v for v in report.violations if v.violation_type == MemoryViolationType.BORROW_VIOLATION
         ]
         assert len(borrow_violations) > 0
 
@@ -61,7 +60,9 @@ class TestMemorySafety:
         code = "int *ptr = malloc(10);\nfree(ptr);\n*ptr = 42;"
         verifier = MemorySafetyVerifier()
         report = verifier.verify_c(code)
-        uaf = [v for v in report.violations if v.violation_type == MemoryViolationType.USE_AFTER_FREE]
+        uaf = [
+            v for v in report.violations if v.violation_type == MemoryViolationType.USE_AFTER_FREE
+        ]
         assert len(uaf) > 0
 
     def test_c_double_free(self):
@@ -85,7 +86,9 @@ class TestMemorySafety:
         code = "int *data = malloc(sizeof(int) * 10);\ndata[0] = 42;"
         verifier = MemorySafetyVerifier()
         report = verifier.verify_c(code)
-        leaks = [v for v in report.violations if v.violation_type == MemoryViolationType.MEMORY_LEAK]
+        leaks = [
+            v for v in report.violations if v.violation_type == MemoryViolationType.MEMORY_LEAK
+        ]
         assert len(leaks) > 0
 
     def test_c_buffer_overflow(self):
@@ -97,7 +100,9 @@ class TestMemorySafety:
         code = "int *arr = malloc(5);\narr[100] = 42;"
         verifier = MemorySafetyVerifier()
         report = verifier.verify_c(code)
-        overflow = [v for v in report.violations if v.violation_type == MemoryViolationType.BUFFER_OVERFLOW]
+        overflow = [
+            v for v in report.violations if v.violation_type == MemoryViolationType.BUFFER_OVERFLOW
+        ]
         assert len(overflow) > 0
 
     def test_memory_safety_report_properties(self):
@@ -145,14 +150,22 @@ class TestCopilotWorkspace:
     def test_submit_and_verify_plan(self):
         from codeverify_core.copilot_workspace import (
             CopilotWorkspaceIntegration,
-            WorkspacePlanStatus,
         )
 
         integration = CopilotWorkspaceIntegration()
         session = integration.create_session("ws-1")
-        plan = integration.submit_plan(session.id, "Add auth", [
-            {"path": "auth.py", "original_content": "", "proposed_content": "def login(): pass", "is_new": True}
-        ])
+        plan = integration.submit_plan(
+            session.id,
+            "Add auth",
+            [
+                {
+                    "path": "auth.py",
+                    "original_content": "",
+                    "proposed_content": "def login(): pass",
+                    "is_new": True,
+                }
+            ],
+        )
         result = integration.verify_plan(session.id, plan.id)
         assert result.plan_id == plan.id
         assert result.trust_score >= 0
@@ -166,9 +179,11 @@ class TestCopilotWorkspace:
 
         integration = CopilotWorkspaceIntegration(block_on_critical=True)
         session = integration.create_session("ws-2")
-        plan = integration.submit_plan(session.id, "Add code", [
-            {"path": "app.py", "proposed_content": 'password = "secret123"\neval(user_input)'}
-        ])
+        plan = integration.submit_plan(
+            session.id,
+            "Add code",
+            [{"path": "app.py", "proposed_content": 'password = "secret123"\neval(user_input)'}],
+        )
         result = integration.verify_plan(session.id, plan.id)
         assert result.gate == VerificationGate.BLOCK
         assert len(result.findings) > 0
@@ -237,7 +252,12 @@ class TestZeroConfig:
         assert ptype == ProjectType.MONOREPO
 
     def test_config_generation(self):
-        from codeverify_core.zero_config import ConfigGenerator, ProjectAnalysis, DetectedLanguage, LanguageDetectionResult
+        from codeverify_core.zero_config import (
+            ConfigGenerator,
+            DetectedLanguage,
+            LanguageDetectionResult,
+            ProjectAnalysis,
+        )
 
         analysis = ProjectAnalysis(
             languages=LanguageDetectionResult(
@@ -253,7 +273,7 @@ class TestZeroConfig:
         assert "python" in yaml
 
     def test_workflow_generation(self):
-        from codeverify_core.zero_config import WorkflowGenerator, ProjectAnalysis, CIProvider
+        from codeverify_core.zero_config import CIProvider, ProjectAnalysis, WorkflowGenerator
 
         analysis = ProjectAnalysis(ci_provider=CIProvider.GITHUB_ACTIONS)
         wf = WorkflowGenerator().generate(analysis)
@@ -262,7 +282,7 @@ class TestZeroConfig:
         assert "codeverify scan" in wf.content
 
     def test_onboard_dry_run(self):
-        from codeverify_core.zero_config import ZeroConfigOnboarder, OnboardingStep
+        from codeverify_core.zero_config import OnboardingStep, ZeroConfigOnboarder
 
         onboarder = ZeroConfigOnboarder()
         result = onboarder.preview("/Users/josedab/Code/copilot-sdk-apps/codeverify")
@@ -271,7 +291,7 @@ class TestZeroConfig:
         assert OnboardingStep.CONFIGURE in result.steps_completed
 
     def test_ci_detection(self):
-        from codeverify_core.zero_config import ProjectDetector, CIProvider
+        from codeverify_core.zero_config import CIProvider, ProjectDetector
 
         detector = ProjectDetector()
         has_ci, provider = detector.detect_ci("/Users/josedab/Code/copilot-sdk-apps/codeverify")
@@ -279,7 +299,10 @@ class TestZeroConfig:
         assert provider == CIProvider.GITHUB_ACTIONS
 
     def test_singleton(self):
-        from codeverify_core.zero_config import get_zero_config_onboarder, reset_zero_config_onboarder
+        from codeverify_core.zero_config import (
+            get_zero_config_onboarder,
+            reset_zero_config_onboarder,
+        )
 
         reset_zero_config_onboarder()
         o1 = get_zero_config_onboarder()
@@ -323,17 +346,15 @@ class TestAutonomousAgent:
 
     def test_generate_fixes(self):
         from codeverify_core.autonomous_agent import (
-            AutonomousVerificationAgent,
-            MonitoredChange,
             AgentConfig,
+            AutonomousVerificationAgent,
             AutonomyLevel,
+            MonitoredChange,
         )
 
         config = AgentConfig(autonomy_level=AutonomyLevel.AUTO_FIX)
         agent = AutonomousVerificationAgent(config)
-        change = MonitoredChange(
-            repository="repo", changed_files=["main.py"]
-        )
+        change = MonitoredChange(repository="repo", changed_files=["main.py"])
         triaged = agent.process_change(change)
         fixes = agent.generate_fixes(triaged, "def foo():\n    x = None\n    return x.strip()")
         assert isinstance(fixes, list)
@@ -437,7 +458,7 @@ class TestVaaS:
         svc = VaaSService()
         key, _ = svc.create_api_key("Key")
         files = [{"path": "a.py", "content": "pass"}]
-        r1 = svc.submit_verification(key.id, files)
+        svc.submit_verification(key.id, files)
         r2 = svc.submit_verification(key.id, files)
         assert r2.cached is True
 
@@ -463,7 +484,9 @@ class TestVaaS:
 
         svc = VaaSService()
         key, _ = svc.create_api_key("Key")
-        response = svc.submit_verification(key.id, [{"path": "t.py", "content": "x = None\nprint(x)"}])
+        response = svc.submit_verification(
+            key.id, [{"path": "t.py", "content": "x = None\nprint(x)"}]
+        )
         sarif = response.to_sarif()
         assert sarif["version"] == "2.1.0"
         assert "runs" in sarif
@@ -492,7 +515,7 @@ class TestVaaS:
 
 class TestProofExplorer:
     def test_parse_z3_output(self):
-        from codeverify_core.proof_explorer_interactive import ProofTreeParser, ProofStatus
+        from codeverify_core.proof_explorer_interactive import ProofStatus, ProofTreeParser
 
         parser = ProofTreeParser()
         tree = parser.parse_z3_output("(assert (> x 0))\nunsat", "null_safety")
@@ -501,7 +524,7 @@ class TestProofExplorer:
         assert tree.status == ProofStatus.VERIFIED
 
     def test_parse_sat_output(self):
-        from codeverify_core.proof_explorer_interactive import ProofTreeParser, ProofStatus
+        from codeverify_core.proof_explorer_interactive import ProofStatus, ProofTreeParser
 
         parser = ProofTreeParser()
         tree = parser.parse_z3_output("(assert (> x 0))\nsat", "bounds")
@@ -711,6 +734,7 @@ class TestBenchmark:
 
     def test_json_export(self):
         import json
+
         from codeverify_core.benchmark import (
             BenchmarkDataset,
             BenchmarkRunner,
@@ -726,7 +750,7 @@ class TestBenchmark:
         assert "f1" in data[0]
 
     def test_sample_filtering(self):
-        from codeverify_core.benchmark import BenchmarkDataset, SampleLanguage, BugCategory
+        from codeverify_core.benchmark import BenchmarkDataset, SampleLanguage
 
         dataset = BenchmarkDataset()
         dataset.load_builtin_samples()
@@ -767,7 +791,8 @@ class TestFineTunedLLM:
         ds = pipeline.create_dataset("split-test")
         for i in range(10):
             pipeline.add_sample_from_verification(
-                ds.id, code=f"def f{i}(): pass",
+                ds.id,
+                code=f"def f{i}(): pass",
                 findings=[{"message": f"Issue {i}", "fix_suggestion": f"Fix {i}"}],
             )
         train, val, test = ds.split(0.8, 0.1)
@@ -775,7 +800,6 @@ class TestFineTunedLLM:
 
     def test_local_inference(self):
         from codeverify_core.fine_tuned_llm import (
-            InferenceConfig,
             LocalInferenceEngine,
             TaskType,
         )
@@ -909,7 +933,9 @@ class TestCertification:
         )
 
         issuer = CredentialIssuer()
-        badge = issuer.issue_badge("learner-1", BadgeType.COMPLETION, CertificationLevel.FOUNDATIONS, "Test Badge")
+        badge = issuer.issue_badge(
+            "learner-1", BadgeType.COMPLETION, CertificationLevel.FOUNDATIONS, "Test Badge"
+        )
         assert badge.verify() is True
 
     def test_program_stats(self):

@@ -5,13 +5,11 @@ Routes code through appropriate verification tiers based on risk scores:
 Instruments cost tracking per verification type and enforces per-org budget caps.
 """
 
-import math
-import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -21,11 +19,13 @@ router = APIRouter()
 # Verification tiers and cost model
 # ---------------------------------------------------------------------------
 
+
 class VerificationTier:
-    STATIC = "static"       # Fast pattern matching, ~$0.001/check
-    PATTERN = "pattern"     # AST-based analysis, ~$0.005/check
-    AI = "ai"               # LLM analysis, ~$0.05/check
-    Z3 = "z3"               # Formal verification, ~$0.10/check
+    STATIC = "static"  # Fast pattern matching, ~$0.001/check
+    PATTERN = "pattern"  # AST-based analysis, ~$0.005/check
+    AI = "ai"  # LLM analysis, ~$0.05/check
+    Z3 = "z3"  # Formal verification, ~$0.10/check
+
 
 TIER_COSTS: dict[str, float] = {
     VerificationTier.STATIC: 0.001,
@@ -78,6 +78,7 @@ FILE_PATTERN_RISK: dict[str, float] = {
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+
 
 class RiskAssessmentRequest(BaseModel):
     file_path: str
@@ -162,6 +163,7 @@ def _get_month_start() -> datetime:
 # Risk classifier
 # ---------------------------------------------------------------------------
 
+
 def _compute_risk_score(req: RiskAssessmentRequest) -> tuple[float, dict[str, float]]:
     """ML-based risk classifier using file history, change size, language, author seniority."""
     factors: dict[str, float] = {}
@@ -222,9 +224,9 @@ def _tier_for_risk(score: float, budget: BudgetConfig | None = None) -> str:
     if budget and budget.auto_downgrade:
         month_start = _get_month_start()
         spent = sum(
-            r.cost_cents for r in _cost_records
-            if r.org_id == budget.org_id
-            and datetime.fromisoformat(r.timestamp) >= month_start
+            r.cost_cents
+            for r in _cost_records
+            if r.org_id == budget.org_id and datetime.fromisoformat(r.timestamp) >= month_start
         )
         if spent >= budget.monthly_budget_cents:
             tier = VerificationTier.STATIC  # Fallback to cheapest tier
@@ -240,6 +242,7 @@ def _tier_for_risk(score: float, budget: BudgetConfig | None = None) -> str:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/assess-risk", response_model=RiskAssessmentResponse)
 async def assess_risk(req: RiskAssessmentRequest) -> RiskAssessmentResponse:
@@ -318,7 +321,8 @@ async def get_budget_status(org_id: str) -> BudgetStatus:
     now = datetime.utcnow()
 
     month_records = [
-        r for r in _cost_records
+        r
+        for r in _cost_records
         if r.org_id == org_id and datetime.fromisoformat(r.timestamp) >= month_start
     ]
 
@@ -380,7 +384,9 @@ async def get_cost_dashboard(org_id: str) -> CostDashboard:
     if tier_totals[VerificationTier.Z3]["count"] > total_checks * 0.5:
         suggestions.append("Over 50% of checks use Z3. Consider lowering tier for low-risk files.")
     if budget_status.utilization_pct > 80:
-        suggestions.append("Budget utilization is high. Enable auto-downgrade to stay within budget.")
+        suggestions.append(
+            "Budget utilization is high. Enable auto-downgrade to stay within budget."
+        )
     if not budget_status.on_track:
         suggestions.append("Projected spending exceeds budget. Reduce AI/Z3 checks on test files.")
     if tier_totals[VerificationTier.STATIC]["count"] < total_checks * 0.3:

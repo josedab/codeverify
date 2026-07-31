@@ -8,7 +8,6 @@ Go, Java, and Rust.
 
 from __future__ import annotations
 
-import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -17,12 +16,9 @@ import structlog
 
 from codeverify_core.language_support import (
     AdvancedLanguageAnalyzer,
-    LanguageConfig,
     LanguageParser,
-    LanguageRuleRegistry,
     SupportedLanguage,
     Z3ConstraintGenerator,
-    get_language_registry,
 )
 
 logger = structlog.get_logger()
@@ -234,7 +230,9 @@ class LanguageAdapterRegistry:
         """Return list of languages with registered adapters."""
         return list(self._adapters.keys())
 
-    def analyze_file(self, code: str, language: SupportedLanguage, context: str = "") -> AdapterResult | None:
+    def analyze_file(
+        self, code: str, language: SupportedLanguage, context: str = ""
+    ) -> AdapterResult | None:
         """Analyze code using the appropriate adapter."""
         adapter = self.get(language)
         if adapter is None:

@@ -2,7 +2,7 @@
 
 import hmac
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote_plus
 
 import structlog
@@ -20,6 +20,12 @@ from codeverify_core.vcs.base import (
     VCSConfig,
 )
 
+if TYPE_CHECKING:
+    # httpx is a real runtime dependency (see packages/core/pyproject.toml) but is
+    # imported lazily inside methods below to avoid the import cost at module load
+    # time; this TYPE_CHECKING-only import lets mypy type the client precisely.
+    import httpx
+
 logger = structlog.get_logger()
 
 
@@ -29,7 +35,7 @@ class GitLabClient(VCSClient):
     def __init__(self, config: VCSConfig) -> None:
         """Initialize GitLab client."""
         super().__init__(config)
-        self._client: Any = None
+        self._client: httpx.AsyncClient | None = None
         self.base_url = config.base_url or "https://gitlab.com/api/v4"
 
     @property
@@ -37,7 +43,7 @@ class GitLabClient(VCSClient):
         """Return the provider name."""
         return "gitlab"
 
-    def _get_client(self) -> Any:
+    def _get_client(self) -> "httpx.AsyncClient":
         """Get or create HTTP client."""
         if self._client is None:
             import httpx
@@ -151,7 +157,7 @@ class GitLabClient(VCSClient):
         data = response.json()
         if data.get("encoding") == "base64":
             return base64.b64decode(data["content"]).decode("utf-8")
-        return data.get("content", "")
+        return str(data.get("content", ""))
 
     async def list_files(
         self,
@@ -408,7 +414,10 @@ class GitLabClient(VCSClient):
             json=payload,
         )
         response.raise_for_status()
-        return response.json()
+        result = response.json()
+        if not isinstance(result, dict):
+            raise ValueError("GitLab API returned an unexpected response for commit status")
+        return result
 
     def verify_webhook_signature(
         self,

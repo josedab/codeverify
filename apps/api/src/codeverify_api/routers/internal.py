@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from codeverify_api.db.database import get_db
 from codeverify_api.db.models import Analysis, AnalysisStage, Finding
-from codeverify_api.db.repositories import AnalysisRepository, RepositoryRepository
+from codeverify_api.db.repositories import RepositoryRepository
 
 router = APIRouter()
 
@@ -121,8 +121,6 @@ async def store_analysis(
         )
 
     # Create analysis
-    analysis_repo = AnalysisRepository(db)
-
     # Parse timestamps
     started_at = datetime.fromisoformat(data.started_at.replace("Z", "+00:00"))
     completed_at = datetime.fromisoformat(data.completed_at.replace("Z", "+00:00"))

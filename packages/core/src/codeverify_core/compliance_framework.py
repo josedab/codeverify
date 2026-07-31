@@ -10,6 +10,7 @@ with role-based approvals, and generates audit-ready compliance reports.
 """
 
 import warnings as _warnings
+
 _warnings.warn(
     "codeverify_core.compliance_framework is deprecated. Use codeverify_core.compliance_engine instead.",
     DeprecationWarning,
@@ -19,7 +20,7 @@ _warnings.warn(
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -109,7 +110,7 @@ class ComplianceException:
     approver: str | None = None
     approver_role: Role | None = None
     status: ExceptionStatus = ExceptionStatus.PENDING
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     approval_comment: str = ""
     file_patterns: list[str] = field(default_factory=list)
@@ -118,9 +119,7 @@ class ComplianceException:
     def is_active(self) -> bool:
         if self.status != ExceptionStatus.APPROVED:
             return False
-        if self.expires_at and datetime.now(timezone.utc) > self.expires_at:
-            return False
-        return True
+        return not (self.expires_at and datetime.now(UTC) > self.expires_at)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -145,7 +144,7 @@ class EvidenceArtifact:
     repository: str
     artifact_type: str  # "verification_result", "scan_report", "approval_record"
     content: dict[str, Any] = field(default_factory=dict)
-    collected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    collected_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     collector: str = "codeverify"
 
     def to_dict(self) -> dict[str, Any]:
@@ -165,7 +164,7 @@ class AuditReport:
     id: str
     standard: ComplianceStandard
     organization: str
-    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     controls: list[ComplianceControl] = field(default_factory=list)
     exceptions: list[ComplianceException] = field(default_factory=list)
     evidence: list[EvidenceArtifact] = field(default_factory=list)
@@ -176,8 +175,7 @@ class AuditReport:
         if not assessed:
             return 0.0
         passing = sum(
-            1 for c in assessed
-            if c.status in (ControlStatus.PASSING, ControlStatus.EXEMPTED)
+            1 for c in assessed if c.status in (ControlStatus.PASSING, ControlStatus.EXEMPTED)
         )
         return passing / len(assessed)
 
@@ -203,10 +201,12 @@ class AuditReport:
 
 # --- Built-in Compliance Control Mappings ---
 
+
 def _soc2_controls() -> list[ComplianceControl]:
     return [
         ComplianceControl(
-            id="CC6.1", standard=ComplianceStandard.SOC2,
+            id="CC6.1",
+            standard=ComplianceStandard.SOC2,
             name="Logical Access Security",
             description="Restrict logical access to information assets",
             category="Logical and Physical Access Controls",
@@ -214,7 +214,8 @@ def _soc2_controls() -> list[ComplianceControl]:
             evidence_types=["verification_result", "access_log"],
         ),
         ComplianceControl(
-            id="CC7.2", standard=ComplianceStandard.SOC2,
+            id="CC7.2",
+            standard=ComplianceStandard.SOC2,
             name="System Monitoring",
             description="Monitor system components for anomalies",
             category="System Operations",
@@ -222,7 +223,8 @@ def _soc2_controls() -> list[ComplianceControl]:
             evidence_types=["scan_report", "finding_log"],
         ),
         ComplianceControl(
-            id="CC8.1", standard=ComplianceStandard.SOC2,
+            id="CC8.1",
+            standard=ComplianceStandard.SOC2,
             name="Change Management",
             description="Changes to infrastructure and software are authorized",
             category="Change Management",
@@ -230,7 +232,8 @@ def _soc2_controls() -> list[ComplianceControl]:
             evidence_types=["approval_record", "pr_review"],
         ),
         ComplianceControl(
-            id="CC6.6", standard=ComplianceStandard.SOC2,
+            id="CC6.6",
+            standard=ComplianceStandard.SOC2,
             name="Boundary Protection",
             description="Protect system boundaries from unauthorized access",
             category="Logical and Physical Access Controls",
@@ -238,7 +241,8 @@ def _soc2_controls() -> list[ComplianceControl]:
             evidence_types=["verification_result", "security_scan"],
         ),
         ComplianceControl(
-            id="CC6.8", standard=ComplianceStandard.SOC2,
+            id="CC6.8",
+            standard=ComplianceStandard.SOC2,
             name="Software Integrity",
             description="Prevent or detect unauthorized software deployment",
             category="Logical and Physical Access Controls",
@@ -251,7 +255,8 @@ def _soc2_controls() -> list[ComplianceControl]:
 def _hipaa_controls() -> list[ComplianceControl]:
     return [
         ComplianceControl(
-            id="164.312(a)(1)", standard=ComplianceStandard.HIPAA,
+            id="164.312(a)(1)",
+            standard=ComplianceStandard.HIPAA,
             name="Access Control",
             description="Implement access controls for ePHI systems",
             category="Technical Safeguards",
@@ -259,7 +264,8 @@ def _hipaa_controls() -> list[ComplianceControl]:
             evidence_types=["verification_result", "access_log"],
         ),
         ComplianceControl(
-            id="164.312(a)(2)(iv)", standard=ComplianceStandard.HIPAA,
+            id="164.312(a)(2)(iv)",
+            standard=ComplianceStandard.HIPAA,
             name="Encryption and Decryption",
             description="Encrypt and decrypt ePHI",
             category="Technical Safeguards",
@@ -267,7 +273,8 @@ def _hipaa_controls() -> list[ComplianceControl]:
             evidence_types=["verification_result", "config_audit"],
         ),
         ComplianceControl(
-            id="164.312(b)", standard=ComplianceStandard.HIPAA,
+            id="164.312(b)",
+            standard=ComplianceStandard.HIPAA,
             name="Audit Controls",
             description="Record and examine system activity",
             category="Technical Safeguards",
@@ -275,7 +282,8 @@ def _hipaa_controls() -> list[ComplianceControl]:
             evidence_types=["log_analysis", "audit_config"],
         ),
         ComplianceControl(
-            id="164.312(c)(1)", standard=ComplianceStandard.HIPAA,
+            id="164.312(c)(1)",
+            standard=ComplianceStandard.HIPAA,
             name="Integrity",
             description="Protect ePHI from improper alteration or destruction",
             category="Technical Safeguards",
@@ -288,7 +296,8 @@ def _hipaa_controls() -> list[ComplianceControl]:
 def _pci_dss_controls() -> list[ComplianceControl]:
     return [
         ComplianceControl(
-            id="6.5.1", standard=ComplianceStandard.PCI_DSS,
+            id="6.5.1",
+            standard=ComplianceStandard.PCI_DSS,
             name="Injection Flaws",
             description="Protect against injection flaws (SQL, OS, LDAP)",
             category="Secure Development",
@@ -296,7 +305,8 @@ def _pci_dss_controls() -> list[ComplianceControl]:
             evidence_types=["scan_report", "verification_result"],
         ),
         ComplianceControl(
-            id="6.5.3", standard=ComplianceStandard.PCI_DSS,
+            id="6.5.3",
+            standard=ComplianceStandard.PCI_DSS,
             name="Insecure Cryptographic Storage",
             description="Prevent insecure cryptographic storage",
             category="Secure Development",
@@ -304,7 +314,8 @@ def _pci_dss_controls() -> list[ComplianceControl]:
             evidence_types=["scan_report"],
         ),
         ComplianceControl(
-            id="6.5.7", standard=ComplianceStandard.PCI_DSS,
+            id="6.5.7",
+            standard=ComplianceStandard.PCI_DSS,
             name="Cross-Site Scripting",
             description="Prevent cross-site scripting (XSS) vulnerabilities",
             category="Secure Development",
@@ -312,7 +323,8 @@ def _pci_dss_controls() -> list[ComplianceControl]:
             evidence_types=["scan_report", "verification_result"],
         ),
         ComplianceControl(
-            id="6.5.10", standard=ComplianceStandard.PCI_DSS,
+            id="6.5.10",
+            standard=ComplianceStandard.PCI_DSS,
             name="Broken Authentication",
             description="Prevent broken authentication and session management",
             category="Secure Development",
@@ -335,18 +347,30 @@ ROLE_PERMISSIONS: dict[Role, set[str]] = {
     Role.DEVELOPER: {"view_controls", "request_exception", "view_reports"},
     Role.REVIEWER: {"view_controls", "request_exception", "view_reports", "review_findings"},
     Role.SECURITY_LEAD: {
-        "view_controls", "request_exception", "view_reports",
-        "review_findings", "approve_exception",
+        "view_controls",
+        "request_exception",
+        "view_reports",
+        "review_findings",
+        "approve_exception",
     },
     Role.COMPLIANCE_OFFICER: {
-        "view_controls", "request_exception", "view_reports",
-        "review_findings", "approve_exception", "generate_report",
+        "view_controls",
+        "request_exception",
+        "view_reports",
+        "review_findings",
+        "approve_exception",
+        "generate_report",
         "manage_controls",
     },
     Role.ADMIN: {
-        "view_controls", "request_exception", "view_reports",
-        "review_findings", "approve_exception", "generate_report",
-        "manage_controls", "manage_roles",
+        "view_controls",
+        "request_exception",
+        "view_reports",
+        "review_findings",
+        "approve_exception",
+        "generate_report",
+        "manage_controls",
+        "manage_roles",
     },
 }
 
@@ -411,15 +435,14 @@ class ComplianceFramework:
             rule_results[rule_id] = rule_results.get(rule_id, True) and passed
 
         statuses: dict[str, ControlStatus] = {}
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for control_id, control in self._controls.items():
             # Check if exempted
             active_exceptions = [
-                e for e in self._exceptions.values()
-                if e.control_id == control_id
-                and e.repository == repository
-                and e.is_active
+                e
+                for e in self._exceptions.values()
+                if e.control_id == control_id and e.repository == repository and e.is_active
             ]
             if active_exceptions:
                 control.status = ControlStatus.EXEMPTED
@@ -433,10 +456,7 @@ class ComplianceFramework:
                 statuses[control_id] = ControlStatus.NOT_ASSESSED
                 continue
 
-            rule_statuses = [
-                rule_results.get(rule, True)
-                for rule in control.verification_rules
-            ]
+            rule_statuses = [rule_results.get(rule, True) for rule in control.verification_rules]
             assessed_rules = [r for r in control.verification_rules if r in rule_results]
 
             if not assessed_rules:
@@ -461,7 +481,11 @@ class ComplianceFramework:
                     content={
                         "status": control.status.value,
                         "rules_evaluated": assessed_rules,
-                        "rules_passed": [r for r, s in zip(control.verification_rules, rule_statuses) if s],
+                        "rules_passed": [
+                            r
+                            for r, s in zip(control.verification_rules, rule_statuses, strict=True)
+                            if s
+                        ],
                     },
                 )
             )
@@ -501,7 +525,7 @@ class ComplianceFramework:
             justification=justification,
             requestor=user,
             requestor_role=self._user_roles.get(user, Role.DEVELOPER),
-            expires_at=datetime.now(timezone.utc) + timedelta(days=expiry_days),
+            expires_at=datetime.now(UTC) + timedelta(days=expiry_days),
             file_patterns=file_patterns or [],
         )
         self._exceptions[exception.id] = exception
@@ -572,19 +596,17 @@ class ComplianceFramework:
             logger.warning("Permission denied for report generation", user=user)
             return None
 
-        controls = [
-            c for c in self._controls.values() if c.standard == standard
-        ]
+        controls = [c for c in self._controls.values() if c.standard == standard]
         exceptions = [
-            e for e in self._exceptions.values()
-            if self._controls.get(e.control_id, ComplianceControl(
-                id="", standard=standard, name="", description="", category=""
-            )).standard == standard
+            e
+            for e in self._exceptions.values()
+            if self._controls.get(
+                e.control_id,
+                ComplianceControl(id="", standard=standard, name="", description="", category=""),
+            ).standard
+            == standard
         ]
-        evidence = [
-            e for e in self._evidence
-            if e.control_id in {c.id for c in controls}
-        ]
+        evidence = [e for e in self._evidence if e.control_id in {c.id for c in controls}]
 
         report = AuditReport(
             id=str(uuid.uuid4()),

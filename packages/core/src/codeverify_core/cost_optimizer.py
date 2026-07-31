@@ -359,17 +359,16 @@ class VerificationCostOptimizer:
         if self.cost_model[selected_depth].accuracy < budget.min_accuracy:
             # Need to upgrade if possible
             for depth in [VerificationDepth.FORMAL, VerificationDepth.CONSENSUS]:
-                if self.cost_model[depth].accuracy >= budget.min_accuracy:
-                    # Check if within budget
-                    if (
-                        budget.max_cost_usd is None
-                        or self.cost_model[depth].avg_cost_usd <= budget.max_cost_usd
-                    ):
-                        selected_depth = depth
-                        rationale.append(
-                            f"Upgraded to meet accuracy requirement ({budget.min_accuracy})"
-                        )
-                        break
+                # Check if within budget
+                if self.cost_model[depth].accuracy >= budget.min_accuracy and (
+                    budget.max_cost_usd is None
+                    or self.cost_model[depth].avg_cost_usd <= budget.max_cost_usd
+                ):
+                    selected_depth = depth
+                    rationale.append(
+                        f"Upgraded to meet accuracy requirement ({budget.min_accuracy})"
+                    )
+                    break
 
         return selected_depth, rationale
 
@@ -453,7 +452,7 @@ class VerificationCostOptimizer:
             return  # Need more data
 
         # Group by depth
-        by_depth: dict[str, list[dict]] = {}
+        by_depth: dict[str, list[dict[str, Any]]] = {}
         for outcome in self._outcome_history[-1000:]:
             depth = outcome["depth"]
             if depth not in by_depth:
@@ -573,7 +572,7 @@ class VerificationCostOptimizer:
         items_with_risk.sort(key=lambda x: x[1].risk_score, reverse=True)
 
         # Allocate budget
-        plans = []
+        plans: list[VerificationPlan] = []
         remaining_cost = total_budget.max_cost_usd or float("inf")
         remaining_time = (total_budget.max_time_seconds or float("inf")) * 1000
 

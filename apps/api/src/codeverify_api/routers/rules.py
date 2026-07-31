@@ -193,7 +193,6 @@ async def list_rules(
         rules = [r for r in rules if r.get("severity") == severity]
 
     # Pagination
-    total = len(rules)
     rules = rules[offset : offset + limit]
 
     return [RuleResponse(**r) for r in rules]

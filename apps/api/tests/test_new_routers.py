@@ -1,305 +1,502 @@
-"""Tests for new API routers."""
+"""Tests for API routers added after the initial API surface."""
+
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from uuid import UUID, uuid4
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-# Import routers
+from codeverify_api.auth.dependencies import get_current_user
+from codeverify_api.auth.jwt import TokenData
+from codeverify_api.middleware.rate_limit import limiter, setup_rate_limiting
 from codeverify_api.routers import notifications, public_api, rules, scanning, trust_score
 
 
 class TestTrustScoreRouter:
-    """Tests for Trust Score API endpoints."""
+    """Tests for the current Trust Score API endpoints."""
 
     @pytest.fixture
-    def client(self):
-        """Create test client with trust score router."""
+    def client(self, monkeypatch):
+        """Create a test client with a deterministic trust-score agent."""
+        from codeverify_agents import trust_score as trust_score_agent
+
+        analyze = AsyncMock(
+            return_value=SimpleNamespace(
+                success=True,
+                data={
+                    "score": 87.5,
+                    "confidence": 0.92,
+                    "risk_level": "low",
+                    "factors": {
+                        "complexity_score": 0.8,
+                        "pattern_confidence": 0.9,
+                        "historical_accuracy": 0.7,
+                        "verification_coverage": 0.6,
+                        "code_quality_signals": 0.85,
+                        "ai_detection_confidence": 0.1,
+                    },
+                    "recommendations": ["Keep the tests current."],
+                    "is_ai_generated": False,
+                },
+            )
+        )
+        agent = SimpleNamespace(analyze=analyze)
+        monkeypatch.setattr(trust_score_agent, "TrustScoreAgent", lambda: agent)
+        monkeypatch.setattr(trust_score_agent, "calculate_code_hash", lambda _code: "test-hash")
+
         app = FastAPI()
         app.include_router(trust_score.router, prefix="/api/v1/trust-score")
-        return TestClient(app)
+        with TestClient(app) as test_client:
+            yield test_client, analyze
 
     def test_analyze_code_endpoint(self, client):
-        """POST /analyze returns trust score."""
-        response = client.post(
-            "/api/v1/trust-score/analyze", json={"code": "def test(): pass", "language": "python"}
+        """POST /trust-score returns the current response model."""
+        test_client, analyze = client
+
+        response = test_client.post(
+            "/api/v1/trust-score",
+            json={"code": "def test(): pass", "language": "python"},
         )
 
-        assert response.status_code in [200, 201]
+        assert response.status_code == 200
         data = response.json()
-        assert "score" in data
-        assert "risk_level" in data
+        assert data["score"] == 87.5
+        assert data["risk_level"] == "low"
+        assert data["code_hash"] == "test-hash"
+        assert data["factors"]["code_quality_signals"] == 0.85
+        analyze.assert_awaited_once()
 
     def test_analyze_code_with_context(self, client):
-        """POST /analyze accepts context."""
-        response = client.post(
-            "/api/v1/trust-score/analyze",
+        """The request model maps file and author context to the agent."""
+        test_client, analyze = client
+
+        response = test_client.post(
+            "/api/v1/trust-score",
             json={
                 "code": "def test(): pass",
                 "language": "python",
-                "context": {"author": "test-user", "file_path": "test.py"},
+                "file_path": "tests/test_example.py",
+                "author": "test-user",
             },
         )
 
-        assert response.status_code in [200, 201]
-
-    def test_analyze_empty_code(self, client):
-        """POST /analyze handles empty code."""
-        response = client.post(
-            "/api/v1/trust-score/analyze", json={"code": "", "language": "python"}
+        assert response.status_code == 200
+        analyze.assert_awaited_once_with(
+            "def test(): pass",
+            {
+                "file_path": "tests/test_example.py",
+                "language": "python",
+                "author": "test-user",
+            },
         )
 
-        # Should return valid response or 400
-        assert response.status_code in [200, 400]
+    def test_analyze_empty_code(self, client):
+        """Empty code remains valid under the current request schema."""
+        test_client, analyze = client
 
-    def test_get_risk_levels(self, client):
-        """GET /risk-levels returns available levels."""
-        response = client.get("/api/v1/trust-score/risk-levels")
+        response = test_client.post(
+            "/api/v1/trust-score",
+            json={"code": "", "language": "python"},
+        )
+
+        assert response.status_code == 200
+        analyze.assert_awaited_once_with(
+            "",
+            {"file_path": "unknown", "language": "python", "author": None},
+        )
+
+    def test_batch_analysis(self, client):
+        """POST /batch aggregates current trust-score responses."""
+        test_client, analyze = client
+
+        response = test_client.post(
+            "/api/v1/trust-score/batch",
+            json={
+                "files": [
+                    {"code": "x = 1", "file_path": "a.py"},
+                    {"code": "y = 2", "file_path": "b.py"},
+                ]
+            },
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list) or "levels" in data
+        assert set(data["scores"]) == {"a.py", "b.py"}
+        assert data["overall_score"] == 87.5
+        assert data["overall_risk_level"] == "low"
+        assert data["high_risk_files"] == []
+        assert analyze.await_count == 2
 
 
 class TestRulesRouter:
-    """Tests for Rules API endpoints."""
+    """Tests for the current custom-rules API."""
 
     @pytest.fixture
     def client(self):
-        """Create test client with rules router."""
+        """Create an isolated rules client."""
+        rules._rules.clear()
         app = FastAPI()
         app.include_router(rules.router, prefix="/api/v1/rules")
-        return TestClient(app)
+        with TestClient(app) as test_client:
+            yield test_client
+        rules._rules.clear()
+
+    @staticmethod
+    def rule_payload() -> dict:
+        """Return a request matching CreateRuleRequest."""
+        return {
+            "name": "No print statements",
+            "description": "Use logging instead.",
+            "rule_type": "pattern",
+            "severity": "medium",
+            "scope": "line",
+            "conditions": [
+                {
+                    "field": "code",
+                    "operator": "matches",
+                    "value": r"print\(",
+                }
+            ],
+            "actions": [{"message": "Replace print with logging."}],
+            "languages": ["python"],
+            "tags": ["logging"],
+        }
 
     def test_list_rules(self, client):
-        """GET /rules returns list of rules."""
+        """GET /rules returns the stored rules."""
         response = client.get("/api/v1/rules")
 
         assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list) or "rules" in data
+        assert response.json() == []
 
     def test_create_rule(self, client):
-        """POST /rules creates a new rule."""
-        rule_data = {
-            "id": "test-rule",
-            "name": "Test Rule",
-            "description": "A test rule",
-            "type": "pattern",
-            "pattern": r"print\(",
-            "severity": "warning",
-            "message": "No print statements",
-        }
+        """POST /rules creates a rule using the current request model."""
+        response = client.post("/api/v1/rules", json=self.rule_payload())
 
-        response = client.post("/api/v1/rules", json=rule_data)
-
-        assert response.status_code in [200, 201]
+        assert response.status_code == 201
         data = response.json()
-        assert data.get("id") == "test-rule"
+        UUID(data["id"])
+        assert data["name"] == "No print statements"
+        assert data["rule_type"] == "pattern"
+        assert data["severity"] == "medium"
+        assert data["conditions"][0]["operator"] == "matches"
 
     def test_get_rule(self, client):
-        """GET /rules/{id} returns specific rule."""
-        # First create a rule
-        client.post(
-            "/api/v1/rules",
-            json={
-                "id": "get-test",
-                "name": "Get Test",
-                "description": "Test",
-                "type": "pattern",
-                "pattern": "test",
-                "severity": "info",
-                "message": "Test",
-            },
-        )
+        """GET /rules/{id} returns a created rule."""
+        created = client.post("/api/v1/rules", json=self.rule_payload()).json()
 
-        response = client.get("/api/v1/rules/get-test")
+        response = client.get(f"/api/v1/rules/{created['id']}")
 
-        assert response.status_code in [200, 404]
+        assert response.status_code == 200
+        assert response.json()["id"] == created["id"]
 
     def test_delete_rule(self, client):
-        """DELETE /rules/{id} removes rule."""
-        # First create a rule
-        client.post(
-            "/api/v1/rules",
-            json={
-                "id": "delete-test",
-                "name": "Delete Test",
-                "description": "Test",
-                "type": "pattern",
-                "pattern": "test",
-                "severity": "info",
-                "message": "Test",
-            },
-        )
+        """DELETE /rules/{id} removes a created rule."""
+        created = client.post("/api/v1/rules", json=self.rule_payload()).json()
 
-        response = client.delete("/api/v1/rules/delete-test")
+        response = client.delete(f"/api/v1/rules/{created['id']}")
 
-        assert response.status_code in [200, 204, 404]
+        assert response.status_code == 200
+        assert response.json() == {"deleted": True, "rule_id": created["id"]}
+        assert client.get(f"/api/v1/rules/{created['id']}").status_code == 404
 
     def test_test_rule(self, client):
-        """POST /rules/test evaluates rule against code."""
+        """POST /rules/test evaluates a current rule definition."""
         response = client.post(
             "/api/v1/rules/test",
             json={
-                "rule": {
-                    "id": "test",
-                    "type": "pattern",
-                    "pattern": r"print\(",
-                    "severity": "warning",
-                    "message": "No print",
-                },
+                "rule": self.rule_payload(),
                 "code": "print('hello')",
+                "file_path": "example.py",
+                "language": "python",
             },
         )
 
-        assert response.status_code in [200, 201]
+        assert response.status_code == 200
         data = response.json()
-        assert "violations" in data or "matches" in data or "results" in data
+        assert data["matches"] is True
+        assert len(data["violations"]) == 1
+        assert data["execution_time_ms"] >= 0
 
-    def test_get_builtin_rules(self, client):
-        """GET /rules/builtin returns built-in rules."""
-        response = client.get("/api/v1/rules/builtin")
+    def test_get_rule_templates(self, client):
+        """GET /rules/templates returns the built-in templates."""
+        response = client.get("/api/v1/rules/templates")
 
         assert response.status_code == 200
+        assert "no-print" in response.json()["templates"]
 
 
 class TestScanningRouter:
-    """Tests for Scanning API endpoints."""
+    """Tests for the current in-memory scanning API."""
 
     @pytest.fixture
     def client(self):
-        """Create test client with scanning router."""
+        """Create an isolated scanning client."""
+        from codeverify_core import scanning as scanning_core
+
+        scanning_core._scan_results.clear()
+        scanning_core._scheduled_scans.clear()
         app = FastAPI()
         app.include_router(scanning.router, prefix="/api/v1/scans")
-        return TestClient(app)
+        with TestClient(app) as test_client:
+            yield test_client
+        scanning_core._scan_results.clear()
+        scanning_core._scheduled_scans.clear()
 
     def test_trigger_scan(self, client):
-        """POST /scans triggers a new scan."""
-        response = client.post("/api/v1/scans", json={"repository": "owner/repo", "branch": "main"})
-
-        assert response.status_code in [200, 201, 202]
-        data = response.json()
-        assert "id" in data or "scan_id" in data
-
-    def test_get_scan_status(self, client):
-        """GET /scans/{id} returns scan status."""
-        # Trigger a scan first
-        create_response = client.post("/api/v1/scans", json={"repository": "owner/repo"})
-        scan_id = create_response.json().get("id") or create_response.json().get("scan_id")
-
-        if scan_id:
-            response = client.get(f"/api/v1/scans/{scan_id}")
-            assert response.status_code in [200, 404]
-
-    def test_list_scans(self, client):
-        """GET /scans returns list of scans."""
-        response = client.get("/api/v1/scans")
+        """POST /scans/trigger queues a scan."""
+        response = client.post(
+            "/api/v1/scans/trigger",
+            json={"repo_full_name": "owner/repo", "branch": "main"},
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list) or "scans" in data
+        UUID(data["scan_id"])
+        assert data["repo_full_name"] == "owner/repo"
+        assert data["status"] == "queued"
+        assert data["files_scanned"] == 0
+
+    def test_get_scan_status(self, client):
+        """GET /scans/{id} returns a queued scan."""
+        created = client.post(
+            "/api/v1/scans/trigger",
+            json={"repo_full_name": "owner/repo"},
+        ).json()
+
+        response = client.get(f"/api/v1/scans/{created['scan_id']}")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["scan_id"] == created["scan_id"]
+        assert data["status"] == "queued"
+        assert data["findings_by_severity"] == {}
+
+    def test_list_scheduled_scans(self, client):
+        """GET /scans/schedules returns configured schedules."""
+        created = client.post(
+            "/api/v1/scans/schedule",
+            json={"repo_full_name": "owner/repo", "schedule": "daily"},
+        )
+        assert created.status_code == 201
+
+        response = client.get("/api/v1/scans/schedules")
+
+        assert response.status_code == 200
+        schedules = response.json()["schedules"]
+        assert len(schedules) == 1
+        assert schedules[0]["repo_full_name"] == "owner/repo"
+        assert schedules[0]["schedule"] == "daily"
 
     def test_schedule_scan(self, client):
-        """POST /scans/schedule creates scheduled scan."""
+        """POST /scans/schedule creates a current scheduled scan."""
         response = client.post(
             "/api/v1/scans/schedule",
             json={
-                "repository": "owner/repo",
-                "cron": "0 0 * * *",  # Daily
+                "repo_full_name": "owner/repo",
+                "schedule": "daily",
                 "branch": "main",
             },
         )
 
-        assert response.status_code in [200, 201]
+        assert response.status_code == 201
+        data = response.json()
+        UUID(data["id"])
+        assert data["repo_full_name"] == "owner/repo"
+        assert data["schedule"] == "daily"
+        assert data["enabled"] is True
 
     def test_get_scan_history(self, client):
-        """GET /scans/history returns scan history."""
-        response = client.get("/api/v1/scans/history", params={"repository": "owner/repo"})
+        """GET /scans/repo/{repo}/history returns repository scans."""
+        created = client.post(
+            "/api/v1/scans/trigger",
+            json={"repo_full_name": "owner/repo"},
+        ).json()
+
+        response = client.get("/api/v1/scans/repo/owner/repo/history")
 
         assert response.status_code == 200
+        data = response.json()
+        assert data["repo_full_name"] == "owner/repo"
+        assert [scan["scan_id"] for scan in data["scans"]] == [created["scan_id"]]
 
 
 class TestNotificationsRouter:
-    """Tests for Notifications API endpoints."""
+    """Tests for the current notifications API."""
 
     @pytest.fixture
     def client(self):
-        """Create test client with notifications router."""
+        """Create an isolated notifications client."""
+        from codeverify_core import notifications as notifications_core
+
+        notifications_core._notification_configs.clear()
         app = FastAPI()
         app.include_router(notifications.router, prefix="/api/v1/notifications")
-        return TestClient(app)
+        with TestClient(app) as test_client:
+            yield test_client
+        notifications_core._notification_configs.clear()
 
     def test_configure_slack(self, client):
-        """POST /slack configures Slack integration."""
+        """POST /config stores a Slack configuration."""
         response = client.post(
-            "/api/v1/notifications/slack",
-            json={"webhook_url": "https://hooks.slack.com/services/xxx", "channel": "#codeverify"},
+            "/api/v1/notifications/config",
+            params={"repo_full_name": "owner/repo"},
+            json={
+                "channel": "slack",
+                "webhook_url": "https://hooks.slack.com/services/test",
+                "notification_types": ["analysis_complete"],
+                "channel_name": "#codeverify",
+            },
         )
-
-        assert response.status_code in [200, 201]
-
-    def test_configure_teams(self, client):
-        """POST /teams configures Teams integration."""
-        response = client.post(
-            "/api/v1/notifications/teams",
-            json={"webhook_url": "https://outlook.office.com/webhook/xxx"},
-        )
-
-        assert response.status_code in [200, 201]
-
-    def test_test_notification(self, client):
-        """POST /test sends test notification."""
-        response = client.post("/api/v1/notifications/test", json={"channel": "slack"})
-
-        assert response.status_code in [200, 400, 404]
-
-    def test_list_configurations(self, client):
-        """GET /configurations returns notification configs."""
-        response = client.get("/api/v1/notifications/configurations")
 
         assert response.status_code == 200
+        assert response.json() == {
+            "status": "created",
+            "repo_full_name": "owner/repo",
+            "channel": "slack",
+        }
+
+    def test_configure_teams(self, client):
+        """POST /config stores a Teams configuration."""
+        response = client.post(
+            "/api/v1/notifications/config",
+            params={"repo_full_name": "owner/repo"},
+            json={
+                "channel": "teams",
+                "webhook_url": "https://example.com/teams-webhook",
+                "notification_types": ["analysis_complete"],
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["channel"] == "teams"
+
+    def test_test_notification(self, client, monkeypatch):
+        """POST /test uses the sender without making an HTTP request."""
+        from codeverify_core.notifications import NotificationSender
+
+        send_notification = AsyncMock(return_value=[{"channel": "slack", "success": True}])
+        monkeypatch.setattr(
+            NotificationSender,
+            "send_analysis_notification",
+            send_notification,
+        )
+
+        response = client.post(
+            "/api/v1/notifications/test",
+            json={
+                "channel": "slack",
+                "webhook_url": "https://hooks.slack.com/services/test",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "success",
+            "message": "Test notification sent successfully",
+        }
+        send_notification.assert_awaited_once()
+
+    def test_list_configurations(self, client):
+        """GET /config/{repo} returns stored configurations."""
+        client.post(
+            "/api/v1/notifications/config",
+            params={"repo_full_name": "owner/repo"},
+            json={
+                "channel": "slack",
+                "webhook_url": "https://hooks.slack.com/services/test",
+                "notification_types": ["analysis_complete"],
+            },
+        )
+
+        response = client.get("/api/v1/notifications/config/owner/repo")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "repo_full_name": "owner/repo",
+            "configs": [
+                {
+                    "channel": "slack",
+                    "enabled": True,
+                    "notification_types": ["analysis_complete"],
+                    "mention_on_critical": True,
+                }
+            ],
+        }
 
 
 class TestPublicAPIRouter:
-    """Tests for Public API endpoints."""
+    """Tests for authenticated Public API management endpoints."""
 
     @pytest.fixture
     def client(self):
-        """Create test client with public API router."""
+        """Create an authenticated and isolated public API client."""
+        public_api._api_keys.clear()
+        public_api._webhooks.clear()
+        public_api._webhook_deliveries.clear()
+
+        app = FastAPI()
+
+        async def override_current_user() -> TokenData:
+            return TokenData(user_id=uuid4(), github_id=42, username="test-user")
+
+        app.dependency_overrides[get_current_user] = override_current_user
+        app.include_router(public_api.router, prefix="/api")
+        with TestClient(app) as test_client:
+            yield test_client
+
+        public_api._api_keys.clear()
+        public_api._webhooks.clear()
+        public_api._webhook_deliveries.clear()
+
+    @pytest.fixture
+    def unauthenticated_client(self):
+        """Create a public API client without an auth override."""
         app = FastAPI()
         app.include_router(public_api.router, prefix="/api")
-        return TestClient(app)
+        with TestClient(app) as test_client:
+            yield test_client
 
     def test_create_api_key(self, client):
-        """POST /keys creates an API key."""
-        response = client.post("/api/keys", json={"name": "Test Key", "scopes": ["read", "write"]})
+        """POST /keys returns the secret once."""
+        response = client.post(
+            "/api/keys",
+            json={"name": "Test Key", "scopes": ["read", "write"]},
+        )
 
-        assert response.status_code in [200, 201]
+        assert response.status_code == 201
         data = response.json()
-        assert "key" in data or "id" in data
+        UUID(data["id"])
+        assert data["key"].startswith("cv_")
+        assert data["scopes"] == ["read", "write"]
 
     def test_list_api_keys(self, client):
-        """GET /keys returns API keys (without secrets)."""
+        """GET /keys omits API key secrets."""
+        created = client.post("/api/keys", json={"name": "Test Key"}).json()
+
         response = client.get("/api/keys")
 
         assert response.status_code == 200
-        data = response.json()
-        # Should not expose full keys
-        for key in data if isinstance(data, list) else data.get("keys", []):
-            assert "key" not in key or len(key.get("key", "")) < 20
+        assert len(response.json()) == 1
+        listed = response.json()[0]
+        assert listed["id"] == created["id"]
+        assert listed["key_prefix"] == created["key_prefix"]
+        assert "key" not in listed
 
     def test_revoke_api_key(self, client):
-        """DELETE /keys/{id} revokes an API key."""
-        # Create key first
-        create_response = client.post("/api/keys", json={"name": "Revoke Test", "scopes": ["read"]})
-        key_id = create_response.json().get("id")
+        """DELETE /keys/{id} revokes a key."""
+        created = client.post("/api/keys", json={"name": "Revoke Test"}).json()
 
-        if key_id:
-            response = client.delete(f"/api/keys/{key_id}")
-            assert response.status_code in [200, 204]
+        response = client.delete(f"/api/keys/{created['id']}")
+
+        assert response.status_code == 200
+        assert response.json() == {"revoked": True, "key_id": created["id"]}
+        assert client.get("/api/keys").json() == []
 
     def test_create_webhook(self, client):
-        """POST /webhooks creates a webhook subscription."""
+        """POST /webhooks creates a subscription."""
         response = client.post(
             "/api/webhooks",
             json={
@@ -308,115 +505,83 @@ class TestPublicAPIRouter:
             },
         )
 
-        assert response.status_code in [200, 201]
+        assert response.status_code == 201
         data = response.json()
-        assert "id" in data
+        UUID(data["id"])
+        assert data["url"] == "https://example.com/webhook"
+        assert data["events"] == ["analysis.completed", "finding.created"]
+        assert data["active"] is True
 
     def test_list_webhooks(self, client):
-        """GET /webhooks returns webhook configurations."""
+        """GET /webhooks returns current configurations."""
+        created = client.post(
+            "/api/webhooks",
+            json={"url": "https://example.com/webhook", "events": ["analysis.completed"]},
+        ).json()
+
         response = client.get("/api/webhooks")
 
         assert response.status_code == 200
+        assert response.json() == [created]
 
-    def test_test_webhook(self, client):
-        """POST /webhooks/{id}/test sends test event."""
-        # Create webhook first
-        create_response = client.post(
-            "/api/webhooks", json={"url": "https://example.com/webhook", "events": ["test"]}
-        )
-        webhook_id = create_response.json().get("id")
+    def test_test_webhook(self, client, monkeypatch):
+        """POST /webhooks/{id}/test uses the delivery surface without network I/O."""
+        deliver = AsyncMock(return_value={"success": True, "status": 204})
+        monkeypatch.setattr(public_api, "_deliver_webhook", deliver)
+        created = client.post(
+            "/api/webhooks",
+            json={"url": "https://example.com/webhook", "events": ["test"]},
+        ).json()
 
-        if webhook_id:
-            response = client.post(f"/api/webhooks/{webhook_id}/test")
-            assert response.status_code in [200, 400, 404]
+        response = client.post(f"/api/webhooks/{created['id']}/test")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "success": True,
+            "response_status": 204,
+            "message": "Test webhook delivered",
+        }
+        deliver.assert_awaited_once()
 
     def test_list_webhook_events(self, client):
-        """GET /events returns available webhook events."""
+        """GET /events returns the documented webhook event names."""
         response = client.get("/api/events")
 
         assert response.status_code == 200
-        data = response.json()
-        assert "events" in data
+        names = {event["name"] for event in response.json()["events"]}
+        assert names == set(public_api.WEBHOOK_EVENTS)
 
-    def test_public_api_analyses_endpoint(self, client):
-        """GET /v1/analyses returns analyses list."""
-        response = client.get("/api/v1/analyses")
+    def test_public_api_analyses_requires_auth(self, unauthenticated_client):
+        """The public analyses endpoint requires bearer authentication."""
+        response = unauthenticated_client.get("/api/v1/analyses")
 
-        assert response.status_code in [200, 401]  # May require auth
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Not authenticated"}
 
-    def test_public_api_stats_endpoint(self, client):
-        """GET /v1/stats returns statistics."""
-        response = client.get("/api/v1/stats")
+    def test_public_api_stats_requires_auth(self, unauthenticated_client):
+        """The public statistics endpoint requires bearer authentication."""
+        response = unauthenticated_client.get("/api/v1/stats")
 
-        assert response.status_code in [200, 401]
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Not authenticated"}
 
 
-class TestRateLimitingMiddleware:
-    """Tests for rate limiting middleware."""
+class TestRateLimiting:
+    """Tests for the SlowAPI setup used by the application."""
 
-    @pytest.fixture
-    def client(self):
-        """Create test client with rate limiting."""
-        from codeverify_api.middleware import RateLimitMiddleware
-
+    def test_setup_rate_limiting_enforces_decorated_limit(self):
+        """setup_rate_limiting attaches the limiter and returns 429 at the limit."""
         app = FastAPI()
-        app.add_middleware(RateLimitMiddleware)
+        setup_rate_limiting(app)
 
-        @app.get("/api/v1/test")
-        async def test_endpoint():
+        @app.get("/limited")
+        @limiter.limit("2/minute")
+        async def limited_endpoint(request: Request):  # noqa: ARG001
             return {"status": "ok"}
 
-        return TestClient(app)
+        with TestClient(app) as client:
+            responses = [client.get("/limited") for _ in range(3)]
 
-    def test_rate_limit_headers(self, client):
-        """Response includes rate limit headers."""
-        response = client.get("/api/v1/test")
-
-        # May include rate limit headers
-        headers = response.headers
-        # Check for common rate limit headers
-        rate_headers = ["x-ratelimit-limit", "x-ratelimit-remaining"]
-        # At least some implementation should be present
-        assert response.status_code in [200, 429]
-
-
-class TestAPIKeyAuthentication:
-    """Tests for API key authentication."""
-
-    @pytest.fixture
-    def client(self):
-        """Create test client with auth middleware."""
-        from codeverify_api.middleware import APIKeyAuthMiddleware
-
-        app = FastAPI()
-        app.add_middleware(APIKeyAuthMiddleware, required_paths=["/api/v1"])
-
-        @app.get("/api/v1/protected")
-        async def protected_endpoint():
-            return {"status": "ok"}
-
-        @app.get("/public")
-        async def public_endpoint():
-            return {"status": "ok"}
-
-        return TestClient(app)
-
-    def test_protected_endpoint_requires_auth(self, client):
-        """Protected endpoints require API key."""
-        response = client.get("/api/v1/protected")
-
-        # Should require auth
-        assert response.status_code in [401, 403, 200]  # 200 if middleware not enforcing
-
-    def test_public_endpoint_no_auth(self, client):
-        """Public endpoints don't require auth."""
-        response = client.get("/public")
-
-        assert response.status_code == 200
-
-    def test_valid_api_key_accepted(self, client):
-        """Valid API key is accepted."""
-        response = client.get("/api/v1/protected", headers={"X-API-Key": "cv_test-key-12345"})
-
-        # Should accept (or at least process the key)
-        assert response.status_code in [200, 401, 403]
+        assert app.state.limiter is limiter
+        assert [response.status_code for response in responses] == [200, 200, 429]
+        assert "Rate limit exceeded" in responses[-1].json()["error"]

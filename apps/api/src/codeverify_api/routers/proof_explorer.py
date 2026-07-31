@@ -18,6 +18,7 @@ router = APIRouter()
 # Models
 # ---------------------------------------------------------------------------
 
+
 class ProofExplorerRequest(BaseModel):
     code: str = Field(description="Source code to verify")
     function_name: str = Field(description="Function to verify")
@@ -97,61 +98,85 @@ class ExplainResponse(BaseModel):
 # Demo proof tree generator
 # ---------------------------------------------------------------------------
 
+
 def _build_demo_proof_tree(function_name: str, code: str) -> ProofTreeNode:
     """Build a representative proof tree for demonstration."""
     checks = []
 
     # Infer properties from code patterns
     if "None" in code or "null" in code or "Optional" in code:
-        checks.append(ProofTreeNode(
-            id=str(uuid.uuid4()),
-            type="assertion",
-            label="Null Safety",
-            expression=f"ForAll([x], Implies(is_param(x), x != None))",
-            status="disproved",
-            children=[
-                ProofTreeNode(
-                    id=str(uuid.uuid4()), type="constraint",
-                    label="Parameter non-null", expression="param != None", status="disproved",
-                ),
-                ProofTreeNode(
-                    id=str(uuid.uuid4()), type="constraint",
-                    label="Return non-null", expression="result != None", status="proved",
-                ),
-            ],
-        ))
+        checks.append(
+            ProofTreeNode(
+                id=str(uuid.uuid4()),
+                type="assertion",
+                label="Null Safety",
+                expression="ForAll([x], Implies(is_param(x), x != None))",
+                status="disproved",
+                children=[
+                    ProofTreeNode(
+                        id=str(uuid.uuid4()),
+                        type="constraint",
+                        label="Parameter non-null",
+                        expression="param != None",
+                        status="disproved",
+                    ),
+                    ProofTreeNode(
+                        id=str(uuid.uuid4()),
+                        type="constraint",
+                        label="Return non-null",
+                        expression="result != None",
+                        status="proved",
+                    ),
+                ],
+            )
+        )
     if "[" in code or "index" in code.lower():
-        checks.append(ProofTreeNode(
-            id=str(uuid.uuid4()),
-            type="assertion",
-            label="Bounds Check",
-            expression="ForAll([i, a], Implies(access(a, i), And(i >= 0, i < len(a))))",
-            status="proved",
-            children=[
-                ProofTreeNode(
-                    id=str(uuid.uuid4()), type="constraint",
-                    label="Lower bound", expression="index >= 0", status="proved",
-                ),
-                ProofTreeNode(
-                    id=str(uuid.uuid4()), type="constraint",
-                    label="Upper bound", expression="index < len(array)", status="proved",
-                ),
-            ],
-        ))
+        checks.append(
+            ProofTreeNode(
+                id=str(uuid.uuid4()),
+                type="assertion",
+                label="Bounds Check",
+                expression="ForAll([i, a], Implies(access(a, i), And(i >= 0, i < len(a))))",
+                status="proved",
+                children=[
+                    ProofTreeNode(
+                        id=str(uuid.uuid4()),
+                        type="constraint",
+                        label="Lower bound",
+                        expression="index >= 0",
+                        status="proved",
+                    ),
+                    ProofTreeNode(
+                        id=str(uuid.uuid4()),
+                        type="constraint",
+                        label="Upper bound",
+                        expression="index < len(array)",
+                        status="proved",
+                    ),
+                ],
+            )
+        )
     if "/" in code or "div" in code.lower():
-        checks.append(ProofTreeNode(
-            id=str(uuid.uuid4()),
-            type="assertion",
-            label="Division Safety",
-            expression="ForAll([a, b], Implies(divide(a, b), b != 0))",
-            status="proved",
-        ))
+        checks.append(
+            ProofTreeNode(
+                id=str(uuid.uuid4()),
+                type="assertion",
+                label="Division Safety",
+                expression="ForAll([a, b], Implies(divide(a, b), b != 0))",
+                status="proved",
+            )
+        )
 
     if not checks:
-        checks.append(ProofTreeNode(
-            id=str(uuid.uuid4()), type="assertion",
-            label="Type Safety", expression="type_check(all_vars)", status="proved",
-        ))
+        checks.append(
+            ProofTreeNode(
+                id=str(uuid.uuid4()),
+                type="assertion",
+                label="Type Safety",
+                expression="type_check(all_vars)",
+                status="proved",
+            )
+        )
 
     root_status = "disproved" if any(c.status == "disproved" for c in checks) else "proved"
     return ProofTreeNode(
@@ -171,6 +196,7 @@ def _build_demo_constraint_graph(code: str) -> ConstraintGraphData:
 
     # Extract simple variable patterns
     import re
+
     params = re.findall(r"def \w+\(([^)]+)\)", code)
     if params:
         for param in params[0].split(","):
@@ -187,32 +213,42 @@ def _build_demo_constraint_graph(code: str) -> ConstraintGraphData:
         var_names = ["x", "result"]
 
     for i, v1 in enumerate(var_names):
-        for v2 in var_names[i + 1:]:
-            edges.append({
-                "source": v1,
-                "target": v2,
-                "constraint": f"{v1} relates to {v2}",
-                "satisfied": True,
-            })
+        for v2 in var_names[i + 1 :]:
+            edges.append(
+                {
+                    "source": v1,
+                    "target": v2,
+                    "constraint": f"{v1} relates to {v2}",
+                    "satisfied": True,
+                }
+            )
 
     return ConstraintGraphData(variables=variables, edges=edges)
 
 
-def _build_demo_counterexamples(function_name: str, code: str) -> list[CounterexampleData]:
+def _build_demo_counterexamples(_function_name: str, code: str) -> list[CounterexampleData]:
     counterexamples = []
     if "None" in code or "null" in code or "Optional" in code:
-        counterexamples.append(CounterexampleData(
-            id=str(uuid.uuid4()),
-            variables=[
-                {"name": "param", "value": None, "type": "NoneType"},
-            ],
-            violated_property="Null Safety: param != None",
-            execution_path=[
-                {"step": 1, "line": 1, "action": "enter", "state": {"param": None}},
-                {"step": 2, "line": 3, "action": "access", "state": {"param": None}, "error": "NoneType has no attribute"},
-            ],
-            editable=True,
-        ))
+        counterexamples.append(
+            CounterexampleData(
+                id=str(uuid.uuid4()),
+                variables=[
+                    {"name": "param", "value": None, "type": "NoneType"},
+                ],
+                violated_property="Null Safety: param != None",
+                execution_path=[
+                    {"step": 1, "line": 1, "action": "enter", "state": {"param": None}},
+                    {
+                        "step": 2,
+                        "line": 3,
+                        "action": "access",
+                        "state": {"param": None},
+                        "error": "NoneType has no attribute",
+                    },
+                ],
+                editable=True,
+            )
+        )
     return counterexamples
 
 
@@ -227,6 +263,7 @@ _explorations: dict[str, dict[str, Any]] = {}
 # Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.post("/explore", response_model=ProofExplorerResponse)
 async def create_exploration(request: ProofExplorerRequest) -> ProofExplorerResponse:
     """Create a new proof exploration for a function."""
@@ -237,8 +274,18 @@ async def create_exploration(request: ProofExplorerRequest) -> ProofExplorerResp
     counterexamples = _build_demo_counterexamples(request.function_name, request.code)
 
     trace = [
-        {"step": 1, "type": "parse", "description": f"Parse {request.function_name}", "time_ms": 2.1},
-        {"step": 2, "type": "extract_constraints", "description": "Extract verification constraints", "time_ms": 5.3},
+        {
+            "step": 1,
+            "type": "parse",
+            "description": f"Parse {request.function_name}",
+            "time_ms": 2.1,
+        },
+        {
+            "step": 2,
+            "type": "extract_constraints",
+            "description": "Extract verification constraints",
+            "time_ms": 5.3,
+        },
         {"step": 3, "type": "solve", "description": "Run Z3 SMT solver", "time_ms": 45.7},
         {"step": 4, "type": "check_sat", "description": "Check satisfiability", "time_ms": 12.4},
     ]
@@ -283,7 +330,9 @@ async def edit_counterexample(request: CounterexampleEditRequest) -> Counterexam
             ce = c
             break
     if not ce:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Counterexample not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Counterexample not found"
+        )
 
     original_vars = {v["name"]: v["value"] for v in ce["variables"]}
 
@@ -293,7 +342,8 @@ async def edit_counterexample(request: CounterexampleEditRequest) -> Counterexam
     new_path = [
         {"step": 1, "line": 1, "action": "enter", "state": request.modified_variables},
         {
-            "step": 2, "line": 3,
+            "step": 2,
+            "line": 3,
             "action": "access" if still_violates else "return",
             "state": request.modified_variables,
             "error": "Still violates property" if still_violates else None,

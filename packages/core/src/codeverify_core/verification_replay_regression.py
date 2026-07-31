@@ -17,7 +17,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -44,6 +44,7 @@ class SessionStatus(str, Enum):
 @dataclass
 class VerificationSnapshot:
     """Snapshot of a single verification check."""
+
     check_type: str = ""
     function_name: str = ""
     file_path: str = ""
@@ -56,12 +57,13 @@ class VerificationSnapshot:
 @dataclass
 class RecordedSession:
     """A recorded verification session."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     repo: str = ""
     commit_sha: str = ""
     snapshots: list[VerificationSnapshot] = field(default_factory=list)
     status: SessionStatus = SessionStatus.RECORDED
-    recorded_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    recorded_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     code_hashes: dict[str, str] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -74,6 +76,7 @@ class RecordedSession:
 @dataclass
 class ReplayComparison:
     """Comparison between original and replayed verification."""
+
     snapshot_index: int = 0
     check_type: str = ""
     function_name: str = ""
@@ -86,6 +89,7 @@ class ReplayComparison:
 @dataclass
 class ReplayReport:
     """Report from replaying a session against new code."""
+
     session_id: str = ""
     original_commit: str = ""
     replay_commit: str = ""
@@ -94,7 +98,7 @@ class ReplayReport:
     improvements: int = 0
     unchanged: int = 0
     total_checks: int = 0
-    replayed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    replayed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def regression_rate(self) -> float:
@@ -104,6 +108,7 @@ class ReplayReport:
 @dataclass
 class RegressionTrend:
     """Trend data for proof regressions over time."""
+
     period: str = ""
     sessions_replayed: int = 0
     total_regressions: int = 0
@@ -125,15 +130,17 @@ class SessionRecorder:
         snapshots: list[VerificationSnapshot] = []
         for check in checks:
             code_content = check.get("code", "")
-            snapshots.append(VerificationSnapshot(
-                check_type=check.get("check_type", ""),
-                function_name=check.get("function_name", ""),
-                file_path=check.get("file_path", ""),
-                result=check.get("result", "pass"),
-                counterexample=check.get("counterexample", {}),
-                constraints=check.get("constraints", []),
-                content_hash=hashlib.sha256(code_content.encode()).hexdigest()[:12],
-            ))
+            snapshots.append(
+                VerificationSnapshot(
+                    check_type=check.get("check_type", ""),
+                    function_name=check.get("function_name", ""),
+                    file_path=check.get("file_path", ""),
+                    result=check.get("result", "pass"),
+                    counterexample=check.get("counterexample", {}),
+                    constraints=check.get("constraints", []),
+                    content_hash=hashlib.sha256(code_content.encode()).hexdigest()[:12],
+                )
+            )
 
         code_hashes = {}
         if code_files:
@@ -141,8 +148,10 @@ class SessionRecorder:
                 code_hashes[path] = hashlib.sha256(content.encode()).hexdigest()[:12]
 
         return RecordedSession(
-            repo=repo, commit_sha=commit_sha,
-            snapshots=snapshots, code_hashes=code_hashes,
+            repo=repo,
+            commit_sha=commit_sha,
+            snapshots=snapshots,
+            code_hashes=code_hashes,
         )
 
 
@@ -171,20 +180,22 @@ class ReplayEngine:
             new_content = new_code_files.get(snapshot.file_path, "")
 
             if old_hash == new_hash:
-                comparisons.append(ReplayComparison(
-                    snapshot_index=i, check_type=snapshot.check_type,
-                    function_name=snapshot.function_name,
-                    original_result=snapshot.result, replay_result=snapshot.result,
-                    comparison=ReplayResult.STILL_VALID,
-                    details="Code unchanged — proof still valid",
-                ))
+                comparisons.append(
+                    ReplayComparison(
+                        snapshot_index=i,
+                        check_type=snapshot.check_type,
+                        function_name=snapshot.function_name,
+                        original_result=snapshot.result,
+                        replay_result=snapshot.result,
+                        comparison=ReplayResult.STILL_VALID,
+                        details="Code unchanged — proof still valid",
+                    )
+                )
                 unchanged += 1
                 continue
 
             # Code changed — re-verify
-            replay_result = self._simulate_verification(
-                snapshot, new_content
-            )
+            replay_result = self._simulate_verification(snapshot, new_content)
 
             if snapshot.result == "pass" and replay_result == "fail":
                 comparison = ReplayResult.REGRESSION
@@ -193,7 +204,7 @@ class ReplayEngine:
             elif snapshot.result == "fail" and replay_result == "pass":
                 comparison = ReplayResult.IMPROVED
                 improvements += 1
-                details = f"Previously failing check now passes — bug fixed"
+                details = "Previously failing check now passes — bug fixed"
             elif snapshot.result == replay_result:
                 comparison = ReplayResult.STILL_VALID
                 unchanged += 1
@@ -203,12 +214,17 @@ class ReplayEngine:
                 unchanged += 1
                 details = "Result changed"
 
-            comparisons.append(ReplayComparison(
-                snapshot_index=i, check_type=snapshot.check_type,
-                function_name=snapshot.function_name,
-                original_result=snapshot.result, replay_result=replay_result,
-                comparison=comparison, details=details,
-            ))
+            comparisons.append(
+                ReplayComparison(
+                    snapshot_index=i,
+                    check_type=snapshot.check_type,
+                    function_name=snapshot.function_name,
+                    original_result=snapshot.result,
+                    replay_result=replay_result,
+                    comparison=comparison,
+                    details=details,
+                )
+            )
 
         return ReplayReport(
             session_id=session.id,
@@ -221,9 +237,7 @@ class ReplayEngine:
             total_checks=len(session.snapshots),
         )
 
-    def _simulate_verification(
-        self, snapshot: VerificationSnapshot, new_code: str
-    ) -> str:
+    def _simulate_verification(self, snapshot: VerificationSnapshot, new_code: str) -> str:
         """Simulate re-verification of a check against new code."""
         if not new_code:
             return "fail"
@@ -234,9 +248,8 @@ class ReplayEngine:
                 return "pass"
             if "None" in str(snapshot.counterexample):
                 return "fail"
-        if snapshot.check_type == "division_by_zero":
-            if "!= 0" in new_code or "if " in new_code:
-                return "pass"
+        if snapshot.check_type == "division_by_zero" and ("!= 0" in new_code or "if " in new_code):
+            return "pass"
         return snapshot.result
 
 
@@ -250,7 +263,9 @@ class VerificationReplayService:
         self._reports: list[ReplayReport] = []
 
     def record_session(
-        self, repo: str, commit_sha: str,
+        self,
+        repo: str,
+        commit_sha: str,
         checks: list[dict[str, Any]],
         code_files: dict[str, str] | None = None,
     ) -> RecordedSession:
@@ -259,7 +274,8 @@ class VerificationReplayService:
         return session
 
     def replay_session(
-        self, session_id: str,
+        self,
+        session_id: str,
         new_code_files: dict[str, str],
         new_commit_sha: str = "",
     ) -> ReplayReport | None:
@@ -273,7 +289,9 @@ class VerificationReplayService:
     def get_regressions(self) -> list[ReplayComparison]:
         regressions: list[ReplayComparison] = []
         for report in self._reports:
-            regressions.extend(c for c in report.comparisons if c.comparison == ReplayResult.REGRESSION)
+            regressions.extend(
+                c for c in report.comparisons if c.comparison == ReplayResult.REGRESSION
+            )
         return regressions
 
     def get_trend(self) -> list[RegressionTrend]:
@@ -282,13 +300,15 @@ class VerificationReplayService:
         total_reg = sum(r.regressions for r in self._reports)
         total_imp = sum(r.improvements for r in self._reports)
         total_checks = sum(r.total_checks for r in self._reports)
-        return [RegressionTrend(
-            period="current",
-            sessions_replayed=len(self._reports),
-            total_regressions=total_reg,
-            total_improvements=total_imp,
-            regression_rate=round(total_reg / total_checks, 3) if total_checks > 0 else 0.0,
-        )]
+        return [
+            RegressionTrend(
+                period="current",
+                sessions_replayed=len(self._reports),
+                total_regressions=total_reg,
+                total_improvements=total_imp,
+                regression_rate=round(total_reg / total_checks, 3) if total_checks > 0 else 0.0,
+            )
+        ]
 
     def get_session(self, session_id: str) -> RecordedSession | None:
         return self._sessions.get(session_id)
@@ -304,11 +324,13 @@ class VerificationReplayService:
 
 _replay_instance: VerificationReplayService | None = None
 
+
 def get_verification_replay_service() -> VerificationReplayService:
     global _replay_instance
     if _replay_instance is None:
         _replay_instance = VerificationReplayService()
     return _replay_instance
+
 
 def reset_verification_replay_service() -> None:
     global _replay_instance

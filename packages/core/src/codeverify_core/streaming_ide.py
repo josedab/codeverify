@@ -20,7 +20,7 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -73,9 +73,7 @@ class CodeBlock:
     dependencies: list[str] = field(default_factory=list)
 
     def compute_hash(self) -> str:
-        self.content_hash = hashlib.sha256(
-            self.content.encode()
-        ).hexdigest()[:16]
+        self.content_hash = hashlib.sha256(self.content.encode()).hexdigest()[:16]
         return self.content_hash
 
 
@@ -111,9 +109,7 @@ class BlockVerificationResult:
 
     @property
     def has_errors(self) -> bool:
-        return any(
-            d.severity == DiagnosticSeverity.ERROR for d in self.diagnostics
-        )
+        return any(d.severity == DiagnosticSeverity.ERROR for d in self.diagnostics)
 
 
 @dataclass
@@ -125,9 +121,7 @@ class FileVerificationResult:
     total_time_ms: int = 0
     cache_hit_rate: float = 0.0
     trigger: VerificationTrigger = VerificationTrigger.FILE_SAVE
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def overall_status(self) -> ProofStatus:
@@ -150,9 +144,7 @@ class VerificationCacheEntry:
 
     content_hash: str = ""
     result: BlockVerificationResult | None = None
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     hit_count: int = 0
     ttl_seconds: int = 3600
 
@@ -194,7 +186,6 @@ class CodeBlockParser:
         patterns = self.FUNCTION_PATTERNS.get(language, ["def "])
 
         current_block: CodeBlock | None = None
-        indent_level = 0
 
         for i, line in enumerate(lines, 1):
             stripped = line.lstrip()
@@ -213,7 +204,6 @@ class CodeBlockParser:
                         start_line=i,
                         content=line + "\n",
                     )
-                    indent_level = len(line) - len(stripped)
                     break
             else:
                 if current_block:
@@ -227,7 +217,7 @@ class CodeBlockParser:
         return blocks
 
     def _extract_name(self, line: str, pattern: str) -> str:
-        after_pattern = line[len(pattern):]
+        after_pattern = line[len(pattern) :]
         name = after_pattern.split("(")[0].split(":")[0].split("{")[0]
         return name.strip().rstrip(" =")
 
@@ -247,7 +237,7 @@ class IncrementalVerificationCache:
             self._stats["misses"] += 1
             return None
 
-        age = (datetime.now(timezone.utc) - entry.created_at).total_seconds()
+        age = (datetime.now(UTC) - entry.created_at).total_seconds()
         if age > entry.ttl_seconds:
             del self._cache[content_hash]
             self._stats["misses"] += 1
@@ -285,7 +275,7 @@ class IncrementalVerificationCache:
         self._stats = {"hits": 0, "misses": 0, "evictions": 0}
 
     @property
-    def stats(self) -> dict[str, int]:
+    def stats(self) -> dict[str, float]:
         total = self._stats["hits"] + self._stats["misses"]
         return {
             **self._stats,
@@ -296,9 +286,7 @@ class IncrementalVerificationCache:
     def _evict_oldest(self) -> None:
         if not self._cache:
             return
-        oldest_key = min(
-            self._cache, key=lambda k: self._cache[k].created_at
-        )
+        oldest_key = min(self._cache, key=lambda k: self._cache[k].created_at)
         del self._cache[oldest_key]
         self._stats["evictions"] += 1
 
@@ -333,16 +321,18 @@ class StreamingVerifier:
         for pattern, code, message in checks:
             for i, line in enumerate(block.content.split("\n"), block.start_line):
                 if pattern in line:
-                    diagnostics.append(BlockDiagnostic(
-                        file_path=block.file_path,
-                        line=i,
-                        column=line.find(pattern),
-                        severity=DiagnosticSeverity.WARNING
-                        if code != "security"
-                        else DiagnosticSeverity.ERROR,
-                        message=message,
-                        code=code,
-                    ))
+                    diagnostics.append(
+                        BlockDiagnostic(
+                            file_path=block.file_path,
+                            line=i,
+                            column=line.find(pattern),
+                            severity=DiagnosticSeverity.WARNING
+                            if code != "security"
+                            else DiagnosticSeverity.ERROR,
+                            message=message,
+                            code=code,
+                        )
+                    )
 
         elapsed_ms = int((time.time() - start_time) * 1000)
         status = ProofStatus.VERIFIED
@@ -433,7 +423,7 @@ class StreamingIDEVerificationService:
         if session:
             session.total_verifications += 1
             session.total_cache_hits += cache_hits
-            session.last_verification_at = datetime.now(timezone.utc)
+            session.last_verification_at = datetime.now(UTC)
             session.pending_changes = False
 
         return FileVerificationResult(
@@ -444,9 +434,7 @@ class StreamingIDEVerificationService:
             trigger=trigger,
         )
 
-    def register_dependency(
-        self, source_file: str, depends_on: str
-    ) -> None:
+    def register_dependency(self, source_file: str, depends_on: str) -> None:
         """Register that source_file depends on depends_on."""
         self._dependency_graph[depends_on].add(source_file)
 
@@ -486,9 +474,7 @@ class StreamingIDEVerificationService:
         return {
             "active_sessions": len(self.get_active_sessions()),
             "cache": self._cache.stats,
-            "dependency_edges": sum(
-                len(deps) for deps in self._dependency_graph.values()
-            ),
+            "dependency_edges": sum(len(deps) for deps in self._dependency_graph.values()),
         }
 
 

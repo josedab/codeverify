@@ -10,6 +10,7 @@ Provides REST API endpoints for formal specification generation:
 
 from __future__ import annotations
 
+import ast
 import time
 from typing import Any
 
@@ -668,8 +669,6 @@ def _generate_specs(
     include_type_specs: bool,
 ) -> dict[str, Any]:
     """Generate specifications from code."""
-    import ast
-
     result = {
         "functions": [],
         "classes": [],
@@ -942,17 +941,15 @@ def _find_raises(node: ast.FunctionDef, func_spec: dict[str, Any]) -> None:
     import ast
 
     for stmt in ast.walk(node):
-        if isinstance(stmt, ast.Raise):
-            if stmt.exc:
-                if isinstance(stmt.exc, ast.Call):
-                    if isinstance(stmt.exc.func, ast.Name):
-                        exc_name = stmt.exc.func.id
-                        if exc_name not in func_spec["raises"]:
-                            func_spec["raises"].append(exc_name)
-                elif isinstance(stmt.exc, ast.Name):
-                    exc_name = stmt.exc.id
-                    if exc_name not in func_spec["raises"]:
-                        func_spec["raises"].append(exc_name)
+        if isinstance(stmt, ast.Raise) and stmt.exc:
+            if isinstance(stmt.exc, ast.Call) and isinstance(stmt.exc.func, ast.Name):
+                exc_name = stmt.exc.func.id
+                if exc_name not in func_spec["raises"]:
+                    func_spec["raises"].append(exc_name)
+            elif isinstance(stmt.exc, ast.Name):
+                exc_name = stmt.exc.id
+                if exc_name not in func_spec["raises"]:
+                    func_spec["raises"].append(exc_name)
 
 
 def _find_modifications(node: ast.FunctionDef, func_spec: dict[str, Any]) -> None:
@@ -962,14 +959,13 @@ def _find_modifications(node: ast.FunctionDef, func_spec: dict[str, Any]) -> Non
     for stmt in ast.walk(node):
         if isinstance(stmt, ast.Assign):
             for target in stmt.targets:
-                if isinstance(target, ast.Attribute):
-                    if isinstance(target.value, ast.Name):
-                        mod = f"{target.value.id}.{target.attr}"
-                        if mod not in func_spec["modifies"]:
-                            func_spec["modifies"].append(mod)
+                if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
+                    mod = f"{target.value.id}.{target.attr}"
+                    if mod not in func_spec["modifies"]:
+                        func_spec["modifies"].append(mod)
 
 
-def _analyze_python_class(node: ast.ClassDef, gen_id) -> dict[str, Any]:
+def _analyze_python_class(node: ast.ClassDef, _gen_id) -> dict[str, Any]:
     """Analyze a Python class for invariants."""
     return {
         "class_name": node.name,
@@ -979,7 +975,7 @@ def _analyze_python_class(node: ast.ClassDef, gen_id) -> dict[str, Any]:
 
 def _analyze_typescript(
     code: str,
-    include_inferred: bool,
+    _include_inferred: bool,
     include_type_specs: bool,
 ) -> dict[str, Any]:
     """Analyze TypeScript code for specifications."""
@@ -1016,16 +1012,19 @@ def _analyze_typescript(
             "invariants": [],
         }
 
-        if return_type and include_type_specs:
-            if "null" in return_type or "undefined" in return_type:
-                func_spec["postconditions"].append(
-                    {
-                        "spec_id": gen_id(),
-                        "description": "May return null/undefined",
-                        "source": "type_annotation",
-                        "confidence": 1.0,
-                    }
-                )
+        if (
+            return_type
+            and include_type_specs
+            and ("null" in return_type or "undefined" in return_type)
+        ):
+            func_spec["postconditions"].append(
+                {
+                    "spec_id": gen_id(),
+                    "description": "May return null/undefined",
+                    "source": "type_annotation",
+                    "confidence": 1.0,
+                }
+            )
 
         result["functions"].append(func_spec)
 
@@ -1196,7 +1195,7 @@ def _generate_z3_code(func: dict[str, Any]) -> str:
 def _verify_code(
     code: str,
     specs: dict[str, Any],
-    language: str,
+    _language: str,
 ) -> dict[str, Any]:
     """Verify code against specifications."""
     result = {

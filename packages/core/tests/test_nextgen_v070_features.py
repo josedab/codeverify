@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from datetime import datetime, timezone
-
 
 # =============================================================================
 # Feature 1: AI Code Generation Firewall
@@ -16,8 +14,12 @@ class TestAICodeFirewall:
 
     def test_firewall_enums(self):
         from codeverify_core.ai_code_firewall import (
-            SuggestionSource, FirewallAction, RiskLevel, SanitizationType,
+            FirewallAction,
+            RiskLevel,
+            SanitizationType,
+            SuggestionSource,
         )
+
         assert SuggestionSource.COPILOT == "copilot"
         assert FirewallAction.BLOCK == "block"
         assert RiskLevel.CRITICAL == "critical"
@@ -25,42 +27,65 @@ class TestAICodeFirewall:
 
     def test_firewall_intercept_safe_code(self):
         from codeverify_core.ai_code_firewall import (
-            AICodeFirewall, SuggestionInterception, SuggestionSource,
+            AICodeFirewall,
             FirewallAction,
+            SuggestionInterception,
+            SuggestionSource,
         )
+
         fw = AICodeFirewall()
         inter = SuggestionInterception(
-            id="t1", source=SuggestionSource.COPILOT, code="x = 1 + 2",
-            language="python", file_path="test.py", cursor_line=1,
-            cursor_column=0, timestamp=1.0,
+            id="t1",
+            source=SuggestionSource.COPILOT,
+            code="x = 1 + 2",
+            language="python",
+            file_path="test.py",
+            cursor_line=1,
+            cursor_column=0,
+            timestamp=1.0,
         )
         dec = fw.intercept(inter)
         assert dec.action in (FirewallAction.ALLOW, FirewallAction.WARN)
 
     def test_firewall_blocks_secrets(self):
         from codeverify_core.ai_code_firewall import (
-            AICodeFirewall, SuggestionInterception, SuggestionSource,
+            AICodeFirewall,
             RiskLevel,
+            SuggestionInterception,
+            SuggestionSource,
         )
+
         fw = AICodeFirewall()
         inter = SuggestionInterception(
-            id="t2", source=SuggestionSource.CHATGPT,
+            id="t2",
+            source=SuggestionSource.CHATGPT,
             code='AWS_SECRET_KEY = "AKIAIOSFODNN7EXAMPLE"',
-            language="python", file_path="config.py", cursor_line=1,
-            cursor_column=0, timestamp=1.0,
+            language="python",
+            file_path="config.py",
+            cursor_line=1,
+            cursor_column=0,
+            timestamp=1.0,
         )
         dec = fw.intercept(inter)
         assert dec.risk_assessment.risk_level in (RiskLevel.HIGH, RiskLevel.CRITICAL)
 
     def test_firewall_metrics(self):
         from codeverify_core.ai_code_firewall import (
-            AICodeFirewall, SuggestionInterception, SuggestionSource,
+            AICodeFirewall,
+            SuggestionInterception,
+            SuggestionSource,
         )
+
         fw = AICodeFirewall()
         inter = SuggestionInterception(
-            id="t3", source=SuggestionSource.COPILOT, code="print('hi')",
-            language="python", file_path="a.py", cursor_line=1,
-            cursor_column=0, timestamp=1.0,
+            id="t3",
+            source=SuggestionSource.COPILOT,
+            code="print('hi')",
+            language="python",
+            file_path="a.py",
+            cursor_line=1,
+            cursor_column=0,
+            timestamp=1.0,
         )
         fw.intercept(inter)
         m = fw.get_metrics()
@@ -68,42 +93,58 @@ class TestAICodeFirewall:
 
     def test_risk_analyzer(self):
         from codeverify_core.ai_code_firewall import (
-            SuggestionRiskAnalyzer, SuggestionInterception, SuggestionSource,
+            SuggestionInterception,
+            SuggestionRiskAnalyzer,
+            SuggestionSource,
         )
+
         analyzer = SuggestionRiskAnalyzer()
         inter = SuggestionInterception(
-            id="t4", source=SuggestionSource.COPILOT,
+            id="t4",
+            source=SuggestionSource.COPILOT,
             code="os.system('rm -rf /')",
-            language="python", file_path="bad.py", cursor_line=1,
-            cursor_column=0, timestamp=1.0,
+            language="python",
+            file_path="bad.py",
+            cursor_line=1,
+            cursor_column=0,
+            timestamp=1.0,
         )
         risk = analyzer.analyze(inter)
         assert risk.overall_score > 0
 
     def test_code_sanitizer(self):
         from codeverify_core.ai_code_firewall import CodeSanitizer, RiskAssessment, RiskLevel
+
         sanitizer = CodeSanitizer()
         risk = RiskAssessment(
-            risk_level=RiskLevel.HIGH, confidence=0.9,
+            risk_level=RiskLevel.HIGH,
+            confidence=0.9,
             risk_factors=[{"type": "secret", "description": "Hardcoded password"}],
-            security_issues=["hardcoded_secret"], quality_issues=[],
+            security_issues=["hardcoded_secret"],
+            quality_issues=[],
             overall_score=70.0,
         )
-        sanitized, actions = sanitizer.sanitize(
-            'password = "secret123"', risk, "python"
-        )
+        sanitized, actions = sanitizer.sanitize('password = "secret123"', risk, "python")
         assert isinstance(sanitized, str)
         assert isinstance(actions, list)
 
     def test_firewall_decision_to_dict(self):
         from codeverify_core.ai_code_firewall import (
-            AICodeFirewall, SuggestionInterception, SuggestionSource,
+            AICodeFirewall,
+            SuggestionInterception,
+            SuggestionSource,
         )
+
         fw = AICodeFirewall()
         inter = SuggestionInterception(
-            id="t5", source=SuggestionSource.COPILOT, code="x = 1",
-            language="python", file_path="a.py", cursor_line=1,
-            cursor_column=0, timestamp=1.0,
+            id="t5",
+            source=SuggestionSource.COPILOT,
+            code="x = 1",
+            language="python",
+            file_path="a.py",
+            cursor_line=1,
+            cursor_column=0,
+            timestamp=1.0,
         )
         dec = fw.intercept(inter)
         d = dec.to_dict()
@@ -112,11 +153,16 @@ class TestAICodeFirewall:
 
     def test_firewall_policy_update(self):
         from codeverify_core.ai_code_firewall import (
-            AICodeFirewall, FirewallPolicy, RiskLevel,
+            AICodeFirewall,
+            FirewallPolicy,
+            RiskLevel,
         )
+
         fw = AICodeFirewall()
         policy = FirewallPolicy(
-            id="custom", name="Strict", description="Block all",
+            id="custom",
+            name="Strict",
+            description="Block all",
             risk_threshold=RiskLevel.LOW,
         )
         fw.update_policy(policy)
@@ -132,14 +178,18 @@ class TestSaaSBilling:
 
     def test_billing_enums(self):
         from codeverify_core.saas_billing import (
-            PlanType, BillingCycle, SubscriptionStatus,
+            BillingCycle,
+            PlanType,
+            SubscriptionStatus,
         )
+
         assert PlanType.FREE == "free"
         assert BillingCycle.ANNUAL == "annual"
         assert SubscriptionStatus.ACTIVE == "active"
 
     def test_plan_catalog(self):
         from codeverify_core.saas_billing import PlanCatalog, PlanType
+
         catalog = PlanCatalog()
         plans = catalog.get_all_plans()
         assert len(plans) >= 4
@@ -148,6 +198,7 @@ class TestSaaSBilling:
 
     def test_plan_pricing(self):
         from codeverify_core.saas_billing import PlanCatalog, PlanType
+
         catalog = PlanCatalog()
         starter = catalog.get_plan(PlanType.STARTER)
         assert starter.price_monthly == 29
@@ -158,14 +209,18 @@ class TestSaaSBilling:
 
     def test_subscription_lifecycle(self):
         from codeverify_core.saas_billing import (
-            SubscriptionManager, PlanType, SubscriptionStatus,
+            PlanType,
+            SubscriptionManager,
+            SubscriptionStatus,
         )
+
         mgr = SubscriptionManager()
         sub = mgr.create_subscription("t1", PlanType.STARTER)
         assert sub.status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING)
 
     def test_usage_meter(self):
         from codeverify_core.saas_billing import UsageMeter, UsageMetric
+
         meter = UsageMeter()
         rec = meter.record_usage("t1", UsageMetric.VERIFICATIONS)
         assert rec.value >= 1
@@ -173,13 +228,15 @@ class TestSaaSBilling:
         assert usage >= 1
 
     def test_engine_onboard(self):
-        from codeverify_core.saas_billing import SaaSBillingEngine, PlanType
+        from codeverify_core.saas_billing import PlanType, SaaSBillingEngine
+
         engine = SaaSBillingEngine()
         result = engine.onboard_tenant("TestCo", PlanType.STARTER)
         assert "tenant_id" in result
 
     def test_engine_process_verification(self):
-        from codeverify_core.saas_billing import SaaSBillingEngine, PlanType
+        from codeverify_core.saas_billing import PlanType, SaaSBillingEngine
+
         engine = SaaSBillingEngine()
         result = engine.onboard_tenant("TestCo", PlanType.STARTER)
         allowed, reason = engine.process_verification(result["tenant_id"])
@@ -187,6 +244,7 @@ class TestSaaSBilling:
 
     def test_sso_manager(self):
         from codeverify_core.saas_billing import SSOManager, SSOProvider
+
         mgr = SSOManager()
         cfg = mgr.configure_sso("t1", SSOProvider.OKTA, "client-id", "https://issuer.example.com")
         assert cfg.provider == SSOProvider.OKTA
@@ -201,24 +259,31 @@ class TestSaaSBilling:
 class TestProofServiceAPI:
     """Tests for the Proof-as-a-Service API module."""
 
+    _HMAC_SECRET = b"test-proof-service-hmac-secret"
+
     def test_api_enums(self):
         from codeverify_core.proof_service_api import (
-            ProofRequestStatus, VerificationCheck, ProofFormat,
+            ProofFormat,
+            ProofRequestStatus,
+            VerificationCheck,
         )
+
         assert ProofRequestStatus.COMPLETED == "completed"
         assert VerificationCheck.NULL_SAFETY == "null_safety"
         assert ProofFormat.JSON == "json"
 
     def test_api_key_creation(self):
         from codeverify_core.proof_service_api import APIKeyManager
-        mgr = APIKeyManager()
+
+        mgr = APIKeyManager(hmac_secret=self._HMAC_SECRET)
         raw_key, config = mgr.create_key("tenant-1", "test-key")
         assert len(raw_key) > 10
         assert config.active is True
 
     def test_api_key_validation(self):
         from codeverify_core.proof_service_api import APIKeyManager
-        mgr = APIKeyManager()
+
+        mgr = APIKeyManager(hmac_secret=self._HMAC_SECRET)
         raw_key, _ = mgr.create_key("tenant-1", "test-key")
         validated = mgr.validate_key(raw_key)
         assert validated is not None
@@ -226,13 +291,24 @@ class TestProofServiceAPI:
 
     def test_api_key_revoke(self):
         from codeverify_core.proof_service_api import APIKeyManager
-        mgr = APIKeyManager()
+
+        mgr = APIKeyManager(hmac_secret=self._HMAC_SECRET)
         raw_key, config = mgr.create_key("tenant-1", "test-key")
         assert mgr.revoke_key(config.key_id) is True
         assert mgr.validate_key(raw_key) is None
 
+    def test_api_key_manager_requires_secret_for_key_operations(self, monkeypatch):
+        from codeverify_core.proof_service_api import APIKeyManager
+
+        monkeypatch.delenv("CODEVERIFY_PROOF_HMAC_SECRET", raising=False)
+        mgr = APIKeyManager()
+
+        with pytest.raises(RuntimeError, match="CODEVERIFY_PROOF_HMAC_SECRET"):
+            mgr.create_key("tenant-1", "test-key")
+
     def test_rate_limiter(self):
         from codeverify_core.proof_service_api import RateLimiter
+
         limiter = RateLimiter()
         allowed, remaining, limit = limiter.check_rate_limit("key-1")
         assert allowed is True
@@ -240,13 +316,15 @@ class TestProofServiceAPI:
 
     def test_proof_service_verify(self):
         from codeverify_core.proof_service_api import ProofServiceAPI
-        api = ProofServiceAPI()
+
+        api = ProofServiceAPI(hmac_secret=self._HMAC_SECRET)
         raw_key, _ = api._key_manager.create_key("t1", "test")
         result = api.verify(raw_key, "x = 1 + 2", "python")
         assert result.status.value in ("completed", "failed")
 
     def test_pricing_config(self):
         from codeverify_core.proof_service_api import PricingConfig, PricingModel
+
         config = PricingConfig(model=PricingModel.PER_PROOF)
         assert config.cost_per_proof_cents == 5.0
 
@@ -261,14 +339,18 @@ class TestSmartContractAnalyzer:
 
     def test_analyzer_enums(self):
         from codeverify_core.smart_contract_analyzer import (
-            AnalysisDepth, ContractStandard, ProofStatus,
+            AnalysisDepth,
+            ContractStandard,
+            ProofStatus,
         )
+
         assert AnalysisDepth.STANDARD == "standard"
         assert ContractStandard.ERC20 == "ERC-20"
         assert ProofStatus.PROVEN_SAFE.value in ("proven_safe", "PROVEN_SAFE")
 
     def test_solidity_parser(self):
         from codeverify_core.smart_contract_analyzer import SolidityParser
+
         parser = SolidityParser()
         code = """
         contract Token {
@@ -283,8 +365,10 @@ class TestSmartContractAnalyzer:
 
     def test_vulnerability_detection(self):
         from codeverify_core.smart_contract_analyzer import (
-            SmartContractAnalyzer, AnalysisDepth,
+            AnalysisDepth,
+            SmartContractAnalyzer,
         )
+
         analyzer = SmartContractAnalyzer(depth=AnalysisDepth.STANDARD)
         code = """
         contract Vulnerable {
@@ -301,29 +385,44 @@ class TestSmartContractAnalyzer:
 
     def test_quick_scan(self):
         from codeverify_core.smart_contract_analyzer import SmartContractAnalyzer
+
         analyzer = SmartContractAnalyzer()
         vulns = analyzer.quick_scan("contract Test { function f() public { } }")
         assert isinstance(vulns, list)
 
     def test_gas_analyzer(self):
-        from codeverify_core.smart_contract_analyzer import GasAnalyzer, ContractFunction
+        from codeverify_core.smart_contract_analyzer import ContractFunction, GasAnalyzer
+
         ga = GasAnalyzer()
         func = ContractFunction(
-            name="transfer", visibility="public", mutability="nonpayable",
-            parameters=[{"name": "to", "type": "address"}], return_types=["bool"],
+            name="transfer",
+            visibility="public",
+            mutability="nonpayable",
+            parameters=[{"name": "to", "type": "address"}],
+            return_types=["bool"],
         )
         analyses = ga.analyze_gas("function transfer() {}", [func])
         assert isinstance(analyses, list)
 
     def test_erc_compliance(self):
         from codeverify_core.smart_contract_analyzer import (
-            ERCComplianceChecker, ContractStandard, ContractFunction,
+            ContractFunction,
+            ContractStandard,
+            ERCComplianceChecker,
         )
+
         checker = ERCComplianceChecker()
         funcs = [
-            ContractFunction(name="transfer", visibility="public", mutability="nonpayable",
-                             parameters=[{"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}],
-                             return_types=["bool"]),
+            ContractFunction(
+                name="transfer",
+                visibility="public",
+                mutability="nonpayable",
+                parameters=[
+                    {"name": "to", "type": "address"},
+                    {"name": "amount", "type": "uint256"},
+                ],
+                return_types=["bool"],
+            ),
         ]
         result = checker.check_compliance("contract Token {}", funcs, ContractStandard.ERC20)
         assert isinstance(result.compliant, bool)
@@ -331,6 +430,7 @@ class TestSmartContractAnalyzer:
 
     def test_smart_contract_report_to_dict(self):
         from codeverify_core.smart_contract_analyzer import SmartContractAnalyzer
+
         analyzer = SmartContractAnalyzer()
         report = analyzer.analyze("contract A { function f() public {} }", "solidity")
         d = report.to_dict()
@@ -347,8 +447,12 @@ class TestModelFineTuning:
 
     def test_fine_tuning_enums(self):
         from codeverify_core.model_fine_tuning import (
-            TrainingStatus, ModelType, AdapterType, ModelVersion,
+            AdapterType,
+            ModelType,
+            ModelVersion,
+            TrainingStatus,
         )
+
         assert TrainingStatus.TRAINING == "training"
         assert ModelType.CODE_LLAMA == "code_llama"
         assert AdapterType.QLORA == "qlora"
@@ -356,6 +460,7 @@ class TestModelFineTuning:
 
     def test_dataset_builder(self):
         from codeverify_core.model_fine_tuning import DatasetBuilder
+
         builder = DatasetBuilder()
         example = builder.add_example(
             "def f(x): return x", "Missing type hint", "warning", "python"
@@ -365,6 +470,7 @@ class TestModelFineTuning:
 
     def test_dataset_from_history(self):
         from codeverify_core.model_fine_tuning import DatasetBuilder
+
         builder = DatasetBuilder()
         history = [
             {"code": "x = 1", "finding": "unused", "result": "warning", "language": "python"},
@@ -375,21 +481,27 @@ class TestModelFineTuning:
 
     def test_training_orchestrator(self):
         from codeverify_core.model_fine_tuning import (
-            TrainingOrchestrator, TrainingConfig, ModelType, TrainingStatus,
+            ModelType,
+            TrainingConfig,
+            TrainingOrchestrator,
+            TrainingStatus,
         )
+
         orch = TrainingOrchestrator()
         config = TrainingConfig(base_model=ModelType.CODE_LLAMA)
         job = orch.create_job(config, dataset_size=100)
         assert job.status == TrainingStatus.PREPARING
 
     def test_model_registry(self):
-        from codeverify_core.model_fine_tuning import ModelRegistry, ModelVersion
+        from codeverify_core.model_fine_tuning import ModelRegistry
+
         registry = ModelRegistry()
         models = registry.list_models()
         assert isinstance(models, list)
 
     def test_pipeline_end_to_end(self):
         from codeverify_core.model_fine_tuning import FineTuningPipeline
+
         pipe = FineTuningPipeline()
         history = [
             {"code": "x = 1", "finding": "unused var", "result": "warning", "language": "python"},
@@ -398,7 +510,8 @@ class TestModelFineTuning:
         assert result["status"] in ("completed", "failed")
 
     def test_training_config_defaults(self):
-        from codeverify_core.model_fine_tuning import TrainingConfig, ModelType
+        from codeverify_core.model_fine_tuning import ModelType, TrainingConfig
+
         config = TrainingConfig(base_model=ModelType.DEEPSEEK_CODER)
         assert config.learning_rate == 2e-4
         assert config.batch_size == 4
@@ -415,16 +528,22 @@ class TestDependencyVisualizer:
 
     def test_visualizer_enums(self):
         from codeverify_core.dependency_visualizer import (
-            NodeType, EdgeType, ExportFormat, LayoutAlgorithm,
+            EdgeType,
+            ExportFormat,
+            NodeType,
         )
+
         assert NodeType.REPOSITORY == "repository"
         assert EdgeType.DEPENDS_ON == "depends_on"
         assert ExportFormat.MERMAID == "mermaid"
 
     def test_graph_builder(self):
         from codeverify_core.dependency_visualizer import (
-            GraphBuilder, NodeType, EdgeType,
+            EdgeType,
+            GraphBuilder,
+            NodeType,
         )
+
         builder = GraphBuilder()
         n1 = builder.add_node("repo-a", NodeType.REPOSITORY)
         n2 = builder.add_node("repo-b", NodeType.REPOSITORY)
@@ -435,8 +554,12 @@ class TestDependencyVisualizer:
 
     def test_graph_analyzer_cycles(self):
         from codeverify_core.dependency_visualizer import (
-            GraphBuilder, GraphAnalyzer, NodeType, EdgeType,
+            EdgeType,
+            GraphAnalyzer,
+            GraphBuilder,
+            NodeType,
         )
+
         builder = GraphBuilder()
         n1 = builder.add_node("a", NodeType.PACKAGE)
         n2 = builder.add_node("b", NodeType.PACKAGE)
@@ -449,8 +572,12 @@ class TestDependencyVisualizer:
 
     def test_graph_analyzer_orphans(self):
         from codeverify_core.dependency_visualizer import (
-            GraphBuilder, GraphAnalyzer, NodeType, EdgeType,
+            EdgeType,
+            GraphAnalyzer,
+            GraphBuilder,
+            NodeType,
         )
+
         builder = GraphBuilder()
         builder.add_node("orphan", NodeType.MODULE)
         n1 = builder.add_node("a", NodeType.MODULE)
@@ -463,8 +590,12 @@ class TestDependencyVisualizer:
 
     def test_mermaid_export(self):
         from codeverify_core.dependency_visualizer import (
-            GraphBuilder, GraphExporter, NodeType, EdgeType, ExportFormat,
+            EdgeType,
+            GraphBuilder,
+            GraphExporter,
+            NodeType,
         )
+
         builder = GraphBuilder()
         n1 = builder.add_node("a", NodeType.PACKAGE)
         n2 = builder.add_node("b", NodeType.PACKAGE)
@@ -476,8 +607,12 @@ class TestDependencyVisualizer:
 
     def test_dot_export(self):
         from codeverify_core.dependency_visualizer import (
-            GraphBuilder, GraphExporter, NodeType, EdgeType,
+            EdgeType,
+            GraphBuilder,
+            GraphExporter,
+            NodeType,
         )
+
         builder = GraphBuilder()
         n1 = builder.add_node("a", NodeType.PACKAGE)
         n2 = builder.add_node("b", NodeType.PACKAGE)
@@ -489,8 +624,12 @@ class TestDependencyVisualizer:
 
     def test_graph_query_engine(self):
         from codeverify_core.dependency_visualizer import (
-            GraphBuilder, GraphQueryEngine, NodeType, EdgeType,
+            EdgeType,
+            GraphBuilder,
+            GraphQueryEngine,
+            NodeType,
         )
+
         builder = GraphBuilder()
         n1 = builder.add_node("root", NodeType.REPOSITORY)
         n2 = builder.add_node("child", NodeType.PACKAGE)
@@ -502,8 +641,12 @@ class TestDependencyVisualizer:
 
     def test_graph_report(self):
         from codeverify_core.dependency_visualizer import (
-            GraphBuilder, GraphAnalyzer, NodeType, EdgeType,
+            EdgeType,
+            GraphAnalyzer,
+            GraphBuilder,
+            NodeType,
         )
+
         builder = GraphBuilder()
         n1 = builder.add_node("a", NodeType.PACKAGE)
         n2 = builder.add_node("b", NodeType.PACKAGE)
@@ -525,8 +668,12 @@ class TestAutoFixTestGeneration:
 
     def test_test_gen_enums(self):
         from codeverify_core.autofix_test_generation import (
-            TestType, TestFramework, FixConfidence, CoverageLevel,
+            CoverageLevel,
+            FixConfidence,
+            TestFramework,
+            TestType,
         )
+
         assert TestType.UNIT == "unit"
         assert TestFramework.PYTEST == "pytest"
         assert FixConfidence.HIGH == "high"
@@ -534,13 +681,17 @@ class TestAutoFixTestGeneration:
 
     def test_test_generator(self):
         from codeverify_core.autofix_test_generation import (
-            TestGenerator, FixWithTests,
+            FixWithTests,
+            TestGenerator,
         )
+
         gen = TestGenerator()
         fix = FixWithTests(
-            fix_id="f1", original_code="def f(x): return x",
+            fix_id="f1",
+            original_code="def f(x): return x",
             fixed_code="def f(x):\n  if x is None:\n    return 0\n  return x",
-            issue_description="null check", language="python",
+            issue_description="null check",
+            language="python",
         )
         tests = gen.generate_tests(fix)
         assert len(tests) > 0
@@ -548,18 +699,29 @@ class TestAutoFixTestGeneration:
 
     def test_coverage_analyzer(self):
         from codeverify_core.autofix_test_generation import (
-            CoverageAnalyzer, FixWithTests, TestCase, TestType, TestFramework,
+            CoverageAnalyzer,
+            FixWithTests,
+            TestCase,
+            TestFramework,
+            TestType,
         )
+
         analyzer = CoverageAnalyzer()
         fix = FixWithTests(
-            fix_id="f2", original_code="def g(): pass",
+            fix_id="f2",
+            original_code="def g(): pass",
             fixed_code="def g(): return 1",
-            issue_description="add return", language="python",
+            issue_description="add return",
+            language="python",
         )
         test = TestCase(
-            id="tc1", name="test_g", test_type=TestType.UNIT,
-            code="def test_g(): assert g() == 1", language="python",
-            target_function="g", description="test g",
+            id="tc1",
+            name="test_g",
+            test_type=TestType.UNIT,
+            code="def test_g(): assert g() == 1",
+            language="python",
+            target_function="g",
+            description="test g",
             framework=TestFramework.PYTEST,
         )
         level = analyzer.analyze_coverage(fix, [test])
@@ -567,20 +729,26 @@ class TestAutoFixTestGeneration:
 
     def test_autofix_engine_validate(self):
         from codeverify_core.autofix_test_generation import AutoFixTestEngine
+
         engine = AutoFixTestEngine()
         report = engine.validate_fix(
             "def f(x): return x",
             "def f(x):\n  if x is None:\n    return 0\n  return x",
-            "null check", "python",
+            "null check",
+            "python",
         )
         assert report.tests_generated > 0
         assert isinstance(report.confidence.value, str)
 
     def test_fix_validation_report_to_dict(self):
         from codeverify_core.autofix_test_generation import AutoFixTestEngine
+
         engine = AutoFixTestEngine()
         report = engine.validate_fix(
-            "def f(): pass", "def f(): return 1", "add return", "python",
+            "def f(): pass",
+            "def f(): return 1",
+            "add return",
+            "python",
         )
         d = report.to_dict()
         assert "fix_id" in d
@@ -588,17 +756,25 @@ class TestAutoFixTestGeneration:
 
     def test_batch_validate(self):
         from codeverify_core.autofix_test_generation import (
-            AutoFixTestEngine, FixWithTests,
+            AutoFixTestEngine,
+            FixWithTests,
         )
+
         engine = AutoFixTestEngine()
         fixes = [
             FixWithTests(
-                fix_id="b1", original_code="x = 1", fixed_code="x: int = 1",
-                issue_description="type hint", language="python",
+                fix_id="b1",
+                original_code="x = 1",
+                fixed_code="x: int = 1",
+                issue_description="type hint",
+                language="python",
             ),
             FixWithTests(
-                fix_id="b2", original_code="y = []", fixed_code="y: list = []",
-                issue_description="type hint", language="python",
+                fix_id="b2",
+                original_code="y = []",
+                fixed_code="y: list = []",
+                issue_description="type hint",
+                language="python",
             ),
         ]
         reports = engine.batch_validate(fixes)
@@ -615,14 +791,18 @@ class TestCIVerificationAgent:
 
     def test_ci_enums(self):
         from codeverify_core.ci_verification_agent import (
-            CIProvider, GateDecision, VerificationScope, ChangeCategory,
+            CIProvider,
+            GateDecision,
+            VerificationScope,
         )
+
         assert CIProvider.GITHUB_ACTIONS == "github_actions"
         assert GateDecision.PASS == "pass"
         assert VerificationScope.INCREMENTAL == "incremental"
 
     def test_change_detector(self):
         from codeverify_core.ci_verification_agent import ChangeDetector
+
         det = ChangeDetector()
         diff = """--- a/file.py
 +++ b/file.py
@@ -636,6 +816,7 @@ class TestCIVerificationAgent:
 
     def test_proof_cache(self):
         from codeverify_core.ci_verification_agent import ProofCacheManager
+
         cache = ProofCacheManager()
         stored = cache.store_proof("test.py", "abc123", {"verified": True})
         assert stored.file_path == "test.py"
@@ -644,6 +825,7 @@ class TestCIVerificationAgent:
 
     def test_proof_cache_invalidation(self):
         from codeverify_core.ci_verification_agent import ProofCacheManager
+
         cache = ProofCacheManager()
         cache.store_proof("test.py", "abc123", {"verified": True})
         assert cache.invalidate("test.py") is True
@@ -651,16 +833,22 @@ class TestCIVerificationAgent:
 
     def test_gate_evaluator(self):
         from codeverify_core.ci_verification_agent import (
-            GateEvaluator, GatePolicy, GateDecision,
+            GateDecision,
+            GateEvaluator,
+            GatePolicy,
         )
+
         evaluator = GateEvaluator(GatePolicy(max_critical=0, max_high=0))
         decision = evaluator.evaluate([], 90.0)
         assert decision == GateDecision.PASS
 
     def test_gate_evaluator_fail(self):
         from codeverify_core.ci_verification_agent import (
-            GateEvaluator, GatePolicy, GateDecision,
+            GateDecision,
+            GateEvaluator,
+            GatePolicy,
         )
+
         evaluator = GateEvaluator(GatePolicy(max_critical=0))
         findings = [{"severity": "critical", "message": "test"}]
         decision = evaluator.evaluate(findings, 90.0)
@@ -668,15 +856,21 @@ class TestCIVerificationAgent:
 
     def test_ci_config_generator_github(self):
         from codeverify_core.ci_verification_agent import (
-            CIConfigGenerator, CIConfig, CIProvider,
+            CIConfig,
+            CIConfigGenerator,
+            CIProvider,
         )
+
         gen = CIConfigGenerator()
-        config = CIConfig(provider=CIProvider.GITHUB_ACTIONS, repo_url="https://github.com/test/repo")
+        config = CIConfig(
+            provider=CIProvider.GITHUB_ACTIONS, repo_url="https://github.com/test/repo"
+        )
         yaml_output = gen.generate(config)
         assert "codeverify" in yaml_output.lower() or "verify" in yaml_output.lower()
 
     def test_ci_agent_verify(self):
         from codeverify_core.ci_verification_agent import CIVerificationAgent
+
         agent = CIVerificationAgent()
         report = agent.verify_commit("abc123", "", {"test.py": "x = 1"})
         assert report.gate_decision is not None
@@ -692,8 +886,12 @@ class TestComplianceDashboard:
 
     def test_dashboard_enums(self):
         from codeverify_core.compliance_dashboard import (
-            ReportFormat, ComplianceStatus, ControlPriority, TrendDirection,
+            ComplianceStatus,
+            ControlPriority,
+            ReportFormat,
+            TrendDirection,
         )
+
         assert ReportFormat.MARKDOWN == "markdown"
         assert ComplianceStatus.COMPLIANT == "compliant"
         assert ControlPriority.CRITICAL == "critical"
@@ -701,30 +899,44 @@ class TestComplianceDashboard:
 
     def test_add_control(self):
         from codeverify_core.compliance_dashboard import (
-            ComplianceDashboard, ComplianceStatus, ControlPriority,
+            ComplianceDashboard,
+            ComplianceStatus,
+            ControlPriority,
         )
+
         dash = ComplianceDashboard()
         ctrl = dash.add_control(
-            "AC-1", "Access Control", "SOC2",
-            ComplianceStatus.COMPLIANT, ControlPriority.HIGH,
+            "AC-1",
+            "Access Control",
+            "SOC2",
+            ComplianceStatus.COMPLIANT,
+            ControlPriority.HIGH,
         )
         assert ctrl.control_id == "AC-1"
         assert ctrl.framework == "SOC2"
 
     def test_compliance_scorer(self):
         from codeverify_core.compliance_dashboard import (
-            ComplianceScorer, ControlStatus, ComplianceStatus, ControlPriority,
+            ComplianceScorer,
+            ComplianceStatus,
+            ControlPriority,
+            ControlStatus,
         )
+
         scorer = ComplianceScorer()
         controls = [
             ControlStatus(
-                control_id="AC-1", control_name="Access Control",
-                framework="SOC2", status=ComplianceStatus.COMPLIANT,
+                control_id="AC-1",
+                control_name="Access Control",
+                framework="SOC2",
+                status=ComplianceStatus.COMPLIANT,
                 priority=ControlPriority.HIGH,
             ),
             ControlStatus(
-                control_id="AC-2", control_name="User Management",
-                framework="SOC2", status=ComplianceStatus.NON_COMPLIANT,
+                control_id="AC-2",
+                control_name="User Management",
+                framework="SOC2",
+                status=ComplianceStatus.NON_COMPLIANT,
                 priority=ControlPriority.MEDIUM,
             ),
         ]
@@ -733,18 +945,25 @@ class TestComplianceDashboard:
 
     def test_markdown_report(self):
         from codeverify_core.compliance_dashboard import (
-            ComplianceDashboard, ComplianceStatus, ControlPriority, ReportFormat,
+            ComplianceDashboard,
+            ComplianceStatus,
+            ControlPriority,
+            ReportFormat,
         )
+
         dash = ComplianceDashboard()
-        dash.add_control("AC-1", "Access Control", "SOC2",
-                         ComplianceStatus.COMPLIANT, ControlPriority.HIGH)
+        dash.add_control(
+            "AC-1", "Access Control", "SOC2", ComplianceStatus.COMPLIANT, ControlPriority.HIGH
+        )
         report = dash.generate_report("SOC2", ReportFormat.MARKDOWN)
         assert report.format == ReportFormat.MARKDOWN
 
     def test_remediation_tracker(self):
         from codeverify_core.compliance_dashboard import (
-            RemediationTracker, ControlPriority,
+            ControlPriority,
+            RemediationTracker,
         )
+
         tracker = RemediationTracker()
         item = tracker.create_item("AC-2", "SOC2", "Fix access control", ControlPriority.HIGH)
         assert item.status == "open"
@@ -753,8 +972,10 @@ class TestComplianceDashboard:
 
     def test_audit_manager(self):
         from codeverify_core.compliance_dashboard import (
-            AuditManager, AuditType,
+            AuditManager,
+            AuditType,
         )
+
         mgr = AuditManager()
         audit = mgr.start_audit(AuditType.INTERNAL, "SOC2", "John Doe")
         assert audit.status == "in_progress"
@@ -763,11 +984,15 @@ class TestComplianceDashboard:
 
     def test_dashboard_view(self):
         from codeverify_core.compliance_dashboard import (
-            ComplianceDashboard, ComplianceStatus, ControlPriority,
+            ComplianceDashboard,
+            ComplianceStatus,
+            ControlPriority,
         )
+
         dash = ComplianceDashboard()
-        dash.add_control("AC-1", "Access Control", "SOC2",
-                         ComplianceStatus.COMPLIANT, ControlPriority.HIGH)
+        dash.add_control(
+            "AC-1", "Access Control", "SOC2", ComplianceStatus.COMPLIANT, ControlPriority.HIGH
+        )
         view = dash.get_dashboard(["SOC2"])
         assert len(view.widgets) > 0
         assert len(view.scores) > 0
@@ -783,8 +1008,12 @@ class TestMarketplaceCommunity:
 
     def test_community_enums(self):
         from codeverify_core.marketplace_community import (
-            ReviewStatus, ContributorRole, ReputationTier, VoteType,
+            ContributorRole,
+            ReputationTier,
+            ReviewStatus,
+            VoteType,
         )
+
         assert ReviewStatus.PENDING == "pending"
         assert ContributorRole.REVIEWER == "reviewer"
         assert ReputationTier.NEWCOMER == "newcomer"
@@ -792,8 +1021,10 @@ class TestMarketplaceCommunity:
 
     def test_register_member(self):
         from codeverify_core.marketplace_community import (
-            MarketplaceCommunity, ReputationTier,
+            MarketplaceCommunity,
+            ReputationTier,
         )
+
         mc = MarketplaceCommunity()
         member = mc.register_member("alice")
         assert member.username == "alice"
@@ -802,13 +1033,19 @@ class TestMarketplaceCommunity:
 
     def test_submit_proof(self):
         from codeverify_core.marketplace_community import (
-            MarketplaceCommunity, ReviewStatus,
+            MarketplaceCommunity,
+            ReviewStatus,
         )
+
         mc = MarketplaceCommunity()
         member = mc.register_member("bob")
         submission = mc.submit_proof(
-            member.id, "Null Safety Proof", "Proves null safety",
-            "def f(x): assert x is not None", "python", "safety",
+            member.id,
+            "Null Safety Proof",
+            "Proves null safety",
+            "def f(x): assert x is not None",
+            "python",
+            "safety",
             tags=["null", "safety"],
         )
         assert submission.status == ReviewStatus.PENDING
@@ -816,32 +1053,47 @@ class TestMarketplaceCommunity:
 
     def test_review_proof(self):
         from codeverify_core.marketplace_community import MarketplaceCommunity
+
         mc = MarketplaceCommunity()
         author = mc.register_member("alice")
         reviewer = mc.register_member("bob")
         submission = mc.submit_proof(
-            author.id, "Test Proof", "desc", "code", "python", "safety",
+            author.id,
+            "Test Proof",
+            "desc",
+            "code",
+            "python",
+            "safety",
         )
         review = mc.review_proof(submission.id, reviewer.id, "Looks good")
         assert review.submission_id == submission.id
 
     def test_voting(self):
         from codeverify_core.marketplace_community import (
-            MarketplaceCommunity, VoteType,
+            MarketplaceCommunity,
+            VoteType,
         )
+
         mc = MarketplaceCommunity()
         author = mc.register_member("alice")
         voter = mc.register_member("bob")
         sub = mc.submit_proof(
-            author.id, "Test", "desc", "code", "python", "safety",
+            author.id,
+            "Test",
+            "desc",
+            "code",
+            "python",
+            "safety",
         )
         vote = mc.vote(voter.id, sub.id, "proof", VoteType.UPVOTE)
         assert vote.vote_type == VoteType.UPVOTE
 
     def test_reputation_tiers(self):
         from codeverify_core.marketplace_community import (
-            ReputationEngine, ReputationTier,
+            ReputationEngine,
+            ReputationTier,
         )
+
         engine = ReputationEngine()
         assert engine.calculate_tier(0) == ReputationTier.NEWCOMER
         assert engine.calculate_tier(100) == ReputationTier.CONTRIBUTOR
@@ -851,6 +1103,7 @@ class TestMarketplaceCommunity:
 
     def test_leaderboard(self):
         from codeverify_core.marketplace_community import MarketplaceCommunity
+
         mc = MarketplaceCommunity()
         mc.register_member("alice")
         mc.register_member("bob")
@@ -859,6 +1112,7 @@ class TestMarketplaceCommunity:
 
     def test_community_stats(self):
         from codeverify_core.marketplace_community import MarketplaceCommunity
+
         mc = MarketplaceCommunity()
         mc.register_member("alice")
         stats = mc.get_community_stats()
@@ -866,11 +1120,15 @@ class TestMarketplaceCommunity:
 
     def test_challenge_creation(self):
         from codeverify_core.marketplace_community import (
-            MarketplaceCommunity, ChallengeType,
+            ChallengeType,
+            MarketplaceCommunity,
         )
+
         mc = MarketplaceCommunity()
         challenge = mc.create_challenge(
-            "Weekly Challenge", "Prove null safety", 100,
+            "Weekly Challenge",
+            "Prove null safety",
+            100,
             ChallengeType.WEEKLY_PROOF,
         )
         assert challenge.reward_points == 100
@@ -878,6 +1136,7 @@ class TestMarketplaceCommunity:
 
     def test_member_profile(self):
         from codeverify_core.marketplace_community import MarketplaceCommunity
+
         mc = MarketplaceCommunity()
         member = mc.register_member("alice")
         profile = mc.get_member_profile(member.id)

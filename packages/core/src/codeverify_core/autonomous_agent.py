@@ -15,12 +15,9 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
-import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -82,9 +79,7 @@ class AgentConfig:
     cooldown_minutes: int = 5
     learning_enabled: bool = True
     monitored_branches: list[str] = field(default_factory=lambda: ["main", "master"])
-    severity_auto_fix: list[str] = field(
-        default_factory=lambda: ["critical", "high"]
-    )
+    severity_auto_fix: list[str] = field(default_factory=lambda: ["critical", "high"])
 
 
 @dataclass
@@ -97,7 +92,7 @@ class MonitoredChange:
     commit_sha: str = ""
     changed_files: list[str] = field(default_factory=list)
     author: str = ""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     is_pr: bool = False
     pr_number: int | None = None
 
@@ -128,7 +123,7 @@ class FixCandidate:
     confidence: float = 0.0
     verification_passed: bool = False
     diff_lines: int = 0
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -142,7 +137,7 @@ class AutonomousPR:
     body: str = ""
     fixes: list[FixCandidate] = field(default_factory=list)
     outcome: FixOutcome = FixOutcome.PENDING
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     merged_at: datetime | None = None
     pr_url: str = ""
 
@@ -156,7 +151,7 @@ class FeedbackEntry:
     finding_type: str = ""
     accepted: bool = False
     reason: str = ""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -253,9 +248,7 @@ class FixGenerator:
         "hardcoded_secret": "Move secret to environment variable: os.environ.get('{key}')",
     }
 
-    def generate_fix(
-        self, finding: TriagedFinding, code: str
-    ) -> FixCandidate | None:
+    def generate_fix(self, finding: TriagedFinding, code: str) -> FixCandidate | None:
         """Generate a fix candidate for a finding."""
         finding_type = finding.original_finding.get("type", "unknown")
         template = self.FIX_TEMPLATES.get(finding_type)
@@ -370,9 +363,7 @@ class AutonomousVerificationAgent:
         self.state = AgentState.MONITORING
         return fixes
 
-    def create_pr(
-        self, repository: str, fixes: list[FixCandidate]
-    ) -> AutonomousPR | None:
+    def create_pr(self, repository: str, fixes: list[FixCandidate]) -> AutonomousPR | None:
         """Create a PR with the generated fixes."""
         if not fixes:
             return None
@@ -402,12 +393,14 @@ class AutonomousVerificationAgent:
         ]
         for fix in verified_fixes:
             body_parts.append(f"- **{fix.file_path}**: {fix.explanation}")
-        body_parts.extend([
-            "",
-            "---",
-            f"*Confidence: {min(f.confidence for f in verified_fixes):.0%} – "
-            f"{max(f.confidence for f in verified_fixes):.0%}*",
-        ])
+        body_parts.extend(
+            [
+                "",
+                "---",
+                f"*Confidence: {min(f.confidence for f in verified_fixes):.0%} – "
+                f"{max(f.confidence for f in verified_fixes):.0%}*",
+            ]
+        )
 
         pr = AutonomousPR(
             repository=repository,
@@ -472,15 +465,17 @@ class AutonomousVerificationAgent:
         findings = []
         for f in change.changed_files:
             if f.endswith(".py"):
-                findings.append({
-                    "type": "null_dereference",
-                    "severity": "high",
-                    "confidence": 0.85,
-                    "file_path": f,
-                    "line": 10,
-                    "variable": "result",
-                    "message": "Potential None dereference",
-                })
+                findings.append(
+                    {
+                        "type": "null_dereference",
+                        "severity": "high",
+                        "confidence": 0.85,
+                        "file_path": f,
+                        "line": 10,
+                        "variable": "result",
+                        "message": "Potential None dereference",
+                    }
+                )
         return findings
 
 

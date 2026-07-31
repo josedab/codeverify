@@ -17,9 +17,8 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -50,6 +49,7 @@ class InputType(str, Enum):
 @dataclass
 class FuzzInput:
     """A generated test input from a counterexample."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     variable_name: str = ""
     value: Any = None
@@ -61,6 +61,7 @@ class FuzzInput:
 @dataclass
 class FuzzTestCase:
     """A complete test case for fuzzing."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     function_name: str = ""
     file_path: str = ""
@@ -73,6 +74,7 @@ class FuzzTestCase:
 @dataclass
 class FuzzExecution:
     """Result of executing a fuzz test case."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     test_case_id: str = ""
     result: FuzzResult = FuzzResult.INCONCLUSIVE
@@ -86,13 +88,14 @@ class FuzzExecution:
 @dataclass
 class FuzzCampaign:
     """A batch fuzzing campaign."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     test_cases: list[FuzzTestCase] = field(default_factory=list)
     executions: list[FuzzExecution] = field(default_factory=list)
     total_confirmed: int = 0
     total_false_positives: int = 0
     total_inconclusive: int = 0
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
     elapsed_ms: int = 0
 
@@ -100,6 +103,7 @@ class FuzzCampaign:
 @dataclass
 class FuzzConfig:
     """Configuration for fuzzing."""
+
     timeout_ms: int = 5000
     max_inputs_per_counterexample: int = 10
     mutation_rounds: int = 5
@@ -117,10 +121,15 @@ class InputGenerator:
         inputs: list[FuzzInput] = []
         for var, val in variable_assignments.items():
             input_type = self._classify_type(val)
-            inputs.append(FuzzInput(
-                variable_name=var, value=val, input_type=input_type,
-                source="counterexample", counterexample_id=counterexample_id,
-            ))
+            inputs.append(
+                FuzzInput(
+                    variable_name=var,
+                    value=val,
+                    input_type=input_type,
+                    source="counterexample",
+                    counterexample_id=counterexample_id,
+                )
+            )
         return inputs
 
     def generate_mutations(
@@ -131,13 +140,15 @@ class InputGenerator:
         for r in range(rounds):
             mutated: list[FuzzInput] = []
             for inp in base_inputs:
-                mutated.append(FuzzInput(
-                    variable_name=inp.variable_name,
-                    value=self._mutate_value(inp.value, inp.input_type, r),
-                    input_type=inp.input_type,
-                    source="mutation",
-                    counterexample_id=inp.counterexample_id,
-                ))
+                mutated.append(
+                    FuzzInput(
+                        variable_name=inp.variable_name,
+                        value=self._mutate_value(inp.value, inp.input_type, r),
+                        input_type=inp.input_type,
+                        source="mutation",
+                        counterexample_id=inp.counterexample_id,
+                    )
+                )
             mutations.append(mutated)
         return mutations
 
@@ -163,8 +174,8 @@ class InputGenerator:
             v = value if isinstance(value, int) else 0
             return v + (seed + 1) * (-1 if seed % 2 == 0 else 1)
         if input_type == InputType.FLOAT:
-            v = value if isinstance(value, (int, float)) else 0.0
-            return v + (seed + 1) * 0.1 * (-1 if seed % 2 == 0 else 1)
+            fv = value if isinstance(value, (int, float)) else 0.0
+            return fv + (seed + 1) * 0.1 * (-1 if seed % 2 == 0 else 1)
         if input_type == InputType.STRING:
             return str(value) + chr(65 + seed % 26)
         if input_type == InputType.NONE:
@@ -177,9 +188,7 @@ class InputGenerator:
 class TestCodeGenerator:
     """Generates executable test code from fuzz inputs."""
 
-    def generate_pytest(
-        self, function_name: str, inputs: list[FuzzInput], check_type: str
-    ) -> str:
+    def generate_pytest(self, function_name: str, inputs: list[FuzzInput], check_type: str) -> str:
         """Generate a pytest test case."""
         args = ", ".join(f"{inp.variable_name}={repr(inp.value)}" for inp in inputs)
         exception_checks = {
@@ -192,7 +201,7 @@ class TestCodeGenerator:
 
         return (
             f"def test_{function_name}_fuzz_{inputs[0].id if inputs else 'x'}():\n"
-            f"    \"\"\"Fuzz test from Z3 counterexample.\"\"\"\n"
+            f'    """Fuzz test from Z3 counterexample."""\n'
             f"    import pytest\n"
             f"    with pytest.raises({exc}):\n"
             f"        {function_name}({args})\n"
@@ -205,9 +214,7 @@ class FuzzExecutor:
     def __init__(self, config: FuzzConfig | None = None) -> None:
         self._config = config or FuzzConfig()
 
-    def execute(
-        self, test_case: FuzzTestCase, code: str = ""
-    ) -> FuzzExecution:
+    def execute(self, test_case: FuzzTestCase, _code: str = "") -> FuzzExecution:
         """Execute a fuzz test case (simulated in core package)."""
         start = time.time()
 
@@ -254,9 +261,11 @@ class FuzzExecutor:
 
         elapsed = int((time.time() - start) * 1000)
         return FuzzExecution(
-            test_case_id=test_case.id, result=result,
+            test_case_id=test_case.id,
+            result=result,
             actual_exception=actual_exception,
-            execution_time_ms=elapsed, confidence=confidence,
+            execution_time_ms=elapsed,
+            confidence=confidence,
             classification_reason=reason,
         )
 
@@ -284,16 +293,22 @@ class VerificationGuidedFuzzingService:
         start = time.time()
 
         base_inputs = self._input_gen.from_counterexample(variable_assignments, counterexample_id)
-        all_input_sets = self._input_gen.generate_mutations(base_inputs, self._config.mutation_rounds)
+        all_input_sets = self._input_gen.generate_mutations(
+            base_inputs, self._config.mutation_rounds
+        )
 
         test_cases: list[FuzzTestCase] = []
-        for inputs in all_input_sets[:self._config.max_inputs_per_counterexample]:
+        for inputs in all_input_sets[: self._config.max_inputs_per_counterexample]:
             test_code = self._code_gen.generate_pytest(function_name, inputs, check_type)
-            test_cases.append(FuzzTestCase(
-                function_name=function_name, file_path=file_path,
-                inputs=inputs, check_type=check_type,
-                generated_test_code=test_code,
-            ))
+            test_cases.append(
+                FuzzTestCase(
+                    function_name=function_name,
+                    file_path=file_path,
+                    inputs=inputs,
+                    check_type=check_type,
+                    generated_test_code=test_code,
+                )
+            )
 
         executions: list[FuzzExecution] = []
         confirmed = 0
@@ -312,10 +327,13 @@ class VerificationGuidedFuzzingService:
 
         elapsed = int((time.time() - start) * 1000)
         campaign = FuzzCampaign(
-            test_cases=test_cases, executions=executions,
-            total_confirmed=confirmed, total_false_positives=fps,
-            total_inconclusive=inconclusive, elapsed_ms=elapsed,
-            completed_at=datetime.now(timezone.utc),
+            test_cases=test_cases,
+            executions=executions,
+            total_confirmed=confirmed,
+            total_false_positives=fps,
+            total_inconclusive=inconclusive,
+            elapsed_ms=elapsed,
+            completed_at=datetime.now(UTC),
         )
         self._campaigns.append(campaign)
         return campaign
@@ -336,11 +354,13 @@ class VerificationGuidedFuzzingService:
 
 _guided_fuzzing_instance: VerificationGuidedFuzzingService | None = None
 
+
 def get_guided_fuzzing_service() -> VerificationGuidedFuzzingService:
     global _guided_fuzzing_instance
     if _guided_fuzzing_instance is None:
         _guided_fuzzing_instance = VerificationGuidedFuzzingService()
     return _guided_fuzzing_instance
+
 
 def reset_guided_fuzzing_service() -> None:
     global _guided_fuzzing_instance

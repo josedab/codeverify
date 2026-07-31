@@ -1,332 +1,138 @@
 /**
  * Tests for Copilot Interceptor Provider
+ *
+ * The real provider module (../providers/copilotInterceptorProvider) creates
+ * VS Code decoration types at module-load time, so it can only be imported
+ * inside the VS Code extension host. However, the types and verification
+ * logic it depends on live in ../copilotVerification, a pure module with no
+ * `vscode` runtime dependency (see that file's header comment), so these
+ * tests import and exercise the REAL `VerificationStatus`,
+ * `getDefaultInterceptorConfig`, and `MockCodeVerifyClient` from there
+ * directly instead of hand-copied simulations of them.
+ * `copilotInterceptorProvider.ts` re-exports all of these for backward
+ * compatibility, so testing them here is equivalent to testing what the
+ * real provider uses.
  */
 
 import * as assert from 'assert';
-
-// Mock VS Code API
-const mockVscode = {
-    languages: {
-        registerInlineCompletionItemProvider: jest.fn(),
-    },
-    window: {
-        createTextEditorDecorationType: jest.fn(() => ({
-            dispose: jest.fn(),
-        })),
-        activeTextEditor: {
-            document: {
-                getText: jest.fn(() => 'test code'),
-                uri: { fsPath: '/test/file.py' },
-                languageId: 'python',
-            },
-            setDecorations: jest.fn(),
-        },
-    },
-    workspace: {
-        getConfiguration: jest.fn(() => ({
-            get: jest.fn((key: string) => {
-                if (key === 'copilotInterception.enabled') return true;
-                if (key === 'copilotInterception.verificationLevel') return 'standard';
-                return undefined;
-            }),
-        })),
-    },
-    InlineCompletionItem: class {
-        constructor(public insertText: string) {}
-    },
-    InlineCompletionList: class {
-        constructor(public items: any[]) {}
-    },
-    Range: class {
-        constructor(
-            public startLine: number,
-            public startChar: number,
-            public endLine: number,
-            public endChar: number
-        ) {}
-    },
-    Position: class {
-        constructor(public line: number, public character: number) {}
-    },
-    CancellationTokenSource: class {
-        token = { isCancellationRequested: false };
-        cancel() {
-            this.token.isCancellationRequested = true;
-        }
-    },
-};
-
-jest.mock('vscode', () => mockVscode, { virtual: true });
-
-// Import after mock
+import { describe, it } from 'node:test';
 import {
-    CopilotInterceptorProvider,
     VerificationStatus,
-    InterceptionConfig,
-    VerifiedCompletion,
-} from '../providers/copilotInterceptorProvider';
+    getDefaultInterceptorConfig,
+    MockCodeVerifyClient,
+    type SuggestionContext,
+} from '../copilotVerification';
+
+/**
+ * Builds a minimal SuggestionContext for tests. `cursorPosition` is typed as
+ * `vscode.Position` in production but is unused by `verifySuggestion`'s
+ * logic, so a structurally-empty stand-in is sufficient here without
+ * depending on the real `vscode` module.
+ */
+function makeContext(overrides: Partial<SuggestionContext> = {}): SuggestionContext {
+    return {
+        filePath: '/workspace/example.ts',
+        language: 'typescript',
+        surroundingCode: '',
+        cursorPosition: {} as SuggestionContext['cursorPosition'],
+        documentVersion: 1,
+        ...overrides,
+    };
+}
 
 describe('CopilotInterceptorProvider', () => {
-    let provider: CopilotInterceptorProvider;
-
-    beforeEach(() => {
-        provider = new CopilotInterceptorProvider();
-    });
-
-    afterEach(() => {
-        provider.dispose();
-    });
-
-    describe('Configuration', () => {
-        it('should create provider with default config', () => {
-            expect(provider).toBeDefined();
-        });
-
-        it('should update config', () => {
-            const newConfig: InterceptionConfig = {
-                enabled: true,
-                verificationLevel: 'strict',
-                showInlineWarnings: true,
-                blockOnCritical: true,
-                timeout: 10000,
-            };
-            
-            provider.updateConfig(newConfig);
-            // Config should be updated (internal state)
-        });
-
-        it('should enable/disable interception', () => {
-            provider.setEnabled(false);
-            // Should not process completions when disabled
-            
-            provider.setEnabled(true);
-            // Should process completions when enabled
-        });
-    });
-
     describe('VerificationStatus', () => {
-        it('should have all status values', () => {
-            expect(VerificationStatus.Pending).toBe('pending');
-            expect(VerificationStatus.Verifying).toBe('verifying');
-            expect(VerificationStatus.Passed).toBe('passed');
-            expect(VerificationStatus.Warning).toBe('warning');
-            expect(VerificationStatus.Failed).toBe('failed');
-            expect(VerificationStatus.Error).toBe('error');
+        it('should have the expected status values', () => {
+            assert.strictEqual(VerificationStatus.Pending, 'pending');
+            assert.strictEqual(VerificationStatus.Verified, 'verified');
+            assert.strictEqual(VerificationStatus.Warning, 'warning');
+            assert.strictEqual(VerificationStatus.Error, 'error');
+            assert.strictEqual(VerificationStatus.Timeout, 'timeout');
         });
     });
 
-    describe('VerifiedCompletion', () => {
-        it('should create verified completion', () => {
-            const completion: VerifiedCompletion = {
-                originalText: 'const x = null;',
-                verifiedText: 'const x: string | null = null;',
+    describe('InterceptorConfig defaults', () => {
+        it('should have sensible default values', () => {
+            const config = getDefaultInterceptorConfig();
+            assert.strictEqual(config.enabled, true);
+            assert.strictEqual(config.autoVerify, true);
+            assert.strictEqual(config.showInlineStatus, true);
+            assert.strictEqual(config.blockOnError, false);
+            assert.strictEqual(config.verificationTimeout, 5000);
+            assert.strictEqual(config.minTrustScore, 60);
+            assert.deepStrictEqual(config.checks, ['null_safety', 'overflow', 'bounds', 'security']);
+        });
+    });
+
+    describe('MockCodeVerifyClient.verifySuggestion (provider/client path)', () => {
+        it('should flag eval() usage as an error-level security issue', async () => {
+            const client = new MockCodeVerifyClient();
+            const result = await client.verifySuggestion('const data = eval(userInput);', makeContext());
+            assert.strictEqual(result.status, VerificationStatus.Error);
+            assert.ok(result.issues.some((i) => i.message.includes('eval()')));
+        });
+
+        it('should flag hardcoded passwords as an error-level security issue', async () => {
+            const client = new MockCodeVerifyClient();
+            const result = await client.verifySuggestion('const password = "hunter2";', makeContext());
+            assert.strictEqual(result.status, VerificationStatus.Error);
+            assert.ok(result.issues.some((i) => i.message.includes('hardcoded password')));
+        });
+
+        it('should flag unchecked array access as a warning', async () => {
+            const client = new MockCodeVerifyClient();
+            const result = await client.verifySuggestion('return items[index];', makeContext());
+            assert.strictEqual(result.status, VerificationStatus.Warning);
+            assert.ok(result.issues.some((i) => i.category === 'bounds'));
+        });
+
+        it('should not flag array access that is already length-checked', async () => {
+            const client = new MockCodeVerifyClient();
+            const result = await client.verifySuggestion(
+                'if (index < items.length) { return items[index]; }',
+                makeContext()
+            );
+            assert.strictEqual(result.issues.some((i) => i.category === 'bounds'), false);
+        });
+
+        it('should report Verified status with a perfect score for clean code', async () => {
+            const client = new MockCodeVerifyClient();
+            const result = await client.verifySuggestion('return a + b;', makeContext());
+            assert.strictEqual(result.status, VerificationStatus.Verified);
+            assert.strictEqual(result.score, 100);
+            assert.strictEqual(result.issues.length, 0);
+        });
+
+        it('should deduct 20 points per detected issue', async () => {
+            const client = new MockCodeVerifyClient();
+            const result = await client.verifySuggestion('const password = eval(x);', makeContext());
+            assert.strictEqual(result.issues.length, 2);
+            assert.strictEqual(result.score, 60);
+        });
+    });
+
+    describe('SuggestionVerification shape', () => {
+        it('should support constructing a verification result', () => {
+            const verification = {
+                suggestionId: 'test-1',
                 status: VerificationStatus.Warning,
-                findings: [
+                issues: [
                     {
-                        message: 'Potential null reference',
-                        severity: 'warning',
                         line: 1,
+                        column: 0,
+                        message: 'Potential null reference',
+                        severity: 'warning' as const,
+                        category: 'null_safety',
                     },
                 ],
-                trustScore: 0.7,
+                score: 70,
+                verificationTimeMs: 120,
+                metadata: {},
             };
 
-            expect(completion.status).toBe(VerificationStatus.Warning);
-            expect(completion.findings).toHaveLength(1);
-            expect(completion.trustScore).toBe(0.7);
+            assert.strictEqual(verification.status, VerificationStatus.Warning);
+            assert.strictEqual(verification.issues.length, 1);
+            assert.strictEqual(verification.score, 70);
         });
-    });
-
-    describe('Inline Completion', () => {
-        it('should provide inline completions', async () => {
-            const document = {
-                getText: () => 'def foo():\n    ',
-                uri: { fsPath: '/test/file.py' },
-                languageId: 'python',
-                lineAt: () => ({ text: '    ' }),
-            };
-
-            const position = new mockVscode.Position(1, 4);
-            const context = { triggerKind: 1 };
-            const token = { isCancellationRequested: false };
-
-            // Provider should handle completion request
-            const result = await provider.provideInlineCompletionItems(
-                document as any,
-                position as any,
-                context as any,
-                token as any
-            );
-
-            // Result can be null, list, or array
-            expect(result === null || Array.isArray(result) || result?.items).toBeTruthy();
-        });
-
-        it('should respect cancellation token', async () => {
-            const document = {
-                getText: () => 'code',
-                uri: { fsPath: '/test/file.py' },
-                languageId: 'python',
-            };
-
-            const position = new mockVscode.Position(0, 0);
-            const context = { triggerKind: 1 };
-            const token = { isCancellationRequested: true };
-
-            const result = await provider.provideInlineCompletionItems(
-                document as any,
-                position as any,
-                context as any,
-                token as any
-            );
-
-            // Should return early when cancelled
-            expect(result === null || (Array.isArray(result) && result.length === 0)).toBeTruthy();
-        });
-    });
-
-    describe('Verification Integration', () => {
-        it('should verify code snippet', async () => {
-            const code = 'def divide(a, b):\n    return a / b';
-            
-            // In real implementation, this would call verification API
-            const mockVerification = {
-                status: VerificationStatus.Warning,
-                findings: [
-                    {
-                        message: 'Potential division by zero',
-                        severity: 'warning',
-                        line: 2,
-                    },
-                ],
-            };
-
-            expect(mockVerification.status).toBe(VerificationStatus.Warning);
-            expect(mockVerification.findings[0].message).toContain('division by zero');
-        });
-
-        it('should calculate trust score', () => {
-            const findings = [
-                { severity: 'critical', score: 0.1 },
-                { severity: 'warning', score: 0.5 },
-                { severity: 'info', score: 0.9 },
-            ];
-
-            // Simple weighted average
-            const trustScore = findings.reduce((acc, f) => acc + f.score, 0) / findings.length;
-            expect(trustScore).toBeCloseTo(0.5, 1);
-        });
-    });
-
-    describe('Decorations', () => {
-        it('should create decoration types', () => {
-            // Decorations should be created for different statuses
-            expect(mockVscode.window.createTextEditorDecorationType).toBeDefined();
-        });
-
-        it('should apply decorations to editor', () => {
-            const editor = mockVscode.window.activeTextEditor;
-            
-            // Should be able to set decorations
-            expect(editor?.setDecorations).toBeDefined();
-        });
-    });
-
-    describe('Statistics', () => {
-        it('should track interception statistics', () => {
-            const stats = provider.getStatistics();
-            
-            expect(stats).toBeDefined();
-            expect(typeof stats.totalInterceptions).toBe('number');
-            expect(typeof stats.passedCount).toBe('number');
-            expect(typeof stats.warningCount).toBe('number');
-            expect(typeof stats.failedCount).toBe('number');
-        });
-
-        it('should reset statistics', () => {
-            provider.resetStatistics();
-            const stats = provider.getStatistics();
-            
-            expect(stats.totalInterceptions).toBe(0);
-        });
-    });
-
-    describe('Disposal', () => {
-        it('should dispose resources', () => {
-            const disposeSpy = jest.fn();
-            
-            // Provider should clean up on dispose
-            provider.dispose();
-            
-            // No errors should occur
-        });
-    });
-});
-
-describe('InterceptionConfig', () => {
-    it('should have default values', () => {
-        const defaultConfig: InterceptionConfig = {
-            enabled: true,
-            verificationLevel: 'standard',
-            showInlineWarnings: true,
-            blockOnCritical: false,
-            timeout: 5000,
-        };
-
-        expect(defaultConfig.enabled).toBe(true);
-        expect(defaultConfig.verificationLevel).toBe('standard');
-        expect(defaultConfig.timeout).toBe(5000);
-    });
-
-    it('should support different verification levels', () => {
-        const levels = ['fast', 'standard', 'strict'] as const;
-        
-        levels.forEach(level => {
-            const config: InterceptionConfig = {
-                enabled: true,
-                verificationLevel: level,
-                showInlineWarnings: true,
-                blockOnCritical: false,
-                timeout: 5000,
-            };
-            expect(config.verificationLevel).toBe(level);
-        });
-    });
-});
-
-describe('Error Handling', () => {
-    it('should handle verification API errors', async () => {
-        const provider = new CopilotInterceptorProvider();
-        
-        // Simulate API error
-        const errorResult: VerifiedCompletion = {
-            originalText: 'code',
-            verifiedText: 'code',
-            status: VerificationStatus.Error,
-            findings: [],
-            trustScore: 0,
-            error: 'Verification service unavailable',
-        };
-
-        expect(errorResult.status).toBe(VerificationStatus.Error);
-        expect(errorResult.error).toBeDefined();
-        
-        provider.dispose();
-    });
-
-    it('should handle timeout', async () => {
-        const provider = new CopilotInterceptorProvider();
-        
-        provider.updateConfig({
-            enabled: true,
-            verificationLevel: 'standard',
-            showInlineWarnings: true,
-            blockOnCritical: false,
-            timeout: 1, // Very short timeout
-        });
-
-        // With very short timeout, should handle gracefully
-        
-        provider.dispose();
     });
 });

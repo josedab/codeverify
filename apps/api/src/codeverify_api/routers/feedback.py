@@ -74,7 +74,7 @@ def _compute_pattern_hash(title: str, category: str, code_pattern: str | None) -
 @router.post("", response_model=FeedbackResponse)
 async def create_feedback(
     feedback: FeedbackCreate,
-    db: AsyncSession = Depends(get_db),
+    _db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Submit feedback on a finding.
@@ -153,8 +153,8 @@ def _update_false_positive_pattern(
 @router.get("/finding/{finding_id}")
 async def get_finding_feedback(
     finding_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     """Get all feedback for a finding."""
     return [f for f in _feedback_store if f["finding_id"] == finding_id]
@@ -162,8 +162,8 @@ async def get_finding_feedback(
 
 @router.get("/stats")
 async def get_feedback_stats(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get feedback statistics including false positive analysis."""
     total = len(_feedback_store)
@@ -193,8 +193,8 @@ async def get_feedback_stats(
 
 @router.get("/patterns")
 async def get_learned_patterns(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get all learned false positive patterns.
 
@@ -217,8 +217,8 @@ async def get_confidence_adjustment(
     finding_title: str,
     category: str = "unknown",
     code_pattern: str | None = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Check if a finding matches a known false positive pattern.
 
@@ -253,7 +253,7 @@ async def dismiss_finding(
     finding_title: str | None = None,
     finding_category: str | None = None,
     code_pattern: str | None = None,
-    db: AsyncSession = Depends(get_db),
+    _db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Dismiss a finding and optionally learn the pattern.

@@ -5,6 +5,7 @@ import pytest
 from codeverify_core.verification_sdk import (
     RuleContext,
     RuleRegistry,
+    RuleResult,
     Severity,
     VerificationPipeline,
     check,
@@ -214,7 +215,7 @@ class TestRuleRegistry:
     def test_register_undecorated_fails(self):
         registry = RuleRegistry()
         with pytest.raises(ValueError, match="decorated"):
-            registry.register(lambda ctx: None)
+            registry.register(lambda _ctx: None)
 
     def test_get_rule(self):
         registry = RuleRegistry()

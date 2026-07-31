@@ -375,10 +375,7 @@ class GradualVerificationRamp:
 
         # Get severity value
         sev = finding.severity
-        if hasattr(sev, "value"):
-            sev_value = sev.value.lower()
-        else:
-            sev_value = str(sev).lower()
+        sev_value = sev.value.lower() if hasattr(sev, "value") else str(sev).lower()
 
         if level == EnforcementLevel.SOFT_BLOCK:
             return sev_value == "critical"
@@ -454,10 +451,7 @@ class GradualVerificationRamp:
 
         for finding in findings:
             sev = finding.severity
-            if hasattr(sev, "value"):
-                sev_value = sev.value.lower()
-            else:
-                sev_value = str(sev).lower()
+            sev_value = sev.value.lower() if hasattr(sev, "value") else str(sev).lower()
 
             if sev_value in ("critical", "high", "medium"):
                 blocking.append(finding)
@@ -503,7 +497,7 @@ class GradualVerificationRamp:
         # Generate recommendations
         recommendations = self._generate_recommendations(state)
 
-        metrics = {
+        metrics: dict[str, Any] = {
             "findings_during_ramp": state.findings_while_ramping,
             "warnings_issued": state.warnings_issued,
             "would_have_blocked": state.would_have_blocked,
@@ -607,7 +601,7 @@ class GradualVerificationRamp:
     def get_all_ramps(self) -> list[RampState]:
         """Get all active ramps."""
         result = []
-        for repo, state in self._ramp_states.items():
+        for _repo, state in self._ramp_states.items():
             self._update_state(state)
             result.append(state)
         return result

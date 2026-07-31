@@ -134,7 +134,7 @@ def verify_github_signature(
 
 
 def verify_gitlab_signature(
-    payload: bytes,
+    _payload: bytes,
     secret: str,
     token_header: str,
 ) -> bool:
@@ -232,9 +232,8 @@ class WebhookVerifier:
                 )
 
         # Check replay
-        if delivery_id is not None:
-            if not self._nonce_tracker.check_and_record(delivery_id):
-                raise ReplayAttackError(f"Duplicate delivery ID: {delivery_id}")
+        if delivery_id is not None and not self._nonce_tracker.check_and_record(delivery_id):
+            raise ReplayAttackError(f"Duplicate delivery ID: {delivery_id}")
 
         # Verify signature
         secret = self._secrets.get(provider.value, "")

@@ -68,7 +68,7 @@ class TestPRImpactScorer:
             changed_files={"src/auth.py": 200},
             findings=[],
         )
-        assert any(l.startswith("risk:") for l in impact.labels)
+        assert any(label.startswith("risk:") for label in impact.labels)
 
     def test_senior_review_on_high_risk(self):
         scorer = PRImpactScorer()

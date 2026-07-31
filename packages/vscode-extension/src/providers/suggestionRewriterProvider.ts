@@ -12,7 +12,7 @@
  */
 
 import * as vscode from 'vscode';
-import { CodeVerifyClient } from '../client';
+import { CodeVerifyClient, SuggestionAnalysisIssue } from '../client';
 import { logger } from '../logger';
 
 // Types
@@ -439,9 +439,11 @@ export class SuggestionRewriterProvider implements vscode.Disposable {
                 context.surroundingCode,
             );
 
+            const issues = (analysis.issues ?? []).map(issue => this.toSuggestionIssue(issue));
+
             return {
-                isUnsafe: analysis.issues?.length > 0,
-                issues: analysis.issues ?? [],
+                isUnsafe: issues.length > 0,
+                issues,
                 intent: analysis.intent ?? 'Unknown intent',
                 confidence: analysis.confidence ?? 0.5,
             };
@@ -451,6 +453,33 @@ export class SuggestionRewriterProvider implements vscode.Disposable {
             // Fallback to local analysis
             return this.localAnalyze(suggestion, language);
         }
+    }
+
+    /**
+     * Convert a wire-format suggestion issue (from the API) into a fully
+     * typed SuggestionIssue, validating the `type`/`severity` fields since
+     * the API only guarantees plain strings.
+     */
+    private toSuggestionIssue(issue: SuggestionAnalysisIssue): SuggestionIssue {
+        return {
+            type: this.parseIssueType(issue.type),
+            severity: this.parseSeverity(issue.severity),
+            description: issue.description,
+            location: issue.location ?? { start: 0, end: 0 },
+            fix: issue.fix,
+        };
+    }
+
+    private parseIssueType(type: string): IssueType {
+        return (Object.values(IssueType) as string[]).includes(type)
+            ? (type as IssueType)
+            : IssueType.TYPE_MISMATCH;
+    }
+
+    private parseSeverity(severity: string): SuggestionIssue['severity'] {
+        return severity === 'critical' || severity === 'high' || severity === 'medium' || severity === 'low'
+            ? severity
+            : 'medium';
     }
 
     /**

@@ -136,9 +136,7 @@ Rules:
 
     async def _explain_with_llm(self, request: ExplanationRequest) -> ExplanationResponse:
         """Generate explanation using LLM."""
-        assignments_str = ", ".join(
-            f"{k} = {v}" for k, v in request.variable_assignments.items()
-        )
+        assignments_str = ", ".join(f"{k} = {v}" for k, v in request.variable_assignments.items())
         user_prompt = (
             f"Explain this {request.check_type} verification finding:\n\n"
             f"Function: {request.function_name} in {request.file_path}:{request.line}\n"
@@ -157,7 +155,9 @@ Rules:
 
             if isinstance(content, dict):
                 return ExplanationResponse(
-                    title=content.get("summary", f"{request.check_type} in {request.function_name}"),
+                    title=content.get(
+                        "summary", f"{request.check_type} in {request.function_name}"
+                    ),
                     narrative=content.get("explanation", ""),
                     fix_suggestion=content.get("fix_suggestion", ""),
                     confidence=0.9,

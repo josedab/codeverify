@@ -377,9 +377,11 @@ class FindingsIndex:
 
             if keywords:
                 for keyword in keywords:
-                    if keyword in self._keyword_index:
-                        if finding_id in self._keyword_index[keyword]:
-                            scores[finding_id] += 1.0
+                    if (
+                        keyword in self._keyword_index
+                        and finding_id in self._keyword_index[keyword]
+                    ):
+                        scores[finding_id] += 1.0
 
         # Sort by score
         sorted_ids = sorted(candidate_ids, key=lambda x: scores[x], reverse=True)

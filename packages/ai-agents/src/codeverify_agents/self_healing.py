@@ -7,6 +7,7 @@ This module provides:
 4. Inline presentation with mathematical proof summaries
 """
 
+import importlib.util
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -175,12 +176,7 @@ class FixVerifier:
 
     def _check_z3_available(self) -> bool:
         """Check if Z3 is available."""
-        try:
-            import z3
-
-            return True
-        except ImportError:
-            return False
+        return importlib.util.find_spec("z3") is not None
 
     async def verify_fix(
         self,
@@ -257,7 +253,7 @@ class FixVerifier:
 
         return ProofStatus.UNVERIFIED, "Could not verify bounds safety"
 
-    def _verify_overflow_check(self, code: str, language: str) -> tuple[ProofStatus, str]:
+    def _verify_overflow_check(self, code: str, _language: str) -> tuple[ProofStatus, str]:
         """Verify overflow check fix."""
         patterns = ["maxsize", "MAX_VALUE", "overflow", "BigInt"]
         has_check = any(p.lower() in code.lower() for p in patterns)
@@ -271,7 +267,7 @@ class FixVerifier:
 
         return ProofStatus.LIKELY_CORRECT, "Overflow check pattern detected but not formally proven"
 
-    def _verify_division_guard(self, code: str, language: str) -> tuple[ProofStatus, str]:
+    def _verify_division_guard(self, code: str, _language: str) -> tuple[ProofStatus, str]:
         """Verify division by zero guard."""
         patterns = ["== 0", "!= 0", "=== 0", "!== 0"]
         has_check = any(p in code for p in patterns)
@@ -303,7 +299,7 @@ class FixVerifier:
 class SelfHealingAgent(BaseAgent):
     """Agent that generates and verifies code fixes automatically."""
 
-    SYSTEM_PROMPT = """You are an expert code repair agent. Given a bug report with verification 
+    SYSTEM_PROMPT = """You are an expert code repair agent. Given a bug report with verification
 counterexample, generate a minimal fix that:
 
 1. Resolves the specific bug identified
@@ -429,7 +425,7 @@ Generate 1-3 alternative fixes ranked by preference."""
         template_key = f"{bug.category}_{bug.language}"
         if template_key not in FIX_TEMPLATES:
             # Try without language
-            for key, template in FIX_TEMPLATES.items():
+            for key, _template in FIX_TEMPLATES.items():
                 if bug.category in key:
                     template_key = key
                     break
@@ -438,10 +434,12 @@ Generate 1-3 alternative fixes ranked by preference."""
             template = FIX_TEMPLATES[template_key]
 
             # Extract variables from counterexample if available
+            # (keys match template placeholder names, e.g. "var"/"index"/"array";
+            # values are the actual source identifiers to substitute in)
             variables = {}
             if bug.z3_counterexample:
                 for var, value in bug.z3_counterexample.items():
-                    variables[var] = var
+                    variables[var] = str(value)
 
             # Generate fix using template
             try:

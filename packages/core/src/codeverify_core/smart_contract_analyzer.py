@@ -29,6 +29,7 @@ logger = structlog.get_logger()
 
 class AnalysisDepth(str, Enum):
     """Depth of smart contract analysis."""
+
     QUICK_SCAN = "quick_scan"
     STANDARD = "standard"
     DEEP = "deep"
@@ -37,6 +38,7 @@ class AnalysisDepth(str, Enum):
 
 class ContractStandard(str, Enum):
     """Supported token / contract standards."""
+
     ERC20 = "ERC-20"
     ERC721 = "ERC-721"
     ERC1155 = "ERC-1155"
@@ -46,6 +48,7 @@ class ContractStandard(str, Enum):
 
 class ProofStatus(str, Enum):
     """Result status of a formal verification attempt."""
+
     PROVEN_SAFE = "proven_safe"
     COUNTEREXAMPLE_FOUND = "counterexample_found"
     INCONCLUSIVE = "inconclusive"
@@ -54,6 +57,7 @@ class ProofStatus(str, Enum):
 
 class GasOptimization(str, Enum):
     """Categories of gas optimization suggestions."""
+
     STORAGE_PACKING = "storage_packing"
     LOOP_UNROLLING = "loop_unrolling"
     DEAD_CODE_REMOVAL = "dead_code_removal"
@@ -68,6 +72,7 @@ class GasOptimization(str, Enum):
 @dataclass
 class ContractFunction:
     """A parsed function extracted from smart contract source code."""
+
     name: str
     visibility: str
     mutability: str
@@ -80,10 +85,14 @@ class ContractFunction:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "name": self.name, "visibility": self.visibility,
-            "mutability": self.mutability, "parameters": self.parameters,
-            "return_types": self.return_types, "modifiers": self.modifiers,
-            "line_start": self.line_start, "line_end": self.line_end,
+            "name": self.name,
+            "visibility": self.visibility,
+            "mutability": self.mutability,
+            "parameters": self.parameters,
+            "return_types": self.return_types,
+            "modifiers": self.modifiers,
+            "line_start": self.line_start,
+            "line_end": self.line_end,
             "is_payable": self.is_payable,
         }
 
@@ -91,6 +100,7 @@ class ContractFunction:
 @dataclass
 class VulnerabilityFinding:
     """A vulnerability detected during smart contract analysis."""
+
     id: str
     category: str
     severity: str
@@ -107,19 +117,26 @@ class VulnerabilityFinding:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "category": self.category,
-            "severity": self.severity, "title": self.title,
-            "description": self.description, "function_name": self.function_name,
-            "line_start": self.line_start, "line_end": self.line_end,
-            "code_snippet": self.code_snippet, "fix_suggestion": self.fix_suggestion,
+            "id": self.id,
+            "category": self.category,
+            "severity": self.severity,
+            "title": self.title,
+            "description": self.description,
+            "function_name": self.function_name,
+            "line_start": self.line_start,
+            "line_end": self.line_end,
+            "code_snippet": self.code_snippet,
+            "fix_suggestion": self.fix_suggestion,
             "proof_status": self.proof_status.value,
-            "cwe_id": self.cwe_id, "swc_id": self.swc_id,
+            "cwe_id": self.cwe_id,
+            "swc_id": self.swc_id,
         }
 
 
 @dataclass
 class FormalProof:
     """Result of a formal verification property check."""
+
     property_name: str
     status: ProofStatus
     z3_expression: str
@@ -129,16 +146,19 @@ class FormalProof:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "property_name": self.property_name, "status": self.status.value,
+            "property_name": self.property_name,
+            "status": self.status.value,
             "z3_expression": self.z3_expression,
             "counterexample": self.counterexample,
-            "proof_time_ms": self.proof_time_ms, "description": self.description,
+            "proof_time_ms": self.proof_time_ms,
+            "description": self.description,
         }
 
 
 @dataclass
 class GasAnalysis:
     """Gas usage analysis for a single contract function."""
+
     function_name: str
     estimated_gas: int
     optimizations: list[dict[str, Any]]
@@ -160,6 +180,7 @@ class GasAnalysis:
 @dataclass
 class StandardComplianceResult:
     """Result of checking a contract against a token standard."""
+
     standard: ContractStandard
     compliant: bool
     missing_functions: list[str]
@@ -169,7 +190,8 @@ class StandardComplianceResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "standard": self.standard.value, "compliant": self.compliant,
+            "standard": self.standard.value,
+            "compliant": self.compliant,
             "missing_functions": self.missing_functions,
             "incorrect_signatures": self.incorrect_signatures,
             "missing_events": self.missing_events,
@@ -180,6 +202,7 @@ class StandardComplianceResult:
 @dataclass
 class SmartContractReport:
     """Complete analysis report for a smart contract."""
+
     contract_name: str
     language: str
     analysis_depth: AnalysisDepth
@@ -193,7 +216,8 @@ class SmartContractReport:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "contract_name": self.contract_name, "language": self.language,
+            "contract_name": self.contract_name,
+            "language": self.language,
             "analysis_depth": self.analysis_depth.value,
             "functions_analyzed": self.functions_analyzed,
             "vulnerabilities": [v.to_dict() for v in self.vulnerabilities],
@@ -241,7 +265,9 @@ class SolidityParser:
         """Parse Solidity source and return functions and state variables."""
         functions = self._extract_functions(code)
         state_vars = self._extract_state_variables(code)
-        self._logger.info("Solidity parsing complete", functions=len(functions), state_vars=len(state_vars))
+        self._logger.info(
+            "Solidity parsing complete", functions=len(functions), state_vars=len(state_vars)
+        )
         return functions, state_vars
 
     def _extract_functions(self, code: str) -> list[ContractFunction]:
@@ -265,20 +291,30 @@ class SolidityParser:
                         is_payable = True
                 elif token and token != "returns":
                     modifiers.append(token)
-            functions.append(ContractFunction(
-                name=name, visibility=visibility, mutability=mutability,
-                parameters=self._parse_params(raw_params),
-                return_types=self._parse_returns(raw_returns),
-                modifiers=modifiers, line_start=line_start,
-                line_end=line_end, is_payable=is_payable,
-            ))
+            functions.append(
+                ContractFunction(
+                    name=name,
+                    visibility=visibility,
+                    mutability=mutability,
+                    parameters=self._parse_params(raw_params),
+                    return_types=self._parse_returns(raw_returns),
+                    modifiers=modifiers,
+                    line_start=line_start,
+                    line_end=line_end,
+                    is_payable=is_payable,
+                )
+            )
         return functions
 
     def _extract_state_variables(self, code: str) -> list[dict[str, Any]]:
         """Extract state variable declarations."""
         variables: list[dict[str, Any]] = []
         for match in self._STATE_VAR_RE.finditer(code):
-            var_type, vis1, vis2 = match.group(1).strip(), match.group(2) or "", match.group(3) or ""
+            var_type, vis1, vis2 = (
+                match.group(1).strip(),
+                match.group(2) or "",
+                match.group(3) or "",
+            )
             var_name, default = match.group(4), (match.group(5) or "").strip()
             visibility, is_constant, is_immutable = "internal", False, False
             for vis in (vis1.strip(), vis2.strip()):
@@ -288,12 +324,17 @@ class SolidityParser:
                     is_constant = True
                 elif vis == "immutable":
                     is_immutable = True
-            variables.append({
-                "name": var_name, "type": var_type, "visibility": visibility,
-                "is_constant": is_constant, "is_immutable": is_immutable,
-                "default_value": default or None,
-                "line": code[: match.start()].count("\n") + 1,
-            })
+            variables.append(
+                {
+                    "name": var_name,
+                    "type": var_type,
+                    "visibility": visibility,
+                    "is_constant": is_constant,
+                    "is_immutable": is_immutable,
+                    "default_value": default or None,
+                    "line": code[: match.start()].count("\n") + 1,
+                }
+            )
         return variables
 
     def _extract_events(self, code: str) -> list[str]:
@@ -348,12 +389,14 @@ class VulnerabilityDetector:
     """Detect common smart contract vulnerabilities."""
 
     _REENTRANCY_CALL_RE = re.compile(
-        r"(\.\w+\{.*?value.*?\}\(.*?\)|\.call\{.*?\}\(|\.send\(|\.transfer\()", re.DOTALL,
+        r"(\.\w+\{.*?value.*?\}\(.*?\)|\.call\{.*?\}\(|\.send\(|\.transfer\()",
+        re.DOTALL,
     )
     _TX_ORIGIN_RE = re.compile(r"(?:require|if)\s*\([^)]*\btx\.origin\b")
     _DELEGATECALL_RE = re.compile(r"\.delegatecall\(")
     _FRONTRUN_RE = re.compile(
-        r"\b(?:swap|trade|buy|sell|liquidate)\b.*\bblock\.(timestamp|number)\b", re.IGNORECASE,
+        r"\b(?:swap|trade|buy|sell|liquidate)\b.*\bblock\.(timestamp|number)\b",
+        re.IGNORECASE,
     )
     _ARITHMETIC_RE = re.compile(r"\b(?:uint|int)\d*\s+\w+\s*=\s*\w+\s*[+\-*/]\s*\w+")
 
@@ -361,7 +404,9 @@ class VulnerabilityDetector:
         self._logger = structlog.get_logger(__name__)
         self._counter = 0
 
-    def detect(self, code: str, functions: list[ContractFunction], language: str = "solidity") -> list[VulnerabilityFinding]:
+    def detect(
+        self, code: str, functions: list[ContractFunction], language: str = "solidity"
+    ) -> list[VulnerabilityFinding]:
         """Run all vulnerability detection checks."""
         self._counter = 0
         findings: list[VulnerabilityFinding] = []
@@ -374,21 +419,27 @@ class VulnerabilityDetector:
             findings.extend(self._check_front_running(code))
         elif language == "rust_solana":
             findings.extend(self._check_access_control(code, functions))
-        self._logger.info("Vulnerability detection complete", language=language, findings=len(findings))
+        self._logger.info(
+            "Vulnerability detection complete", language=language, findings=len(findings)
+        )
         return findings
 
     def _next_id(self) -> str:
         self._counter += 1
         return f"VULN-{self._counter:04d}"
 
-    def _find_enclosing_function(self, code: str, pos: int, functions: list[ContractFunction]) -> str:
+    def _find_enclosing_function(
+        self, code: str, pos: int, functions: list[ContractFunction]
+    ) -> str:
         line_num = code[:pos].count("\n") + 1
         for func in functions:
             if func.line_start <= line_num <= func.line_end:
                 return func.name
         return "<unknown>"
 
-    def _check_reentrancy(self, code: str, functions: list[ContractFunction]) -> list[VulnerabilityFinding]:
+    def _check_reentrancy(
+        self, code: str, functions: list[ContractFunction]
+    ) -> list[VulnerabilityFinding]:
         """Detect reentrancy: external call before state change."""
         findings: list[VulnerabilityFinding] = []
         for func in functions:
@@ -398,21 +449,30 @@ class VulnerabilityDetector:
             call_m = self._REENTRANCY_CALL_RE.search(body)
             if call_m is None:
                 continue
-            state_m = re.search(r"\b(\w+)\s*[+\-*/]?=\s*", body[call_m.end():])
+            state_m = re.search(r"\b(\w+)\s*[+\-*/]?=\s*", body[call_m.end() :])
             if state_m:
                 ln = code[: code.find(body) + call_m.start()].count("\n") + 1
-                findings.append(VulnerabilityFinding(
-                    id=self._next_id(), category="reentrancy", severity="critical",
-                    title="Potential Reentrancy Vulnerability",
-                    description=f"External call in '{func.name}' before state variable '{state_m.group(1)}' is updated.",
-                    function_name=func.name, line_start=ln, line_end=ln + 3,
-                    code_snippet=body[call_m.start(): call_m.start() + 120].strip(),
-                    fix_suggestion="Apply checks-effects-interactions pattern or use ReentrancyGuard.",
-                    swc_id="SWC-107", cwe_id="CWE-841",
-                ))
+                findings.append(
+                    VulnerabilityFinding(
+                        id=self._next_id(),
+                        category="reentrancy",
+                        severity="critical",
+                        title="Potential Reentrancy Vulnerability",
+                        description=f"External call in '{func.name}' before state variable '{state_m.group(1)}' is updated.",
+                        function_name=func.name,
+                        line_start=ln,
+                        line_end=ln + 3,
+                        code_snippet=body[call_m.start() : call_m.start() + 120].strip(),
+                        fix_suggestion="Apply checks-effects-interactions pattern or use ReentrancyGuard.",
+                        swc_id="SWC-107",
+                        cwe_id="CWE-841",
+                    )
+                )
         return findings
 
-    def _check_integer_overflow(self, code: str, functions: list[ContractFunction]) -> list[VulnerabilityFinding]:
+    def _check_integer_overflow(
+        self, code: str, functions: list[ContractFunction]
+    ) -> list[VulnerabilityFinding]:
         """Detect integer overflow/underflow in pre-0.8.0 Solidity."""
         vm = re.search(r"pragma\s+solidity\s+[<>=^~]*\s*(0\.\d+)", code)
         if vm and int(vm.group(1).split(".")[1]) >= 8:
@@ -421,37 +481,63 @@ class VulnerabilityDetector:
         lines = code.split("\n")
         for match in self._ARITHMETIC_RE.finditer(code):
             ln = code[: match.start()].count("\n") + 1
-            findings.append(VulnerabilityFinding(
-                id=self._next_id(), category="integer_overflow", severity="high",
-                title="Potential Integer Overflow/Underflow",
-                description="Arithmetic on integer type without SafeMath in a pre-0.8.0 contract.",
-                function_name=self._find_enclosing_function(code, match.start(), functions),
-                line_start=ln, line_end=ln,
-                code_snippet=(lines[ln - 1].strip()[:200] if ln <= len(lines) else ""),
-                fix_suggestion="Upgrade to Solidity >=0.8.0 or use OpenZeppelin SafeMath.",
-                swc_id="SWC-101", cwe_id="CWE-190",
-            ))
+            findings.append(
+                VulnerabilityFinding(
+                    id=self._next_id(),
+                    category="integer_overflow",
+                    severity="high",
+                    title="Potential Integer Overflow/Underflow",
+                    description="Arithmetic on integer type without SafeMath in a pre-0.8.0 contract.",
+                    function_name=self._find_enclosing_function(code, match.start(), functions),
+                    line_start=ln,
+                    line_end=ln,
+                    code_snippet=(lines[ln - 1].strip()[:200] if ln <= len(lines) else ""),
+                    fix_suggestion="Upgrade to Solidity >=0.8.0 or use OpenZeppelin SafeMath.",
+                    swc_id="SWC-101",
+                    cwe_id="CWE-190",
+                )
+            )
         return findings
 
-    def _check_access_control(self, code: str, functions: list[ContractFunction]) -> list[VulnerabilityFinding]:
+    def _check_access_control(
+        self, _code: str, functions: list[ContractFunction]
+    ) -> list[VulnerabilityFinding]:
         """Detect functions missing access control on sensitive operations."""
         findings: list[VulnerabilityFinding] = []
-        sensitive = {"withdraw", "mint", "burn", "pause", "unpause", "setowner",
-                     "transferownership", "selfdestruct", "upgrade", "setadmin", "setfee"}
+        sensitive = {
+            "withdraw",
+            "mint",
+            "burn",
+            "pause",
+            "unpause",
+            "setowner",
+            "transferownership",
+            "selfdestruct",
+            "upgrade",
+            "setadmin",
+            "setfee",
+        }
         access_mods = {"onlyOwner", "onlyAdmin", "onlyRole", "whenNotPaused"}
         for func in functions:
             if func.name.lower() not in sensitive or func.visibility not in ("public", "external"):
                 continue
             if not any(m in access_mods for m in func.modifiers):
-                findings.append(VulnerabilityFinding(
-                    id=self._next_id(), category="access_control", severity="critical",
-                    title=f"Missing Access Control on '{func.name}'",
-                    description=f"'{func.name}' is {func.visibility} with no access control modifier.",
-                    function_name=func.name, line_start=func.line_start, line_end=func.line_end,
-                    code_snippet=f"function {func.name}(...) {func.visibility}",
-                    fix_suggestion="Add onlyOwner or use OpenZeppelin AccessControl.",
-                    swc_id="SWC-105", cwe_id="CWE-284",
-                ))
+                findings.append(
+                    VulnerabilityFinding(
+                        id=self._next_id(),
+                        category="access_control",
+                        severity="critical",
+                        title=f"Missing Access Control on '{func.name}'",
+                        description=f"'{func.name}' is {func.visibility} with no access control modifier.",
+                        function_name=func.name,
+                        line_start=func.line_start,
+                        line_end=func.line_end,
+                        code_snippet=f"function {func.name}(...) {func.visibility}",
+                        fix_suggestion="Add onlyOwner or use OpenZeppelin AccessControl.",
+                        swc_id="SWC-105",
+                        cwe_id="CWE-284",
+                    )
+                )
         return findings
 
     def _check_tx_origin(self, code: str) -> list[VulnerabilityFinding]:
@@ -459,15 +545,22 @@ class VulnerabilityDetector:
         findings, lines = [], code.split("\n")
         for match in self._TX_ORIGIN_RE.finditer(code):
             ln = code[: match.start()].count("\n") + 1
-            findings.append(VulnerabilityFinding(
-                id=self._next_id(), category="tx_origin", severity="high",
-                title="tx.origin Used for Authorization",
-                description="tx.origin can be manipulated via phishing; use msg.sender instead.",
-                function_name="<global>", line_start=ln, line_end=ln,
-                code_snippet=(lines[ln - 1].strip()[:200] if ln <= len(lines) else ""),
-                fix_suggestion="Replace tx.origin with msg.sender.",
-                swc_id="SWC-115", cwe_id="CWE-477",
-            ))
+            findings.append(
+                VulnerabilityFinding(
+                    id=self._next_id(),
+                    category="tx_origin",
+                    severity="high",
+                    title="tx.origin Used for Authorization",
+                    description="tx.origin can be manipulated via phishing; use msg.sender instead.",
+                    function_name="<global>",
+                    line_start=ln,
+                    line_end=ln,
+                    code_snippet=(lines[ln - 1].strip()[:200] if ln <= len(lines) else ""),
+                    fix_suggestion="Replace tx.origin with msg.sender.",
+                    swc_id="SWC-115",
+                    cwe_id="CWE-477",
+                )
+            )
         return findings
 
     def _check_unchecked_calls(self, code: str) -> list[VulnerabilityFinding]:
@@ -476,14 +569,22 @@ class VulnerabilityDetector:
         for i, line in enumerate(code.split("\n"), 1):
             s = line.strip()
             if (".call{" in s or ".call(" in s) and not re.match(r"^\s*\(bool\s+\w+", s):
-                findings.append(VulnerabilityFinding(
-                    id=self._next_id(), category="unchecked_return", severity="medium",
-                    title="Unchecked Low-Level Call",
-                    description="Return value of .call() not checked; call may silently fail.",
-                    function_name="<unknown>", line_start=i, line_end=i, code_snippet=s[:200],
-                    fix_suggestion="Capture: (bool ok, ) = addr.call{...}(...); require(ok);",
-                    swc_id="SWC-104", cwe_id="CWE-252",
-                ))
+                findings.append(
+                    VulnerabilityFinding(
+                        id=self._next_id(),
+                        category="unchecked_return",
+                        severity="medium",
+                        title="Unchecked Low-Level Call",
+                        description="Return value of .call() not checked; call may silently fail.",
+                        function_name="<unknown>",
+                        line_start=i,
+                        line_end=i,
+                        code_snippet=s[:200],
+                        fix_suggestion="Capture: (bool ok, ) = addr.call{...}(...); require(ok);",
+                        swc_id="SWC-104",
+                        cwe_id="CWE-252",
+                    )
+                )
         return findings
 
     def _check_front_running(self, code: str) -> list[VulnerabilityFinding]:
@@ -491,19 +592,28 @@ class VulnerabilityDetector:
         findings, lines = [], code.split("\n")
         for match in self._FRONTRUN_RE.finditer(code):
             ln = code[: match.start()].count("\n") + 1
-            findings.append(VulnerabilityFinding(
-                id=self._next_id(), category="front_running", severity="medium",
-                title="Potential Front-Running Vulnerability",
-                description="Trade/swap references block timestamp/number, enabling sandwich attacks.",
-                function_name="<unknown>", line_start=ln, line_end=ln,
-                code_snippet=(lines[ln - 1].strip()[:200] if ln <= len(lines) else ""),
-                fix_suggestion="Use commit-reveal schemes or slippage protection.",
-                swc_id="SWC-114", cwe_id="CWE-362",
-            ))
+            findings.append(
+                VulnerabilityFinding(
+                    id=self._next_id(),
+                    category="front_running",
+                    severity="medium",
+                    title="Potential Front-Running Vulnerability",
+                    description="Trade/swap references block timestamp/number, enabling sandwich attacks.",
+                    function_name="<unknown>",
+                    line_start=ln,
+                    line_end=ln,
+                    code_snippet=(lines[ln - 1].strip()[:200] if ln <= len(lines) else ""),
+                    fix_suggestion="Use commit-reveal schemes or slippage protection.",
+                    swc_id="SWC-114",
+                    cwe_id="CWE-362",
+                )
+            )
         return findings
 
     def _get_body(self, code: str, func_name: str) -> str | None:
-        match = re.search(rf"function\s+{re.escape(func_name)}\s*\([^)]*\)[^{{]*\{{", code, re.DOTALL)
+        match = re.search(
+            rf"function\s+{re.escape(func_name)}\s*\([^)]*\)[^{{]*\{{", code, re.DOTALL
+        )
         if match is None:
             return None
         start, depth, pos = match.end(), 1, match.end()
@@ -532,6 +642,7 @@ class FormalVerificationEngine:
         self._logger = structlog.get_logger(__name__)
         try:
             import z3 as _z3
+
             self._z3 = _z3
             self._available = True
             self._logger.info("Z3 solver available for formal verification")
@@ -540,13 +651,17 @@ class FormalVerificationEngine:
             self._available = False
             self._logger.info("Z3 not available; proofs will use static fallback")
 
-    def verify_property(self, property_name: str, z3_expr: str, variables: dict[str, Any]) -> FormalProof:
+    def verify_property(
+        self, property_name: str, z3_expr: str, variables: dict[str, Any]
+    ) -> FormalProof:
         """Verify an arbitrary property expressed as a Z3 formula string."""
         start = time.monotonic()
         if not self._available:
             return FormalProof(
-                property_name=property_name, status=ProofStatus.INCONCLUSIVE,
-                z3_expression=z3_expr, proof_time_ms=_elapsed_ms(start),
+                property_name=property_name,
+                status=ProofStatus.INCONCLUSIVE,
+                z3_expression=z3_expr,
+                proof_time_ms=_elapsed_ms(start),
                 description="Z3 not available; install z3-solver for formal proofs.",
             )
         try:
@@ -565,29 +680,39 @@ class FormalVerificationEngine:
             result = solver.check()
             if result == self._z3.unsat:
                 return FormalProof(
-                    property_name=property_name, status=ProofStatus.PROVEN_SAFE,
-                    z3_expression=z3_expr, proof_time_ms=_elapsed_ms(start),
+                    property_name=property_name,
+                    status=ProofStatus.PROVEN_SAFE,
+                    z3_expression=z3_expr,
+                    proof_time_ms=_elapsed_ms(start),
                     description=f"Property '{property_name}' proven safe by Z3.",
                 )
             elif result == self._z3.sat:
                 model = solver.model()
                 cex = {str(d): str(model[d]) for d in model}
                 return FormalProof(
-                    property_name=property_name, status=ProofStatus.COUNTEREXAMPLE_FOUND,
-                    z3_expression=z3_expr, counterexample=cex,
+                    property_name=property_name,
+                    status=ProofStatus.COUNTEREXAMPLE_FOUND,
+                    z3_expression=z3_expr,
+                    counterexample=cex,
                     proof_time_ms=_elapsed_ms(start),
                     description=f"Counterexample found for '{property_name}'.",
                 )
             return FormalProof(
-                property_name=property_name, status=ProofStatus.TIMEOUT,
-                z3_expression=z3_expr, proof_time_ms=_elapsed_ms(start),
+                property_name=property_name,
+                status=ProofStatus.TIMEOUT,
+                z3_expression=z3_expr,
+                proof_time_ms=_elapsed_ms(start),
                 description="Z3 solver returned unknown (likely timeout).",
             )
         except Exception as exc:
-            self._logger.warning("Formal verification failed", property=property_name, error=str(exc))
+            self._logger.warning(
+                "Formal verification failed", property=property_name, error=str(exc)
+            )
             return FormalProof(
-                property_name=property_name, status=ProofStatus.INCONCLUSIVE,
-                z3_expression=z3_expr, proof_time_ms=_elapsed_ms(start),
+                property_name=property_name,
+                status=ProofStatus.INCONCLUSIVE,
+                z3_expression=z3_expr,
+                proof_time_ms=_elapsed_ms(start),
                 description=f"Verification error: {exc}",
             )
 
@@ -600,7 +725,8 @@ class FormalVerificationEngine:
             f"{var_name}_a {operation} {var_name}_b <= {max_val})"
         )
         return self.verify_property(
-            f"overflow_check_{var_name}_{operation}", z3_expr,
+            f"overflow_check_{var_name}_{operation}",
+            z3_expr,
             {f"{var_name}_a": "int", f"{var_name}_b": "int"},
         )
 
@@ -610,16 +736,20 @@ class FormalVerificationEngine:
         if not self._available:
             return FormalProof(
                 property_name=f"access_control_{function_name}",
-                status=ProofStatus.INCONCLUSIVE, z3_expression=z3_expr,
+                status=ProofStatus.INCONCLUSIVE,
+                z3_expression=z3_expr,
                 description=f"Cannot formally verify access control for '{function_name}' without Z3.",
             )
         return FormalProof(
             property_name=f"access_control_{function_name}",
-            status=ProofStatus.PROVEN_SAFE, z3_expression=z3_expr,
+            status=ProofStatus.PROVEN_SAFE,
+            z3_expression=z3_expr,
             description=f"Access control for '{function_name}' verified: requires '{required_role}'.",
         )
 
-    def verify_state_invariant(self, invariant_expr: str, state_vars: dict[str, str]) -> FormalProof:
+    def verify_state_invariant(
+        self, invariant_expr: str, state_vars: dict[str, str]
+    ) -> FormalProof:
         """Verify a state invariant over the given state variables."""
         return self.verify_property(f"invariant_{uuid.uuid4().hex[:8]}", invariant_expr, state_vars)
 
@@ -647,10 +777,19 @@ class GasAnalyzer:
             sr = len(re.findall(r"\b(?:balanceOf|allowance|ownerOf|totalSupply|mapping)\b", body))
             sw = len(re.findall(r"\b\w+\s*[+\-*/]?=\s*", body))
             ec = len(re.findall(r"\.\w+\(", body))
-            estimated = _GAS_COSTS["base"] + sr * _GAS_COSTS["sload"] + sw * _GAS_COSTS["sstore"] + ec * _GAS_COSTS["call"]
+            estimated = (
+                _GAS_COSTS["base"]
+                + sr * _GAS_COSTS["sload"]
+                + sw * _GAS_COSTS["sstore"]
+                + ec * _GAS_COSTS["call"]
+            )
             analysis = GasAnalysis(
-                function_name=func.name, estimated_gas=estimated, optimizations=[],
-                storage_reads=sr, storage_writes=sw, external_calls=ec,
+                function_name=func.name,
+                estimated_gas=estimated,
+                optimizations=[],
+                storage_reads=sr,
+                storage_writes=sw,
+                external_calls=ec,
             )
             analysis.optimizations = self.suggest_optimizations(analysis)
             results.append(analysis)
@@ -661,33 +800,43 @@ class GasAnalyzer:
         """Generate gas optimization suggestions based on usage patterns."""
         suggestions: list[dict[str, Any]] = []
         if analysis.storage_reads > 2:
-            suggestions.append({
-                "type": GasOptimization.STORAGE_PACKING.value,
-                "description": "Cache repeated storage reads in memory variables.",
-                "estimated_savings": analysis.storage_reads * _GAS_COSTS["sload"] // 2,
-            })
+            suggestions.append(
+                {
+                    "type": GasOptimization.STORAGE_PACKING.value,
+                    "description": "Cache repeated storage reads in memory variables.",
+                    "estimated_savings": analysis.storage_reads * _GAS_COSTS["sload"] // 2,
+                }
+            )
         if analysis.storage_writes > 3:
-            suggestions.append({
-                "type": GasOptimization.STORAGE_PACKING.value,
-                "description": "Batch storage writes or pack smaller variables into single slots.",
-                "estimated_savings": analysis.storage_writes * 5000,
-            })
+            suggestions.append(
+                {
+                    "type": GasOptimization.STORAGE_PACKING.value,
+                    "description": "Batch storage writes or pack smaller variables into single slots.",
+                    "estimated_savings": analysis.storage_writes * 5000,
+                }
+            )
         if analysis.estimated_gas > 100_000:
-            suggestions.append({
-                "type": GasOptimization.DEAD_CODE_REMOVAL.value,
-                "description": "High estimated gas; review for unnecessary computations.",
-                "estimated_savings": 0,
-            })
+            suggestions.append(
+                {
+                    "type": GasOptimization.DEAD_CODE_REMOVAL.value,
+                    "description": "High estimated gas; review for unnecessary computations.",
+                    "estimated_savings": 0,
+                }
+            )
         if analysis.external_calls > 2:
-            suggestions.append({
-                "type": GasOptimization.CONSTANT_FOLDING.value,
-                "description": "Multiple external calls; consider batching or caching results.",
-                "estimated_savings": analysis.external_calls * 1000,
-            })
+            suggestions.append(
+                {
+                    "type": GasOptimization.CONSTANT_FOLDING.value,
+                    "description": "Multiple external calls; consider batching or caching results.",
+                    "estimated_savings": analysis.external_calls * 1000,
+                }
+            )
         return suggestions
 
     def _get_body(self, code: str, func_name: str) -> str | None:
-        match = re.search(rf"function\s+{re.escape(func_name)}\s*\([^)]*\)[^{{]*\{{", code, re.DOTALL)
+        match = re.search(
+            rf"function\s+{re.escape(func_name)}\s*\([^)]*\)[^{{]*\{{", code, re.DOTALL
+        )
         if match is None:
             return None
         start, depth, pos = match.end(), 1, match.end()
@@ -704,19 +853,23 @@ class GasAnalyzer:
 # ERC Compliance Checker
 # =============================================================================
 
+
 def _fn(name: str, params: list[str], returns: list[str]) -> dict[str, Any]:
     return {"name": name, "params": params, "returns": returns}
 
+
 _ERC_FUNCTIONS: dict[ContractStandard, list[dict[str, Any]]] = {
     ContractStandard.ERC20: [
-        _fn("totalSupply", [], ["uint256"]), _fn("balanceOf", ["address"], ["uint256"]),
+        _fn("totalSupply", [], ["uint256"]),
+        _fn("balanceOf", ["address"], ["uint256"]),
         _fn("transfer", ["address", "uint256"], ["bool"]),
         _fn("transferFrom", ["address", "address", "uint256"], ["bool"]),
         _fn("approve", ["address", "uint256"], ["bool"]),
         _fn("allowance", ["address", "address"], ["uint256"]),
     ],
     ContractStandard.ERC721: [
-        _fn("balanceOf", ["address"], ["uint256"]), _fn("ownerOf", ["uint256"], ["address"]),
+        _fn("balanceOf", ["address"], ["uint256"]),
+        _fn("ownerOf", ["uint256"], ["address"]),
         _fn("safeTransferFrom", ["address", "address", "uint256"], []),
         _fn("transferFrom", ["address", "address", "uint256"], []),
         _fn("approve", ["address", "uint256"], []),
@@ -733,20 +886,30 @@ _ERC_FUNCTIONS: dict[ContractStandard, list[dict[str, Any]]] = {
         _fn("safeBatchTransferFrom", ["address", "address", "uint256[]", "uint256[]", "bytes"], []),
     ],
     ContractStandard.ERC4626: [
-        _fn("asset", [], ["address"]), _fn("totalAssets", [], ["uint256"]),
-        _fn("convertToShares", ["uint256"], ["uint256"]), _fn("convertToAssets", ["uint256"], ["uint256"]),
-        _fn("deposit", ["uint256", "address"], ["uint256"]), _fn("mint", ["uint256", "address"], ["uint256"]),
-        _fn("withdraw", ["uint256", "address", "address"], ["uint256"]), _fn("redeem", ["uint256", "address", "address"], ["uint256"]),
-        _fn("maxDeposit", ["address"], ["uint256"]), _fn("previewDeposit", ["uint256"], ["uint256"]),
-        _fn("maxMint", ["address"], ["uint256"]), _fn("previewMint", ["uint256"], ["uint256"]),
-        _fn("maxWithdraw", ["address"], ["uint256"]), _fn("previewWithdraw", ["uint256"], ["uint256"]),
-        _fn("maxRedeem", ["address"], ["uint256"]), _fn("previewRedeem", ["uint256"], ["uint256"]),
+        _fn("asset", [], ["address"]),
+        _fn("totalAssets", [], ["uint256"]),
+        _fn("convertToShares", ["uint256"], ["uint256"]),
+        _fn("convertToAssets", ["uint256"], ["uint256"]),
+        _fn("deposit", ["uint256", "address"], ["uint256"]),
+        _fn("mint", ["uint256", "address"], ["uint256"]),
+        _fn("withdraw", ["uint256", "address", "address"], ["uint256"]),
+        _fn("redeem", ["uint256", "address", "address"], ["uint256"]),
+        _fn("maxDeposit", ["address"], ["uint256"]),
+        _fn("previewDeposit", ["uint256"], ["uint256"]),
+        _fn("maxMint", ["address"], ["uint256"]),
+        _fn("previewMint", ["uint256"], ["uint256"]),
+        _fn("maxWithdraw", ["address"], ["uint256"]),
+        _fn("previewWithdraw", ["uint256"], ["uint256"]),
+        _fn("maxRedeem", ["address"], ["uint256"]),
+        _fn("previewRedeem", ["uint256"], ["uint256"]),
     ],
 }
 
 _ERC_EVENTS: dict[ContractStandard, list[str]] = {
-    ContractStandard.ERC20: ["Transfer", "Approval"], ContractStandard.ERC721: ["Transfer", "Approval", "ApprovalForAll"],
-    ContractStandard.ERC1155: ["TransferSingle", "TransferBatch", "ApprovalForAll", "URI"], ContractStandard.ERC4626: ["Deposit", "Withdraw"],
+    ContractStandard.ERC20: ["Transfer", "Approval"],
+    ContractStandard.ERC721: ["Transfer", "Approval", "ApprovalForAll"],
+    ContractStandard.ERC1155: ["TransferSingle", "TransferBatch", "ApprovalForAll", "URI"],
+    ContractStandard.ERC4626: ["Deposit", "Withdraw"],
 }
 
 
@@ -757,7 +920,9 @@ class ERCComplianceChecker:
         self._logger = structlog.get_logger(__name__)
         self._parser = SolidityParser()
 
-    def check_compliance(self, code: str, functions: list[ContractFunction], standard: ContractStandard) -> StandardComplianceResult:
+    def check_compliance(
+        self, code: str, functions: list[ContractFunction], standard: ContractStandard
+    ) -> StandardComplianceResult:
         """Check if a contract complies with the given ERC standard."""
         required_funcs = self._get_required_functions(standard)
         required_events = self._get_required_events(standard)
@@ -770,12 +935,14 @@ class ERCComplianceChecker:
             else:
                 matched = [f for f in functions if f.name == req["name"]]
                 if matched and len(matched[0].parameters) != len(req["params"]):
-                    incorrect_signatures.append({
-                        "function": req["name"],
-                        "expected_params": str(len(req["params"])),
-                        "actual_params": str(len(matched[0].parameters)),
-                        "detail": f"Expected {len(req['params'])} params ({', '.join(req['params'])}), got {len(matched[0].parameters)}",
-                    })
+                    incorrect_signatures.append(
+                        {
+                            "function": req["name"],
+                            "expected_params": str(len(req["params"])),
+                            "actual_params": str(len(matched[0].parameters)),
+                            "detail": f"Expected {len(req['params'])} params ({', '.join(req['params'])}), got {len(matched[0].parameters)}",
+                        }
+                    )
         declared_events = self._parser._extract_events(code)
         missing_events = [e for e in required_events if e not in declared_events]
         recommendations: list[str] = []
@@ -790,10 +957,12 @@ class ERCComplianceChecker:
         compliant = not missing_functions and not missing_events and not incorrect_signatures
         self._logger.info("ERC compliance check", standard=standard.value, compliant=compliant)
         return StandardComplianceResult(
-            standard=standard, compliant=compliant,
+            standard=standard,
+            compliant=compliant,
             missing_functions=missing_functions,
             incorrect_signatures=incorrect_signatures,
-            missing_events=missing_events, recommendations=recommendations,
+            missing_events=missing_events,
+            recommendations=recommendations,
         )
 
     def _get_required_functions(self, standard: ContractStandard) -> list[dict[str, Any]]:
@@ -831,7 +1000,9 @@ class SmartContractAnalyzer:
         self._compliance = ERCComplianceChecker()
         self._logger = structlog.get_logger(__name__)
 
-    def analyze(self, code: str, language: str = "solidity", standard: ContractStandard | None = None) -> SmartContractReport:
+    def analyze(
+        self, code: str, language: str = "solidity", standard: ContractStandard | None = None
+    ) -> SmartContractReport:
         """Run a full analysis pipeline on a smart contract."""
         start = time.monotonic()
         contract_name = self._extract_contract_name(code, language)
@@ -862,16 +1033,24 @@ class SmartContractAnalyzer:
 
         risk = self._calculate_risk_score(vulnerabilities, proofs)
         report = SmartContractReport(
-            contract_name=contract_name, language=language,
-            analysis_depth=self._depth, functions_analyzed=len(functions),
-            vulnerabilities=vulnerabilities, formal_proofs=proofs,
-            gas_analysis=gas, compliance=compliance_result,
-            overall_risk_score=risk, analysis_time_ms=_elapsed_ms(start),
+            contract_name=contract_name,
+            language=language,
+            analysis_depth=self._depth,
+            functions_analyzed=len(functions),
+            vulnerabilities=vulnerabilities,
+            formal_proofs=proofs,
+            gas_analysis=gas,
+            compliance=compliance_result,
+            overall_risk_score=risk,
+            analysis_time_ms=_elapsed_ms(start),
         )
         self._logger.info(
-            "Smart contract analysis complete", contract=contract_name,
-            depth=self._depth.value, vulnerabilities=len(vulnerabilities),
-            proofs=len(proofs), risk_score=risk,
+            "Smart contract analysis complete",
+            contract=contract_name,
+            depth=self._depth.value,
+            vulnerabilities=len(vulnerabilities),
+            proofs=len(proofs),
+            risk_score=risk,
         )
         return report
 
@@ -893,7 +1072,9 @@ class SmartContractAnalyzer:
             elif prop == "access_control":
                 for func in functions:
                     if func.modifiers:
-                        proofs.append(self._verifier.verify_access_control(func.name, func.modifiers[0]))
+                        proofs.append(
+                            self._verifier.verify_access_control(func.name, func.modifiers[0])
+                        )
             elif prop == "state_invariant":
                 uint_vars = {v["name"]: "int" for v in state_vars if "uint" in v.get("type", "")}
                 if uint_vars:
@@ -901,11 +1082,17 @@ class SmartContractAnalyzer:
                     inv = f"z3.And({', '.join(f'{n} >= 0' for n in names)})"
                     proofs.append(self._verifier.verify_state_invariant(inv, uint_vars))
             else:
-                proofs.append(FormalProof(
-                    property_name=prop, status=ProofStatus.INCONCLUSIVE,
-                    z3_expression="", description=f"Unknown property '{prop}'; skipped.",
-                ))
-        self._logger.info("Formal verification complete", properties=len(properties), proofs=len(proofs))
+                proofs.append(
+                    FormalProof(
+                        property_name=prop,
+                        status=ProofStatus.INCONCLUSIVE,
+                        z3_expression="",
+                        description=f"Unknown property '{prop}'; skipped.",
+                    )
+                )
+        self._logger.info(
+            "Formal verification complete", properties=len(properties), proofs=len(proofs)
+        )
         return proofs
 
     # --- Private Helpers ---
@@ -919,7 +1106,9 @@ class SmartContractAnalyzer:
             return match.group(1) if match else "Unknown"
         return "Unknown"
 
-    def _run_formal_proofs(self, functions: list[ContractFunction], state_vars: list[dict[str, Any]]) -> list[FormalProof]:
+    def _run_formal_proofs(
+        self, functions: list[ContractFunction], state_vars: list[dict[str, Any]]
+    ) -> list[FormalProof]:
         proofs: list[FormalProof] = []
         for func in functions:
             proofs.append(self._verifier.verify_overflow(func.name, "+"))
@@ -933,7 +1122,9 @@ class SmartContractAnalyzer:
             proofs.append(self._verifier.verify_state_invariant(inv, uint_vars))
         return proofs
 
-    def _calculate_risk_score(self, vulnerabilities: list[VulnerabilityFinding], proofs: list[FormalProof]) -> float:
+    def _calculate_risk_score(
+        self, vulnerabilities: list[VulnerabilityFinding], proofs: list[FormalProof]
+    ) -> float:
         weights = {"critical": 25.0, "high": 15.0, "medium": 5.0, "low": 1.0, "info": 0.0}
         score = sum(weights.get(v.severity, 0) for v in vulnerabilities)
         score += sum(10.0 for p in proofs if p.status == ProofStatus.COUNTEREXAMPLE_FOUND)

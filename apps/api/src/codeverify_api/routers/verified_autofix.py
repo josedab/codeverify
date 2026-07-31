@@ -22,6 +22,7 @@ router = APIRouter()
 # Models
 # ---------------------------------------------------------------------------
 
+
 class FindingInput(BaseModel):
     finding_id: str
     type: str = Field(description="null_safety, bounds_check, division_by_zero, type_error, etc.")
@@ -166,17 +167,30 @@ def _simulate_z3_verification(
     code_changed = original.strip() != fixed.strip()
     has_guard = any(
         keyword in fixed.lower()
-        for keyword in ["is not none", "!= none", "!== null", "!== undefined",
-                        ">= 0", "< len(", ".length", "!= 0", "!== 0"]
+        for keyword in [
+            "is not none",
+            "!= none",
+            "!== null",
+            "!== undefined",
+            ">= 0",
+            "< len(",
+            ".length",
+            "!= 0",
+            "!== 0",
+        ]
     )
 
     verified = code_changed and has_guard
     solver_status = "unsat" if verified else "sat"  # unsat = property holds
-    counterexample = None if verified else {
-        "variable": "x",
-        "value": "None" if "null" in finding_type else "−1",
-        "path": f"line {attempt + 5}",
-    }
+    counterexample = (
+        None
+        if verified
+        else {
+            "variable": "x",
+            "value": "None" if "null" in finding_type else "−1",
+            "path": f"line {attempt + 5}",
+        }
+    )
     elapsed = (time.time() - start) * 1000
 
     return Z3VerificationResult(
@@ -189,7 +203,9 @@ def _simulate_z3_verification(
     )
 
 
-def _generate_fix(code: str, finding: FindingInput, language: str, attempt: int) -> tuple[str, str, str]:
+def _generate_fix(
+    code: str, finding: FindingInput, language: str, attempt: int
+) -> tuple[str, str, str]:
     """Generate a candidate fix. Each attempt varies the strategy slightly."""
     lines = code.splitlines()
     line_idx = finding.line_start - 1
@@ -213,7 +229,9 @@ def _generate_fix(code: str, finding: FindingInput, language: str, attempt: int)
         if language == "python":
             fixed_line = f"{indent_str}{guard}\n{indent_str}    {original_line.strip()}"
         else:
-            fixed_line = f"{indent_str}{guard} {{\n{indent_str}    {original_line.strip()}\n{indent_str}}}"
+            fixed_line = (
+                f"{indent_str}{guard} {{\n{indent_str}    {original_line.strip()}\n{indent_str}}}"
+            )
 
         lines[line_idx] = fixed_line
         confidence = "very_high" if attempt == 0 else "high"
@@ -234,15 +252,19 @@ def _generate_fix(code: str, finding: FindingInput, language: str, attempt: int)
 
 
 def _generate_diff(original: str, fixed: str, file_path: str) -> str:
-    return "".join(difflib.unified_diff(
-        original.splitlines(keepends=True),
-        fixed.splitlines(keepends=True),
-        fromfile=f"a/{file_path}",
-        tofile=f"b/{file_path}",
-    ))
+    return "".join(
+        difflib.unified_diff(
+            original.splitlines(keepends=True),
+            fixed.splitlines(keepends=True),
+            fromfile=f"a/{file_path}",
+            tofile=f"b/{file_path}",
+        )
+    )
 
 
-def _build_github_suggestion(fix_id: str, finding: FindingInput, diff: str, explanation: str) -> dict[str, Any]:
+def _build_github_suggestion(
+    fix_id: str, finding: FindingInput, diff: str, explanation: str
+) -> dict[str, Any]:
     """Build a GitHub PR review comment with a suggested change."""
     return {
         "body": (
@@ -271,6 +293,7 @@ _verified_fixes: dict[str, dict[str, Any]] = {}
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/generate", response_model=VerifiedFix)
 async def generate_verified_fix(request: VerifiedFixRequest) -> VerifiedFix:
@@ -316,9 +339,7 @@ async def generate_verified_fix(request: VerifiedFixRequest) -> VerifiedFix:
 
     github_suggestion = None
     if request.repo_full_name and request.pr_number:
-        github_suggestion = _build_github_suggestion(
-            fix_id, request.finding, diff, explanation
-        )
+        github_suggestion = _build_github_suggestion(fix_id, request.finding, diff, explanation)
 
     fix_data = VerifiedFix(
         fix_id=fix_id,

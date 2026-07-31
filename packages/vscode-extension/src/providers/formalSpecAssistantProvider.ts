@@ -7,6 +7,8 @@
 
 import * as vscode from 'vscode';
 import { CodeVerifyClient, NLToZ3Result, SpecTemplate } from '../client';
+import { pushBounded } from '../collections';
+import { extractTemplateVariables, fillTemplate } from '../localAnalysis';
 import { logger } from '../logger';
 
 interface SpecHistoryEntry {
@@ -45,15 +47,11 @@ export class FormalSpecAssistantProvider implements vscode.Disposable {
         const result = await this.client.convertNLToZ3(naturalLanguage, context);
 
         // Store in history
-        this.specHistory.unshift({
-            naturalLanguage,
-            result,
-            timestamp: Date.now(),
-        });
-
-        if (this.specHistory.length > this.maxHistorySize) {
-            this.specHistory.pop();
-        }
+        pushBounded(
+            this.specHistory,
+            { naturalLanguage, result, timestamp: Date.now() },
+            this.maxHistorySize
+        );
 
         return result;
     }
@@ -436,14 +434,7 @@ export class FormalSpecAssistantProvider implements vscode.Disposable {
      */
     private async useTemplate(template: SpecTemplate): Promise<void> {
         // Extract variable placeholders
-        const varPattern = /\{(\w+)\}/g;
-        const variables: string[] = [];
-        let match;
-        while ((match = varPattern.exec(template.nl_pattern)) !== null) {
-            if (!variables.includes(match[1])) {
-                variables.push(match[1]);
-            }
-        }
+        const variables = extractTemplateVariables(template.nl_pattern);
 
         // Prompt for each variable
         const values: Record<string, string> = {};
@@ -460,10 +451,7 @@ export class FormalSpecAssistantProvider implements vscode.Disposable {
         }
 
         // Fill template
-        let spec = template.nl_pattern;
-        for (const [varName, value] of Object.entries(values)) {
-            spec = spec.replace(new RegExp(`\\{${varName}\\}`, 'g'), value);
-        }
+        const spec = fillTemplate(template.nl_pattern, values);
 
         // Convert
         const result = await this.convertToZ3(spec);

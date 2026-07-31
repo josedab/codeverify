@@ -7,12 +7,10 @@ to generate formally-correct code from the start.
 
 from __future__ import annotations
 
-import hashlib
 import re
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -21,6 +19,7 @@ logger = structlog.get_logger()
 
 class AssertionType(str, Enum):
     """Type of inline assertion."""
+
     PRECONDITION = "precondition"
     POSTCONDITION = "postcondition"
     INVARIANT = "invariant"
@@ -31,6 +30,7 @@ class AssertionType(str, Enum):
 
 class SuggestionRank(str, Enum):
     """Verification-based ranking for code suggestions."""
+
     VERIFIED = "verified"
     LIKELY_CORRECT = "likely_correct"
     UNVERIFIED = "unverified"
@@ -40,6 +40,7 @@ class SuggestionRank(str, Enum):
 @dataclass
 class InlineAssertion:
     """An assertion generated for code."""
+
     assertion_type: AssertionType
     expression: str
     natural_language: str
@@ -64,6 +65,7 @@ class InlineAssertion:
 @dataclass
 class VerifiedSuggestion:
     """A code suggestion with verification metadata."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     code: str = ""
     rank: SuggestionRank = SuggestionRank.UNVERIFIED
@@ -80,6 +82,7 @@ class VerifiedSuggestion:
 @dataclass
 class GenerationContext:
     """Context extracted for verification-aware code generation."""
+
     function_name: str = ""
     parameters: list[dict[str, str]] = field(default_factory=list)
     return_type: str = ""
@@ -121,7 +124,9 @@ class ContextExtractor:
 
         # Extract existing assertions
         ctx.existing_assertions = [
-            l.strip() for l in lines if "assert" in l.lower() and not l.strip().startswith("#")
+            line.strip()
+            for line in lines
+            if "assert" in line.lower() and not line.strip().startswith("#")
         ]
 
         # Surrounding code context
@@ -131,7 +136,7 @@ class ContextExtractor:
 
         return ctx
 
-    def _parse_params(self, params_str: str, language: str) -> list[dict[str, str]]:
+    def _parse_params(self, params_str: str, _language: str) -> list[dict[str, str]]:
         params = []
         for p in params_str.split(","):
             p = p.strip()
@@ -158,40 +163,49 @@ class AssertionGenerator:
 
             # Null checks for optional types
             if "None" in ptype or "Optional" in ptype or ptype == "Any":
-                assertions.append(InlineAssertion(
-                    assertion_type=AssertionType.PRECONDITION,
-                    expression=f"{name} is not None",
-                    natural_language=f"{name} must not be None",
-                    language=context.language,
-                ))
+                assertions.append(
+                    InlineAssertion(
+                        assertion_type=AssertionType.PRECONDITION,
+                        expression=f"{name} is not None",
+                        natural_language=f"{name} must not be None",
+                        language=context.language,
+                    )
+                )
 
             # Bounds checks for numeric types
-            if ptype in ("int", "float", "number"):
-                if "index" in name.lower() or "idx" in name.lower():
-                    assertions.append(InlineAssertion(
+            if ptype in ("int", "float", "number") and (
+                "index" in name.lower() or "idx" in name.lower()
+            ):
+                assertions.append(
+                    InlineAssertion(
                         assertion_type=AssertionType.BOUNDS_CHECK,
                         expression=f"{name} >= 0",
                         natural_language=f"{name} must be non-negative",
                         language=context.language,
-                    ))
+                    )
+                )
 
             # String non-empty checks
             if ptype == "str" and ("name" in name.lower() or "id" in name.lower()):
-                assertions.append(InlineAssertion(
-                    assertion_type=AssertionType.PRECONDITION,
-                    expression=f"len({name}) > 0",
-                    natural_language=f"{name} must not be empty",
-                    language=context.language,
-                ))
+                assertions.append(
+                    InlineAssertion(
+                        assertion_type=AssertionType.PRECONDITION,
+                        expression=f"len({name}) > 0",
+                        natural_language=f"{name} must not be empty",
+                        language=context.language,
+                    )
+                )
 
         # Return type assertions
         if context.return_type and context.return_type not in ("None", "void"):
-            assertions.append(InlineAssertion(
-                assertion_type=AssertionType.POSTCONDITION,
-                expression="result is not None",
-                natural_language=f"Function must return a valid {context.return_type}",
-                language=context.language,
-            ))
+            assertions.append(
+                InlineAssertion(
+                    assertion_type=AssertionType.POSTCONDITION,
+                    expression="result is not None",
+                    natural_language=f"Function must return a valid {context.return_type}",
+                    language=context.language,
+                )
+            )
 
         return assertions
 
@@ -234,19 +248,21 @@ class SuggestionRanker:
             else:
                 rank = SuggestionRank.RISKY
 
-            ranked.append(VerifiedSuggestion(
-                code=code,
-                rank=rank,
-                verification_score=score,
-                assertions=assertions,
-                issues=issues,
-                explanation=f"Verification score: {score:.2f}",
-            ))
+            ranked.append(
+                VerifiedSuggestion(
+                    code=code,
+                    rank=rank,
+                    verification_score=score,
+                    assertions=assertions,
+                    issues=issues,
+                    explanation=f"Verification score: {score:.2f}",
+                )
+            )
 
         ranked.sort(key=lambda s: s.verification_score, reverse=True)
         return ranked
 
-    def _compute_score(self, code: str, context: GenerationContext) -> float:
+    def _compute_score(self, code: str, _context: GenerationContext) -> float:
         """Compute a verification score for a code suggestion."""
         score = 0.5
 
@@ -294,13 +310,19 @@ class VerificationAwareCodeGen:
         if context.return_type:
             prompt_parts.append(f"\nReturn type: {context.return_type}")
 
-        prompt_parts.append("\nGenerate code that is provably correct with respect to these constraints.")
+        prompt_parts.append(
+            "\nGenerate code that is provably correct with respect to these constraints."
+        )
         return "\n".join(prompt_parts)
 
-    def rank_suggestions(self, suggestions: list[str], code: str, cursor_line: int, language: str = "python") -> list[VerifiedSuggestion]:
+    def rank_suggestions(
+        self, suggestions: list[str], code: str, cursor_line: int, language: str = "python"
+    ) -> list[VerifiedSuggestion]:
         context = self._extractor.extract(code, cursor_line, language)
         return self._ranker.rank_suggestions(suggestions, context)
 
-    def generate_assertions(self, code: str, cursor_line: int, language: str = "python") -> list[InlineAssertion]:
+    def generate_assertions(
+        self, code: str, cursor_line: int, language: str = "python"
+    ) -> list[InlineAssertion]:
         context = self._extractor.extract(code, cursor_line, language)
         return self._assertion_gen.generate(context)

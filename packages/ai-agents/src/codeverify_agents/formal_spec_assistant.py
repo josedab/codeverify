@@ -904,7 +904,7 @@ IMPORTANT:
     def _try_template_match(
         self,
         parsed: ParsedSpec,
-        context: dict[str, Any],
+        _context: dict[str, Any],
     ) -> ConversionResult | None:
         """Try to match against template library."""
         # Search templates based on parsed spec
@@ -1062,7 +1062,6 @@ Convert to Z3 formal specification."""
                 Solver,
                 String,
                 sat,
-                unknown,
                 unsat,
             )
 
@@ -1173,7 +1172,7 @@ Provide a corrected/refined specification that addresses the feedback."""
     def suggest_specifications(
         self,
         function_signature: str,
-        docstring: str | None = None,
+        _docstring: str | None = None,
     ) -> list[str]:
         """Suggest specifications based on function signature.
 

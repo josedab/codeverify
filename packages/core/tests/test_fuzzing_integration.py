@@ -10,9 +10,6 @@ call real functions with generated inputs.
 
 from __future__ import annotations
 
-import pytest
-
-
 # ─── Target functions with known bugs ──────────────────────────────────
 
 
@@ -90,9 +87,7 @@ class TestRealExecutionFuzzing:
     def test_division_safe_version_passes(self):
         """Same inputs on fixed function should not raise."""
         executor = RealFuzzExecutor()
-        raised, detail = executor.execute_with_inputs(
-            safe_divide, {"a": 10, "b": 0}
-        )
+        raised, detail = executor.execute_with_inputs(safe_divide, {"a": 10, "b": 0})
         assert raised is True
         assert "0.0" in detail
 
@@ -106,9 +101,7 @@ class TestRealExecutionFuzzing:
 
     def test_null_safe_version_passes(self):
         executor = RealFuzzExecutor()
-        raised, detail = executor.execute_with_inputs(
-            safe_process_user, {"user": None}
-        )
+        raised, detail = executor.execute_with_inputs(safe_process_user, {"user": None})
         assert raised is True
         assert "anonymous" in detail
 
@@ -154,8 +147,11 @@ class TestRealExecutionFuzzing:
 
         svc = VerificationGuidedFuzzingService()
         campaign = svc.fuzz_counterexample(
-            "divide", "math.py", "division_by_zero",
-            {"b": 0}, counterexample_id="ce-001",
+            "divide",
+            "math.py",
+            "division_by_zero",
+            {"b": 0},
+            counterexample_id="ce-001",
         )
 
         # The simulated executor confirms it; verify with real execution too
@@ -177,9 +173,7 @@ class TestRealExecutionFuzzing:
         executor = RealFuzzExecutor()
 
         # Z3 says b=0 is dangerous, but safe_divide handles it
-        raised, detail = executor.execute_with_inputs(
-            safe_divide, {"a": 10, "b": 0}
-        )
+        raised, detail = executor.execute_with_inputs(safe_divide, {"a": 10, "b": 0})
         assert raised is True  # No exception
         assert "0.0" in detail  # Returns safe default
 

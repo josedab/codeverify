@@ -273,7 +273,7 @@ async def create_verification_attestation(
                 low_count=low,
                 formal_proofs_count=formal,
                 ai_analyses_count=ai,
-                files_verified=len(set(f.file_path for f in findings)),
+                files_verified=len({f.file_path for f in findings}),
                 verification_coverage=0.8 if analysis.status == "completed" else 0.0,
             )
 
@@ -301,7 +301,7 @@ async def create_verification_attestation(
         result = await db.execute(
             select(AttestationDB)
             .where(AttestationDB.repo_id == repo.id)
-            .where(AttestationDB.passed == True)
+            .where(AttestationDB.passed)
             .order_by(AttestationDB.created_at.desc())
             .limit(50)
         )
@@ -744,11 +744,7 @@ async def get_certification_leaderboard(
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
     """Get leaderboard of certified repositories."""
-    query = (
-        select(AttestationDB)
-        .where(AttestationDB.tier.isnot(None))
-        .where(AttestationDB.passed == True)
-    )
+    query = select(AttestationDB).where(AttestationDB.tier.isnot(None)).where(AttestationDB.passed)
 
     if tier:
         query = query.where(AttestationDB.tier == tier.lower())

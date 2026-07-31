@@ -18,9 +18,8 @@ import hashlib
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -56,6 +55,7 @@ class PricingModel(str, Enum):
 @dataclass
 class AgentManifest:
     """Manifest for a marketplace agent."""
+
     name: str = ""
     version: str = "1.0.0"
     description: str = ""
@@ -74,6 +74,7 @@ class AgentManifest:
 @dataclass
 class PublishedAgent:
     """A published agent in the marketplace."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     manifest: AgentManifest = field(default_factory=AgentManifest)
     status: PublishStatus = PublishStatus.DRAFT
@@ -84,12 +85,13 @@ class PublishedAgent:
     rating_count: int = 0
     revenue_cents: int = 0
     published_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class AgentReview:
     """A review of a submitted agent."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     agent_id: str = ""
     reviewer_id: str = ""
@@ -97,15 +99,16 @@ class AgentReview:
     comments: str = ""
     security_check_passed: bool = False
     performance_check_passed: bool = False
-    reviewed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    reviewed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class AgentInstallation:
     """Record of an agent installation."""
+
     agent_id: str = ""
     org_id: str = ""
-    installed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    installed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     is_active: bool = True
     usage_count: int = 0
 
@@ -113,6 +116,7 @@ class AgentInstallation:
 @dataclass
 class RevenueShare:
     """Revenue share record for a paid agent."""
+
     agent_id: str = ""
     author_id: str = ""
     total_uses: int = 0
@@ -135,19 +139,26 @@ class AgentMarketplaceService:
 
     def submit_agent(self, manifest: AgentManifest, code_hash: str = "") -> PublishedAgent:
         agent = PublishedAgent(
-            manifest=manifest, status=PublishStatus.SUBMITTED,
+            manifest=manifest,
+            status=PublishStatus.SUBMITTED,
             content_hash=code_hash or hashlib.sha256(manifest.name.encode()).hexdigest()[:12],
         )
         self._agents[agent.id] = agent
         return agent
 
-    def review_agent(self, agent_id: str, reviewer_id: str, approved: bool, comments: str = "") -> AgentReview:
+    def review_agent(
+        self, agent_id: str, reviewer_id: str, approved: bool, comments: str = ""
+    ) -> AgentReview:
         agent = self._agents.get(agent_id)
         if not agent:
             raise ValueError(f"Agent {agent_id} not found")
         review = AgentReview(
-            agent_id=agent_id, reviewer_id=reviewer_id, approved=approved,
-            comments=comments, security_check_passed=approved, performance_check_passed=approved,
+            agent_id=agent_id,
+            reviewer_id=reviewer_id,
+            approved=approved,
+            comments=comments,
+            security_check_passed=approved,
+            performance_check_passed=approved,
         )
         self._reviews.append(review)
         agent.status = PublishStatus.APPROVED if approved else PublishStatus.REJECTED
@@ -158,7 +169,7 @@ class AgentMarketplaceService:
         if not agent or agent.status != PublishStatus.APPROVED:
             return False
         agent.status = PublishStatus.PUBLISHED
-        agent.published_at = datetime.now(timezone.utc)
+        agent.published_at = datetime.now(UTC)
         return True
 
     def install_agent(self, agent_id: str, org_id: str) -> AgentInstallation | None:
@@ -197,13 +208,21 @@ class AgentMarketplaceService:
         agent.rating_count = len(ratings)
         return True
 
-    def search(self, query: str = "", category: AgentCategory | None = None, min_rating: float = 0.0) -> list[PublishedAgent]:
+    def search(
+        self, query: str = "", category: AgentCategory | None = None, min_rating: float = 0.0
+    ) -> list[PublishedAgent]:
         results = [a for a in self._agents.values() if a.status == PublishStatus.PUBLISHED]
         if category:
             results = [a for a in results if a.manifest.category == category]
         if query:
             q = query.lower()
-            results = [a for a in results if q in a.manifest.name.lower() or q in a.manifest.description.lower() or q in " ".join(a.manifest.tags).lower()]
+            results = [
+                a
+                for a in results
+                if q in a.manifest.name.lower()
+                or q in a.manifest.description.lower()
+                or q in " ".join(a.manifest.tags).lower()
+            ]
         if min_rating > 0:
             results = [a for a in results if a.rating >= min_rating]
         return sorted(results, key=lambda a: a.install_count, reverse=True)
@@ -214,9 +233,12 @@ class AgentMarketplaceService:
             return RevenueShare()
         author_share = int(agent.revenue_cents * self.AUTHOR_SHARE_PERCENT / 100)
         return RevenueShare(
-            agent_id=agent_id, author_id=agent.manifest.author_id,
-            total_uses=agent.usage_count, total_revenue_cents=agent.revenue_cents,
-            author_share_cents=author_share, platform_share_cents=agent.revenue_cents - author_share,
+            agent_id=agent_id,
+            author_id=agent.manifest.author_id,
+            total_uses=agent.usage_count,
+            total_revenue_cents=agent.revenue_cents,
+            author_share_cents=author_share,
+            platform_share_cents=agent.revenue_cents - author_share,
         )
 
     def get_agent(self, agent_id: str) -> PublishedAgent | None:
@@ -224,10 +246,15 @@ class AgentMarketplaceService:
 
 
 _agent_marketplace_instance: AgentMarketplaceService | None = None
+
+
 def get_agent_marketplace_service() -> AgentMarketplaceService:
     global _agent_marketplace_instance
-    if _agent_marketplace_instance is None: _agent_marketplace_instance = AgentMarketplaceService()
+    if _agent_marketplace_instance is None:
+        _agent_marketplace_instance = AgentMarketplaceService()
     return _agent_marketplace_instance
+
+
 def reset_agent_marketplace_service() -> None:
     global _agent_marketplace_instance
     _agent_marketplace_instance = None

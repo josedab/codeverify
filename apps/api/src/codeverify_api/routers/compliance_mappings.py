@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -23,66 +23,286 @@ router = APIRouter()
 
 CONTROL_MAPPINGS: dict[str, list[dict[str, Any]]] = {
     "null_safety": [
-        {"framework": "owasp", "control": "A03:2021", "name": "Injection", "relationship": "prevents"},
-        {"framework": "cwe", "control": "CWE-476", "name": "NULL Pointer Dereference", "relationship": "detects"},
-        {"framework": "soc2", "control": "CC7.1", "name": "System Operations Monitoring", "relationship": "supports"},
-        {"framework": "nist", "control": "SI-10", "name": "Information Input Validation", "relationship": "supports"},
-        {"framework": "iso27001", "control": "A.14.2.1", "name": "Secure Development Policy", "relationship": "supports"},
+        {
+            "framework": "owasp",
+            "control": "A03:2021",
+            "name": "Injection",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "cwe",
+            "control": "CWE-476",
+            "name": "NULL Pointer Dereference",
+            "relationship": "detects",
+        },
+        {
+            "framework": "soc2",
+            "control": "CC7.1",
+            "name": "System Operations Monitoring",
+            "relationship": "supports",
+        },
+        {
+            "framework": "nist",
+            "control": "SI-10",
+            "name": "Information Input Validation",
+            "relationship": "supports",
+        },
+        {
+            "framework": "iso27001",
+            "control": "A.14.2.1",
+            "name": "Secure Development Policy",
+            "relationship": "supports",
+        },
     ],
     "bounds_check": [
-        {"framework": "cwe", "control": "CWE-119", "name": "Buffer Overflow", "relationship": "prevents"},
-        {"framework": "cwe", "control": "CWE-125", "name": "Out-of-bounds Read", "relationship": "prevents"},
-        {"framework": "owasp", "control": "A03:2021", "name": "Injection", "relationship": "prevents"},
-        {"framework": "nist", "control": "SI-10", "name": "Information Input Validation", "relationship": "supports"},
-        {"framework": "pci_dss", "control": "6.5.2", "name": "Buffer Overflows", "relationship": "prevents"},
+        {
+            "framework": "cwe",
+            "control": "CWE-119",
+            "name": "Buffer Overflow",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "cwe",
+            "control": "CWE-125",
+            "name": "Out-of-bounds Read",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "owasp",
+            "control": "A03:2021",
+            "name": "Injection",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "nist",
+            "control": "SI-10",
+            "name": "Information Input Validation",
+            "relationship": "supports",
+        },
+        {
+            "framework": "pci_dss",
+            "control": "6.5.2",
+            "name": "Buffer Overflows",
+            "relationship": "prevents",
+        },
     ],
     "division_by_zero": [
-        {"framework": "cwe", "control": "CWE-369", "name": "Divide By Zero", "relationship": "prevents"},
-        {"framework": "soc2", "control": "CC7.2", "name": "Monitoring of Systems", "relationship": "supports"},
-        {"framework": "nist", "control": "SI-10", "name": "Information Input Validation", "relationship": "supports"},
+        {
+            "framework": "cwe",
+            "control": "CWE-369",
+            "name": "Divide By Zero",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "soc2",
+            "control": "CC7.2",
+            "name": "Monitoring of Systems",
+            "relationship": "supports",
+        },
+        {
+            "framework": "nist",
+            "control": "SI-10",
+            "name": "Information Input Validation",
+            "relationship": "supports",
+        },
     ],
     "sql_injection": [
-        {"framework": "owasp", "control": "A03:2021", "name": "Injection", "relationship": "prevents"},
-        {"framework": "cwe", "control": "CWE-89", "name": "SQL Injection", "relationship": "detects"},
-        {"framework": "pci_dss", "control": "6.5.1", "name": "Injection Flaws", "relationship": "prevents"},
-        {"framework": "hipaa", "control": "164.312(a)(1)", "name": "Access Control", "relationship": "supports"},
-        {"framework": "nist", "control": "SI-10", "name": "Information Input Validation", "relationship": "prevents"},
-        {"framework": "iso27001", "control": "A.14.2.5", "name": "Secure System Engineering", "relationship": "supports"},
+        {
+            "framework": "owasp",
+            "control": "A03:2021",
+            "name": "Injection",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "cwe",
+            "control": "CWE-89",
+            "name": "SQL Injection",
+            "relationship": "detects",
+        },
+        {
+            "framework": "pci_dss",
+            "control": "6.5.1",
+            "name": "Injection Flaws",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "hipaa",
+            "control": "164.312(a)(1)",
+            "name": "Access Control",
+            "relationship": "supports",
+        },
+        {
+            "framework": "nist",
+            "control": "SI-10",
+            "name": "Information Input Validation",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "iso27001",
+            "control": "A.14.2.5",
+            "name": "Secure System Engineering",
+            "relationship": "supports",
+        },
     ],
     "type_safety": [
-        {"framework": "cwe", "control": "CWE-704", "name": "Incorrect Type Conversion", "relationship": "prevents"},
-        {"framework": "soc2", "control": "CC8.1", "name": "Change Management", "relationship": "supports"},
-        {"framework": "nist", "control": "SA-11", "name": "Developer Testing", "relationship": "supports"},
+        {
+            "framework": "cwe",
+            "control": "CWE-704",
+            "name": "Incorrect Type Conversion",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "soc2",
+            "control": "CC8.1",
+            "name": "Change Management",
+            "relationship": "supports",
+        },
+        {
+            "framework": "nist",
+            "control": "SA-11",
+            "name": "Developer Testing",
+            "relationship": "supports",
+        },
     ],
     "resource_leak": [
-        {"framework": "cwe", "control": "CWE-404", "name": "Improper Resource Shutdown", "relationship": "detects"},
-        {"framework": "cwe", "control": "CWE-772", "name": "Missing Release of Resource", "relationship": "detects"},
-        {"framework": "soc2", "control": "CC6.1", "name": "Logical Access Security", "relationship": "supports"},
-        {"framework": "nist", "control": "SC-4", "name": "Information in Shared System Resources", "relationship": "supports"},
+        {
+            "framework": "cwe",
+            "control": "CWE-404",
+            "name": "Improper Resource Shutdown",
+            "relationship": "detects",
+        },
+        {
+            "framework": "cwe",
+            "control": "CWE-772",
+            "name": "Missing Release of Resource",
+            "relationship": "detects",
+        },
+        {
+            "framework": "soc2",
+            "control": "CC6.1",
+            "name": "Logical Access Security",
+            "relationship": "supports",
+        },
+        {
+            "framework": "nist",
+            "control": "SC-4",
+            "name": "Information in Shared System Resources",
+            "relationship": "supports",
+        },
     ],
     "authentication": [
-        {"framework": "owasp", "control": "A07:2021", "name": "Identification and Authentication Failures", "relationship": "prevents"},
-        {"framework": "cwe", "control": "CWE-287", "name": "Improper Authentication", "relationship": "detects"},
-        {"framework": "pci_dss", "control": "8.1", "name": "User Identification", "relationship": "supports"},
-        {"framework": "hipaa", "control": "164.312(d)", "name": "Person or Entity Authentication", "relationship": "supports"},
-        {"framework": "nist", "control": "IA-2", "name": "Identification and Authentication", "relationship": "supports"},
-        {"framework": "iso27001", "control": "A.9.2.1", "name": "User Registration and De-registration", "relationship": "supports"},
-        {"framework": "soc2", "control": "CC6.1", "name": "Logical Access Security", "relationship": "supports"},
+        {
+            "framework": "owasp",
+            "control": "A07:2021",
+            "name": "Identification and Authentication Failures",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "cwe",
+            "control": "CWE-287",
+            "name": "Improper Authentication",
+            "relationship": "detects",
+        },
+        {
+            "framework": "pci_dss",
+            "control": "8.1",
+            "name": "User Identification",
+            "relationship": "supports",
+        },
+        {
+            "framework": "hipaa",
+            "control": "164.312(d)",
+            "name": "Person or Entity Authentication",
+            "relationship": "supports",
+        },
+        {
+            "framework": "nist",
+            "control": "IA-2",
+            "name": "Identification and Authentication",
+            "relationship": "supports",
+        },
+        {
+            "framework": "iso27001",
+            "control": "A.9.2.1",
+            "name": "User Registration and De-registration",
+            "relationship": "supports",
+        },
+        {
+            "framework": "soc2",
+            "control": "CC6.1",
+            "name": "Logical Access Security",
+            "relationship": "supports",
+        },
     ],
     "encryption": [
-        {"framework": "owasp", "control": "A02:2021", "name": "Cryptographic Failures", "relationship": "prevents"},
-        {"framework": "cwe", "control": "CWE-327", "name": "Use of a Broken or Risky Cryptographic Algorithm", "relationship": "detects"},
-        {"framework": "pci_dss", "control": "3.4", "name": "Render PAN Unreadable", "relationship": "supports"},
-        {"framework": "hipaa", "control": "164.312(a)(2)(iv)", "name": "Encryption and Decryption", "relationship": "supports"},
-        {"framework": "nist", "control": "SC-13", "name": "Cryptographic Protection", "relationship": "supports"},
-        {"framework": "iso27001", "control": "A.10.1.1", "name": "Policy on the Use of Cryptographic Controls", "relationship": "supports"},
+        {
+            "framework": "owasp",
+            "control": "A02:2021",
+            "name": "Cryptographic Failures",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "cwe",
+            "control": "CWE-327",
+            "name": "Use of a Broken or Risky Cryptographic Algorithm",
+            "relationship": "detects",
+        },
+        {
+            "framework": "pci_dss",
+            "control": "3.4",
+            "name": "Render PAN Unreadable",
+            "relationship": "supports",
+        },
+        {
+            "framework": "hipaa",
+            "control": "164.312(a)(2)(iv)",
+            "name": "Encryption and Decryption",
+            "relationship": "supports",
+        },
+        {
+            "framework": "nist",
+            "control": "SC-13",
+            "name": "Cryptographic Protection",
+            "relationship": "supports",
+        },
+        {
+            "framework": "iso27001",
+            "control": "A.10.1.1",
+            "name": "Policy on the Use of Cryptographic Controls",
+            "relationship": "supports",
+        },
     ],
     "hardcoded_secret": [
-        {"framework": "owasp", "control": "A02:2021", "name": "Cryptographic Failures", "relationship": "prevents"},
-        {"framework": "cwe", "control": "CWE-798", "name": "Use of Hard-coded Credentials", "relationship": "detects"},
-        {"framework": "pci_dss", "control": "6.5.3", "name": "Insecure Cryptographic Storage", "relationship": "prevents"},
-        {"framework": "soc2", "control": "CC6.7", "name": "Logical Access Restrictions", "relationship": "supports"},
-        {"framework": "nist", "control": "IA-5", "name": "Authenticator Management", "relationship": "supports"},
+        {
+            "framework": "owasp",
+            "control": "A02:2021",
+            "name": "Cryptographic Failures",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "cwe",
+            "control": "CWE-798",
+            "name": "Use of Hard-coded Credentials",
+            "relationship": "detects",
+        },
+        {
+            "framework": "pci_dss",
+            "control": "6.5.3",
+            "name": "Insecure Cryptographic Storage",
+            "relationship": "prevents",
+        },
+        {
+            "framework": "soc2",
+            "control": "CC6.7",
+            "name": "Logical Access Restrictions",
+            "relationship": "supports",
+        },
+        {
+            "framework": "nist",
+            "control": "IA-5",
+            "name": "Authenticator Management",
+            "relationship": "supports",
+        },
     ],
 }
 
@@ -90,6 +310,7 @@ CONTROL_MAPPINGS: dict[str, list[dict[str, Any]]] = {
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+
 
 class ControlMapping(BaseModel):
     check_type: str
@@ -140,7 +361,9 @@ _audit_trail: list[dict[str, Any]] = []
 _compliance_reports: dict[str, dict[str, Any]] = {}
 
 
-def _append_audit(action: str, resource_type: str, resource_id: str, actor: str, details: dict[str, Any]) -> dict[str, Any]:
+def _append_audit(
+    action: str, resource_type: str, resource_id: str, actor: str, details: dict[str, Any]
+) -> dict[str, Any]:
     """Append an immutable audit entry with cryptographic chain."""
     previous_hash = _audit_trail[-1]["integrity_hash"] if _audit_trail else "0" * 64
     entry = {
@@ -165,38 +388,106 @@ def _append_audit(action: str, resource_type: str, resource_id: str, actor: str,
 
 FRAMEWORK_CONTROLS: dict[str, list[dict[str, str]]] = {
     "soc2": [
-        {"id": "CC6.1", "name": "Logical Access Security", "description": "Logical access restrictions"},
-        {"id": "CC6.7", "name": "Restriction of Privileged Access", "description": "Privileged access is restricted"},
+        {
+            "id": "CC6.1",
+            "name": "Logical Access Security",
+            "description": "Logical access restrictions",
+        },
+        {
+            "id": "CC6.7",
+            "name": "Restriction of Privileged Access",
+            "description": "Privileged access is restricted",
+        },
         {"id": "CC7.1", "name": "System Monitoring", "description": "Detection and monitoring"},
         {"id": "CC7.2", "name": "Anomaly Detection", "description": "Anomalies are monitored"},
-        {"id": "CC8.1", "name": "Change Management", "description": "Changes are authorized and tested"},
+        {
+            "id": "CC8.1",
+            "name": "Change Management",
+            "description": "Changes are authorized and tested",
+        },
     ],
     "iso27001": [
-        {"id": "A.9.2.1", "name": "User Registration", "description": "Formal registration/de-registration"},
-        {"id": "A.10.1.1", "name": "Cryptographic Controls", "description": "Policy on use of crypto"},
-        {"id": "A.14.2.1", "name": "Secure Development Policy", "description": "Secure development rules"},
-        {"id": "A.14.2.5", "name": "Secure System Engineering", "description": "Principles for system engineering"},
+        {
+            "id": "A.9.2.1",
+            "name": "User Registration",
+            "description": "Formal registration/de-registration",
+        },
+        {
+            "id": "A.10.1.1",
+            "name": "Cryptographic Controls",
+            "description": "Policy on use of crypto",
+        },
+        {
+            "id": "A.14.2.1",
+            "name": "Secure Development Policy",
+            "description": "Secure development rules",
+        },
+        {
+            "id": "A.14.2.5",
+            "name": "Secure System Engineering",
+            "description": "Principles for system engineering",
+        },
     ],
     "hipaa": [
-        {"id": "164.312(a)(1)", "name": "Access Control", "description": "Access control mechanisms"},
-        {"id": "164.312(a)(2)(iv)", "name": "Encryption", "description": "Encryption and decryption"},
+        {
+            "id": "164.312(a)(1)",
+            "name": "Access Control",
+            "description": "Access control mechanisms",
+        },
+        {
+            "id": "164.312(a)(2)(iv)",
+            "name": "Encryption",
+            "description": "Encryption and decryption",
+        },
         {"id": "164.312(d)", "name": "Authentication", "description": "Entity authentication"},
-        {"id": "164.312(e)(1)", "name": "Transmission Security", "description": "Transmission integrity"},
+        {
+            "id": "164.312(e)(1)",
+            "name": "Transmission Security",
+            "description": "Transmission integrity",
+        },
     ],
     "pci_dss": [
-        {"id": "3.4", "name": "Render PAN Unreadable", "description": "Protect stored cardholder data"},
+        {
+            "id": "3.4",
+            "name": "Render PAN Unreadable",
+            "description": "Protect stored cardholder data",
+        },
         {"id": "6.5.1", "name": "Injection Flaws", "description": "Protect against injection"},
-        {"id": "6.5.2", "name": "Buffer Overflows", "description": "Protect against buffer overflow"},
-        {"id": "6.5.3", "name": "Insecure Crypto Storage", "description": "Protect cryptographic storage"},
+        {
+            "id": "6.5.2",
+            "name": "Buffer Overflows",
+            "description": "Protect against buffer overflow",
+        },
+        {
+            "id": "6.5.3",
+            "name": "Insecure Crypto Storage",
+            "description": "Protect cryptographic storage",
+        },
         {"id": "8.1", "name": "User Identification", "description": "Identify all users"},
     ],
     "nist": [
-        {"id": "IA-2", "name": "Identification and Authentication", "description": "Unique user identification"},
+        {
+            "id": "IA-2",
+            "name": "Identification and Authentication",
+            "description": "Unique user identification",
+        },
         {"id": "IA-5", "name": "Authenticator Management", "description": "Manage authenticators"},
-        {"id": "SA-11", "name": "Developer Testing", "description": "Developer testing and evaluation"},
-        {"id": "SC-4", "name": "Information in Shared Resources", "description": "Prevent unauthorized transfer"},
+        {
+            "id": "SA-11",
+            "name": "Developer Testing",
+            "description": "Developer testing and evaluation",
+        },
+        {
+            "id": "SC-4",
+            "name": "Information in Shared Resources",
+            "description": "Prevent unauthorized transfer",
+        },
         {"id": "SC-13", "name": "Cryptographic Protection", "description": "Employ FIPS crypto"},
-        {"id": "SI-10", "name": "Information Input Validation", "description": "Validate information inputs"},
+        {
+            "id": "SI-10",
+            "name": "Information Input Validation",
+            "description": "Validate information inputs",
+        },
     ],
 }
 
@@ -204,6 +495,7 @@ FRAMEWORK_CONTROLS: dict[str, list[dict[str, str]]] = {
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/mappings")
 async def get_control_mappings(
@@ -218,13 +510,15 @@ async def get_control_mappings(
         for m in mappings:
             if framework and m["framework"] != framework:
                 continue
-            results.append(ControlMapping(
-                check_type=ct,
-                framework=m["framework"],
-                control_id=m["control"],
-                control_name=m["name"],
-                relationship=m["relationship"],
-            ))
+            results.append(
+                ControlMapping(
+                    check_type=ct,
+                    framework=m["framework"],
+                    control_id=m["control"],
+                    control_name=m["name"],
+                    relationship=m["relationship"],
+                )
+            )
     return {"mappings": [r.model_dump() for r in results], "total": len(results)}
 
 
@@ -253,32 +547,38 @@ async def generate_coverage_report(
                 if any(m["framework"] == fw and m["control"] == control["id"] for m in mappings):
                     is_covered = True
                     covered.append({**control, "verified_by": check})
-                    evidence.append({
-                        "control_id": control["id"],
-                        "framework": fw,
-                        "check_type": check,
-                        "status": "verified",
-                        "timestamp": datetime.utcnow().isoformat(),
-                    })
+                    evidence.append(
+                        {
+                            "control_id": control["id"],
+                            "framework": fw,
+                            "check_type": check,
+                            "status": "verified",
+                            "timestamp": datetime.utcnow().isoformat(),
+                        }
+                    )
                     break
 
             if not is_covered:
-                gaps.append({
-                    **control,
-                    "recommendation": f"Add verification check covering {control['name']}",
-                })
+                gaps.append(
+                    {
+                        **control,
+                        "recommendation": f"Add verification check covering {control['name']}",
+                    }
+                )
                 all_gaps.append({"framework": fw, **control})
 
         total = len(fw_controls)
         covered_count = len(covered)
-        coverage_matrices.append(CoverageMatrix(
-            framework=fw,
-            total_controls=total,
-            covered_controls=covered_count,
-            coverage_percentage=round(covered_count / max(total, 1) * 100, 1),
-            covered=covered,
-            gaps=gaps,
-        ))
+        coverage_matrices.append(
+            CoverageMatrix(
+                framework=fw,
+                total_controls=total,
+                covered_controls=covered_count,
+                coverage_percentage=round(covered_count / max(total, 1) * 100, 1),
+                covered=covered,
+                gaps=gaps,
+            )
+        )
 
     scores = [cm.coverage_percentage for cm in coverage_matrices]
     overall_score = round(sum(scores) / max(len(scores), 1), 1)
@@ -300,10 +600,16 @@ async def generate_coverage_report(
     )
 
     _compliance_reports[report_id] = report.model_dump()
-    _append_audit("compliance_report.generated", "compliance_report", report_id, organization, {
-        "frameworks": frameworks,
-        "score": overall_score,
-    })
+    _append_audit(
+        "compliance_report.generated",
+        "compliance_report",
+        report_id,
+        organization,
+        {
+            "frameworks": frameworks,
+            "score": overall_score,
+        },
+    )
 
     return report
 
@@ -323,7 +629,7 @@ async def get_compliance_audit_trail(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
     """Get the immutable compliance audit trail with integrity verification."""
-    entries = _audit_trail[offset:offset + limit]
+    entries = _audit_trail[offset : offset + limit]
 
     # Verify chain integrity
     chain_valid = True
@@ -354,7 +660,9 @@ async def get_frameworks_detail() -> dict[str, Any]:
             for check_type, mappings in CONTROL_MAPPINGS.items():
                 for m in mappings:
                     if m["framework"] == fw and m["control"] == control["id"]:
-                        mapped_checks.append({"check_type": check_type, "relationship": m["relationship"]})
+                        mapped_checks.append(
+                            {"check_type": check_type, "relationship": m["relationship"]}
+                        )
             enriched.append({**control, "codeverify_checks": mapped_checks})
         result[fw] = {"controls": enriched, "total": len(controls)}
     return result

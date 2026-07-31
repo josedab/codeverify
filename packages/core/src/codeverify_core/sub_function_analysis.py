@@ -8,6 +8,7 @@ This module provides fine-grained incremental analysis capabilities:
 - Optimized re-verification scheduling
 """
 
+import contextlib
 import hashlib
 import re
 import time
@@ -198,7 +199,6 @@ class SubFunctionParser:
         while i < len(self._lines):
             line = self._lines[i]
             stripped = line.strip()
-            indent = len(line) - len(line.lstrip())
 
             # Skip empty lines and comments
             if not stripped or stripped.startswith("#"):
@@ -209,7 +209,6 @@ class SubFunctionParser:
             func_match = re.match(r"^(\s*)(async\s+)?def\s+(\w+)\s*\((.*?)\)", line)
             if func_match:
                 func_indent = len(func_match.group(1))
-                is_async = func_match.group(2) is not None
                 func_name = func_match.group(3)
                 params = func_match.group(4)
 
@@ -481,9 +480,13 @@ class SubFunctionParser:
                 end_line = i
                 continue
 
-            if indent <= base_indent and stripped and not stripped.startswith("#"):
-                if not stripped.startswith(("except", "else:", "finally:")):
-                    break
+            if (
+                indent <= base_indent
+                and stripped
+                and not stripped.startswith("#")
+                and not stripped.startswith(("except", "else:", "finally:"))
+            ):
+                break
 
             end_line = i
 
@@ -640,13 +643,13 @@ class IncrementalAnalysisEngine:
     - Priority scheduling
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.parser = SubFunctionParser()
         self.blocks: dict[str, SemanticBlock] = {}
         self._content: str = ""
         self._language: str = "python"
         self._verification_queue: list[str] = []
-        self._callbacks: list[Callable[[SemanticBlock, list[dict]], None]] = []
+        self._callbacks: list[Callable[[SemanticBlock, list[dict[str, Any]]], None]] = []
 
     def initialize(self, content: str, language: str = "python") -> None:
         """Initialize with file content."""
@@ -657,7 +660,7 @@ class IncrementalAnalysisEngine:
 
     def on_verification_complete(
         self,
-        callback: Callable[[SemanticBlock, list[dict]], None],
+        callback: Callable[[SemanticBlock, list[dict[str, Any]]], None],
     ) -> None:
         """Register callback for verification completion."""
         self._callbacks.append(callback)
@@ -739,10 +742,8 @@ class IncrementalAnalysisEngine:
 
             # Notify callbacks
             for callback in self._callbacks:
-                try:
+                with contextlib.suppress(Exception):
                     callback(self.blocks[block_id], findings)
-                except Exception:
-                    pass
 
     def get_block_at_position(self, line: int, column: int = 0) -> SemanticBlock | None:
         """Get the most specific block at a position."""

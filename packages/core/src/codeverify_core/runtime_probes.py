@@ -268,7 +268,7 @@ class ProofToAssertCompiler:
     def _generate_null_check_python(
         self,
         constraint: Z3Constraint,
-        expr: str,
+        _expr: str,
     ) -> str:
         """Generate Python null check probe."""
         var = constraint.variables[0] if constraint.variables else "value"
@@ -285,7 +285,7 @@ if {var} is None:
     def _generate_bounds_check_python(
         self,
         constraint: Z3Constraint,
-        expr: str,
+        _expr: str,
     ) -> str:
         """Generate Python bounds check probe."""
         # Extract array and index from expression
@@ -305,7 +305,7 @@ if not (0 <= {idx} < len({arr})):
     def _generate_overflow_check_python(
         self,
         constraint: Z3Constraint,
-        expr: str,
+        _expr: str,
     ) -> str:
         """Generate Python overflow check probe."""
         var = constraint.variables[0] if constraint.variables else "value"
@@ -324,7 +324,7 @@ if abs({var}) > {max_val}:
     def _generate_division_check_python(
         self,
         constraint: Z3Constraint,
-        expr: str,
+        _expr: str,
     ) -> str:
         """Generate Python division by zero check probe."""
         divisor = constraint.variables[0] if constraint.variables else "divisor"
@@ -358,7 +358,7 @@ if not ({expr}):
     def _generate_null_check_ts(
         self,
         constraint: Z3Constraint,
-        expr: str,
+        _expr: str,
     ) -> str:
         """Generate TypeScript null check probe."""
         var = constraint.variables[0] if constraint.variables else "value"
@@ -376,7 +376,7 @@ if ({var} === null || {var} === undefined) {{
     def _generate_bounds_check_ts(
         self,
         constraint: Z3Constraint,
-        expr: str,
+        _expr: str,
     ) -> str:
         """Generate TypeScript bounds check probe."""
         arr = constraint.variables[0] if len(constraint.variables) > 0 else "arr"
@@ -736,8 +736,7 @@ class RuntimeCollector:
 
     def get_statistics(self) -> dict[str, Any]:
         """Get violation statistics."""
-        by_severity = {}
-        by_type = {}
+        by_severity: dict[str, int] = {}
 
         for v in self._violations:
             by_severity[v.severity.value] = by_severity.get(v.severity.value, 0) + 1

@@ -18,9 +18,8 @@ import statistics
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -75,9 +74,7 @@ class TokenUsageRecord:
     output_tokens: int = 0
     cost_cents: float = 0.0
     latency_ms: int = 0
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def total_tokens(self) -> int:
@@ -94,9 +91,7 @@ class SolverMetric:
     constraint_count: int = 0
     result: str = ""  # sat, unsat, timeout
     memory_mb: float = 0.0
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -109,9 +104,7 @@ class ReviewCost:
     infra_cost_cents: float = 0.0
     total_cost_cents: float = 0.0
     finding_count: int = 0
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def cost_per_finding(self) -> float:
@@ -141,9 +134,7 @@ class BudgetAlert:
     current_spend_cents: float = 0.0
     budget_cents: int = 0
     utilization: float = 0.0
-    triggered_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    triggered_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -178,12 +169,8 @@ class OptimizationRecommendation:
 class CostDashboardData:
     """Aggregated data for the cost dashboard."""
 
-    period_start: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    period_end: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    period_start: datetime = field(default_factory=lambda: datetime.now(UTC))
+    period_end: datetime = field(default_factory=lambda: datetime.now(UTC))
     total_cost_cents: float = 0.0
     cost_by_category: dict[str, float] = field(default_factory=dict)
     cost_by_model: dict[str, float] = field(default_factory=dict)
@@ -238,7 +225,7 @@ class OptimizationEngine:
     def analyze(
         self,
         token_records: list[TokenUsageRecord],
-        solver_metrics: list[SolverMetric],
+        _solver_metrics: list[SolverMetric],
         review_costs: list[ReviewCost],
     ) -> list[OptimizationRecommendation]:
         """Analyze usage and generate optimization recommendations."""
@@ -249,53 +236,59 @@ class OptimizationEngine:
         if gpt4_usage:
             total_gpt4_cost = sum(r.cost_cents for r in gpt4_usage)
             if total_gpt4_cost > 1000:  # > $10
-                recommendations.append(OptimizationRecommendation(
-                    type=OptimizationType.MODEL_DOWNGRADE,
-                    title="Consider GPT-4 Turbo for routine analysis",
-                    description=(
-                        f"You've spent ${total_gpt4_cost / 100:.2f} on GPT-4. "
-                        "GPT-4 Turbo provides similar quality at 66% lower cost."
-                    ),
-                    estimated_savings_percent=40.0,
-                    estimated_savings_cents=int(total_gpt4_cost * 0.4),
-                    effort="low",
-                    priority=9,
-                ))
+                recommendations.append(
+                    OptimizationRecommendation(
+                        type=OptimizationType.MODEL_DOWNGRADE,
+                        title="Consider GPT-4 Turbo for routine analysis",
+                        description=(
+                            f"You've spent ${total_gpt4_cost / 100:.2f} on GPT-4. "
+                            "GPT-4 Turbo provides similar quality at 66% lower cost."
+                        ),
+                        estimated_savings_percent=40.0,
+                        estimated_savings_cents=int(total_gpt4_cost * 0.4),
+                        effort="low",
+                        priority=9,
+                    )
+                )
 
         # Check for caching opportunities
         if len(token_records) > 50:
-            operations = defaultdict(int)
+            operations: defaultdict[str, int] = defaultdict(int)
             for r in token_records:
                 operations[r.operation] += 1
             repeated = {op: count for op, count in operations.items() if count > 10}
             if repeated:
-                recommendations.append(OptimizationRecommendation(
-                    type=OptimizationType.CACHING,
-                    title="Enable verification caching for repeated analyses",
-                    description=(
-                        f"Found {sum(repeated.values())} repeated operations. "
-                        "Caching could eliminate ~30% of LLM calls."
-                    ),
-                    estimated_savings_percent=30.0,
-                    effort="medium",
-                    priority=8,
-                ))
+                recommendations.append(
+                    OptimizationRecommendation(
+                        type=OptimizationType.CACHING,
+                        title="Enable verification caching for repeated analyses",
+                        description=(
+                            f"Found {sum(repeated.values())} repeated operations. "
+                            "Caching could eliminate ~30% of LLM calls."
+                        ),
+                        estimated_savings_percent=30.0,
+                        effort="medium",
+                        priority=8,
+                    )
+                )
 
         # Check for batch verification
         if len(review_costs) > 20:
             avg_cost = statistics.mean(r.total_cost_cents for r in review_costs)
             if avg_cost > 50:  # > $0.50 per review
-                recommendations.append(OptimizationRecommendation(
-                    type=OptimizationType.BATCH_VERIFICATION,
-                    title="Use batch verification for scheduled scans",
-                    description=(
-                        f"Average review cost is ${avg_cost / 100:.2f}. "
-                        "Batching can reduce overhead by 20-30%."
-                    ),
-                    estimated_savings_percent=25.0,
-                    effort="medium",
-                    priority=6,
-                ))
+                recommendations.append(
+                    OptimizationRecommendation(
+                        type=OptimizationType.BATCH_VERIFICATION,
+                        title="Use batch verification for scheduled scans",
+                        description=(
+                            f"Average review cost is ${avg_cost / 100:.2f}. "
+                            "Batching can reduce overhead by 20-30%."
+                        ),
+                        estimated_savings_percent=25.0,
+                        effort="medium",
+                        priority=6,
+                    )
+                )
 
         recommendations.sort(key=lambda r: r.priority, reverse=True)
         return recommendations
@@ -304,9 +297,7 @@ class OptimizationEngine:
 class PerformanceCostDashboardService:
     """Main service for the performance & cost dashboard."""
 
-    def __init__(
-        self, budget: BudgetConfig | None = None
-    ) -> None:
+    def __init__(self, budget: BudgetConfig | None = None) -> None:
         self._calculator = CostCalculator()
         self._optimizer = OptimizationEngine()
         self._budget = budget or BudgetConfig()
@@ -368,15 +359,12 @@ class PerformanceCostDashboardService:
         finding_count: int = 0,
     ) -> ReviewCost:
         """Calculate and record cost for a review."""
-        recent_tokens = [
-            r for r in self._token_records[-50:]
-        ]
+        recent_tokens = self._token_records[-50:]
         llm_cost = sum(r.cost_cents for r in recent_tokens[-5:])
 
         recent_solver = self._solver_metrics[-5:]
         solver_cost = sum(
-            self._calculator.calculate_solver_cost(m.solve_time_ms)
-            for m in recent_solver
+            self._calculator.calculate_solver_cost(m.solve_time_ms) for m in recent_solver
         )
 
         infra_cost = 0.5  # baseline per review
@@ -396,8 +384,7 @@ class PerformanceCostDashboardService:
         """Get aggregated dashboard data."""
         total_cost = sum(r.cost_cents for r in self._token_records)
         total_cost += sum(
-            self._calculator.calculate_solver_cost(m.solve_time_ms)
-            for m in self._solver_metrics
+            self._calculator.calculate_solver_cost(m.solve_time_ms) for m in self._solver_metrics
         )
 
         cost_by_model: dict[str, float] = defaultdict(float)
@@ -410,7 +397,11 @@ class PerformanceCostDashboardService:
         if self._review_costs:
             avg_review_cost = statistics.mean(r.total_cost_cents for r in self._review_costs)
 
-        utilization = total_cost / self._budget.monthly_budget_cents if self._budget.monthly_budget_cents > 0 else 0.0
+        utilization = (
+            total_cost / self._budget.monthly_budget_cents
+            if self._budget.monthly_budget_cents > 0
+            else 0.0
+        )
 
         recommendations = self._optimizer.analyze(
             self._token_records, self._solver_metrics, self._review_costs
@@ -421,10 +412,16 @@ class PerformanceCostDashboardService:
         return CostDashboardData(
             total_cost_cents=round(total_cost, 2),
             cost_by_category={
-                CostCategory.LLM_TOKENS.value: round(sum(r.cost_cents for r in self._token_records), 2),
-                CostCategory.Z3_SOLVER.value: round(sum(
-                    self._calculator.calculate_solver_cost(m.solve_time_ms) for m in self._solver_metrics
-                ), 2),
+                CostCategory.LLM_TOKENS.value: round(
+                    sum(r.cost_cents for r in self._token_records), 2
+                ),
+                CostCategory.Z3_SOLVER.value: round(
+                    sum(
+                        self._calculator.calculate_solver_cost(m.solve_time_ms)
+                        for m in self._solver_metrics
+                    ),
+                    2,
+                ),
             },
             cost_by_model={k: round(v, 2) for k, v in cost_by_model.items()},
             cost_by_operation={k: round(v, 2) for k, v in cost_by_operation.items()},
@@ -461,28 +458,38 @@ class PerformanceCostDashboardService:
 
     def _check_budget(self) -> None:
         total = sum(r.cost_cents for r in self._token_records)
-        utilization = total / self._budget.monthly_budget_cents if self._budget.monthly_budget_cents > 0 else 0.0
+        utilization = (
+            total / self._budget.monthly_budget_cents
+            if self._budget.monthly_budget_cents > 0
+            else 0.0
+        )
 
-        if utilization >= self._budget.critical_threshold:
-            if not any(a.level == AlertLevel.CRITICAL for a in self._alerts[-5:]):
-                self._alerts.append(BudgetAlert(
+        if utilization >= self._budget.critical_threshold and not any(
+            a.level == AlertLevel.CRITICAL for a in self._alerts[-5:]
+        ):
+            self._alerts.append(
+                BudgetAlert(
                     level=AlertLevel.CRITICAL,
                     title="Budget Critical",
                     message=f"Spending at {utilization:.0%} of monthly budget",
                     current_spend_cents=total,
                     budget_cents=self._budget.monthly_budget_cents,
                     utilization=utilization,
-                ))
-        elif utilization >= self._budget.warning_threshold:
-            if not any(a.level == AlertLevel.WARNING for a in self._alerts[-5:]):
-                self._alerts.append(BudgetAlert(
+                )
+            )
+        elif utilization >= self._budget.warning_threshold and not any(
+            a.level == AlertLevel.WARNING for a in self._alerts[-5:]
+        ):
+            self._alerts.append(
+                BudgetAlert(
                     level=AlertLevel.WARNING,
                     title="Budget Warning",
                     message=f"Spending at {utilization:.0%} of monthly budget",
                     current_spend_cents=total,
                     budget_cents=self._budget.monthly_budget_cents,
                     utilization=utilization,
-                ))
+                )
+            )
 
     def get_alerts(self) -> list[BudgetAlert]:
         return list(self._alerts)

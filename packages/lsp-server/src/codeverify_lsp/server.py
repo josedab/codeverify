@@ -263,7 +263,7 @@ class ProgressiveVerificationPipeline:
         self,
         uri: str,
         content: str,
-        language: str,
+        _language: str,
     ) -> list[StreamingDiagnostic]:
         """Stage 2: LLM-based semantic analysis (async, <2s).
 
@@ -335,7 +335,7 @@ class ProgressiveVerificationPipeline:
         self,
         uri: str,
         content: str,
-        language: str,
+        _language: str,
     ) -> list[StreamingDiagnostic]:
         """Stage 3: Z3 SMT solver proof (async, <5s).
 

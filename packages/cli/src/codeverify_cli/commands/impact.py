@@ -28,10 +28,6 @@ def impact_analyze(repo_name: str, changed_files: tuple[str, ...], output_format
     """
     import json as json_mod
 
-    from codeverify_core.impact_analysis import CrossRepoImpactAnalyzer
-
-    analyzer = CrossRepoImpactAnalyzer()
-
     if output_format == "json":
         click.echo(
             json_mod.dumps(

@@ -108,7 +108,7 @@ def analyze(
         console=console,
         transient=True,
     ) as progress:
-        task = progress.add_task("Analyzing code...", total=None)
+        progress.add_task("Analyzing code...", total=None)
 
         try:
             if staged:
@@ -198,17 +198,16 @@ def fix(ctx: click.Context, path: str, fix: bool, dry_run: bool) -> None:
             syntax = Syntax(finding.get("fix_suggestion", ""), "python", theme="monokai")
             console.print(syntax)
 
-    if fix and not dry_run:
-        if click.confirm("Apply all fixes?"):
-            applied = 0
-            for finding in fixable:
-                try:
-                    apply_fix(finding)
-                    applied += 1
-                except Exception as e:
-                    console.print(f"[red]Failed to apply fix: {e}[/red]")
+    if fix and not dry_run and click.confirm("Apply all fixes?"):
+        applied = 0
+        for finding in fixable:
+            try:
+                apply_fix(finding)
+                applied += 1
+            except Exception as e:
+                console.print(f"[red]Failed to apply fix: {e}[/red]")
 
-            console.print(f"[green]Applied {applied} fixes[/green]")
+        console.print(f"[green]Applied {applied} fixes[/green]")
 
 
 @cli.command()
@@ -978,9 +977,8 @@ def debug(ctx: click.Context, file: str, function: str | None, interactive: bool
         if step.get("model") and status == "failed":
             console.print(f"   [red]Counterexample: {step['model']}[/red]")
 
-        if interactive:
-            if not click.confirm("Continue?", default=True):
-                break
+        if interactive and not click.confirm("Continue?", default=True):
+            break
 
     # Show counterexample if verification failed
     if result.get("result") == "unverified" and result.get("counterexample"):
@@ -1550,7 +1548,7 @@ def ramp_start(
     )
 
     ramp_manager = GradualVerificationRamp(default_schedule=schedule)
-    state = ramp_manager.start_ramp(repository)
+    ramp_manager.start_ramp(repository)
 
     console.print(f"[green]✓ Ramp started for {repository}[/green]")
     console.print("\nSchedule:")
@@ -1641,9 +1639,8 @@ def ramp_end(ctx: click.Context, repository: str, confirm: bool) -> None:
     """End ramp and enable full enforcement."""
     from codeverify_core.gradual_ramp import GradualVerificationRamp
 
-    if not confirm:
-        if not click.confirm(f"End ramp and enable full enforcement for {repository}?"):
-            return
+    if not confirm and not click.confirm(f"End ramp and enable full enforcement for {repository}?"):
+        return
 
     ramp_manager = GradualVerificationRamp()
     if ramp_manager.end_ramp(repository):
@@ -1702,10 +1699,7 @@ def heal_analyze(ctx: click.Context, path: str, verify: bool, output_format: str
 
     path_obj = Path(path)
 
-    if path_obj.is_file():
-        files = [path_obj]
-    else:
-        files = list(path_obj.rglob("*.py"))[:20]  # Limit for CLI
+    files = [path_obj] if path_obj.is_file() else list(path_obj.rglob("*.py"))[:20]  # Limit for CLI
 
     if not files:
         console.print("[yellow]No Python files found[/yellow]")
@@ -1787,10 +1781,7 @@ def heal_apply(
     path_obj = Path(path)
     agent = SelfHealingAgent()
 
-    if path_obj.is_file():
-        files = [path_obj]
-    else:
-        files = list(path_obj.rglob("*.py"))[:20]
+    files = [path_obj] if path_obj.is_file() else list(path_obj.rglob("*.py"))[:20]
 
     applied = 0
     skipped = 0
@@ -1987,10 +1978,7 @@ def offline_analyze(ctx: click.Context, path: str, output_format: str) -> None:
 
     path_obj = Path(path)
 
-    if path_obj.is_file():
-        files = [path_obj]
-    else:
-        files = list(path_obj.rglob("*.py"))[:20]
+    files = [path_obj] if path_obj.is_file() else list(path_obj.rglob("*.py"))[:20]
 
     if not files:
         console.print("[yellow]No Python files found[/yellow]")
@@ -2113,10 +2101,7 @@ def coverage_show(ctx: click.Context, path: str, output_format: str) -> None:
     path_obj = Path(path)
     calculator = ProofCoverageCalculator()
 
-    if path_obj.is_file():
-        files = [path_obj]
-    else:
-        files = list(path_obj.rglob("*.py"))[:50]
+    files = [path_obj] if path_obj.is_file() else list(path_obj.rglob("*.py"))[:50]
 
     if not files:
         console.print("[yellow]No Python files found[/yellow]")
@@ -2800,7 +2785,6 @@ def policy_evaluate(policy_file: str, file_path: str, output_format: str) -> Non
 
     context = {"file_path": file_path}
     results = engine.evaluate(policy_set, context)
-    matched = [r for r in results if r.matched]
 
     if output_format == "json":
         click.echo(
@@ -2847,10 +2831,6 @@ def impact_analyze(repo_name: str, changed_files: tuple[str, ...], output_format
         codeverify impact analyze my-lib src/api.py src/models.py
     """
     import json as json_mod
-
-    from codeverify_core.impact_analysis import CrossRepoImpactAnalyzer
-
-    analyzer = CrossRepoImpactAnalyzer()
 
     if output_format == "json":
         click.echo(

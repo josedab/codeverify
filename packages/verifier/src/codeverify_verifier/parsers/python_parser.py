@@ -55,15 +55,14 @@ class PythonParser(CodeParser):
                         )
                     )
 
-            elif isinstance(node, ast.ImportFrom):
-                if node.module:
-                    result.imports.append(
-                        ParsedImport(
-                            module=node.module,
-                            names=[alias.name for alias in node.names],
-                            is_from_import=True,
-                        )
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                result.imports.append(
+                    ParsedImport(
+                        module=node.module,
+                        names=[alias.name for alias in node.names],
+                        is_from_import=True,
                     )
+                )
 
         return result
 
@@ -111,7 +110,7 @@ class PythonParser(CodeParser):
             parameters.append(param)
 
         # Keyword-only args
-        kw_defaults_map = dict(zip(args.kwonlyargs, args.kw_defaults))
+        kw_defaults_map = dict(zip(args.kwonlyargs, args.kw_defaults, strict=True))
         for kwarg in args.kwonlyargs:
             default = kw_defaults_map.get(kwarg)
             parameters.append(
@@ -219,19 +218,14 @@ class PythonParser(CodeParser):
                 for target in child.targets:
                     if isinstance(target, ast.Name):
                         assignments.append(target.id)
-            elif isinstance(child, ast.AnnAssign):
-                if isinstance(child.target, ast.Name):
-                    assignments.append(child.target.id)
+            if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+                assignments.append(child.target.id)
         return assignments
 
     def _extract_conditions(self, node: ast.AST) -> list[str]:
         """Extract conditional expressions."""
         conditions = []
         for child in ast.walk(node):
-            if (
-                isinstance(child, ast.If)
-                or isinstance(child, ast.While)
-                or isinstance(child, ast.Assert)
-            ):
+            if isinstance(child, ast.If | ast.While | ast.Assert):
                 conditions.append(ast.unparse(child.test))
         return conditions

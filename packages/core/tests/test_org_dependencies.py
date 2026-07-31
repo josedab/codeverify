@@ -1,6 +1,5 @@
 """Tests for organization-wide dependency analysis."""
 
-
 import pytest
 
 from codeverify_core.org_dependencies import (
@@ -280,12 +279,8 @@ class TestOrgDependencyAnalyzer:
 
     def test_get_full_analysis(self, analyzer):
         """Test full analysis report generation."""
-        analyzer.graph.add_repository(
-            OrgRepository(name="a", org=ORG, team="team1")
-        )
-        analyzer.graph.add_repository(
-            OrgRepository(name="b", org=ORG, team="team1")
-        )
+        analyzer.graph.add_repository(OrgRepository(name="a", org=ORG, team="team1"))
+        analyzer.graph.add_repository(OrgRepository(name="b", org=ORG, team="team1"))
         analyzer.graph.add_dependency(f"{ORG}/a", f"{ORG}/b")
 
         report = analyzer.get_full_analysis()
@@ -296,12 +291,8 @@ class TestOrgDependencyAnalyzer:
 
     def test_analyze_transitive_risks(self, analyzer):
         """Test detecting transitive risks from vulnerabilities."""
-        analyzer.graph.add_repository(
-            OrgRepository(name="a", org=ORG, known_vulnerabilities=0)
-        )
-        analyzer.graph.add_repository(
-            OrgRepository(name="b", org=ORG, known_vulnerabilities=3)
-        )
+        analyzer.graph.add_repository(OrgRepository(name="a", org=ORG, known_vulnerabilities=0))
+        analyzer.graph.add_repository(OrgRepository(name="b", org=ORG, known_vulnerabilities=3))
         analyzer.graph.add_dependency(f"{ORG}/a", f"{ORG}/b")
 
         risks = analyzer.graph.analyze_transitive_risks()

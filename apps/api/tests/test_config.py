@@ -1,7 +1,6 @@
 """Unit tests for api/config.py — settings, SECRET_KEY check, CORS parsing."""
 
 import os
-import sys
 from unittest.mock import patch
 
 import pytest
@@ -49,10 +48,13 @@ class TestSecretKeyProductionCheck:
         get_settings.cache_clear()
 
         with (
-            patch.dict(os.environ, {
-                "ENVIRONMENT": "production",
-                "SECRET_KEY": "change-this-in-production",
-            }),
+            patch.dict(
+                os.environ,
+                {
+                    "ENVIRONMENT": "production",
+                    "SECRET_KEY": "change-this-in-production",
+                },
+            ),
             pytest.raises(SystemExit) as exc_info,
         ):
             get_settings()
@@ -68,10 +70,13 @@ class TestSecretKeyProductionCheck:
 
         get_settings.cache_clear()
 
-        with patch.dict(os.environ, {
-            "ENVIRONMENT": "production",
-            "SECRET_KEY": "my-secure-random-key-12345",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ENVIRONMENT": "production",
+                "SECRET_KEY": "my-secure-random-key-12345",
+            },
+        ):
             s = get_settings()
             assert s.SECRET_KEY == "my-secure-random-key-12345"
 

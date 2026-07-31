@@ -12,6 +12,7 @@ import math
 import re
 import uuid
 from collections import defaultdict, deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -286,7 +287,7 @@ class GraphBuilder:
 
     # -- manifest parsers ----------------------------------------------------
 
-    def from_package_json(self, package_data: dict, repo_name: str) -> DependencyGraph:
+    def from_package_json(self, package_data: dict[str, Any], repo_name: str) -> DependencyGraph:
         """Build a dependency graph from parsed ``package.json`` data."""
         pkg_name = package_data.get("name", repo_name)
         root = self.add_node(pkg_name, NodeType.PACKAGE, repo=repo_name)
@@ -330,7 +331,7 @@ class GraphBuilder:
         logger.info("graph_from_requirements", repo=repo_name, nodes=len(self._nodes))
         return self.build()
 
-    def from_import_analysis(self, imports: list[dict]) -> DependencyGraph:
+    def from_import_analysis(self, imports: list[dict[str, Any]]) -> DependencyGraph:
         """Build a graph from import analysis results.
 
         Each entry in *imports* should have ``source``, ``target``, and
@@ -428,12 +429,8 @@ class GraphAnalyzer:
         self._adjacency.clear()
         self._reverse_adj.clear()
         for edge in graph.edges:
-            self._adjacency[edge.source_id].append(
-                (edge.target_id, edge.edge_type, edge.weight)
-            )
-            self._reverse_adj[edge.target_id].append(
-                (edge.source_id, edge.edge_type, edge.weight)
-            )
+            self._adjacency[edge.source_id].append((edge.target_id, edge.edge_type, edge.weight))
+            self._reverse_adj[edge.target_id].append((edge.source_id, edge.edge_type, edge.weight))
 
     # -- cycle detection (Tarjan's SCC) --------------------------------------
 
@@ -528,12 +525,14 @@ class GraphAnalyzer:
             for neighbor_id, edge_type, weight in self._adjacency.get(current, []):
                 if neighbor_id not in visited:
                     visited.add(neighbor_id)
-                    queue.append((
-                        neighbor_id,
-                        path + [neighbor_id],
-                        edge_types + [edge_type],
-                        total_weight + weight,
-                    ))
+                    queue.append(
+                        (
+                            neighbor_id,
+                            path + [neighbor_id],
+                            edge_types + [edge_type],
+                            total_weight + weight,
+                        )
+                    )
 
         return None
 
@@ -545,9 +544,7 @@ class GraphAnalyzer:
         """Compute risk score for a path based on node health and path length."""
         if not path:
             return 0.0
-        health_scores = [
-            node_map[nid].health_score for nid in path if nid in node_map
-        ]
+        health_scores = [node_map[nid].health_score for nid in path if nid in node_map]
         if not health_scores:
             return 0.0
         avg_health = sum(health_scores) / len(health_scores)
@@ -574,7 +571,7 @@ class GraphAnalyzer:
 
     def _bfs_reachable(
         self,
-        graph: DependencyGraph,
+        _graph: DependencyGraph,
         start_id: str,
         max_depth: int,
     ) -> list[str]:
@@ -787,9 +784,7 @@ class GraphQueryEngine:
 
         # Collect edges within the filtered node set
         edges = [
-            e
-            for e in self._graph.edges
-            if e.source_id in node_ids and e.target_id in node_ids
+            e for e in self._graph.edges if e.source_id in node_ids and e.target_id in node_ids
         ]
 
         # Apply edge type filter
@@ -845,19 +840,20 @@ class GraphQueryEngine:
                 path.append(edge.target_id)
                 edge_types.append(edge.edge_type)
                 self._dfs_paths(
-                    edge.target_id, target, max_depth,
-                    path, edge_types, weight + edge.weight, results,
+                    edge.target_id,
+                    target,
+                    max_depth,
+                    path,
+                    edge_types,
+                    weight + edge.weight,
+                    results,
                 )
                 path.pop()
                 edge_types.pop()
 
     def _path_risk(self, path: list[str]) -> float:
         """Compute risk score for a path."""
-        scores = [
-            self._node_map[nid].health_score
-            for nid in path
-            if nid in self._node_map
-        ]
+        scores = [self._node_map[nid].health_score for nid in path if nid in self._node_map]
         if not scores:
             return 0.0
         avg_health = sum(scores) / len(scores)
@@ -996,7 +992,7 @@ class GraphExporter:
         """Export *graph* to the requested *format* after applying *layout*."""
         laid_out = self._apply_layout(graph, layout)
 
-        exporters: dict[ExportFormat, Any] = {
+        exporters: dict[ExportFormat, Callable[[DependencyGraph], str]] = {
             ExportFormat.DOT: self.to_dot,
             ExportFormat.MERMAID: self.to_mermaid,
             ExportFormat.D3_JSON: self.to_d3_json,
@@ -1013,7 +1009,7 @@ class GraphExporter:
     def to_dot(self, graph: DependencyGraph) -> str:
         """Export to Graphviz DOT format."""
         lines: list[str] = ["digraph DependencyGraph {"]
-        lines.append('  rankdir=LR;')
+        lines.append("  rankdir=LR;")
         lines.append('  node [fontname="Helvetica", fontsize=10];')
         lines.append('  edge [fontname="Helvetica", fontsize=8];')
         lines.append("")
@@ -1026,7 +1022,7 @@ class GraphExporter:
             if node.repo:
                 attrs += f', tooltip="{node.repo}"'
             safe_id = self._dot_safe_id(node.id)
-            lines.append(f'  {safe_id} [{attrs}];')
+            lines.append(f"  {safe_id} [{attrs}];")
 
         lines.append("")
 
@@ -1077,27 +1073,31 @@ class GraphExporter:
         """Export to D3.js force-directed graph JSON."""
         nodes: list[dict[str, Any]] = []
         for node in graph.nodes:
-            nodes.append({
-                "id": node.id,
-                "name": node.name,
-                "group": node.node_type.value,
-                "repo": node.repo,
-                "version": node.version,
-                "health": node.health_score,
-                "x": node.position_x,
-                "y": node.position_y,
-                "radius": max(5, node.health_score * 20),
-            })
+            nodes.append(
+                {
+                    "id": node.id,
+                    "name": node.name,
+                    "group": node.node_type.value,
+                    "repo": node.repo,
+                    "version": node.version,
+                    "health": node.health_score,
+                    "x": node.position_x,
+                    "y": node.position_y,
+                    "radius": max(5, node.health_score * 20),
+                }
+            )
 
         links: list[dict[str, Any]] = []
         for edge in graph.edges:
-            links.append({
-                "source": edge.source_id,
-                "target": edge.target_id,
-                "type": edge.edge_type.value,
-                "weight": edge.weight,
-                "label": edge.label or edge.edge_type.value,
-            })
+            links.append(
+                {
+                    "source": edge.source_id,
+                    "target": edge.target_id,
+                    "type": edge.edge_type.value,
+                    "weight": edge.weight,
+                    "label": edge.label or edge.edge_type.value,
+                }
+            )
 
         d3_data: dict[str, Any] = {
             "nodes": nodes,
@@ -1113,34 +1113,38 @@ class GraphExporter:
         elements: list[dict[str, Any]] = []
 
         for node in graph.nodes:
-            elements.append({
-                "group": "nodes",
-                "data": {
-                    "id": node.id,
-                    "label": node.name,
-                    "type": node.node_type.value,
-                    "repo": node.repo,
-                    "version": node.version,
-                    "health": node.health_score,
-                },
-                "position": {
-                    "x": node.position_x,
-                    "y": node.position_y,
-                },
-            })
+            elements.append(
+                {
+                    "group": "nodes",
+                    "data": {
+                        "id": node.id,
+                        "label": node.name,
+                        "type": node.node_type.value,
+                        "repo": node.repo,
+                        "version": node.version,
+                        "health": node.health_score,
+                    },
+                    "position": {
+                        "x": node.position_x,
+                        "y": node.position_y,
+                    },
+                }
+            )
 
         for idx, edge in enumerate(graph.edges):
-            elements.append({
-                "group": "edges",
-                "data": {
-                    "id": f"e{idx}",
-                    "source": edge.source_id,
-                    "target": edge.target_id,
-                    "type": edge.edge_type.value,
-                    "weight": edge.weight,
-                    "label": edge.label or edge.edge_type.value,
-                },
-            })
+            elements.append(
+                {
+                    "group": "edges",
+                    "data": {
+                        "id": f"e{idx}",
+                        "source": edge.source_id,
+                        "target": edge.target_id,
+                        "type": edge.edge_type.value,
+                        "weight": edge.weight,
+                        "label": edge.label or edge.edge_type.value,
+                    },
+                }
+            )
 
         cyto_data: dict[str, Any] = {
             "elements": elements,
@@ -1173,10 +1177,7 @@ class GraphExporter:
                 node.position_x = float((i % cols) * 150)
                 node.position_y = float((i // cols) * 150)
 
-        elif layout == LayoutAlgorithm.HIERARCHICAL:
-            self._layout_hierarchical(graph)
-
-        elif layout == LayoutAlgorithm.TREE:
+        elif layout == LayoutAlgorithm.HIERARCHICAL or layout == LayoutAlgorithm.TREE:
             self._layout_hierarchical(graph)
 
         else:  # FORCE_DIRECTED — simple spring-based approximation
@@ -1257,7 +1258,7 @@ class GraphExporter:
 
             # Repulsive forces between all node pairs
             for i, u in enumerate(graph.nodes):
-                for v in graph.nodes[i + 1:]:
+                for v in graph.nodes[i + 1 :]:
                     dx = u.position_x - v.position_x
                     dy = u.position_y - v.position_y
                     dist = max(math.sqrt(dx * dx + dy * dy), 0.01)
@@ -1269,18 +1270,18 @@ class GraphExporter:
 
             # Attractive forces along edges
             for edge in graph.edges:
-                u = node_map.get(edge.source_id)
-                v = node_map.get(edge.target_id)
-                if u is None or v is None:
+                src_node = node_map.get(edge.source_id)
+                tgt_node = node_map.get(edge.target_id)
+                if src_node is None or tgt_node is None:
                     continue
-                dx = u.position_x - v.position_x
-                dy = u.position_y - v.position_y
+                dx = src_node.position_x - tgt_node.position_x
+                dy = src_node.position_y - tgt_node.position_y
                 dist = max(math.sqrt(dx * dx + dy * dy), 0.01)
                 force = (dist * dist) / k
                 fx = (dx / dist) * force
                 fy = (dy / dist) * force
-                disp[u.id] = (disp[u.id][0] - fx, disp[u.id][1] - fy)
-                disp[v.id] = (disp[v.id][0] + fx, disp[v.id][1] + fy)
+                disp[src_node.id] = (disp[src_node.id][0] - fx, disp[src_node.id][1] - fy)
+                disp[tgt_node.id] = (disp[tgt_node.id][0] + fx, disp[tgt_node.id][1] + fy)
 
             # Apply displacements with temperature cooling
             temperature = max(1.0, 100.0 * (1.0 - _ / iterations))
@@ -1375,7 +1376,7 @@ class DependencyVisualizer:
         self._analyzer = GraphAnalyzer()
         self._exporter = GraphExporter()
 
-    def build_graph(self, repos: list[dict]) -> DependencyGraph:
+    def build_graph(self, repos: list[dict[str, Any]]) -> DependencyGraph:
         """Build a unified graph from multiple repository descriptors.
 
         Each entry in *repos* should contain ``name`` and one of

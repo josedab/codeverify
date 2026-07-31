@@ -208,7 +208,7 @@ class DiffSummarizerAgent(BaseAgent):
             pr_description = self._fill_template(template, data)
 
         return {
-            "title_suggestion": self._generate_title(data) if not title else title,
+            "title_suggestion": title if title else self._generate_title(data),
             "description": pr_description,
             "summary": data.get("summary", ""),
             "changelog_entry": data.get("changelog_entry", ""),

@@ -215,7 +215,7 @@ class SpecificationGenerator:
     and pattern matching.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._spec_counter = 0
 
     def _generate_spec_id(self) -> str:
@@ -247,7 +247,7 @@ class SpecificationGenerator:
         except SyntaxError as e:
             return {"error": f"Syntax error: {e}"}
 
-        result = {
+        result: dict[str, Any] = {
             "functions": [],
             "classes": [],
             "module_invariants": [],
@@ -255,7 +255,7 @@ class SpecificationGenerator:
         }
 
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 contract = self._analyze_function(node, code)
                 result["functions"].append(contract.to_dict())
 
@@ -268,7 +268,7 @@ class SpecificationGenerator:
     def _analyze_function(
         self,
         node: ast.FunctionDef | ast.AsyncFunctionDef,
-        code: str,
+        _code: str,
     ) -> FunctionContract:
         """Analyze a function and generate its contract."""
         contract = FunctionContract(
@@ -296,17 +296,19 @@ class SpecificationGenerator:
 
         return contract
 
-    def _extract_parameters(self, node: ast.FunctionDef) -> list[dict[str, Any]]:
+    def _extract_parameters(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> list[dict[str, Any]]:
         """Extract parameter information."""
-        params = []
+        params: list[dict[str, Any]] = []
         for arg in node.args.args:
-            param = {"name": arg.arg, "type": None}
+            param: dict[str, Any] = {"name": arg.arg, "type": None}
             if arg.annotation:
                 param["type"] = ast.unparse(arg.annotation)
             params.append(param)
         return params
 
-    def _extract_return_type(self, node: ast.FunctionDef) -> str | None:
+    def _extract_return_type(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
         """Extract return type annotation."""
         if node.returns:
             return ast.unparse(node.returns)
@@ -435,7 +437,9 @@ class SpecificationGenerator:
             confidence=0.85,
         )
 
-    def _infer_preconditions(self, node: ast.FunctionDef) -> list[FormalSpec]:
+    def _infer_preconditions(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> list[FormalSpec]:
         """Infer preconditions from parameter validation code."""
         specs = []
 
@@ -576,7 +580,9 @@ class SpecificationGenerator:
 
         return None
 
-    def _infer_postconditions(self, node: ast.FunctionDef) -> list[FormalSpec]:
+    def _infer_postconditions(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> list[FormalSpec]:
         """Infer postconditions from return statements."""
         specs = []
 
@@ -639,7 +645,7 @@ class SpecificationGenerator:
 
         return None
 
-    def _infer_modifications(self, node: ast.FunctionDef) -> list[str]:
+    def _infer_modifications(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
         """Infer what variables/attributes the function modifies."""
         modifies = []
 
@@ -647,34 +653,34 @@ class SpecificationGenerator:
             # Attribute assignment: self.x = ...
             if isinstance(stmt, ast.Assign):
                 for target in stmt.targets:
-                    if isinstance(target, ast.Attribute):
-                        if isinstance(target.value, ast.Name):
-                            modifies.append(f"{target.value.id}.{target.attr}")
+                    if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
+                        modifies.append(f"{target.value.id}.{target.attr}")
 
             # Augmented assignment: x += ...
-            elif isinstance(stmt, ast.AugAssign):
-                if isinstance(stmt.target, ast.Attribute):
-                    if isinstance(stmt.target.value, ast.Name):
-                        modifies.append(f"{stmt.target.value.id}.{stmt.target.attr}")
+            if (
+                isinstance(stmt, ast.AugAssign)
+                and isinstance(stmt.target, ast.Attribute)
+                and isinstance(stmt.target.value, ast.Name)
+            ):
+                modifies.append(f"{stmt.target.value.id}.{stmt.target.attr}")
 
         return list(set(modifies))
 
-    def _infer_exceptions(self, node: ast.FunctionDef) -> list[str]:
+    def _infer_exceptions(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
         """Infer what exceptions the function may raise."""
         exceptions = []
 
         for stmt in ast.walk(node):
-            if isinstance(stmt, ast.Raise):
-                if stmt.exc:
-                    if isinstance(stmt.exc, ast.Call):
-                        if isinstance(stmt.exc.func, ast.Name):
-                            exceptions.append(stmt.exc.func.id)
-                    elif isinstance(stmt.exc, ast.Name):
-                        exceptions.append(stmt.exc.id)
+            if isinstance(stmt, ast.Raise) and stmt.exc:
+                if isinstance(stmt.exc, ast.Call):
+                    if isinstance(stmt.exc.func, ast.Name):
+                        exceptions.append(stmt.exc.func.id)
+                elif isinstance(stmt.exc, ast.Name):
+                    exceptions.append(stmt.exc.id)
 
         return list(set(exceptions))
 
-    def _analyze_class(self, node: ast.ClassDef, code: str) -> ClassInvariant:
+    def _analyze_class(self, node: ast.ClassDef, _code: str) -> ClassInvariant:
         """Analyze a class for invariants."""
         class_inv = ClassInvariant(class_name=node.name)
 
@@ -719,7 +725,7 @@ class SpecificationGenerator:
     def _generate_typescript_specs(self, code: str) -> dict[str, Any]:
         """Generate specifications for TypeScript code."""
         # Simplified TypeScript analysis using regex
-        result = {
+        result: dict[str, Any] = {
             "functions": [],
             "classes": [],
             "interfaces": [],
@@ -735,7 +741,7 @@ class SpecificationGenerator:
             params_str = match.group(2)
             return_type = match.group(3).strip() if match.group(3) else None
 
-            contract = {
+            contract: dict[str, Any] = {
                 "function_name": func_name,
                 "parameters": self._parse_ts_params(params_str),
                 "return_type": return_type,
@@ -744,14 +750,13 @@ class SpecificationGenerator:
             }
 
             # Infer specs from types
-            if return_type:
-                if "null" in return_type or "undefined" in return_type:
-                    contract["postconditions"].append(
-                        {
-                            "description": "May return null/undefined",
-                            "confidence": 1.0,
-                        }
-                    )
+            if return_type and ("null" in return_type or "undefined" in return_type):
+                contract["postconditions"].append(
+                    {
+                        "description": "May return null/undefined",
+                        "confidence": 1.0,
+                    }
+                )
 
             result["functions"].append(contract)
 
@@ -772,7 +777,7 @@ class SpecificationGenerator:
 
     def _parse_ts_params(self, params_str: str) -> list[dict[str, Any]]:
         """Parse TypeScript parameter string."""
-        params = []
+        params: list[dict[str, Any]] = []
         if not params_str.strip():
             return params
 
@@ -908,7 +913,7 @@ class SpecificationVerifier:
 
         Returns verification results.
         """
-        results = {
+        results: dict[str, Any] = {
             "verified": True,
             "violations": [],
             "checked": 0,
@@ -934,7 +939,7 @@ class SpecificationVerifier:
         self,
         code: str,
         func_spec: dict[str, Any],
-        language: str,
+        _language: str,
     ) -> dict[str, Any]:
         """Verify a function against its specification."""
         result = {
@@ -969,7 +974,7 @@ class SpecificationVerifier:
         self,
         code: str,
         precondition: dict[str, Any],
-        function_name: str,
+        _function_name: str,
     ) -> bool:
         """Check if a precondition is enforced in code."""
         python_assert = precondition.get("python_assertion", "")

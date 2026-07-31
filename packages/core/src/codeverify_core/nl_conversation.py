@@ -7,7 +7,7 @@ and explore code properties interactively.
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -52,7 +52,7 @@ class ConversationTurn:
     confidence: AnswerConfidence = AnswerConfidence.UNCERTAIN
     verification_result: dict[str, Any] | None = None
     suggestions: list[str] = field(default_factory=list)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -126,18 +126,26 @@ class IntentClassifier:
     ]
 
     FOLLOWUP_PATTERNS = [
-        "what about", "also", "and what", "how about",
-        "what if", "can it", "does it", "is it",
+        "what about",
+        "also",
+        "and what",
+        "how about",
+        "what if",
+        "can it",
+        "does it",
+        "is it",
     ]
 
     CLARIFICATION_PATTERNS = [
-        "what do you mean", "explain", "why", "show me",
-        "give me an example", "can you elaborate",
+        "what do you mean",
+        "explain",
+        "why",
+        "show me",
+        "give me an example",
+        "can you elaborate",
     ]
 
-    def classify(
-        self, query: str, has_history: bool = False
-    ) -> QueryIntent:
+    def classify(self, query: str, has_history: bool = False) -> QueryIntent:
         """Classify the intent of a user query."""
         lower = query.lower().strip()
 
@@ -207,20 +215,22 @@ class ResponseGenerator:
             return self._general_analysis(query, code, context)
 
     def _check_null(
-        self, query: str, code: str, ctx: ConversationContext
+        self, _query: str, code: str, ctx: ConversationContext
     ) -> tuple[str, AnswerConfidence, list[str]]:
         import re
 
         none_checks = re.findall(r"if\s+\w+\s+is\s+(?:not\s+)?None", code)
         optional_params = re.findall(r"(\w+)\s*:\s*.*\|\s*None", code)
-        unguarded = re.findall(r"(\w+)\.\w+", code)
 
         if none_checks:
             response = f"Found {len(none_checks)} null check(s) in the code. "
             if optional_params:
                 response += f"Parameters {optional_params} accept None. "
             confidence = AnswerConfidence.LIKELY
-            suggestions = ["Does this handle None in all branches?", "What about nested None values?"]
+            suggestions = [
+                "Does this handle None in all branches?",
+                "What about nested None values?",
+            ]
         else:
             response = "No explicit null checks found. "
             if optional_params:
@@ -234,7 +244,7 @@ class ResponseGenerator:
         return response, confidence, suggestions
 
     def _check_bounds(
-        self, query: str, code: str, ctx: ConversationContext
+        self, _query: str, code: str, ctx: ConversationContext
     ) -> tuple[str, AnswerConfidence, list[str]]:
         import re
 
@@ -256,17 +266,23 @@ class ResponseGenerator:
             confidence = AnswerConfidence.PROVEN
 
         ctx.properties_checked.append("bounds_safety")
-        return response, confidence, ["Can any of these arrays be empty?", "What about negative indices?"]
+        return (
+            response,
+            confidence,
+            ["Can any of these arrays be empty?", "What about negative indices?"],
+        )
 
     def _check_overflow(
-        self, query: str, code: str, ctx: ConversationContext
+        self, _query: str, code: str, ctx: ConversationContext
     ) -> tuple[str, AnswerConfidence, list[str]]:
         import re
 
         arithmetic = re.findall(r"(\w+)\s*([+\-*/])\s*(\w+)", code)
         response = f"Found {len(arithmetic)} arithmetic operation(s). "
         if arithmetic:
-            response += "Python integers have arbitrary precision, so overflow is unlikely for int types. "
+            response += (
+                "Python integers have arbitrary precision, so overflow is unlikely for int types. "
+            )
             response += "However, if these interact with C extensions or fixed-width types, overflow is possible."
             confidence = AnswerConfidence.LIKELY
         else:
@@ -274,10 +290,14 @@ class ResponseGenerator:
             confidence = AnswerConfidence.PROVEN
 
         ctx.properties_checked.append("overflow_safety")
-        return response, confidence, ["Are any of these values from external input?", "What about float precision?"]
+        return (
+            response,
+            confidence,
+            ["Are any of these values from external input?", "What about float precision?"],
+        )
 
     def _check_exceptions(
-        self, query: str, code: str, ctx: ConversationContext
+        self, _query: str, code: str, ctx: ConversationContext
     ) -> tuple[str, AnswerConfidence, list[str]]:
         import re
 
@@ -289,14 +309,20 @@ class ResponseGenerator:
         if raises:
             response += f"Exceptions raised: {', '.join(set(raises))}. "
         if bare_excepts:
-            response += f"⚠️ {len(bare_excepts)} bare except clause(s) found — these catch everything."
+            response += (
+                f"⚠️ {len(bare_excepts)} bare except clause(s) found — these catch everything."
+            )
 
         confidence = AnswerConfidence.LIKELY if try_blocks else AnswerConfidence.UNCERTAIN
         ctx.properties_checked.append("exception_handling")
-        return response, confidence, ["What happens if an unexpected exception occurs?", "Are all exceptions logged?"]
+        return (
+            response,
+            confidence,
+            ["What happens if an unexpected exception occurs?", "Are all exceptions logged?"],
+        )
 
     def _check_invariant(
-        self, query: str, code: str, ctx: ConversationContext
+        self, _query: str, code: str, ctx: ConversationContext
     ) -> tuple[str, AnswerConfidence, list[str]]:
         import re
 
@@ -310,19 +336,35 @@ class ResponseGenerator:
             confidence = AnswerConfidence.UNCERTAIN
 
         ctx.properties_checked.append("invariants")
-        return response, confidence, ["What invariants should hold here?", "Can you verify this with Z3?"]
+        return (
+            response,
+            confidence,
+            ["What invariants should hold here?", "Can you verify this with Z3?"],
+        )
 
     def _clarify(
-        self, query: str, ctx: ConversationContext
+        self, _query: str, ctx: ConversationContext
     ) -> tuple[str, AnswerConfidence, list[str]]:
         summary = ctx.get_summary()
-        response = f"Here's what we've covered so far: {summary}. What would you like me to clarify?"
-        return response, AnswerConfidence.UNCERTAIN, ["Can you re-check null safety?", "Show me the code again"]
+        response = (
+            f"Here's what we've covered so far: {summary}. What would you like me to clarify?"
+        )
+        return (
+            response,
+            AnswerConfidence.UNCERTAIN,
+            ["Can you re-check null safety?", "Show me the code again"],
+        )
 
     def _followup(
-        self, query: str, ctx: ConversationContext
+        self, _query: str, ctx: ConversationContext
     ) -> tuple[str, AnswerConfidence, list[str]]:
-        unchecked = {"null_safety", "bounds_safety", "overflow_safety", "exception_handling", "invariants"} - set(ctx.properties_checked)
+        unchecked = {
+            "null_safety",
+            "bounds_safety",
+            "overflow_safety",
+            "exception_handling",
+            "invariants",
+        } - set(ctx.properties_checked)
         if unchecked:
             response = f"We haven't checked: {', '.join(unchecked)}. Would you like me to check any of these?"
         else:
@@ -330,7 +372,7 @@ class ResponseGenerator:
         return response, AnswerConfidence.UNCERTAIN, [f"Check {p}" for p in list(unchecked)[:3]]
 
     def _general_analysis(
-        self, query: str, code: str, ctx: ConversationContext
+        self, _query: str, code: str, _ctx: ConversationContext
     ) -> tuple[str, AnswerConfidence, list[str]]:
         import re
 
@@ -345,11 +387,15 @@ class ResponseGenerator:
             response += f", {len(classes)} class(es): {', '.join(classes[:5])}"
         response += ". What would you like to verify about this code?"
 
-        return response, AnswerConfidence.UNCERTAIN, [
-            "Does this handle null values correctly?",
-            "Can any array access go out of bounds?",
-            "What exceptions can this code throw?",
-        ]
+        return (
+            response,
+            AnswerConfidence.UNCERTAIN,
+            [
+                "Does this handle null values correctly?",
+                "Can any array access go out of bounds?",
+                "What exceptions can this code throw?",
+            ],
+        )
 
 
 class ConversationSession:

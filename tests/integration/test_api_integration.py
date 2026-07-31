@@ -1,174 +1,239 @@
-"""Integration tests for the API service."""
+"""Integration tests for the current FastAPI application routes."""
 
-from unittest.mock import AsyncMock, patch
+import hashlib
+import hmac
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def mock_db():
-    """Mock database session."""
-    with patch("codeverify_api.db.database.get_db") as mock:
-        yield mock
+def api_client(monkeypatch: pytest.MonkeyPatch):
+    """Create a full-app client with an in-memory database dependency."""
+    monkeypatch.setenv("CORS_ORIGINS", '["http://test"]')
+    monkeypatch.setenv("ENVIRONMENT", "development")
 
+    from codeverify_api.db.database import get_db
+    from codeverify_api.main import app
 
-@pytest.fixture
-def mock_auth():
-    """Mock authentication."""
-    with patch("codeverify_api.auth.dependencies.get_current_user") as mock:
-        mock.return_value = {
-            "id": "test-user-id",
-            "github_id": 12345,
-            "username": "testuser",
-        }
-        yield mock
+    empty_result = MagicMock()
+    empty_result.scalars.return_value.all.return_value = []
+    empty_result.scalar.return_value = 0
+
+    db = AsyncMock()
+    db.execute.return_value = empty_result
+    db.get.return_value = None
+
+    async def override_get_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        with TestClient(app, base_url="http://test") as client:
+            yield client, db
+    finally:
+        app.dependency_overrides.pop(get_db, None)
 
 
 class TestHealthEndpoints:
-    """Test health check endpoints."""
+    """Test health and service discovery endpoints."""
 
-    @pytest.mark.asyncio
-    async def test_health_check(self):
-        """Health endpoint returns OK."""
-        from codeverify_api.main import app
+    def test_health_check(self, api_client):
+        """Health endpoint returns the current service status."""
+        client, _ = api_client
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.get("/health")
-            assert response.status_code == 200
-            data = response.json()
-            assert data["status"] == "healthy"
+        response = client.get("/health")
 
-    @pytest.mark.asyncio
-    async def test_root_endpoint(self):
-        """Root endpoint returns service info."""
-        from codeverify_api.main import app
+        assert response.status_code == 200
+        assert response.json() == {"status": "healthy"}
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.get("/")
-            assert response.status_code == 200
-            data = response.json()
-            assert data["service"] == "CodeVerify API"
+    def test_root_endpoint(self, api_client):
+        """Root endpoint identifies the running API service."""
+        client, _ = api_client
+
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "service": "CodeVerify API",
+            "version": "0.1.0",
+            "status": "running",
+        }
 
 
 class TestAuthEndpoints:
-    """Test authentication endpoints."""
+    """Test authentication endpoints without external OAuth or Redis."""
 
-    @pytest.mark.asyncio
-    async def test_login_redirect(self):
-        """Login endpoint redirects to GitHub."""
-        from codeverify_api.main import app
+    def test_login_redirect(self, api_client, monkeypatch: pytest.MonkeyPatch):
+        """Login stores OAuth state and redirects to the provider."""
+        client, _ = api_client
+        from codeverify_api.routers import auth
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test", follow_redirects=False
-        ) as client:
-            response = await client.get("/api/v1/auth/login")
-            # Should redirect to GitHub OAuth
-            assert response.status_code in [302, 307]
+        authorize_url = "https://github.com/login/oauth/authorize?client_id=test"
+        monkeypatch.setattr(auth.settings, "CORS_ORIGINS", ["http://test"])
 
-    @pytest.mark.asyncio
-    async def test_me_unauthorized(self):
-        """Me endpoint requires auth."""
-        from codeverify_api.main import app
+        with (
+            patch(
+                "codeverify_api.routers.auth._store_oauth_state",
+                new_callable=AsyncMock,
+            ) as store_state,
+            patch(
+                "codeverify_api.routers.auth.GitHubOAuth.get_authorize_url",
+                return_value=authorize_url,
+            ) as get_authorize_url,
+        ):
+            response = client.get(
+                "/api/v1/auth/login",
+                params={"redirect_uri": "http://test/callback"},
+                follow_redirects=False,
+            )
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.get("/api/v1/auth/me")
-            assert response.status_code == 401
+        assert response.status_code == 307
+        assert response.headers["location"] == authorize_url
+        stored_state, stored_redirect = store_state.await_args.args
+        assert stored_state
+        assert stored_redirect == "http://test/callback"
+        assert get_authorize_url.call_args.kwargs["state"] == stored_state
+
+    def test_me_unauthorized(self, api_client):
+        """Current-user endpoint rejects requests without a bearer token."""
+        client, _ = api_client
+
+        response = client.get("/api/v1/auth/me")
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Not authenticated"
 
 
 class TestAnalysesEndpoints:
-    """Test analyses CRUD endpoints."""
+    """Test analyses routes with the database dependency overridden."""
 
-    @pytest.mark.asyncio
-    async def test_list_analyses_unauthorized(self):
-        """List analyses requires auth."""
-        from codeverify_api.main import app
+    def test_list_analyses_empty(self, api_client):
+        """List endpoint serializes an empty database result."""
+        client, db = api_client
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.get("/api/v1/analyses")
-            assert response.status_code == 401
+        response = client.get("/api/v1/analyses", params={"limit": 10, "offset": 5})
 
-    @pytest.mark.asyncio
-    async def test_get_analysis_not_found(self, mock_auth, mock_db):
-        """Get non-existent analysis returns 404."""
-        from codeverify_api.main import app
+        assert response.status_code == 200
+        assert response.json() == {
+            "analyses": [],
+            "total": 0,
+            "limit": 10,
+            "offset": 5,
+        }
+        assert db.execute.await_count == 2
 
-        mock_db.return_value.__aenter__ = AsyncMock()
+    def test_get_analysis_not_found(self, api_client):
+        """A valid but unknown analysis ID returns a precise 404."""
+        client, _ = api_client
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.get(
-                "/api/v1/analyses/nonexistent-id", headers={"Authorization": "Bearer test-token"}
-            )
-            # Without proper DB setup, this tests the route exists
-            assert response.status_code in [401, 404, 500]
+        with patch(
+            "codeverify_api.routers.analyses.AnalysisRepository.get_with_findings",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            response = client.get(f"/api/v1/analyses/{uuid4()}")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Analysis not found"
 
 
 class TestWebhooksEndpoints:
-    """Test GitHub webhook endpoints."""
+    """Test signed GitHub webhook handling without external services."""
 
-    @pytest.mark.asyncio
-    async def test_webhook_missing_signature(self):
-        """Webhook without signature is rejected."""
-        from codeverify_api.main import app
+    def test_webhook_missing_signature(self, api_client, monkeypatch: pytest.MonkeyPatch):
+        """Production-mode GitHub webhooks require a valid signature."""
+        client, _ = api_client
+        from codeverify_api.routers import webhooks
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.post(
-                "/webhooks/github",
-                json={"action": "opened"},
-                headers={"X-GitHub-Event": "pull_request"},
-            )
-            # Should reject due to missing signature
-            assert response.status_code in [400, 401, 403]
+        monkeypatch.setattr(webhooks.settings, "ENVIRONMENT", "production")
+        monkeypatch.setattr(webhooks.settings, "GITHUB_WEBHOOK_SECRET", "test-secret")
 
-    @pytest.mark.asyncio
-    async def test_webhook_ping_event(self):
-        """Webhook ping event is acknowledged."""
-        from codeverify_api.main import app
+        response = client.post(
+            "/webhooks/github",
+            content=b'{"action":"opened"}',
+            headers={
+                "Content-Type": "application/json",
+                "X-GitHub-Event": "pull_request",
+                "X-GitHub-Delivery": "delivery-1",
+            },
+        )
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.post(
-                "/webhooks/github",
-                json={"zen": "test"},
-                headers={"X-GitHub-Event": "ping", "X-Hub-Signature-256": "sha256=test"},
-            )
-            # Ping should be acknowledged even with invalid signature in test
-            assert response.status_code in [200, 400, 401, 403]
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Invalid signature"
+
+    def test_webhook_ping_event(self, api_client, monkeypatch: pytest.MonkeyPatch):
+        """A correctly signed ping is acknowledged with its delivery ID."""
+        client, _ = api_client
+        from codeverify_api.routers import webhooks
+
+        secret = "test-secret"
+        payload = b'{"zen":"test"}'
+        signature = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+        monkeypatch.setattr(webhooks.settings, "ENVIRONMENT", "production")
+        monkeypatch.setattr(webhooks.settings, "GITHUB_WEBHOOK_SECRET", secret)
+
+        response = client.post(
+            "/webhooks/github",
+            content=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-GitHub-Event": "ping",
+                "X-GitHub-Delivery": "delivery-ping",
+                "X-Hub-Signature-256": signature,
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "pong", "delivery_id": "delivery-ping"}
 
 
 class TestStatsEndpoints:
-    """Test statistics endpoints."""
+    """Test authenticated statistics endpoints."""
 
-    @pytest.mark.asyncio
-    async def test_dashboard_stats_unauthorized(self):
-        """Dashboard stats requires auth."""
-        from codeverify_api.main import app
+    def test_dashboard_stats_unauthorized(self, api_client):
+        """The registered dashboard statistics route requires authentication."""
+        client, _ = api_client
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.get("/api/v1/stats/dashboard")
-            assert response.status_code == 401
+        response = client.get("/api/v1/stats/stats/dashboard")
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Not authenticated"
 
 
 class TestRepositoriesEndpoints:
-    """Test repository endpoints."""
+    """Test repository routes with deterministic database results."""
 
-    @pytest.mark.asyncio
-    async def test_list_repositories_unauthorized(self):
-        """List repositories requires auth."""
-        from codeverify_api.main import app
+    def test_list_repositories_empty(self, api_client):
+        """Repository listing returns its current pagination envelope."""
+        client, _ = api_client
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.get("/api/v1/repositories")
-            assert response.status_code == 401
+        response = client.get("/api/v1/repositories")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "repositories": [],
+            "total": 0,
+            "limit": 50,
+            "offset": 0,
+        }
 
 
 class TestOrganizationsEndpoints:
-    """Test organization endpoints."""
+    """Test organization routes with deterministic database results."""
 
-    @pytest.mark.asyncio
-    async def test_list_organizations_unauthorized(self):
-        """List organizations requires auth."""
-        from codeverify_api.main import app
+    def test_list_organizations_empty(self, api_client):
+        """Organization listing returns its current pagination envelope."""
+        client, _ = api_client
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.get("/api/v1/organizations")
-            assert response.status_code == 401
+        response = client.get("/api/v1/organizations")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "organizations": [],
+            "total": 0,
+            "limit": 50,
+            "offset": 0,
+        }

@@ -10,6 +10,7 @@ This agent provides:
 """
 
 import ast
+import contextlib
 import hashlib
 import json
 import re
@@ -487,7 +488,7 @@ Respond with JSON containing:
                 tree = ast.parse(code)
 
                 for node in ast.walk(tree):
-                    if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+                    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                         func_info = {
                             "name": node.name,
                             "line_start": node.lineno,
@@ -502,18 +503,14 @@ Respond with JSON containing:
                         for arg in node.args.args:
                             param = {"name": arg.arg, "type": None}
                             if arg.annotation:
-                                try:
+                                with contextlib.suppress(Exception):
                                     param["type"] = ast.unparse(arg.annotation)
-                                except Exception:
-                                    pass
                             func_info["params"].append(param)
 
                         # Extract return type
                         if node.returns:
-                            try:
+                            with contextlib.suppress(Exception):
                                 func_info["return_annotation"] = ast.unparse(node.returns)
-                            except Exception:
-                                pass
 
                         # Get the function code
                         lines = code.split("\n")
@@ -763,8 +760,8 @@ Respond with JSON containing:
     async def _generate_class_invariants(
         self,
         class_info: dict[str, Any],
-        full_code: str,
-        context: dict[str, Any],
+        _full_code: str,
+        _context: dict[str, Any],
     ) -> ClassInvariant:
         """Generate invariants for a class."""
         class_name = class_info.get("name", "unknown")
@@ -816,7 +813,7 @@ Return JSON with class invariants that must hold across all method calls.
     def _build_generation_prompt(
         self,
         func_info: dict[str, Any],
-        context: dict[str, Any],
+        _context: dict[str, Any],
     ) -> str:
         """Build the prompt for specification generation."""
         parts = [

@@ -19,7 +19,6 @@ import hashlib
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -53,6 +52,7 @@ class CompilationResult(str, Enum):
 @dataclass
 class Specification:
     """A single specification (one constraint)."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     spec_type: SpecType = SpecType.PRECONDITION
     target_function: str = ""
@@ -66,6 +66,7 @@ class Specification:
 @dataclass
 class SpecFile:
     """A .spec.cv file containing specifications."""
+
     file_path: str = ""
     target_source_file: str = ""
     specs: list[Specification] = field(default_factory=list)
@@ -81,6 +82,7 @@ class SpecFile:
 @dataclass
 class SpecVerificationResult:
     """Result of verifying code against its spec."""
+
     spec_id: str = ""
     function_name: str = ""
     passed: bool = False
@@ -91,6 +93,7 @@ class SpecVerificationResult:
 @dataclass
 class SpecCoverage:
     """Coverage metrics for specifications."""
+
     total_functions: int = 0
     functions_with_specs: int = 0
     total_specs: int = 0
@@ -102,6 +105,7 @@ class SpecCoverage:
 @dataclass
 class GeneratedSpec:
     """A spec auto-generated from code/docstrings."""
+
     function_name: str = ""
     specs: list[Specification] = field(default_factory=list)
     confidence: float = 0.0
@@ -134,21 +138,27 @@ class SpecParser:
                 source_file = stripped.split(":", 1)[1].strip()
                 continue
 
-            if stripped.startswith("function ") or stripped.startswith("fn ") or stripped.startswith("def "):
+            if (
+                stripped.startswith("function ")
+                or stripped.startswith("fn ")
+                or stripped.startswith("def ")
+            ):
                 current_function = stripped.split(" ", 1)[1].strip().rstrip(":")
                 continue
 
             for keyword, spec_type in self.SPEC_PATTERNS.items():
                 if stripped.startswith(f"@{keyword}"):
-                    nl_text = stripped[len(f"@{keyword}"):].strip().strip('"').strip("'")
-                    variables = re.findall(r'\b([a-z_][a-z0-9_]*)\b', nl_text)
-                    specs.append(Specification(
-                        spec_type=spec_type,
-                        target_function=current_function,
-                        natural_language=nl_text,
-                        variables=variables[:5],
-                        line_in_spec_file=i,
-                    ))
+                    nl_text = stripped[len(f"@{keyword}") :].strip().strip('"').strip("'")
+                    variables = re.findall(r"\b([a-z_][a-z0-9_]*)\b", nl_text)
+                    specs.append(
+                        Specification(
+                            spec_type=spec_type,
+                            target_function=current_function,
+                            natural_language=nl_text,
+                            variables=variables[:5],
+                            line_in_spec_file=i,
+                        )
+                    )
                     break
 
         spec_file = SpecFile(
@@ -173,7 +183,10 @@ class SpecCompiler:
         (r"(\w+)\s+must\s+be\s+less\s+than\s+(\w+)", r"(assert (< {0} {1}))"),
         (r"(\w+)\s+must\s+be\s+greater\s+than\s+(\w+)", r"(assert (> {0} {1}))"),
         (r"(\w+)\s+must\s+equal\s+(\w+)", r"(assert (= {0} {1}))"),
-        (r"(\w+)\s+must\s+be\s+between\s+(\w+)\s+and\s+(\w+)", r"(assert (and (>= {0} {1}) (<= {0} {2})))"),
+        (
+            r"(\w+)\s+must\s+be\s+between\s+(\w+)\s+and\s+(\w+)",
+            r"(assert (and (>= {0} {1}) (<= {0} {2})))",
+        ),
         (r"result\s+is\s+the\s+sum\s+of\s+(\w+)\s+and\s+(\w+)", r"(assert (= result (+ {0} {1})))"),
     ]
 
@@ -217,20 +230,22 @@ class SpecCompiler:
 class SpecVerifier:
     """Verifies code against compiled specifications."""
 
-    def verify(
-        self, spec: Specification, code: str
-    ) -> SpecVerificationResult:
+    def verify(self, spec: Specification, code: str) -> SpecVerificationResult:
         """Verify a single spec against code."""
         if spec.status != SpecStatus.COMPILED:
             return SpecVerificationResult(
-                spec_id=spec.id, function_name=spec.target_function,
-                passed=False, message="Spec not compiled"
+                spec_id=spec.id,
+                function_name=spec.target_function,
+                passed=False,
+                message="Spec not compiled",
             )
 
         if spec.target_function and spec.target_function not in code:
             return SpecVerificationResult(
-                spec_id=spec.id, function_name=spec.target_function,
-                passed=False, message=f"Function '{spec.target_function}' not found in code"
+                spec_id=spec.id,
+                function_name=spec.target_function,
+                passed=False,
+                message=f"Function '{spec.target_function}' not found in code",
             )
 
         passed = True
@@ -260,8 +275,10 @@ class SpecVerifier:
 
         spec.status = SpecStatus.VERIFIED if passed else SpecStatus.VIOLATED
         return SpecVerificationResult(
-            spec_id=spec.id, function_name=spec.target_function,
-            passed=passed, message=message,
+            spec_id=spec.id,
+            function_name=spec.target_function,
+            passed=passed,
+            message=message,
         )
 
 
@@ -274,7 +291,7 @@ class SpecAutoGenerator:
 
         # From type hints
         if f"def {function_name}" in code:
-            func_line = [l for l in code.split("\n") if f"def {function_name}" in l]
+            func_line = [line for line in code.split("\n") if f"def {function_name}" in line]
             if func_line:
                 params = func_line[0].split("(")[1].split(")")[0] if "(" in func_line[0] else ""
                 for param in params.split(","):
@@ -284,29 +301,34 @@ class SpecAutoGenerator:
                         name = name.strip()
                         type_hint = type_hint.strip()
                         if type_hint and "None" not in type_hint and "Optional" not in type_hint:
-                            specs.append(Specification(
-                                spec_type=SpecType.PRECONDITION,
-                                target_function=function_name,
-                                natural_language=f"{name} must not be none",
-                                variables=[name],
-                            ))
+                            specs.append(
+                                Specification(
+                                    spec_type=SpecType.PRECONDITION,
+                                    target_function=function_name,
+                                    natural_language=f"{name} must not be none",
+                                    variables=[name],
+                                )
+                            )
 
         # From docstring patterns
-        if '"""' in code or "'''" in code:
-            if "raises" in code.lower():
-                specs.append(Specification(
+        if ('"""' in code or "'''" in code) and "raises" in code.lower():
+            specs.append(
+                Specification(
                     spec_type=SpecType.POSTCONDITION,
                     target_function=function_name,
                     natural_language="function may raise exceptions as documented",
-                ))
+                )
+            )
 
         if "/ " in code:
-            specs.append(Specification(
-                spec_type=SpecType.PRECONDITION,
-                target_function=function_name,
-                natural_language="divisor must not be zero",
-                variables=["divisor"],
-            ))
+            specs.append(
+                Specification(
+                    spec_type=SpecType.PRECONDITION,
+                    target_function=function_name,
+                    natural_language="divisor must not be zero",
+                    variables=["divisor"],
+                )
+            )
 
         source = "type_hints" if any(s.variables for s in specs) else "code_analysis"
         return GeneratedSpec(
@@ -334,9 +356,7 @@ class SpecFirstService:
         self._spec_files[file_path] = spec_file
         return spec_file
 
-    def verify_code(
-        self, spec_path: str, code: str
-    ) -> list[SpecVerificationResult]:
+    def verify_code(self, spec_path: str, code: str) -> list[SpecVerificationResult]:
         """Verify code against a loaded spec file."""
         spec_file = self._spec_files.get(spec_path)
         if not spec_file:
@@ -349,9 +369,9 @@ class SpecFirstService:
 
     def get_coverage(self, code: str) -> SpecCoverage:
         """Calculate spec coverage for code."""
-        functions = re.findall(r'def (\w+)\s*\(', code)
+        functions = re.findall(r"def (\w+)\s*\(", code)
         all_specs = [s for sf in self._spec_files.values() for s in sf.specs]
-        covered = set(s.target_function for s in all_specs if s.target_function)
+        covered = {s.target_function for s in all_specs if s.target_function}
         verified = sum(1 for s in all_specs if s.status == SpecStatus.VERIFIED)
         violated = sum(1 for s in all_specs if s.status == SpecStatus.VIOLATED)
 

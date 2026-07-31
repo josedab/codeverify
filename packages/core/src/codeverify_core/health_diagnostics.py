@@ -86,7 +86,7 @@ class HealthChecker:
         report = checker.run_all()
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._checks: dict[str, HealthCheckFn] = {}
 
     def register(self, name: str, check_fn: HealthCheckFn) -> None:

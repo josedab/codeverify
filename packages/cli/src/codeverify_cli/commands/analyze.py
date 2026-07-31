@@ -91,7 +91,7 @@ def analyze(
         console=console,
         transient=True,
     ) as progress:
-        task = progress.add_task("Analyzing code...", total=None)
+        progress.add_task("Analyzing code...", total=None)
 
         try:
             if staged:
@@ -181,17 +181,16 @@ def fix(ctx: click.Context, path: str, fix: bool, dry_run: bool) -> None:
             syntax = Syntax(finding.get("fix_suggestion", ""), "python", theme="monokai")
             console.print(syntax)
 
-    if fix and not dry_run:
-        if click.confirm("Apply all fixes?"):
-            applied = 0
-            for finding in fixable:
-                try:
-                    apply_fix(finding)
-                    applied += 1
-                except Exception as e:
-                    console.print(f"[red]Failed to apply fix: {e}[/red]")
+    if fix and not dry_run and click.confirm("Apply all fixes?"):
+        applied = 0
+        for finding in fixable:
+            try:
+                apply_fix(finding)
+                applied += 1
+            except Exception as e:
+                console.print(f"[red]Failed to apply fix: {e}[/red]")
 
-            console.print(f"[green]Applied {applied} fixes[/green]")
+        console.print(f"[green]Applied {applied} fixes[/green]")
 
 
 @click.command()

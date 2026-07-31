@@ -5,7 +5,7 @@ enabling human oversight of AI-generated code fixes before they are merged.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -48,9 +48,7 @@ class ApprovalPolicy:
     """Defines who can approve and under what conditions."""
 
     required_approvers: int = 1
-    allowed_approver_roles: list[str] = field(
-        default_factory=lambda: ["maintainer", "admin"]
-    )
+    allowed_approver_roles: list[str] = field(default_factory=lambda: ["maintainer", "admin"])
     auto_approve_confidence_threshold: float = 0.95
     expiry_hours: int = 72
     channels: list[NotificationChannel] = field(
@@ -80,9 +78,7 @@ class ApprovalRequest:
     status: ApprovalStatus = ApprovalStatus.PENDING
     approvers: list[dict[str, Any]] = field(default_factory=list)
     notifications_sent: list[dict[str, Any]] = field(default_factory=list)
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     resolved_at: datetime | None = None
     resolution_comment: str | None = None
 
@@ -188,9 +184,7 @@ class SlackAdapter(ChannelAdapter):
                         json=message,
                         headers={"Authorization": f"Bearer {self.token}"},
                     )
-                payload.delivery_status = (
-                    "delivered" if resp.status_code == 200 else "failed"
-                )
+                payload.delivery_status = "delivered" if resp.status_code == 200 else "failed"
                 return resp.status_code == 200
         except Exception as e:
             logger.error("Slack notification failed", error=str(e))
@@ -225,9 +219,7 @@ class TeamsAdapter(ChannelAdapter):
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(self.webhook_url, json=card)
-                payload.delivery_status = (
-                    "delivered" if resp.status_code == 200 else "failed"
-                )
+                payload.delivery_status = "delivered" if resp.status_code == 200 else "failed"
                 return resp.status_code == 200
         except Exception as e:
             logger.error("Teams notification failed", error=str(e))
@@ -293,9 +285,7 @@ class WebhookAdapter(ChannelAdapter):
                         "metadata": payload.metadata,
                     },
                 )
-                payload.delivery_status = (
-                    "delivered" if resp.status_code < 300 else "failed"
-                )
+                payload.delivery_status = "delivered" if resp.status_code < 300 else "failed"
                 return resp.status_code < 300
         except Exception as e:
             logger.error("Webhook notification failed", error=str(e))
@@ -370,7 +360,7 @@ class ApprovalNotifier:
         # Auto-approve if confidence exceeds threshold
         if confidence >= effective_policy.auto_approve_confidence_threshold:
             request.status = ApprovalStatus.APPROVED
-            request.resolved_at = datetime.now(timezone.utc)
+            request.resolved_at = datetime.now(UTC)
             request.resolution_comment = "Auto-approved: confidence above threshold"
             logger.info(
                 "Fix auto-approved",
@@ -403,7 +393,7 @@ class ApprovalNotifier:
                 metadata={"request_id": request.id, "fix_id": request.fix_id},
             )
             success = await adapter.send(payload)
-            payload.sent_at = datetime.now(timezone.utc)
+            payload.sent_at = datetime.now(UTC)
             payloads.append(payload)
 
             request.notifications_sent.append(
@@ -436,7 +426,7 @@ class ApprovalNotifier:
                 metadata={"request_id": request.id, "escalation": True},
             )
             await adapter.send(payload)
-            payload.sent_at = datetime.now(timezone.utc)
+            payload.sent_at = datetime.now(UTC)
             payloads.append(payload)
 
         return payloads
@@ -458,17 +448,17 @@ class ApprovalNotifier:
                 "user": approver,
                 "decision": decision,
                 "comment": comment,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
 
         if decision == "rejected":
             request.status = ApprovalStatus.REJECTED
-            request.resolved_at = datetime.now(timezone.utc)
+            request.resolved_at = datetime.now(UTC)
             request.resolution_comment = f"Rejected by {approver}: {comment}"
         elif decision == "approved" and request.has_sufficient_approvals:
             request.status = ApprovalStatus.APPROVED
-            request.resolved_at = datetime.now(timezone.utc)
+            request.resolved_at = datetime.now(UTC)
             request.resolution_comment = "Approved with sufficient approvals"
 
         logger.info(
@@ -484,11 +474,7 @@ class ApprovalNotifier:
         return self._requests.get(request_id)
 
     def get_pending_requests(self) -> list[ApprovalRequest]:
-        return [
-            r
-            for r in self._requests.values()
-            if r.status == ApprovalStatus.PENDING
-        ]
+        return [r for r in self._requests.values() if r.status == ApprovalStatus.PENDING]
 
     def get_stats(self) -> dict[str, Any]:
         """Return approval workflow statistics."""
@@ -499,9 +485,7 @@ class ApprovalNotifier:
         approved = [r for r in all_requests if r.status == ApprovalStatus.APPROVED]
         rejected = [r for r in all_requests if r.status == ApprovalStatus.REJECTED]
         pending = [r for r in all_requests if r.status == ApprovalStatus.PENDING]
-        auto_approved = [
-            r for r in approved if "Auto-approved" in (r.resolution_comment or "")
-        ]
+        auto_approved = [r for r in approved if "Auto-approved" in (r.resolution_comment or "")]
 
         return {
             "total": len(all_requests),
@@ -524,9 +508,7 @@ class ApprovalNotifier:
         )
 
     def _format_escalation_body(self, request: ApprovalRequest) -> str:
-        hours = (
-            datetime.now(timezone.utc) - request.created_at
-        ).total_seconds() / 3600
+        hours = (datetime.now(UTC) - request.created_at).total_seconds() / 3600
         return (
             f"⚠️ This fix has been pending approval for {hours:.1f} hours.\n\n"
             + self._format_body(request)

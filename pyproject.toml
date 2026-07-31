@@ -37,6 +37,7 @@ dependencies = [
     "pytest-cov>=4.1",
     "ruff>=0.2",
     "mypy>=1.8",
+    "types-PyYAML",
 ]
 
 [tool.ruff]
@@ -55,7 +56,145 @@ select = [
     "ARG",    # flake8-unused-arguments
     "SIM",    # flake8-simplify
 ]
-ignore = ["E501"]  # line length handled by formatter
+ignore = [
+    "E501",  # line length handled by formatter
+    "UP042", # str + Enum is a public serialization convention; StrEnum changes str(member)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"apps/api/src/codeverify_api/routers/*.py" = ["B008"]
+# GitProviderAdapter(ABC) is implemented identically by 6 provider adapters
+# (GitHub/GitLab/Gitea/Gerrit/AzureDevOps/Generic); each override must keep the
+# abstract method's full parameter list even when a given provider doesn't need
+# every argument, so renaming to `_`-prefixed names would break interface
+# conformance and keyword-argument call sites.
+"packages/core/src/codeverify_core/universal_git.py" = ["ARG002"]
+# VCSClient(ABC) (packages/core/src/codeverify_core/vcs/base.py) abstract
+# methods like create_review_comment/update_check_run/verify_webhook_signature
+# must keep a uniform parameter list across GitHub/GitLab/Bitbucket
+# implementations even when a given provider's API doesn't need every argument.
+"packages/core/src/codeverify_core/vcs/gitlab.py" = ["ARG002"]
+"packages/core/src/codeverify_core/vcs/bitbucket.py" = ["ARG002"]
+# RuleEvaluationStrategy(ABC).evaluate(rule, code, file_path, evaluator) is
+# implemented identically by all concrete strategies; AST/Semantic strategies
+# are not-yet-implemented placeholders that intentionally ignore some params.
+"packages/core/src/codeverify_core/rules_legacy.py" = ["ARG002"]
+"packages/core/src/codeverify_core/rules/strategies.py" = ["ARG002"]
+# InferenceProvider(ABC).infer(prompt, context) is a stable interface;
+# Local/Cloud providers are early-stage placeholder implementations.
+"packages/core/src/codeverify_core/performance_optimization.py" = ["ARG002"]
+# BaseAgent(ABC).analyze(code, context) keyword contract: other call sites use
+# agent.analyze(code=..., context=...) generically across all BaseAgent
+# subclasses, so this override keeps the unused `code` param name.
+"packages/ai-agents/src/codeverify_agents/verification_explainer.py" = ["ARG002"]
+# LLMClientProvider(ABC).get_openai_client/get_anthropic_client(api_key) is
+# implemented by DefaultLLMClientProvider (uses api_key) and
+# MockLLMClientProvider (canned responses; doesn't need it).
+"packages/ai-agents/src/codeverify_agents/factory.py" = ["ARG002"]
+# CostMetricsCollector.record_cache_hit(saved_ms, analysis_id) is called with
+# saved_ms= as a keyword in packages/core/tests/test_cost_dashboard.py.
+"packages/core/src/codeverify_core/cost_dashboard.py" = ["ARG002"]
+# Locust event hooks are invoked as handler(**kwargs) (see locust/event.py's
+# EventHook.fire); the `environment` parameter name is part of the required
+# keyword-binding contract and cannot be renamed.
+"tests/load/locustfile.py" = ["ARG001"]
+# BaseAgent.analyze(code, context) is called with keyword arguments elsewhere
+# in the repo (e.g. hallucination_detector.py, apps/worker/tasks/analysis.py);
+# NaturalLanguageInvariantAgent doesn't need `code` (invariants come from
+# context) but must keep the parameter name for the shared interface.
+"packages/ai-agents/src/codeverify_agents/nl_invariants.py" = ["ARG002"]
+# Same BaseAgent.analyze(code, context) keyword-call constraint as above;
+# VerificationDebugger, AIDriftDetector, and ComplianceAttestationEngine only
+# need `context` (their docstrings/verification results drive the analysis).
+"packages/ai-agents/src/codeverify_agents/verification_debugger.py" = ["ARG002"]
+"packages/ai-agents/src/codeverify_agents/ai_drift_detector.py" = ["ARG002"]
+"packages/ai-agents/src/codeverify_agents/compliance_attestation.py" = ["ARG002"]
+# DebateEngine.run_debate/_get_argument and CompetingModelArbitrator's
+# _collect_findings/_get_model_vote/_evaluate_after_debate are placeholder
+# ("would call actual LLM") implementations that don't consume every argument
+# yet, but their parameter names are a real keyword-call contract: `_run_debate`
+# calls `self.debate_engine.run_debate(finding=..., code_snippet=...)` and
+# `run_debate` itself calls `self._get_argument(finding=..., previous=...)`, so
+# a `_`-prefixed rename breaks the call at runtime rather than just quieting
+# the linter.
+"packages/ai-agents/src/codeverify_agents/model_arbitrator.py" = ["ARG002"]
+# Click binds `ctx` via @click.pass_context and other params by keyword from
+# @click.option/@click.argument names; renaming unused CLI params would break
+# the commands at runtime even when a flag isn't read by every command.
+"packages/cli/src/codeverify_cli/main.py" = ["ARG001"]
+"packages/cli/src/codeverify_cli/commands/*.py" = ["ARG001"]
+# These routers declare public FastAPI query/path parameters (no alias) that
+# are part of the documented API contract but are intentionally unused by
+# stub/mock-data endpoints ("In production, would filter/query..."); renaming
+# would change the client-facing query string keys or break path-template
+# binding (team_analytics.py's `{org_id}` path params), so they can't take a
+# `_` prefix like a purely internal parameter.
+"apps/api/src/codeverify_api/routers/debugger.py" = ["ARG001"]
+"apps/api/src/codeverify_api/routers/export.py" = ["ARG001"]
+"apps/api/src/codeverify_api/routers/marketplace.py" = ["ARG001"]
+"apps/api/src/codeverify_api/routers/risk_prediction.py" = ["ARG001"]
+"apps/api/src/codeverify_api/routers/team_analytics.py" = ["ARG001"]
+# create_verification_attestation/create_verification_badge accept an
+# optional-auth `current_user` dependency that isn't read by either handler
+# body yet, but create_package_attestation calls
+# `create_verification_attestation(..., current_user=current_user)` by
+# keyword, so renaming to `_current_user` breaks that call at runtime.
+"apps/api/src/codeverify_api/routers/badges.py" = ["ARG001"]
+# pytest's pluggy hook system dispatches hookimpl functions by matching
+# argument NAMES against the hookspec (not position); pluggy inspects the
+# function signature and only passes arguments whose names it recognizes.
+# Renaming `config` here would make pluggy silently stop injecting it (or
+# error), so pytest_collection_modifyitems must keep the exact hookspec name
+# even though this implementation doesn't need it.
+"packages/sdk-python/src/codeverify_sdk/pytest_plugin.py" = ["ARG001"]
+# CodeVerifyClient.check_safety(code, language) mirrors the `language` keyword
+# used by its sibling public methods (verify/generate_proof/_local_verify) and
+# is reachable directly by SDK consumers via the `codeverify` pytest fixture
+# in pytest_plugin.py; it doesn't yet branch on `language` but must keep the
+# name for API consistency rather than a `_`-prefixed internal-only param.
+"packages/sdk-python/src/codeverify_sdk/client.py" = ["ARG002"]
+# These modules are deprecated backward-compatibility shims. Each begins with
+# a `.. deprecated::` docstring note followed immediately by
+# `_warnings.warn(...)`, so the DeprecationWarning fires as early and
+# visibly as possible on import -- ahead of the module's own imports. This
+# ordering is intentional (the notice would be easy to miss if it were
+# buried below a block of imports), so the imports that follow are flagged
+# as E402 by design, not by oversight.
+"packages/core/src/codeverify_core/proof_marketplace_v2.py" = ["E402"]
+"packages/core/src/codeverify_core/autofix_validation.py" = ["E402"]
+"packages/core/src/codeverify_core/saas_platform.py" = ["E402"]
+"packages/core/src/codeverify_core/cloud_saas.py" = ["E402"]
+"packages/core/src/codeverify_core/multi_tenancy.py" = ["E402"]
+"packages/core/src/codeverify_core/autofix_loop.py" = ["E402"]
+"packages/core/src/codeverify_core/proof_marketplace.py" = ["E402"]
+"packages/core/src/codeverify_core/compliance_framework.py" = ["E402"]
+"packages/core/src/codeverify_core/budget_marketplace.py" = ["E402"]
+"packages/core/src/codeverify_core/compliance_reports.py" = ["E402"]
+# This test dynamically bootstraps sys.path and loads codeverify_agents /
+# codeverify_lsp submodules directly via importlib.util, bypassing a
+# pre-existing broken codeverify_agents/__init__.py (missing
+# SemanticDiffResult). The importlib.util/types imports are deliberately
+# placed after the sys.path bootstrap block and its explanatory comment,
+# not misplaced by accident.
+"packages/core/tests/test_nextgen_features.py" = ["E402"]
+
+# These test files embed AI-generated-looking / human-written code samples
+# as literal fixtures whose formatting (including blank-line whitespace) is
+# itself part of the signal measured by the AI-detection heuristics under
+# test (line_length_variance, blank_line_ratio, indent consistency, etc. in
+# codeverify_agents.ai_fingerprint / model_integration). Stripping the
+# embedded whitespace would alter the fixture content those heuristics are
+# exercised against, so it is preserved verbatim rather than autoformatted.
+"packages/ai-agents/tests/test_ai_fingerprint.py" = ["W293"]
+"packages/ai-agents/tests/test_model_integration.py" = ["W293"]
+# SIMPLE_DIFF embeds a real unified-diff fixture where a line consisting of
+# a single space represents a context (unchanged) line whose source content
+# is blank. parse_unified_diff() gates hunk-line collection on `line and
+# line[0] in ("+", "-", " ")`, so stripping that trailing space would make
+# the line empty and silently drop it from the parsed hunk (verified
+# empirically) -- the whitespace here is load-bearing diff syntax, not
+# incidental formatting.
+"packages/core/tests/test_diff_aware_verification.py" = ["W293"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["codeverify_core", "codeverify_api", "codeverify_worker", "codeverify_verifier", "codeverify_agents"]
@@ -69,6 +208,4 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests", "apps/*/tests", "packages/*/tests"]
-addopts = "-v --tb=short"
-
-
+addopts = "-v --tb=short --import-mode=importlib"

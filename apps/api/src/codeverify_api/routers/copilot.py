@@ -117,10 +117,10 @@ def _format_trust_score_response(code: str) -> str:
     # Simple heuristics for trust scoring
     lines = code.strip().splitlines()
     total_lines = len(lines)
-    has_comments = sum(1 for l in lines if l.strip().startswith(("#", "//", "/*")))
-    has_error_handling = any("try" in l or "except" in l or "catch" in l for l in lines)
-    has_types = any(":" in l and "def" not in l for l in lines) or any(
-        "type" in l.lower() for l in lines
+    has_comments = sum(1 for line in lines if line.strip().startswith(("#", "//", "/*")))
+    has_error_handling = any("try" in line or "except" in line or "catch" in line for line in lines)
+    has_types = any(":" in line and "def" not in line for line in lines) or any(
+        "type" in line.lower() for line in lines
     )
 
     score = 65
@@ -167,7 +167,7 @@ Score: [{emoji_bar}] {score}/100
 {"This code appears trustworthy." if score >= 80 else "Consider adding error handling and type annotations for higher confidence."}"""
 
 
-def _format_spec_response(code: str) -> str:
+def _format_spec_response(_code: str) -> str:
     """Generate a formal specification response."""
     return """## Generated Formal Specification
 
@@ -280,19 +280,20 @@ Available commands:
 @router.post("/webhook")
 async def handle_copilot_webhook(
     request: Request,
-    x_github_signature: str | None = Header(default=None, alias="X-Hub-Signature-256"),
+    _x_github_signature: str | None = Header(default=None, alias="X-Hub-Signature-256"),
 ) -> dict[str, Any]:
     """Handle GitHub Copilot Extension webhook events."""
-    body = await request.body()
-
     # Note: signature validation would use a configured secret
-    # if x_github_signature:
-    #     validate_signature(body, x_github_signature, secret)
+    # if _x_github_signature:
+    #     body = await request.body()
+    #     validate_signature(body, _x_github_signature, secret)
 
     try:
         payload = await request.json()
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload"
+        ) from e
 
     event_type = payload.get("type", "unknown")
 

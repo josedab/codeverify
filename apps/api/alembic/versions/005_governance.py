@@ -23,14 +23,24 @@ def upgrade() -> None:
     op.create_table(
         "policy_sets",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "org_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("rules", postgresql.JSON(), nullable=False, server_default="[]"),
         sa.Column("is_default", sa.Boolean(), server_default="false"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            onupdate=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_policy_sets_org_id", "policy_sets", ["org_id"])
@@ -39,16 +49,36 @@ def upgrade() -> None:
     op.create_table(
         "repo_groups",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "org_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("policy_set_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("policy_sets.id", ondelete="SET NULL"), nullable=True),
+        sa.Column(
+            "policy_set_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("policy_sets.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
         sa.Column("repo_patterns", postgresql.JSON(), server_default="[]"),
         sa.Column("repos", postgresql.JSON(), server_default="[]"),
-        sa.Column("inherit_from", postgresql.UUID(as_uuid=True), sa.ForeignKey("repo_groups.id"), nullable=True),
+        sa.Column(
+            "inherit_from",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("repo_groups.id"),
+            nullable=True,
+        ),
         sa.Column("mode", sa.String(50), server_default="enforce"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            onupdate=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_repo_groups_org_id", "repo_groups", ["org_id"])
@@ -58,10 +88,20 @@ def upgrade() -> None:
     op.create_table(
         "policy_violations",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "org_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("repo_full_name", sa.String(512), nullable=False),
         sa.Column("pr_number", sa.Integer(), nullable=False),
-        sa.Column("policy_set_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("policy_sets.id"), nullable=False),
+        sa.Column(
+            "policy_set_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("policy_sets.id"),
+            nullable=False,
+        ),
         sa.Column("rule_id", sa.String(255), nullable=False),
         sa.Column("rule_name", sa.String(255), nullable=False),
         sa.Column("severity", sa.String(50), nullable=False),
@@ -78,8 +118,18 @@ def upgrade() -> None:
     op.create_table(
         "policy_exceptions",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("violation_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("policy_violations.id"), nullable=False),
+        sa.Column(
+            "org_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "violation_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("policy_violations.id"),
+            nullable=False,
+        ),
         sa.Column("repo_full_name", sa.String(512), nullable=False),
         sa.Column("pr_number", sa.Integer(), nullable=False),
         sa.Column("rule_id", sa.String(255), nullable=False),
@@ -98,7 +148,12 @@ def upgrade() -> None:
     op.create_table(
         "governance_audit_log",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "org_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("action", sa.String(255), nullable=False),
         sa.Column("actor", sa.String(255), nullable=False),
         sa.Column("resource_type", sa.String(100), nullable=False),

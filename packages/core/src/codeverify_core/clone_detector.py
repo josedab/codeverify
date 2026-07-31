@@ -13,7 +13,6 @@ Features:
 
 from __future__ import annotations
 
-import ast
 import hashlib
 import re
 import time
@@ -218,20 +217,22 @@ class FunctionExtractor:
             structural_hash = self._structural_hash(body)
             complexity = self._cyclomatic_complexity(body)
 
-            functions.append(FunctionSignature(
-                name=name,
-                file_path=file_path,
-                line_start=line_start,
-                line_end=line_end,
-                param_count=len(params),
-                param_names=params,
-                return_type=return_type,
-                body_hash=body_hash,
-                structural_hash=structural_hash,
-                loc=line_end - line_start + 1,
-                complexity=complexity,
-                source=body,
-            ))
+            functions.append(
+                FunctionSignature(
+                    name=name,
+                    file_path=file_path,
+                    line_start=line_start,
+                    line_end=line_end,
+                    param_count=len(params),
+                    param_names=params,
+                    return_type=return_type,
+                    body_hash=body_hash,
+                    structural_hash=structural_hash,
+                    loc=line_end - line_start + 1,
+                    complexity=complexity,
+                    source=body,
+                )
+            )
 
         return functions
 
@@ -288,7 +289,8 @@ class CloneDetector:
         self._extractor = FunctionExtractor()
 
     def detect_clones(
-        self, files: dict[str, str],
+        self,
+        files: dict[str, str],
     ) -> DeduplicationReport:
         """Detect clones across multiple files."""
         start = time.time()
@@ -322,34 +324,45 @@ class CloneDetector:
         pairs: list[ClonePair] = []
 
         for i, fa in enumerate(functions):
-            for fb in functions[i + 1:]:
+            for fb in functions[i + 1 :]:
                 # Exact match
                 if fa.body_hash == fb.body_hash:
-                    pairs.append(ClonePair(
-                        func_a=fa, func_b=fb,
-                        clone_type=CloneType.EXACT,
-                        similarity=1.0,
-                    ))
+                    pairs.append(
+                        ClonePair(
+                            func_a=fa,
+                            func_b=fb,
+                            clone_type=CloneType.EXACT,
+                            similarity=1.0,
+                        )
+                    )
                     continue
 
                 # Structural match (same structure, different names)
                 if fa.structural_hash == fb.structural_hash:
-                    pairs.append(ClonePair(
-                        func_a=fa, func_b=fb,
-                        clone_type=CloneType.RENAMED,
-                        similarity=0.95,
-                    ))
+                    pairs.append(
+                        ClonePair(
+                            func_a=fa,
+                            func_b=fb,
+                            clone_type=CloneType.RENAMED,
+                            similarity=0.95,
+                        )
+                    )
                     continue
 
                 # Structural similarity
                 if fa.param_count == fb.param_count and fa.complexity == fb.complexity:
                     sim = self._compute_similarity(fa, fb)
                     if sim >= self.min_similarity:
-                        pairs.append(ClonePair(
-                            func_a=fa, func_b=fb,
-                            clone_type=CloneType.STRUCTURAL if sim >= 0.85 else CloneType.SEMANTIC,
-                            similarity=sim,
-                        ))
+                        pairs.append(
+                            ClonePair(
+                                func_a=fa,
+                                func_b=fb,
+                                clone_type=CloneType.STRUCTURAL
+                                if sim >= 0.85
+                                else CloneType.SEMANTIC,
+                                similarity=sim,
+                            )
+                        )
 
         return pairs
 
@@ -361,7 +374,9 @@ class CloneDetector:
         if fa.param_count == fb.param_count:
             scores.append(1.0)
         else:
-            scores.append(1.0 - abs(fa.param_count - fb.param_count) / max(fa.param_count, fb.param_count, 1))
+            scores.append(
+                1.0 - abs(fa.param_count - fb.param_count) / max(fa.param_count, fb.param_count, 1)
+            )
 
         # LOC similarity
         loc_diff = abs(fa.loc - fb.loc) / max(fa.loc, fb.loc, 1)
@@ -371,11 +386,13 @@ class CloneDetector:
         if fa.complexity == fb.complexity:
             scores.append(1.0)
         else:
-            scores.append(1.0 - abs(fa.complexity - fb.complexity) / max(fa.complexity, fb.complexity, 1))
+            scores.append(
+                1.0 - abs(fa.complexity - fb.complexity) / max(fa.complexity, fb.complexity, 1)
+            )
 
         # Structural hash prefix overlap
         prefix_len = 0
-        for a, b in zip(fa.structural_hash, fb.structural_hash):
+        for a, b in zip(fa.structural_hash, fb.structural_hash, strict=False):
             if a == b:
                 prefix_len += 1
             else:
@@ -391,7 +408,6 @@ class CloneDetector:
     ) -> list[CloneCluster]:
         """Build clone clusters using union-find."""
         parent: dict[str, str] = {f.id: f.id for f in functions}
-        func_map = {f.id: f for f in functions}
 
         def find(x: str) -> str:
             while parent[x] != x:
@@ -424,16 +440,19 @@ class CloneDetector:
                         clone_type = pair.clone_type
                         break
 
-                clusters.append(CloneCluster(
-                    functions=funcs,
-                    clone_type=clone_type,
-                    canonical=canonical,
-                ))
+                clusters.append(
+                    CloneCluster(
+                        functions=funcs,
+                        clone_type=clone_type,
+                        canonical=canonical,
+                    )
+                )
 
         return sorted(clusters, key=lambda c: c.dedup_savings, reverse=True)
 
     def _generate_suggestions(
-        self, clusters: list[CloneCluster],
+        self,
+        clusters: list[CloneCluster],
     ) -> list[RefactoringSuggestion]:
         """Generate refactoring suggestions for clone clusters."""
         suggestions = []
@@ -453,13 +472,15 @@ class CloneDetector:
             for func in cluster.functions:
                 if func.id == cluster.canonical.id:
                     continue
-                suggestion.call_site_changes.append({
-                    "file_path": func.file_path,
-                    "line_start": func.line_start,
-                    "line_end": func.line_end,
-                    "old_name": func.name,
-                    "new_call": f"shared_{cluster.canonical.name}",
-                })
+                suggestion.call_site_changes.append(
+                    {
+                        "file_path": func.file_path,
+                        "line_start": func.line_start,
+                        "line_end": func.line_end,
+                        "old_name": func.name,
+                        "new_call": f"shared_{cluster.canonical.name}",
+                    }
+                )
 
             suggestions.append(suggestion)
 

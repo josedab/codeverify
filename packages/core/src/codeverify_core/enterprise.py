@@ -154,11 +154,10 @@ class EnterpriseConfig:
         """Validate the configuration. Returns list of errors."""
         errors: list[str] = []
 
-        if self.deployment_mode == DeploymentMode.AIR_GAPPED:
-            if not self.llm_primary.is_local():
-                errors.append(
-                    "Air-gapped deployment requires a local LLM backend (ollama, vllm, or local)."
-                )
+        if self.deployment_mode == DeploymentMode.AIR_GAPPED and not self.llm_primary.is_local():
+            errors.append(
+                "Air-gapped deployment requires a local LLM backend (ollama, vllm, or local)."
+            )
 
         if self.auth_provider == AuthProvider.SAML:
             if not self.saml.enabled:

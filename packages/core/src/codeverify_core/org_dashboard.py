@@ -6,10 +6,9 @@ risk heatmaps, and ROI calculations for enterprise reporting.
 
 from __future__ import annotations
 
-import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -20,6 +19,7 @@ logger = structlog.get_logger()
 
 class MetricPeriod(str, Enum):
     """Time period for metric aggregation."""
+
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
@@ -28,6 +28,7 @@ class MetricPeriod(str, Enum):
 
 class RiskLevel(str, Enum):
     """Risk level for heatmap."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -37,6 +38,7 @@ class RiskLevel(str, Enum):
 @dataclass
 class TeamMetrics:
     """Metrics for a single team."""
+
     team_id: str = ""
     team_name: str = ""
     total_analyses: int = 0
@@ -55,6 +57,7 @@ class TeamMetrics:
 @dataclass
 class RepoMetrics:
     """Metrics for a single repository."""
+
     repo_id: str = ""
     repo_name: str = ""
     total_analyses: int = 0
@@ -68,6 +71,7 @@ class RepoMetrics:
 @dataclass
 class RiskHeatmapEntry:
     """A single cell in the risk heatmap."""
+
     repo_name: str = ""
     team_name: str = ""
     risk_level: RiskLevel = RiskLevel.LOW
@@ -78,6 +82,7 @@ class RiskHeatmapEntry:
 @dataclass
 class ROIMetrics:
     """Return on Investment metrics."""
+
     bugs_caught_pre_production: int = 0
     estimated_cost_avoided_usd: float = 0.0
     security_vulns_prevented: int = 0
@@ -86,17 +91,20 @@ class ROIMetrics:
     cost_per_finding_usd: float = 0.0
 
     # Industry standard cost estimates per severity
-    BUG_COSTS: dict[str, float] = field(default_factory=lambda: {
-        "critical": 10000.0,
-        "high": 5000.0,
-        "medium": 1000.0,
-        "low": 50.0,
-    })
+    BUG_COSTS: dict[str, float] = field(
+        default_factory=lambda: {
+            "critical": 10000.0,
+            "high": 5000.0,
+            "medium": 1000.0,
+            "low": 50.0,
+        }
+    )
 
 
 @dataclass
 class TrendPoint:
     """A single data point in a trend series."""
+
     date: str = ""
     value: float = 0.0
 
@@ -104,6 +112,7 @@ class TrendPoint:
 @dataclass
 class OrgDashboardData:
     """Complete dashboard data for an organization."""
+
     org_name: str = ""
     period: MetricPeriod = MetricPeriod.MONTHLY
     team_metrics: list[TeamMetrics] = field(default_factory=list)
@@ -113,7 +122,7 @@ class OrgDashboardData:
     finding_trends: list[TrendPoint] = field(default_factory=list)
     coverage_trends: list[TrendPoint] = field(default_factory=list)
     top_recurring_issues: list[dict[str, Any]] = field(default_factory=list)
-    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class MetricsAggregator:
@@ -136,7 +145,7 @@ class MetricsAggregator:
         team_findings = [f for f in self._findings if f.get("repo") in repos]
         team_analyses = [a for a in self._analyses if a.get("repo") in repos]
 
-        sev_counts = defaultdict(int)
+        sev_counts: defaultdict[str, int] = defaultdict(int)
         for f in team_findings:
             sev_counts[f.get("severity", "low")] += 1
 
@@ -195,10 +204,15 @@ class MetricsAggregator:
                 level = RiskLevel.LOW
 
             top = [f.get("rule_id", "") for f in repo_findings[:3]]
-            result.append(RiskHeatmapEntry(
-                repo_name=repo, team_name=team,
-                risk_level=level, risk_score=score, top_issues=top,
-            ))
+            result.append(
+                RiskHeatmapEntry(
+                    repo_name=repo,
+                    team_name=team,
+                    risk_level=level,
+                    risk_score=score,
+                    top_issues=top,
+                )
+            )
         return result
 
     def compute_roi(self) -> ROIMetrics:
@@ -262,9 +276,7 @@ class OrgDashboard:
         repo_metrics = [self._aggregator.compute_repo_metrics(r) for r in all_repos]
 
         heatmap_entries = [
-            {"repo": repo, "team": t.get("name", "")}
-            for t in teams
-            for repo in t.get("repos", [])
+            {"repo": repo, "team": t.get("name", "")} for t in teams for repo in t.get("repos", [])
         ]
         risk_heatmap = self._aggregator.compute_risk_heatmap(heatmap_entries)
 

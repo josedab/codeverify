@@ -52,7 +52,8 @@ from codeverify_api.routers import (
     language_support,
     marketplace,
     marketplace_install,
-    network,    nl_queries,
+    network,
+    nl_queries,
     notifications,
     organizations,
     paste_interception,
@@ -88,7 +89,7 @@ logger = structlog.get_logger()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager."""
     logger.info("Starting CodeVerify API", environment=settings.ENVIRONMENT)
     yield
@@ -212,9 +213,7 @@ app.include_router(impact_analysis.router, prefix="/api/v1/impact", tags=["impac
 app.include_router(copilot.router, prefix="/api/v1/copilot", tags=["copilot-extension"])
 
 # v1.4.0 API endpoints
-app.include_router(
-    graphql_insights.router, prefix="/api/v1/insights", tags=["graphql-insights"]
-)
+app.include_router(graphql_insights.router, prefix="/api/v1/insights", tags=["graphql-insights"])
 app.include_router(widgets.router, prefix="/api/v1/widgets", tags=["widgets"])
 
 # SaaS platform (v1.6.0)
@@ -225,18 +224,10 @@ app.include_router(
 app.include_router(
     verified_autofix.router, prefix="/api/v1/verified-autofix", tags=["verified-autofix"]
 )
-app.include_router(
-    proof_explorer.router, prefix="/api/v1/proof-explorer", tags=["proof-explorer"]
-)
-app.include_router(
-    smart_budget.router, prefix="/api/v1/smart-budget", tags=["smart-budget"]
-)
-app.include_router(
-    team_analytics.router, prefix="/api/v1/team-analytics", tags=["team-analytics"]
-)
-app.include_router(
-    governance.router, prefix="/api/v1/governance", tags=["multi-repo-governance"]
-)
+app.include_router(proof_explorer.router, prefix="/api/v1/proof-explorer", tags=["proof-explorer"])
+app.include_router(smart_budget.router, prefix="/api/v1/smart-budget", tags=["smart-budget"])
+app.include_router(team_analytics.router, prefix="/api/v1/team-analytics", tags=["team-analytics"])
+app.include_router(governance.router, prefix="/api/v1/governance", tags=["multi-repo-governance"])
 
 
 # Global exception handler

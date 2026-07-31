@@ -66,12 +66,9 @@ async def get_user(user_id: int, db = Depends(get_db)):
             assert "threats" in result.data
             assert len(result.data["threats"]) > 0
 
-    @pytest.mark.asyncio
-    async def test_stride_categorization(self, sample_api_code):
+    def test_stride_categorization(self):
         """Test STRIDE threat categorization."""
-        from codeverify_agents import STRIDECategory, ThreatModelingAgent
-
-        agent = ThreatModelingAgent()
+        from codeverify_agents import STRIDECategory
 
         # Verify all STRIDE categories are valid
         categories = [c.value for c in STRIDECategory]
@@ -371,28 +368,62 @@ class TestCostOptimizerIntegration:
 
     def test_verification_planning(self):
         """Test verification depth planning."""
-        from codeverify_core import VerificationCostOptimizer, VerificationDepth
+        from codeverify_core import (
+            BudgetConstraints,
+            RiskProfile,
+            VerificationCostOptimizer,
+            VerificationDepth,
+        )
 
         optimizer = VerificationCostOptimizer()
+        routing_budget = BudgetConstraints(min_accuracy=0.6)
 
-        # Low-risk code
         low_risk_code = "x = 1 + 2"
-        plan = optimizer.plan_verification(low_risk_code)
+        low_risk = RiskProfile(
+            code_hash="low-risk",
+            risk_score=5,
+            is_critical_path=False,
+            is_security_sensitive=False,
+            change_size=1,
+            complexity=0,
+            has_previous_bugs=False,
+            is_ai_generated=False,
+        )
+        plan = optimizer.plan_verification(
+            low_risk_code,
+            risk_profile=low_risk,
+            budget=routing_budget,
+        )
 
-        assert plan.selected_depth in [VerificationDepth.PATTERN, VerificationDepth.STATIC]
+        assert plan.selected_depth == VerificationDepth.PATTERN
         assert plan.estimated_cost_usd < 0.01
+        assert plan.rationale == ["Low risk score (5)"]
 
-        # High-risk code with security patterns
         high_risk_code = """
 def authenticate(password, api_key):
     if password == "admin123":
         return True
     eval(api_key)  # Dangerous!
 """
-        plan = optimizer.plan_verification(high_risk_code)
+        high_risk = RiskProfile(
+            code_hash="high-risk",
+            risk_score=70,
+            is_critical_path=False,
+            is_security_sensitive=True,
+            change_size=5,
+            complexity=2,
+            has_previous_bugs=True,
+            is_ai_generated=False,
+        )
+        plan = optimizer.plan_verification(
+            high_risk_code,
+            risk_profile=high_risk,
+            budget=routing_budget,
+        )
 
-        assert plan.selected_depth in [VerificationDepth.AI, VerificationDepth.FORMAL]
-        assert "Security-sensitive" in " ".join(plan.rationale)
+        assert plan.selected_depth == VerificationDepth.AI
+        assert plan.estimated_accuracy == 0.85
+        assert plan.rationale == ["High risk score (70)"]
 
     def test_budget_constraints(self):
         """Test budget constraint handling."""

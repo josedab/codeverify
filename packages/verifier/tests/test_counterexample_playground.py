@@ -48,7 +48,7 @@ def process_data(x, y):
         result = x + y
     else:
         result = x - y
-    
+
     assert result >= 0
     return result
 """
@@ -73,7 +73,7 @@ class TestZ3ModelParser:
 
         assert "x" in ce.variables
         assert ce.variables["x"].value == 42
-        assert ce.variables["valid"].value == False
+        assert not ce.variables["valid"].value
         assert ce.variables["valid"].var_type == VariableType.BOOLEAN
 
     def test_parse_boolean_values(self):
@@ -82,7 +82,7 @@ class TestZ3ModelParser:
         ce = parser.parse(z3_output)
 
         assert "flag" in ce.variables
-        assert ce.variables["flag"].value == True
+        assert ce.variables["flag"].value
         assert ce.variables["flag"].var_type == VariableType.BOOLEAN
 
     def test_parse_real_values(self):
@@ -375,7 +375,7 @@ class TestPlaygroundAPI:
         response = api.modify_value_endpoint(session_id, {"variable": "x", "value": 999})
 
         assert response["status"] == 200
-        assert response["success"] == True
+        assert response["success"]
 
     def test_navigate_forward(self, api, sample_z3_output):
         create_response = api.create_session_endpoint({"z3_output": sample_z3_output})
@@ -500,7 +500,7 @@ class TestExecutionStep:
 
         assert step.step_id == 0
         assert step.step_type == StepType.ASSIGNMENT
-        assert step.is_violation == False
+        assert not step.is_violation
 
     def test_violation_step(self):
         step = ExecutionStep(
@@ -510,7 +510,7 @@ class TestExecutionStep:
             is_violation=True,
         )
 
-        assert step.is_violation == True
+        assert step.is_violation
         assert step.step_type == StepType.VIOLATION
 
 

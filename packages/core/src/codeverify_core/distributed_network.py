@@ -477,7 +477,7 @@ class PrivacyManager:
             "filter",
         }
 
-        def replace_var(match):
+        def replace_var(match: re.Match[str]) -> str:
             var = match.group(1)
             if var in keywords:
                 return var
@@ -532,7 +532,7 @@ class PrivacyManager:
         # Create reverse map
         reverse_map = {v: k for k, v in self._obfuscation_map.items()}
 
-        def restore_names(obj):
+        def restore_names(obj: Any) -> Any:
             if isinstance(obj, str):
                 for obf, orig in reverse_map.items():
                     obj = obj.replace(obf, orig)
@@ -771,11 +771,14 @@ class NetworkCoordinator:
         now = time.time()
 
         for task_id, task in self.tasks.items():
-            if task.status == TaskStatus.RUNNING:
-                if task.started_at and (now - task.started_at) * 1000 > task.timeout_ms:
-                    task.status = TaskStatus.TIMEOUT
-                    task.error = "Task timed out"
-                    timed_out.append(task_id)
+            if (
+                task.status == TaskStatus.RUNNING
+                and task.started_at
+                and (now - task.started_at) * 1000 > task.timeout_ms
+            ):
+                task.status = TaskStatus.TIMEOUT
+                task.error = "Task timed out"
+                timed_out.append(task_id)
 
         return timed_out
 
@@ -785,9 +788,11 @@ class NetworkCoordinator:
         now = time.time()
 
         for node_id, node in self.nodes.items():
-            if node.status == NodeStatus.ONLINE:
-                if now - node.last_heartbeat > self.heartbeat_interval * 3:
-                    node.status = NodeStatus.OFFLINE
-                    stale.append(node_id)
+            if (
+                node.status == NodeStatus.ONLINE
+                and now - node.last_heartbeat > self.heartbeat_interval * 3
+            ):
+                node.status = NodeStatus.OFFLINE
+                stale.append(node_id)
 
         return stale

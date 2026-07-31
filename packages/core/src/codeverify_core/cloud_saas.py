@@ -12,6 +12,7 @@ configuration for CodeVerify's hosted SaaS offering.
 from __future__ import annotations
 
 import warnings as _warnings
+
 _warnings.warn(
     "codeverify_core.cloud_saas is deprecated. Use codeverify_core.hosted_saas instead.",
     DeprecationWarning,
@@ -23,7 +24,7 @@ import hashlib
 import secrets
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -34,6 +35,7 @@ logger = structlog.get_logger()
 
 class AuthProvider(str, Enum):
     """Supported OAuth providers."""
+
     GITHUB = "github"
     GITLAB = "gitlab"
     BITBUCKET = "bitbucket"
@@ -42,6 +44,7 @@ class AuthProvider(str, Enum):
 
 class TenantTier(str, Enum):
     """Tenant subscription tier."""
+
     FREE = "free"
     TEAM = "team"
     BUSINESS = "business"
@@ -50,6 +53,7 @@ class TenantTier(str, Enum):
 
 class TenantStatus(str, Enum):
     """Tenant lifecycle status."""
+
     ACTIVE = "active"
     SUSPENDED = "suspended"
     TRIAL = "trial"
@@ -59,6 +63,7 @@ class TenantStatus(str, Enum):
 @dataclass
 class TenantLimits:
     """Usage limits per tier."""
+
     analyses_per_month: int = 100
     repos_limit: int = 3
     team_members: int = 1
@@ -67,7 +72,7 @@ class TenantLimits:
     max_file_size_kb: int = 500
 
     @staticmethod
-    def for_tier(tier: TenantTier) -> "TenantLimits":
+    def for_tier(tier: TenantTier) -> TenantLimits:
         limits = {
             TenantTier.FREE: TenantLimits(100, 3, 1, 30, 30, 500),
             TenantTier.TEAM: TenantLimits(5000, 25, 10, 90, 120, 2000),
@@ -80,6 +85,7 @@ class TenantLimits:
 @dataclass
 class Tenant:
     """A tenant (organization) in the SaaS platform."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = ""
     slug: str = ""
@@ -89,7 +95,7 @@ class Tenant:
     auth_provider: AuthProvider = AuthProvider.GITHUB
     external_id: str = ""
     limits: TenantLimits = field(default_factory=TenantLimits)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     trial_ends_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -99,12 +105,13 @@ class Tenant:
     def is_trial_expired(self) -> bool:
         if self.trial_ends_at is None:
             return False
-        return datetime.now(timezone.utc) > self.trial_ends_at
+        return datetime.now(UTC) > self.trial_ends_at
 
 
 @dataclass
 class OAuthToken:
     """OAuth token for a user session."""
+
     access_token: str
     refresh_token: str | None = None
     provider: AuthProvider = AuthProvider.GITHUB
@@ -115,12 +122,13 @@ class OAuthToken:
     def is_expired(self) -> bool:
         if self.expires_at is None:
             return False
-        return datetime.now(timezone.utc) > self.expires_at
+        return datetime.now(UTC) > self.expires_at
 
 
 @dataclass
 class TenantUser:
     """A user within a tenant."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     tenant_id: str = ""
     email: str = ""
@@ -128,12 +136,13 @@ class TenantUser:
     role: str = "member"  # admin, member, viewer
     auth_provider: AuthProvider = AuthProvider.GITHUB
     external_id: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class UsageRecord:
     """Track usage for a tenant."""
+
     tenant_id: str = ""
     month: str = ""  # YYYY-MM
     analyses_count: int = 0
@@ -169,7 +178,7 @@ class TenantManager:
             auth_provider=auth_provider,
             external_id=external_id,
             limits=TenantLimits.for_tier(tier),
-            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=trial_days),
+            trial_ends_at=datetime.now(UTC) + timedelta(days=trial_days),
         )
         self._tenants[tenant.id] = tenant
         logger.info("tenant_created", tenant_id=tenant.id, name=name, tier=tier.value)
@@ -198,7 +207,9 @@ class TenantManager:
         logger.warning("tenant_suspended", tenant_id=tenant_id, reason=reason)
         return True
 
-    def add_user(self, tenant_id: str, email: str, display_name: str, role: str = "member") -> TenantUser | None:
+    def add_user(
+        self, tenant_id: str, email: str, display_name: str, role: str = "member"
+    ) -> TenantUser | None:
         tenant = self._tenants.get(tenant_id)
         if tenant is None:
             return None
@@ -214,7 +225,7 @@ class TenantManager:
         return list(self._users.get(tenant_id, []))
 
     def record_usage(self, tenant_id: str, analyses: int = 1) -> UsageRecord:
-        month = datetime.now(timezone.utc).strftime("%Y-%m")
+        month = datetime.now(UTC).strftime("%Y-%m")
         key = f"{tenant_id}:{month}"
         usage = self._usage.get(key)
         if usage is None:
@@ -228,7 +239,7 @@ class TenantManager:
         tenant = self._tenants.get(tenant_id)
         if tenant is None:
             return False
-        month = datetime.now(timezone.utc).strftime("%Y-%m")
+        month = datetime.now(UTC).strftime("%Y-%m")
         key = f"{tenant_id}:{month}"
         usage = self._usage.get(key)
         used = usage.analyses_count if usage else 0
@@ -244,13 +255,17 @@ class TenantManager:
 class OAuthManager:
     """Handles OAuth flow for GitHub/GitLab/Bitbucket."""
 
-    def __init__(self, client_id: str = "", client_secret: str = "", redirect_uri: str = "") -> None:
+    def __init__(
+        self, client_id: str = "", client_secret: str = "", redirect_uri: str = ""
+    ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
         self._pending_states: dict[str, dict[str, Any]] = {}
 
-    def generate_auth_url(self, provider: AuthProvider, scopes: list[str] | None = None) -> dict[str, str]:
+    def generate_auth_url(
+        self, provider: AuthProvider, scopes: list[str] | None = None
+    ) -> dict[str, str]:
         """Generate OAuth authorization URL with state parameter."""
         state = secrets.token_urlsafe(32)
         scopes = scopes or ["repo", "read:user", "user:email"]
@@ -279,7 +294,7 @@ class OAuthManager:
             access_token=hashlib.sha256(code.encode()).hexdigest(),
             provider=pending["provider"],
             scopes=pending["scopes"],
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=8),
+            expires_at=datetime.now(UTC) + timedelta(hours=8),
         )
         logger.info("oauth_token_issued", provider=pending["provider"].value)
         return token

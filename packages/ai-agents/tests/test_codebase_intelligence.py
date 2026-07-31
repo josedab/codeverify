@@ -26,7 +26,7 @@ class TestPatternDetector:
         code = """
 class Singleton:
     _instance = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -229,7 +229,7 @@ from typing import Optional
 
 class UserService:
     _instance = None
-    
+
     def get_user(self, user_id: int) -> Optional[dict]:
         return {"id": user_id}
 """
@@ -343,14 +343,17 @@ def risky():
         assert "criticality_distribution" in stats
 
     def test_persistence(self, engine_with_storage):
-        # Index some files
-        engine_with_storage.index_file("test.py", "import os")
+        # Repository indexing is the persistence boundary.
+        engine_with_storage.index_repository({"test.py": "import os"})
 
         # Create a new engine with same storage
         new_engine = CodebaseIntelligenceEngine(storage_path=engine_with_storage.storage_path)
 
-        # Should have loaded the component
+        # Should have loaded the persisted component and its dependency metadata.
         assert len(new_engine.components) == 1
+        component = next(iter(new_engine.components.values()))
+        assert component.path == "test.py"
+        assert component.dependencies == ["os"]
 
     def test_context_to_prompt_context(self, engine):
         code = """

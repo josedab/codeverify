@@ -494,7 +494,7 @@ triggers the bug, making it much easier to understand and fix.
 
     def _explain_unknown(
         self,
-        proof: Z3ParsedProof,
+        _proof: Z3ParsedProof,
         level: ExplanationLevel,
     ) -> ProofExplanation:
         """Explain an unknown result."""
@@ -664,7 +664,7 @@ class VerificationExplainerAgent(BaseAgent):
         self,
         counterexample: dict[str, Any],
         code: str,
-        language: str = "python",
+        _language: str = "python",
         level: ExplanationLevel = ExplanationLevel.INTERMEDIATE,
     ) -> list[CounterexampleTrace]:
         """Generate step-by-step trace of a counterexample."""
@@ -694,8 +694,8 @@ class VerificationExplainerAgent(BaseAgent):
     def _explain_line(
         self,
         line: str,
-        counterexample: dict[str, Any],
-        level: ExplanationLevel,
+        _counterexample: dict[str, Any],
+        _level: ExplanationLevel,
     ) -> str:
         """Explain what happens at a line given the counterexample."""
         # Check for common patterns

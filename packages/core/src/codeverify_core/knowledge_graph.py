@@ -483,7 +483,7 @@ def _hash_similarity(a: str, b: str) -> float:
     min_len = min(len(a), len(b))
     if min_len == 0:
         return 0.0
-    matches = sum(1 for x, y in zip(a, b) if x == y)
+    matches = sum(1 for x, y in zip(a, b, strict=False) if x == y)
     return matches / min_len
 
 

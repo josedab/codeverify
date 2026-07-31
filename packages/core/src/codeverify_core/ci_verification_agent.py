@@ -13,8 +13,9 @@ import os
 import re
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -22,8 +23,10 @@ import structlog
 
 logger = structlog.get_logger()
 
+
 class CIProvider(str, Enum):
     """Supported CI/CD providers."""
+
     GITHUB_ACTIONS = "github_actions"
     GITLAB_CI = "gitlab_ci"
     JENKINS = "jenkins"
@@ -31,36 +34,45 @@ class CIProvider(str, Enum):
     AZURE_DEVOPS = "azure_devops"
     BUILDKITE = "buildkite"
 
+
 class PipelineStage(str, Enum):
     """Stages within a verification pipeline."""
+
     CHECKOUT = "checkout"
     ANALYZE = "analyze"
     VERIFY = "verify"
     REPORT = "report"
     GATE = "gate"
 
+
 class GateDecision(str, Enum):
     """Quality-gate outcome."""
+
     PASS = "pass"
     WARN = "warn"
     FAIL = "fail"
     MANUAL_REVIEW = "manual_review"
 
+
 class VerificationScope(str, Enum):
     """Scope of verification to perform."""
+
     FULL = "full"
     INCREMENTAL = "incremental"
     AFFECTED_ONLY = "affected_only"
     CRITICAL_PATHS = "critical_paths"
 
+
 class ChangeCategory(str, Enum):
     """Category of a file change."""
+
     NEW_CODE = "new_code"
     MODIFIED = "modified"
     REFACTORED = "refactored"
     DELETED = "deleted"
     DEPENDENCY_UPDATE = "dependency_update"
     CONFIG_CHANGE = "config_change"
+
 
 @dataclass
 class CIConfig:
@@ -78,8 +90,8 @@ class CIConfig:
     notify_on_failure: bool = True
 
     def to_dict(self) -> dict[str, Any]:
-        return {k: (v.value if isinstance(v, Enum) else v)
-                for k, v in self.__dict__.items()}
+        return {k: (v.value if isinstance(v, Enum) else v) for k, v in self.__dict__.items()}
+
 
 @dataclass
 class FileChange:
@@ -102,6 +114,7 @@ class FileChange:
             "requires_verification": self.requires_verification,
         }
 
+
 @dataclass
 class ChangeImpact:
     """Aggregated impact analysis for a set of file changes."""
@@ -114,11 +127,15 @@ class ChangeImpact:
     estimated_time_seconds: int = 60
 
     def to_dict(self) -> dict[str, Any]:
-        return {"changed_files": [f.to_dict() for f in self.changed_files],
-                "affected_modules": self.affected_modules,
-                "affected_tests": self.affected_tests, "risk_level": self.risk_level,
-                "recommended_scope": self.recommended_scope.value,
-                "estimated_time_seconds": self.estimated_time_seconds}
+        return {
+            "changed_files": [f.to_dict() for f in self.changed_files],
+            "affected_modules": self.affected_modules,
+            "affected_tests": self.affected_tests,
+            "risk_level": self.risk_level,
+            "recommended_scope": self.recommended_scope.value,
+            "estimated_time_seconds": self.estimated_time_seconds,
+        }
+
 
 @dataclass
 class PipelineRun:
@@ -129,24 +146,29 @@ class PipelineRun:
     commit_sha: str
     branch: str
     trigger: str = "push"
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
-    stages: list[dict] = field(default_factory=list)
+    stages: list[dict[str, Any]] = field(default_factory=list)
     gate_decision: GateDecision = GateDecision.PASS
-    findings: list[dict] = field(default_factory=list)
+    findings: list[dict[str, Any]] = field(default_factory=list)
     cached_proofs_used: int = 0
     verification_time_ms: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "commit_sha": self.commit_sha,
-                "branch": self.branch, "trigger": self.trigger,
-                "started_at": self.started_at.isoformat(),
-                "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-                "gate_decision": self.gate_decision.value,
-                "findings_count": len(self.findings),
-                "cached_proofs_used": self.cached_proofs_used,
-                "verification_time_ms": round(self.verification_time_ms, 1),
-                "stages": self.stages}
+        return {
+            "id": self.id,
+            "commit_sha": self.commit_sha,
+            "branch": self.branch,
+            "trigger": self.trigger,
+            "started_at": self.started_at.isoformat(),
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "gate_decision": self.gate_decision.value,
+            "findings_count": len(self.findings),
+            "cached_proofs_used": self.cached_proofs_used,
+            "verification_time_ms": round(self.verification_time_ms, 1),
+            "stages": self.stages,
+        }
+
 
 @dataclass
 class GatePolicy:
@@ -161,11 +183,16 @@ class GatePolicy:
     reviewers: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"max_critical": self.max_critical, "max_high": self.max_high,
-                "max_medium": self.max_medium,
-                "min_verification_coverage": self.min_verification_coverage,
-                "require_formal_proof": self.require_formal_proof,
-                "allow_override": self.allow_override, "reviewers": self.reviewers}
+        return {
+            "max_critical": self.max_critical,
+            "max_high": self.max_high,
+            "max_medium": self.max_medium,
+            "min_verification_coverage": self.min_verification_coverage,
+            "require_formal_proof": self.require_formal_proof,
+            "allow_override": self.allow_override,
+            "reviewers": self.reviewers,
+        }
+
 
 @dataclass
 class PipelineReport:
@@ -185,14 +212,20 @@ class PipelineReport:
     pr_comment_markdown: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {"run_id": self.run_id, "commit_sha": self.commit_sha,
-                "gate_decision": self.gate_decision.value,
-                "total_findings": self.total_findings,
-                "critical_count": self.critical_count, "high_count": self.high_count,
-                "files_verified": self.files_verified, "files_skipped": self.files_skipped,
-                "coverage_percent": round(self.coverage_percent, 1),
-                "cached_proofs": self.cached_proofs,
-                "total_time_seconds": round(self.total_time_seconds, 2)}
+        return {
+            "run_id": self.run_id,
+            "commit_sha": self.commit_sha,
+            "gate_decision": self.gate_decision.value,
+            "total_findings": self.total_findings,
+            "critical_count": self.critical_count,
+            "high_count": self.high_count,
+            "files_verified": self.files_verified,
+            "files_skipped": self.files_skipped,
+            "coverage_percent": round(self.coverage_percent, 1),
+            "cached_proofs": self.cached_proofs,
+            "total_time_seconds": round(self.total_time_seconds, 2),
+        }
+
 
 @dataclass
 class ProofCache:
@@ -200,19 +233,24 @@ class ProofCache:
 
     file_path: str
     content_hash: str
-    proof_result: dict
+    proof_result: dict[str, Any]
     cached_at: datetime
     valid_until: datetime | None = None
 
     @property
     def is_valid(self) -> bool:
-        return self.valid_until is None or datetime.now(timezone.utc) < self.valid_until
+        return self.valid_until is None or datetime.now(UTC) < self.valid_until
 
     def to_dict(self) -> dict[str, Any]:
-        return {"file_path": self.file_path, "content_hash": self.content_hash,
-                "proof_result": self.proof_result, "cached_at": self.cached_at.isoformat(),
-                "valid_until": self.valid_until.isoformat() if self.valid_until else None,
-                "is_valid": self.is_valid}
+        return {
+            "file_path": self.file_path,
+            "content_hash": self.content_hash,
+            "proof_result": self.proof_result,
+            "cached_at": self.cached_at.isoformat(),
+            "valid_until": self.valid_until.isoformat() if self.valid_until else None,
+            "is_valid": self.is_valid,
+        }
+
 
 # Patterns for recognising config / dependency / test files
 _CONFIG_PATTERNS = re.compile(
@@ -222,17 +260,14 @@ _DEPENDENCY_PATTERNS = re.compile(
     r"(requirements.*\.txt|Pipfile|poetry\.lock|package\.json|go\.sum|Cargo\.lock)$",
     re.IGNORECASE,
 )
-_TEST_PATTERNS = re.compile(
-    r"(test_|_test\.|\.test\.|spec\.|\.spec\.)", re.IGNORECASE
-)
+_TEST_PATTERNS = re.compile(r"(test_|_test\.|\.test\.|spec\.|\.spec\.)", re.IGNORECASE)
+
 
 class ChangeDetector:
     """Detect and classify code changes for incremental verification."""
 
     def __init__(self) -> None:
-        self._hunk_header = re.compile(
-            r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@"
-        )
+        self._hunk_header = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
         self._diff_file = re.compile(r"^diff --git a/(.*) b/(.*)")
 
     def analyze_diff(self, diff_text: str) -> list[FileChange]:
@@ -251,16 +286,21 @@ class ChangeDetector:
                 continue
             if current_path is None:
                 continue
-            if line.startswith("+") and not line.startswith("+++"):   additions += 1
-            elif line.startswith("-") and not line.startswith("---"): deletions += 1
+            if line.startswith("+") and not line.startswith("+++"):
+                additions += 1
+            elif line.startswith("-") and not line.startswith("---"):
+                deletions += 1
 
         if current_path is not None:
             changes.append(self._build_change(current_path, additions, deletions))
         for change in changes:
             change.risk_score = self._calculate_file_risk(change)
-        logger.info("diff_analyzed", files_changed=len(changes),
-                     total_additions=sum(c.additions for c in changes),
-                     total_deletions=sum(c.deletions for c in changes))
+        logger.info(
+            "diff_analyzed",
+            files_changed=len(changes),
+            total_additions=sum(c.additions for c in changes),
+            total_deletions=sum(c.deletions for c in changes),
+        )
         return changes
 
     def calculate_impact(self, changes: list[FileChange]) -> ChangeImpact:
@@ -269,46 +309,76 @@ class ChangeDetector:
         affected_tests = self._find_affected_tests(changes)
         max_risk = max((c.risk_score for c in changes), default=0.0)
 
-        if max_risk >= 0.8:     risk_level = "critical"
-        elif max_risk >= 0.6:   risk_level = "high"
-        elif max_risk >= 0.3:   risk_level = "medium"
-        else:                   risk_level = "low"
+        if max_risk >= 0.8:
+            risk_level = "critical"
+        elif max_risk >= 0.6:
+            risk_level = "high"
+        elif max_risk >= 0.3:
+            risk_level = "medium"
+        else:
+            risk_level = "low"
 
-        if risk_level in ("critical", "high"):  scope = VerificationScope.FULL
-        elif len(changes) <= 3:                 scope = VerificationScope.AFFECTED_ONLY
-        else:                                   scope = VerificationScope.INCREMENTAL
+        if risk_level in ("critical", "high"):
+            scope = VerificationScope.FULL
+        elif len(changes) <= 3:
+            scope = VerificationScope.AFFECTED_ONLY
+        else:
+            scope = VerificationScope.INCREMENTAL
 
         impact = ChangeImpact(
-            changed_files=changes, affected_modules=affected_modules,
-            affected_tests=affected_tests, risk_level=risk_level,
-            recommended_scope=scope, estimated_time_seconds=max(30, len(changes) * 15),
+            changed_files=changes,
+            affected_modules=affected_modules,
+            affected_tests=affected_tests,
+            risk_level=risk_level,
+            recommended_scope=scope,
+            estimated_time_seconds=max(30, len(changes) * 15),
         )
-        logger.info("impact_calculated", risk_level=risk_level,
-                     modules=len(affected_modules), tests=len(affected_tests))
+        logger.info(
+            "impact_calculated",
+            risk_level=risk_level,
+            modules=len(affected_modules),
+            tests=len(affected_tests),
+        )
         return impact
 
     def _build_change(self, path: str, additions: int, deletions: int) -> FileChange:
         cat = self._classify_change(path, additions, deletions)
-        return FileChange(path=path, category=cat, additions=additions, deletions=deletions,
-                          requires_verification=cat not in (ChangeCategory.DELETED,
-                                                            ChangeCategory.CONFIG_CHANGE))
+        return FileChange(
+            path=path,
+            category=cat,
+            additions=additions,
+            deletions=deletions,
+            requires_verification=cat not in (ChangeCategory.DELETED, ChangeCategory.CONFIG_CHANGE),
+        )
 
     def _classify_change(self, path: str, additions: int, deletions: int) -> ChangeCategory:
-        if _DEPENDENCY_PATTERNS.search(path):  return ChangeCategory.DEPENDENCY_UPDATE
-        if _CONFIG_PATTERNS.search(path):      return ChangeCategory.CONFIG_CHANGE
-        if deletions > 0 and additions == 0:   return ChangeCategory.DELETED
-        if additions > 0 and deletions == 0:   return ChangeCategory.NEW_CODE
-        if additions > 0 and deletions > 0:
-            if min(additions, deletions) / max(additions, deletions) > 0.7:
-                return ChangeCategory.REFACTORED
+        if _DEPENDENCY_PATTERNS.search(path):
+            return ChangeCategory.DEPENDENCY_UPDATE
+        if _CONFIG_PATTERNS.search(path):
+            return ChangeCategory.CONFIG_CHANGE
+        if deletions > 0 and additions == 0:
+            return ChangeCategory.DELETED
+        if additions > 0 and deletions == 0:
+            return ChangeCategory.NEW_CODE
+        if (
+            additions > 0
+            and deletions > 0
+            and min(additions, deletions) / max(additions, deletions) > 0.7
+        ):
+            return ChangeCategory.REFACTORED
         return ChangeCategory.MODIFIED
 
     def _calculate_file_risk(self, change: FileChange) -> float:
         """Return a 0.0-1.0 risk score for a file change."""
         score = min(0.3, (change.additions + change.deletions) / 500)
-        weights = {ChangeCategory.NEW_CODE: 0.3, ChangeCategory.MODIFIED: 0.25,
-                   ChangeCategory.REFACTORED: 0.2, ChangeCategory.DELETED: 0.1,
-                   ChangeCategory.DEPENDENCY_UPDATE: 0.35, ChangeCategory.CONFIG_CHANGE: 0.15}
+        weights = {
+            ChangeCategory.NEW_CODE: 0.3,
+            ChangeCategory.MODIFIED: 0.25,
+            ChangeCategory.REFACTORED: 0.2,
+            ChangeCategory.DELETED: 0.1,
+            ChangeCategory.DEPENDENCY_UPDATE: 0.35,
+            ChangeCategory.CONFIG_CHANGE: 0.15,
+        }
         score += weights.get(change.category, 0.2)
         high_risk = ("auth", "security", "crypto", "payment", "billing", "admin")
         if any(tok in change.path.lower() for tok in high_risk):
@@ -334,6 +404,7 @@ class ChangeDetector:
                 tests.append(f"test_{base}.py")
         return tests
 
+
 class ProofCacheManager:
     """Cache and reuse verification proofs for unchanged code."""
 
@@ -351,11 +422,16 @@ class ProofCacheManager:
         self._misses += 1
         return None
 
-    def store_proof(self, file_path: str, content_hash: str, proof_result: dict) -> ProofCache:
+    def store_proof(
+        self, file_path: str, content_hash: str, proof_result: dict[str, Any]
+    ) -> ProofCache:
         """Store a verification proof in the cache."""
-        entry = ProofCache(file_path=file_path, content_hash=content_hash,
-                           proof_result=proof_result,
-                           cached_at=datetime.now(timezone.utc))
+        entry = ProofCache(
+            file_path=file_path,
+            content_hash=content_hash,
+            proof_result=proof_result,
+            cached_at=datetime.now(UTC),
+        )
         self._cache[f"{file_path}:{content_hash}"] = entry
         return entry
 
@@ -375,14 +451,18 @@ class ProofCacheManager:
 
     def get_cache_stats(self) -> dict[str, Any]:
         total = self._hits + self._misses
-        return {"entries": len(self._cache), "hits": self._hits,
-                "misses": self._misses,
-                "hit_rate": round(self._hits / total, 3) if total > 0 else 0.0}
+        return {
+            "entries": len(self._cache),
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": round(self._hits / total, 3) if total > 0 else 0.0,
+        }
 
     @staticmethod
     def _compute_hash(content: str) -> str:
         """SHA-256 based content hash (first 32 hex chars)."""
         return hashlib.sha256(content.encode("utf-8")).hexdigest()[:32]
+
 
 class PipelineOrchestrator:
     """Orchestrate CI/CD verification pipeline."""
@@ -397,12 +477,17 @@ class PipelineOrchestrator:
         self._runs: list[PipelineRun] = []
 
     def run_pipeline(
-        self, commit_sha: str, diff_text: str, files: dict[str, str],
+        self,
+        commit_sha: str,
+        diff_text: str,
+        files: dict[str, str],
     ) -> PipelineRun:
         """Execute the full verification pipeline and return a *PipelineRun*."""
         run = PipelineRun(
-            id=str(uuid.uuid4())[:12], config=self.config,
-            commit_sha=commit_sha, branch=self.config.branch,
+            id=str(uuid.uuid4())[:12],
+            config=self.config,
+            commit_sha=commit_sha,
+            branch=self.config.branch,
         )
         t_start = time.monotonic()
         logger.info("pipeline_started", run_id=run.id, commit=commit_sha[:8])
@@ -414,31 +499,41 @@ class PipelineOrchestrator:
         run.stages.append(self._stage_report(run))
         run.stages.append(self._stage_gate(run, GatePolicy()))
 
-        run.completed_at = datetime.now(timezone.utc)
+        run.completed_at = datetime.now(UTC)
         run.verification_time_ms = (time.monotonic() - t_start) * 1000
         self._runs.append(run)
         logger.info(
-            "pipeline_completed", run_id=run.id, gate=run.gate_decision.value,
-            findings=len(run.findings), time_ms=round(run.verification_time_ms, 1),
+            "pipeline_completed",
+            run_id=run.id,
+            gate=run.gate_decision.value,
+            findings=len(run.findings),
+            time_ms=round(run.verification_time_ms, 1),
         )
         return run
 
-    def _stage_checkout(self, run: PipelineRun, files: dict[str, str]) -> dict:
+    def _stage_checkout(self, _run: PipelineRun, files: dict[str, str]) -> dict[str, Any]:
         return {
             "stage": PipelineStage.CHECKOUT.value,
             "status": "success",
             "files_received": len(files),
         }
 
-    def _stage_analyze(self, run: PipelineRun, changes: list[FileChange]) -> dict:
+    def _stage_analyze(self, _run: PipelineRun, changes: list[FileChange]) -> dict[str, Any]:
         impact = self._detector.calculate_impact(changes)
-        return {"stage": PipelineStage.ANALYZE.value, "status": "success",
-                "files_changed": len(changes), "risk_level": impact.risk_level,
-                "recommended_scope": impact.recommended_scope.value}
+        return {
+            "stage": PipelineStage.ANALYZE.value,
+            "status": "success",
+            "files_changed": len(changes),
+            "risk_level": impact.risk_level,
+            "recommended_scope": impact.recommended_scope.value,
+        }
 
     def _stage_verify(
-        self, run: PipelineRun, files: dict[str, str], changes: list[FileChange],
-    ) -> dict:
+        self,
+        run: PipelineRun,
+        files: dict[str, str],
+        changes: list[FileChange],
+    ) -> dict[str, Any]:
         verified, skipped, cached = 0, 0, 0
         paths_to_verify = {c.path for c in changes if c.requires_verification}
 
@@ -447,33 +542,40 @@ class PipelineOrchestrator:
                 skipped += 1
                 continue
             content_hash = ProofCacheManager._compute_hash(content)
-            if self.config.cache_proofs:
-                if self._cache.get_cached_proof(path, content_hash) is not None:
-                    cached += 1
-                    verified += 1
-                    continue
+            if (
+                self.config.cache_proofs
+                and self._cache.get_cached_proof(path, content_hash) is not None
+            ):
+                cached += 1
+                verified += 1
+                continue
             file_findings = self._verify_file(path, content)
             run.findings.extend(file_findings)
             if self.config.cache_proofs:
                 self._cache.store_proof(
-                    path, content_hash,
+                    path,
+                    content_hash,
                     {"status": "verified", "findings": len(file_findings)},
                 )
             verified += 1
 
         run.cached_proofs_used = cached
-        return {"stage": PipelineStage.VERIFY.value, "status": "success",
-                "files_verified": verified, "files_skipped": skipped,
-                "cached_proofs_used": cached}
+        return {
+            "stage": PipelineStage.VERIFY.value,
+            "status": "success",
+            "files_verified": verified,
+            "files_skipped": skipped,
+            "cached_proofs_used": cached,
+        }
 
-    def _stage_report(self, run: PipelineRun) -> dict:
+    def _stage_report(self, run: PipelineRun) -> dict[str, Any]:
         return {
             "stage": PipelineStage.REPORT.value,
             "status": "success",
             "total_findings": len(run.findings),
         }
 
-    def _stage_gate(self, run: PipelineRun, policy: GatePolicy) -> dict:
+    def _stage_gate(self, run: PipelineRun, policy: GatePolicy) -> dict[str, Any]:
         evaluator = GateEvaluator(policy)
         vs = next((s for s in run.stages if s.get("stage") == PipelineStage.VERIFY.value), {})
         verified, skipped = vs.get("files_verified", 0), vs.get("files_skipped", 0)
@@ -481,26 +583,47 @@ class PipelineOrchestrator:
         coverage = (verified / total * 100) if total > 0 else 100.0
         decision = evaluator.evaluate(run.findings, coverage)
         run.gate_decision = decision
-        return {"stage": PipelineStage.GATE.value, "status": "success",
-                "decision": decision.value}
+        return {"stage": PipelineStage.GATE.value, "status": "success", "decision": decision.value}
 
-    def _verify_file(self, path: str, content: str) -> list[dict]:
+    def _verify_file(self, path: str, content: str) -> list[dict[str, Any]]:
         """Run lightweight heuristic checks on a single file."""
-        findings: list[dict] = []
+        findings: list[dict[str, Any]] = []
         for idx, line in enumerate(content.splitlines(), start=1):
             stripped = line.strip()
             if re.search(r"\b(TODO|FIXME|HACK|XXX)\b", stripped):
-                findings.append({"file": path, "line": idx, "severity": "low",
-                                 "message": "Unresolved marker comment", "rule": "marker-comment"})
-            if re.search(r"(password|secret|api_key|token)\s*=\s*['\"].{4,}['\"]",
-                         stripped, re.IGNORECASE):
-                findings.append({"file": path, "line": idx, "severity": "critical",
-                                 "message": "Potential hardcoded secret", "rule": "hardcoded-secret"})
+                findings.append(
+                    {
+                        "file": path,
+                        "line": idx,
+                        "severity": "low",
+                        "message": "Unresolved marker comment",
+                        "rule": "marker-comment",
+                    }
+                )
+            if re.search(
+                r"(password|secret|api_key|token)\s*=\s*['\"].{4,}['\"]", stripped, re.IGNORECASE
+            ):
+                findings.append(
+                    {
+                        "file": path,
+                        "line": idx,
+                        "severity": "critical",
+                        "message": "Potential hardcoded secret",
+                        "rule": "hardcoded-secret",
+                    }
+                )
             if re.search(r"\b(eval|exec)\s*\(", stripped):
-                findings.append({"file": path, "line": idx, "severity": "high",
-                                 "message": "Use of eval/exec is a security risk",
-                                 "rule": "dangerous-call"})
+                findings.append(
+                    {
+                        "file": path,
+                        "line": idx,
+                        "severity": "high",
+                        "message": "Use of eval/exec is a security risk",
+                        "rule": "dangerous-call",
+                    }
+                )
         return findings
+
 
 class GateEvaluator:
     """Evaluate quality gate decisions."""
@@ -508,7 +631,7 @@ class GateEvaluator:
     def __init__(self, policy: GatePolicy | None = None) -> None:
         self.policy = policy or GatePolicy()
 
-    def evaluate(self, findings: list[dict], coverage: float) -> GateDecision:
+    def evaluate(self, findings: list[dict[str, Any]], coverage: float) -> GateDecision:
         """Return a *GateDecision* based on findings and coverage."""
         counts = self._count_by_severity(findings)
 
@@ -516,10 +639,7 @@ class GateEvaluator:
             return GateDecision.FAIL
         if counts.get("high", 0) > self.policy.max_high:
             return GateDecision.FAIL
-        if (
-            self.policy.max_medium >= 0
-            and counts.get("medium", 0) > self.policy.max_medium
-        ):
+        if self.policy.max_medium >= 0 and counts.get("medium", 0) > self.policy.max_medium:
             return GateDecision.FAIL
         if coverage < self.policy.min_verification_coverage:
             if self.policy.allow_override:
@@ -536,7 +656,8 @@ class GateEvaluator:
         """Generate a GitHub/GitLab PR comment in Markdown."""
         counts = self._count_by_severity(run.findings)
         badge = {
-            GateDecision.PASS: "✅ **PASSED**", GateDecision.WARN: "⚠️ **WARNING**",
+            GateDecision.PASS: "✅ **PASSED**",
+            GateDecision.WARN: "⚠️ **WARNING**",
             GateDecision.FAIL: "❌ **FAILED**",
             GateDecision.MANUAL_REVIEW: "👀 **MANUAL REVIEW REQUIRED**",
         }.get(run.gate_decision, "❓ Unknown")
@@ -547,12 +668,16 @@ class GateEvaluator:
         coverage = (verified / total * 100) if total > 0 else 100.0
 
         lines: list[str] = [
-            f"## CodeVerify — {badge}", "",
+            f"## CodeVerify — {badge}",
+            "",
             f"**Commit:** `{run.commit_sha[:8]}`  ",
             f"**Branch:** `{run.branch}`  ",
-            f"**Time:** {run.verification_time_ms / 1000:.1f}s", "",
-            "### Summary", "",
-            "| Metric | Value |", "|--------|-------|",
+            f"**Time:** {run.verification_time_ms / 1000:.1f}s",
+            "",
+            "### Summary",
+            "",
+            "| Metric | Value |",
+            "|--------|-------|",
             f"| Total findings | {len(run.findings)} |",
             f"| Critical | {counts.get('critical', 0)} |",
             f"| High | {counts.get('high', 0)} |",
@@ -564,30 +689,38 @@ class GateEvaluator:
             f"| Cached proofs | {run.cached_proofs_used} |",
         ]
         if run.findings:
-            lines.extend(["", "### Findings", "",
-                           "| File | Line | Severity | Message |",
-                           "|------|------|----------|---------|"])
+            lines.extend(
+                [
+                    "",
+                    "### Findings",
+                    "",
+                    "| File | Line | Severity | Message |",
+                    "|------|------|----------|---------|",
+                ]
+            )
             for f in run.findings[:20]:
                 lines.append(
                     f"| `{f.get('file', '')}` | {f.get('line', '-')} "
-                    f"| {f.get('severity', 'unknown')} | {f.get('message', '')} |")
+                    f"| {f.get('severity', 'unknown')} | {f.get('message', '')} |"
+                )
             if len(run.findings) > 20:
                 lines.append(f"| … | … | … | *{len(run.findings) - 20} more findings* |")
         lines.extend(["", "---", f"*Generated by CodeVerify CI Agent • Run `{run.id}`*"])
         return "\n".join(lines)
 
-    def _count_by_severity(self, findings: list[dict]) -> dict[str, int]:
+    def _count_by_severity(self, findings: list[dict[str, Any]]) -> dict[str, int]:
         counts: dict[str, int] = {}
         for f in findings:
             sev = f.get("severity", "unknown")
             counts[sev] = counts.get(sev, 0) + 1
         return counts
 
+
 class CIConfigGenerator:
     """Generate CI configuration files for different providers."""
 
     def __init__(self) -> None:
-        self._generators: dict[CIProvider, Any] = {
+        self._generators: dict[CIProvider, Callable[[CIConfig], str]] = {
             CIProvider.GITHUB_ACTIONS: self._github_actions,
             CIProvider.GITLAB_CI: self._gitlab_ci,
         }
@@ -669,6 +802,7 @@ class CIConfigGenerator:
             "    - if: '$CI_PIPELINE_SOURCE == \"merge_request_event\"'\n"
         )
 
+
 class CIVerificationAgent:
     """Main orchestrator for CI/CD verification.
 
@@ -712,23 +846,32 @@ class CIVerificationAgent:
         pr_comment = self._evaluator.generate_pr_comment(run)
 
         report = PipelineReport(
-            run_id=run.id, commit_sha=commit_sha,
-            gate_decision=run.gate_decision, total_findings=len(run.findings),
+            run_id=run.id,
+            commit_sha=commit_sha,
+            gate_decision=run.gate_decision,
+            total_findings=len(run.findings),
             critical_count=counts.get("critical", 0),
             high_count=counts.get("high", 0),
-            files_verified=verified, files_skipped=skipped,
-            coverage_percent=coverage, cached_proofs=run.cached_proofs_used,
+            files_verified=verified,
+            files_skipped=skipped,
+            coverage_percent=coverage,
+            cached_proofs=run.cached_proofs_used,
             total_time_seconds=run.verification_time_ms / 1000,
             pr_comment_markdown=pr_comment,
         )
-        logger.info("commit_verified", commit=commit_sha[:8],
-                     decision=report.gate_decision.value, findings=report.total_findings)
+        logger.info(
+            "commit_verified",
+            commit=commit_sha[:8],
+            decision=report.gate_decision.value,
+            findings=report.total_findings,
+        )
         return report
 
     def generate_config(self, provider: CIProvider) -> str:
         """Generate a CI configuration file for the given provider."""
         cfg = CIConfig(
-            provider=provider, repo_url=self.config.repo_url,
+            provider=provider,
+            repo_url=self.config.repo_url,
             branch=self.config.branch,
             verification_scope=self.config.verification_scope,
             fail_on_critical=self.config.fail_on_critical,

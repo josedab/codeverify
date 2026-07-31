@@ -13,15 +13,13 @@ Covers all 10 next-gen features:
 10. Self-Learning Rule Engine
 """
 
-import pytest
-
 
 # ─── Feature 1: Hosted SaaS with Free Tier ─────────────────────────────
 
 
 class TestSaaSPlatform:
     def test_create_tenant_free(self):
-        from codeverify_core.saas_platform import SaaSPlatform, PlanTier, TenantStatus
+        from codeverify_core.saas_platform import PlanTier, SaaSPlatform, TenantStatus
 
         platform = SaaSPlatform()
         tenant = platform.create_tenant("TestOrg", "admin@test.com")
@@ -32,7 +30,7 @@ class TestSaaSPlatform:
         assert tenant.limits.max_repositories == 3
 
     def test_upgrade_tenant(self):
-        from codeverify_core.saas_platform import SaaSPlatform, PlanTier
+        from codeverify_core.saas_platform import PlanTier, SaaSPlatform
 
         platform = SaaSPlatform()
         tenant = platform.create_tenant("Org", "a@b.com")
@@ -53,7 +51,7 @@ class TestSaaSPlatform:
         assert limits.sla_uptime == 99.9
 
     def test_api_key_lifecycle(self):
-        from codeverify_core.saas_platform import SaaSPlatform, ApiKeyScope
+        from codeverify_core.saas_platform import ApiKeyScope, SaaSPlatform
 
         platform = SaaSPlatform()
         tenant = platform.create_tenant("Org", "a@b.com")
@@ -66,7 +64,7 @@ class TestSaaSPlatform:
         assert validated.id == api_key.id
 
     def test_rate_limiting(self):
-        from codeverify_core.saas_platform import SaaSPlatform, PlanTier
+        from codeverify_core.saas_platform import PlanTier, SaaSPlatform
 
         platform = SaaSPlatform()
         tenant = platform.create_tenant("Org", "a@b.com", plan=PlanTier.FREE)
@@ -95,7 +93,7 @@ class TestSaaSPlatform:
         assert platform.check_usage_limit(tenant.id, UsageMetricType.VERIFICATIONS) is True
 
     def test_tenant_trial(self):
-        from codeverify_core.saas_platform import SaaSPlatform, PlanTier, TenantStatus
+        from codeverify_core.saas_platform import PlanTier, SaaSPlatform, TenantStatus
 
         platform = SaaSPlatform()
         tenant = platform.create_tenant("Org", "a@b.com")
@@ -131,7 +129,7 @@ class TestGoJavaSupport:
         from codeverify_core.go_java_support import AdvancedGoParser, GoJavaNodeType
 
         parser = AdvancedGoParser()
-        code = '''
+        code = """
 func Add(a int, b int) int {
     return a + b
 }
@@ -139,9 +137,13 @@ func Add(a int, b int) int {
 func (s *Server) Start(port int) error {
     return nil
 }
-'''
+"""
         result = parser.parse(code, "main.go")
-        funcs = [n for n in result.nodes if n.node_type in (GoJavaNodeType.FUNCTION, GoJavaNodeType.METHOD)]
+        funcs = [
+            n
+            for n in result.nodes
+            if n.node_type in (GoJavaNodeType.FUNCTION, GoJavaNodeType.METHOD)
+        ]
         assert len(funcs) >= 2
         assert funcs[0].name == "Add"
         assert funcs[1].name == "Start"
@@ -151,7 +153,7 @@ func (s *Server) Start(port int) error {
         from codeverify_core.go_java_support import AdvancedGoParser, GoJavaNodeType
 
         parser = AdvancedGoParser()
-        code = '''
+        code = """
 type User struct {
     Name string
     Age  int
@@ -160,7 +162,7 @@ type User struct {
 type Reader interface {
     Read(p []byte) (int, error)
 }
-'''
+"""
         result = parser.parse(code, "types.go")
         structs = [n for n in result.nodes if n.node_type == GoJavaNodeType.STRUCT]
         interfaces = [n for n in result.nodes if n.node_type == GoJavaNodeType.INTERFACE]
@@ -172,12 +174,12 @@ type Reader interface {
         from codeverify_core.go_java_support import AdvancedGoParser, GoJavaNodeType
 
         parser = AdvancedGoParser()
-        code = '''
+        code = """
 func main() {
     ch := make(chan int, 10)
     go worker(ch)
 }
-'''
+"""
         result = parser.parse(code, "main.go")
         goroutines = [n for n in result.nodes if n.node_type == GoJavaNodeType.GOROUTINE]
         channels = [n for n in result.nodes if n.node_type == GoJavaNodeType.CHANNEL]
@@ -188,11 +190,11 @@ func main() {
         from codeverify_core.go_java_support import AdvancedGoParser, IdiomaticPattern
 
         parser = AdvancedGoParser()
-        code = '''
+        code = """
 func bad() {
     result, _ := doSomething()
 }
-'''
+"""
         result = parser.parse(code)
         warnings = [p for p in result.patterns if p.pattern == IdiomaticPattern.GO_ERROR_IGNORED]
         assert len(warnings) >= 1
@@ -202,13 +204,13 @@ func bad() {
         from codeverify_core.go_java_support import AdvancedJavaParser, GoJavaNodeType
 
         parser = AdvancedJavaParser()
-        code = '''
+        code = """
 public class UserService extends BaseService implements Serializable {
     public String getName(int id) {
         return "user";
     }
 }
-'''
+"""
         result = parser.parse(code, "UserService.java")
         classes = [n for n in result.nodes if n.node_type == GoJavaNodeType.CLASS]
         methods = [n for n in result.nodes if n.node_type == GoJavaNodeType.METHOD]
@@ -220,30 +222,34 @@ public class UserService extends BaseService implements Serializable {
         from codeverify_core.go_java_support import AdvancedJavaParser, IdiomaticPattern
 
         parser = AdvancedJavaParser()
-        code = '''
+        code = """
 public class Api {
     @Nullable String name;
     public void process(@NonNull String input) {
     }
 }
-'''
+"""
         result = parser.parse(code, "Api.java")
-        nullable_patterns = [p for p in result.patterns if p.pattern == IdiomaticPattern.JAVA_NULLABLE_ANNOTATION]
+        nullable_patterns = [
+            p for p in result.patterns if p.pattern == IdiomaticPattern.JAVA_NULLABLE_ANNOTATION
+        ]
         assert len(nullable_patterns) >= 1
 
     def test_java_optional_detection(self):
         from codeverify_core.go_java_support import AdvancedJavaParser, IdiomaticPattern
 
         parser = AdvancedJavaParser()
-        code = '''
+        code = """
 public class Service {
     public Optional<User> findUser(String id) {
         return Optional.empty();
     }
 }
-'''
+"""
         result = parser.parse(code, "Service.java")
-        optional_patterns = [p for p in result.patterns if p.pattern == IdiomaticPattern.JAVA_OPTIONAL_USAGE]
+        optional_patterns = [
+            p for p in result.patterns if p.pattern == IdiomaticPattern.JAVA_OPTIONAL_USAGE
+        ]
         assert len(optional_patterns) >= 1
 
     def test_go_java_support_unified(self):
@@ -317,20 +323,24 @@ class TestAutofixAgent:
         assert len(results) == 2
 
     def test_fix_confidence_levels(self):
-        from codeverify_core.autofix_pr_agent import FixGenerator, Finding, FixConfidence
+        from codeverify_core.autofix_pr_agent import Finding, FixConfidence, FixGenerator
 
         gen = FixGenerator()
         finding = Finding(category="null_safety", code_snippet="x.y()")
         candidates = gen.generate(finding, "python")
         assert len(candidates) > 0
-        assert all(c.confidence in (FixConfidence.HIGH, FixConfidence.MEDIUM, FixConfidence.LOW) for c in candidates)
+        assert all(
+            c.confidence in (FixConfidence.HIGH, FixConfidence.MEDIUM, FixConfidence.LOW)
+            for c in candidates
+        )
 
     def test_diff_limit_enforcement(self):
         from codeverify_core.autofix_pr_agent import AutofixAgent, Finding, FixStatus
 
         agent = AutofixAgent(max_diff_lines=1)
         finding = Finding(
-            category="null_safety", code_snippet="x = value.strip()\ny = value.upper()\nz = value.lower()",
+            category="null_safety",
+            code_snippet="x = value.strip()\ny = value.upper()\nz = value.lower()",
         )
         result = agent.fix(finding)
         # With very low diff limit, might fail
@@ -358,7 +368,7 @@ class TestAutofixAgent:
 
 class TestCopilotExtension:
     def test_verify_command(self):
-        from codeverify_core.copilot_chat_extension import CopilotExtensionHandler, ChatContext
+        from codeverify_core.copilot_chat_extension import ChatContext, CopilotExtensionHandler
 
         handler = CopilotExtensionHandler()
         ctx = ChatContext(file_path="main.py", language="python", selected_code="x = 42")
@@ -367,7 +377,7 @@ class TestCopilotExtension:
         assert "Verifying" in response.full_text
 
     def test_explain_command(self):
-        from codeverify_core.copilot_chat_extension import CopilotExtensionHandler, ChatContext
+        from codeverify_core.copilot_chat_extension import ChatContext, CopilotExtensionHandler
 
         handler = CopilotExtensionHandler()
         ctx = ChatContext(file_path="main.py", selected_code="x = y.strip()")
@@ -375,7 +385,7 @@ class TestCopilotExtension:
         assert "Explanation" in response.full_text or "explanation" in response.full_text.lower()
 
     def test_fix_command(self):
-        from codeverify_core.copilot_chat_extension import CopilotExtensionHandler, ChatContext
+        from codeverify_core.copilot_chat_extension import ChatContext, CopilotExtensionHandler
 
         handler = CopilotExtensionHandler()
         ctx = ChatContext(file_path="main.py", selected_code="x = 1/0")
@@ -406,7 +416,7 @@ class TestCopilotExtension:
         assert "Scanning" in response.full_text
 
     def test_session_tracking(self):
-        from codeverify_core.copilot_chat_extension import CopilotExtensionHandler, ChatContext
+        from codeverify_core.copilot_chat_extension import ChatContext, CopilotExtensionHandler
 
         handler = CopilotExtensionHandler()
         ctx = ChatContext(user_id="user1")
@@ -423,7 +433,8 @@ class TestCopilotExtension:
 
     def test_singleton(self):
         from codeverify_core.copilot_chat_extension import (
-            get_copilot_extension_handler, reset_copilot_extension_handler,
+            get_copilot_extension_handler,
+            reset_copilot_extension_handler,
         )
 
         reset_copilot_extension_handler()
@@ -439,7 +450,10 @@ class TestCopilotExtension:
 class TestIncrementalVerification:
     def test_cache_miss_and_store(self):
         from codeverify_core.incremental_verification import (
-            IncrementalVerificationEngine, CodeUnit, CacheStatus, VerificationStatus,
+            CacheStatus,
+            CodeUnit,
+            IncrementalVerificationEngine,
+            VerificationStatus,
         )
 
         engine = IncrementalVerificationEngine()
@@ -456,20 +470,27 @@ class TestIncrementalVerification:
 
     def test_cache_invalidation_on_change(self):
         from codeverify_core.incremental_verification import (
-            IncrementalVerificationEngine, CodeUnit, CacheStatus, VerificationStatus,
+            CacheStatus,
+            CodeUnit,
+            IncrementalVerificationEngine,
+            VerificationStatus,
         )
 
         engine = IncrementalVerificationEngine()
         unit = CodeUnit(file_path="main.py", name="add", content="def add(a, b): return a + b")
         engine.store(unit, VerificationStatus.SAFE)
 
-        changed_unit = CodeUnit(file_path="main.py", name="add", content="def add(a, b): return a - b")
+        changed_unit = CodeUnit(
+            file_path="main.py", name="add", content="def add(a, b): return a - b"
+        )
         status, _ = engine.lookup(changed_unit)
         assert status == CacheStatus.INVALIDATED
 
     def test_dependency_cascade_invalidation(self):
         from codeverify_core.incremental_verification import (
-            IncrementalVerificationEngine, CodeUnit, VerificationStatus,
+            CodeUnit,
+            IncrementalVerificationEngine,
+            VerificationStatus,
         )
 
         engine = IncrementalVerificationEngine()
@@ -485,7 +506,9 @@ class TestIncrementalVerification:
 
     def test_get_units_to_verify(self):
         from codeverify_core.incremental_verification import (
-            IncrementalVerificationEngine, CodeUnit, VerificationStatus,
+            CodeUnit,
+            IncrementalVerificationEngine,
+            VerificationStatus,
         )
 
         engine = IncrementalVerificationEngine()
@@ -499,7 +522,9 @@ class TestIncrementalVerification:
 
     def test_cache_metrics(self):
         from codeverify_core.incremental_verification import (
-            IncrementalVerificationEngine, CodeUnit, VerificationStatus,
+            CodeUnit,
+            IncrementalVerificationEngine,
+            VerificationStatus,
         )
 
         engine = IncrementalVerificationEngine()
@@ -525,7 +550,8 @@ class TestIncrementalVerification:
 
     def test_singleton(self):
         from codeverify_core.incremental_verification import (
-            get_incremental_engine, reset_incremental_engine,
+            get_incremental_engine,
+            reset_incremental_engine,
         )
 
         reset_incremental_engine()
@@ -550,19 +576,31 @@ class TestOrgSecurityDashboard:
 
     def test_generate_posture(self):
         from codeverify_core.org_security_dashboard import (
-            OrgSecurityDashboard, RepoMetrics, RiskLevel,
+            OrgSecurityDashboard,
+            RepoMetrics,
         )
 
         dashboard = OrgSecurityDashboard("TestOrg")
-        dashboard.add_repo_metrics(RepoMetrics(
-            repo_id="r1", repo_name="api",
-            total_findings=5, critical_findings=0, high_findings=1,
-            verification_coverage=0.8, trust_score=75.0,
-        ))
-        dashboard.add_repo_metrics(RepoMetrics(
-            repo_id="r2", repo_name="web",
-            total_findings=2, verification_coverage=0.9, trust_score=85.0,
-        ))
+        dashboard.add_repo_metrics(
+            RepoMetrics(
+                repo_id="r1",
+                repo_name="api",
+                total_findings=5,
+                critical_findings=0,
+                high_findings=1,
+                verification_coverage=0.8,
+                trust_score=75.0,
+            )
+        )
+        dashboard.add_repo_metrics(
+            RepoMetrics(
+                repo_id="r2",
+                repo_name="web",
+                total_findings=2,
+                verification_coverage=0.9,
+                trust_score=85.0,
+            )
+        )
 
         posture = dashboard.generate_posture()
         assert posture.org_name == "TestOrg"
@@ -572,15 +610,21 @@ class TestOrgSecurityDashboard:
 
     def test_compliance_tracking(self):
         from codeverify_core.org_security_dashboard import (
-            OrgSecurityDashboard, ComplianceRecord, ComplianceFramework, ComplianceStatus,
+            ComplianceFramework,
+            ComplianceRecord,
+            ComplianceStatus,
+            OrgSecurityDashboard,
         )
 
         dashboard = OrgSecurityDashboard("Org")
-        dashboard.set_compliance(ComplianceRecord(
-            framework=ComplianceFramework.SOC2,
-            status=ComplianceStatus.PARTIAL,
-            controls_total=50, controls_met=35,
-        ))
+        dashboard.set_compliance(
+            ComplianceRecord(
+                framework=ComplianceFramework.SOC2,
+                status=ComplianceStatus.PARTIAL,
+                controls_total=50,
+                controls_met=35,
+            )
+        )
         posture = dashboard.generate_posture()
         assert len(posture.compliance) == 1
         assert posture.compliance[0].coverage_pct == 70.0
@@ -610,12 +654,18 @@ class TestOrgSecurityDashboard:
 
     def test_executive_summary(self):
         from codeverify_core.org_security_dashboard import (
-            OrgSecurityDashboard, RepoMetrics, DORAMetrics,
+            DORAMetrics,
+            OrgSecurityDashboard,
+            RepoMetrics,
         )
 
         dashboard = OrgSecurityDashboard("Org")
-        dashboard.add_repo_metrics(RepoMetrics(repo_id="r1", repo_name="api", trust_score=80.0, verification_coverage=0.9))
-        dashboard.set_dora_metrics(DORAMetrics(deployment_frequency_per_day=1.0, lead_time_hours=20.0))
+        dashboard.add_repo_metrics(
+            RepoMetrics(repo_id="r1", repo_name="api", trust_score=80.0, verification_coverage=0.9)
+        )
+        dashboard.set_dora_metrics(
+            DORAMetrics(deployment_frequency_per_day=1.0, lead_time_hours=20.0)
+        )
         posture = dashboard.generate_posture()
         summary = posture.to_executive_summary()
         assert summary["organization"] == "Org"
@@ -633,7 +683,8 @@ class TestOrgSecurityDashboard:
 
     def test_singleton(self):
         from codeverify_core.org_security_dashboard import (
-            get_org_security_dashboard, reset_org_security_dashboard,
+            get_org_security_dashboard,
+            reset_org_security_dashboard,
         )
 
         reset_org_security_dashboard()
@@ -690,7 +741,10 @@ class TestCICDOrchestrator:
 
     def test_custom_gate(self):
         from codeverify_core.cicd_orchestrator import (
-            CICDOrchestrator, QualityGate, QualityThresholds, GateResult,
+            CICDOrchestrator,
+            GateResult,
+            QualityGate,
+            QualityThresholds,
         )
 
         orch = CICDOrchestrator()
@@ -727,7 +781,9 @@ class TestCICDOrchestrator:
 class TestProofExplainer:
     def test_explain_safe_result(self):
         from codeverify_core.proof_explainer import (
-            ProofExplainerEngine, CheckCategory, ProofOutcome,
+            CheckCategory,
+            ProofExplainerEngine,
+            ProofOutcome,
         )
 
         engine = ProofExplainerEngine()
@@ -742,7 +798,9 @@ class TestProofExplainer:
 
     def test_explain_counterexample(self):
         from codeverify_core.proof_explainer import (
-            ProofExplainerEngine, CheckCategory, ProofOutcome,
+            CheckCategory,
+            ProofExplainerEngine,
+            ProofOutcome,
         )
 
         engine = ProofExplainerEngine()
@@ -779,7 +837,10 @@ class TestProofExplainer:
 
     def test_explanation_markdown(self):
         from codeverify_core.proof_explainer import (
-            ProofExplainerEngine, CheckCategory, ProofOutcome, ExplanationDetail,
+            CheckCategory,
+            ExplanationDetail,
+            ProofExplainerEngine,
+            ProofOutcome,
         )
 
         engine = ProofExplainerEngine()
@@ -797,17 +858,25 @@ class TestProofExplainer:
         from codeverify_core.proof_explainer import ProofExplainerEngine
 
         engine = ProofExplainerEngine()
-        results = engine.explain_batch([
-            {"category": "null_safety", "outcome": "proved_safe"},
-            {"category": "integer_overflow", "outcome": "counterexample_found", "raw_output": "x -> 2147483647"},
-        ])
+        results = engine.explain_batch(
+            [
+                {"category": "null_safety", "outcome": "proved_safe"},
+                {
+                    "category": "integer_overflow",
+                    "outcome": "counterexample_found",
+                    "raw_output": "x -> 2147483647",
+                },
+            ]
+        )
         assert len(results) == 2
         assert results[0].is_safe
         assert not results[1].is_safe
 
     def test_educational_links(self):
         from codeverify_core.proof_explainer import (
-            ProofExplainerEngine, CheckCategory, ProofOutcome,
+            CheckCategory,
+            ProofExplainerEngine,
+            ProofOutcome,
         )
 
         engine = ProofExplainerEngine()
@@ -819,7 +888,10 @@ class TestProofExplainer:
 
     def test_code_examples(self):
         from codeverify_core.proof_explainer import (
-            ProofExplainerEngine, CheckCategory, ProofOutcome, ExplanationDetail,
+            CheckCategory,
+            ExplanationDetail,
+            ProofExplainerEngine,
+            ProofOutcome,
         )
 
         engine = ProofExplainerEngine()
@@ -848,13 +920,25 @@ class TestProofExplainer:
 class TestSupplyChain:
     def test_scan_dependencies(self):
         from codeverify_core.supply_chain import (
-            SupplyChainVerifier, Dependency, PackageManager,
+            Dependency,
+            PackageManager,
+            SupplyChainVerifier,
         )
 
         verifier = SupplyChainVerifier()
         deps = [
-            Dependency(name="requests", version="2.31.0", package_manager=PackageManager.PIP, license_id="Apache-2.0"),
-            Dependency(name="flask", version="3.0.0", package_manager=PackageManager.PIP, license_id="BSD-3-Clause"),
+            Dependency(
+                name="requests",
+                version="2.31.0",
+                package_manager=PackageManager.PIP,
+                license_id="Apache-2.0",
+            ),
+            Dependency(
+                name="flask",
+                version="3.0.0",
+                package_manager=PackageManager.PIP,
+                license_id="BSD-3-Clause",
+            ),
         ]
         report = verifier.scan_dependencies(deps, "my-project")
         assert report.total_dependencies == 2
@@ -863,14 +947,23 @@ class TestSupplyChain:
 
     def test_vulnerability_detection(self):
         from codeverify_core.supply_chain import (
-            SupplyChainVerifier, Dependency, Vulnerability, PackageManager, VulnerabilitySeverity,
+            Dependency,
+            PackageManager,
+            SupplyChainVerifier,
+            Vulnerability,
+            VulnerabilitySeverity,
         )
 
         verifier = SupplyChainVerifier()
-        verifier.vulnerability_db.add_vulnerability(Vulnerability(
-            id="VULN-1", cve_id="CVE-2024-1234", package_name="requests",
-            severity=VulnerabilitySeverity.HIGH, title="SSRF vulnerability",
-        ))
+        verifier.vulnerability_db.add_vulnerability(
+            Vulnerability(
+                id="VULN-1",
+                cve_id="CVE-2024-1234",
+                package_name="requests",
+                severity=VulnerabilitySeverity.HIGH,
+                title="SSRF vulnerability",
+            )
+        )
         deps = [Dependency(name="requests", version="2.28.0", package_manager=PackageManager.PIP)]
         report = verifier.scan_dependencies(deps)
         assert report.total_vulnerabilities == 1
@@ -879,24 +972,35 @@ class TestSupplyChain:
 
     def test_license_compliance(self):
         from codeverify_core.supply_chain import (
-            SupplyChainVerifier, Dependency, PackageManager,
+            Dependency,
+            PackageManager,
+            SupplyChainVerifier,
         )
 
         verifier = SupplyChainVerifier()
         deps = [
-            Dependency(name="lib", version="1.0", package_manager=PackageManager.PIP, license_id="GPL-3.0"),
+            Dependency(
+                name="lib", version="1.0", package_manager=PackageManager.PIP, license_id="GPL-3.0"
+            ),
         ]
         report = verifier.scan_dependencies(deps)
         assert report.license_violations == 1
 
     def test_sbom_generation(self):
         from codeverify_core.supply_chain import (
-            SupplyChainVerifier, Dependency, PackageManager,
+            Dependency,
+            PackageManager,
+            SupplyChainVerifier,
         )
 
         verifier = SupplyChainVerifier()
         deps = [
-            Dependency(name="numpy", version="1.26.0", package_manager=PackageManager.PIP, license_id="BSD-3-Clause"),
+            Dependency(
+                name="numpy",
+                version="1.26.0",
+                package_manager=PackageManager.PIP,
+                license_id="BSD-3-Clause",
+            ),
         ]
         report = verifier.scan_dependencies(deps, "data-project")
         assert len(report.sbom) == 1
@@ -921,19 +1025,34 @@ class TestSupplyChain:
 
     def test_risk_scoring(self):
         from codeverify_core.supply_chain import (
-            SupplyChainVerifier, Dependency, Vulnerability, PackageManager, VulnerabilitySeverity,
+            Dependency,
+            PackageManager,
+            SupplyChainVerifier,
+            Vulnerability,
+            VulnerabilitySeverity,
         )
 
         verifier = SupplyChainVerifier()
-        verifier.vulnerability_db.add_vulnerability(Vulnerability(
-            id="V1", package_name="lib", severity=VulnerabilitySeverity.CRITICAL,
-        ))
-        deps = [Dependency(name="lib", version="1.0", package_manager=PackageManager.PIP, license_id="GPL-3.0")]
+        verifier.vulnerability_db.add_vulnerability(
+            Vulnerability(
+                id="V1",
+                package_name="lib",
+                severity=VulnerabilitySeverity.CRITICAL,
+            )
+        )
+        deps = [
+            Dependency(
+                name="lib", version="1.0", package_manager=PackageManager.PIP, license_id="GPL-3.0"
+            )
+        ]
         report = verifier.scan_dependencies(deps)
         assert report.risks[0].risk_score > 0.5  # critical vuln + license violation
 
     def test_singleton(self):
-        from codeverify_core.supply_chain import get_supply_chain_verifier, reset_supply_chain_verifier
+        from codeverify_core.supply_chain import (
+            get_supply_chain_verifier,
+            reset_supply_chain_verifier,
+        )
 
         reset_supply_chain_verifier()
         v1 = get_supply_chain_verifier()
@@ -947,77 +1066,126 @@ class TestSupplyChain:
 
 class TestSelfLearningRules:
     def test_record_feedback(self):
-        from codeverify_core.self_learning_rules import SelfLearningRuleEngine, FindingFeedback, FeedbackType
+        from codeverify_core.self_learning_rules import (
+            FeedbackType,
+            FindingFeedback,
+            SelfLearningRuleEngine,
+        )
 
         engine = SelfLearningRuleEngine()
-        engine.record_feedback(FindingFeedback(
-            rule_id="null_check", category="null_safety",
-            severity="high", feedback_type=FeedbackType.ACCEPTED,
-        ))
+        engine.record_feedback(
+            FindingFeedback(
+                rule_id="null_check",
+                category="null_safety",
+                severity="high",
+                feedback_type=FeedbackType.ACCEPTED,
+            )
+        )
         assert engine.feedback_count == 1
 
     def test_train_classifier(self):
-        from codeverify_core.self_learning_rules import SelfLearningRuleEngine, FindingFeedback, FeedbackType
+        from codeverify_core.self_learning_rules import (
+            FeedbackType,
+            FindingFeedback,
+            SelfLearningRuleEngine,
+        )
 
         engine = SelfLearningRuleEngine()
-        for i in range(10):
-            engine.record_feedback(FindingFeedback(
-                rule_id="rule1", category="null_safety", severity="high",
-                feedback_type=FeedbackType.ACCEPTED,
-            ))
-        for i in range(10):
-            engine.record_feedback(FindingFeedback(
-                rule_id="rule2", category="style", severity="low",
-                feedback_type=FeedbackType.FALSE_POSITIVE,
-            ))
+        for _i in range(10):
+            engine.record_feedback(
+                FindingFeedback(
+                    rule_id="rule1",
+                    category="null_safety",
+                    severity="high",
+                    feedback_type=FeedbackType.ACCEPTED,
+                )
+            )
+        for _i in range(10):
+            engine.record_feedback(
+                FindingFeedback(
+                    rule_id="rule2",
+                    category="style",
+                    severity="low",
+                    feedback_type=FeedbackType.FALSE_POSITIVE,
+                )
+            )
         engine.train()
         assert engine.classifier_trained
 
     def test_predict_false_positive(self):
-        from codeverify_core.self_learning_rules import SelfLearningRuleEngine, FindingFeedback, FeedbackType
+        from codeverify_core.self_learning_rules import (
+            FeedbackType,
+            FindingFeedback,
+            SelfLearningRuleEngine,
+        )
 
         engine = SelfLearningRuleEngine()
         for _ in range(20):
-            engine.record_feedback(FindingFeedback(
-                rule_id="noisy", category="style", severity="low",
-                feedback_type=FeedbackType.FALSE_POSITIVE, file_path="test.py",
-            ))
+            engine.record_feedback(
+                FindingFeedback(
+                    rule_id="noisy",
+                    category="style",
+                    severity="low",
+                    feedback_type=FeedbackType.FALSE_POSITIVE,
+                    file_path="test.py",
+                )
+            )
         engine.train()
         result = engine.predict_false_positive("noisy", "style", "low", "test.py")
         assert result.confidence >= 0.0
 
     def test_severity_calibration(self):
         from codeverify_core.self_learning_rules import (
-            SelfLearningRuleEngine, FindingFeedback, FeedbackType, SeverityAdjustment,
+            FeedbackType,
+            FindingFeedback,
+            SelfLearningRuleEngine,
+            SeverityAdjustment,
         )
 
         engine = SelfLearningRuleEngine()
         # Rule with high FP rate should get suppressed
         for _ in range(10):
-            engine.record_feedback(FindingFeedback(
-                rule_id="bad_rule", category="style", severity="medium",
-                feedback_type=FeedbackType.FALSE_POSITIVE,
-            ))
+            engine.record_feedback(
+                FindingFeedback(
+                    rule_id="bad_rule",
+                    category="style",
+                    severity="medium",
+                    feedback_type=FeedbackType.FALSE_POSITIVE,
+                )
+            )
         engine.train()
         adj = engine.get_severity_adjustment("bad_rule")
         assert adj in (SeverityAdjustment.DECREASE, SeverityAdjustment.SUPPRESS)
 
     def test_pattern_learning(self):
-        from codeverify_core.self_learning_rules import SelfLearningRuleEngine, FindingFeedback, FeedbackType
+        from codeverify_core.self_learning_rules import (
+            FeedbackType,
+            FindingFeedback,
+            SelfLearningRuleEngine,
+        )
 
         engine = SelfLearningRuleEngine()
         for _ in range(5):
-            engine.record_feedback(FindingFeedback(
-                rule_id="rule_x", category="perf", severity="low",
-                feedback_type=FeedbackType.DISMISSED, repo_id="repo1",
-            ))
+            engine.record_feedback(
+                FindingFeedback(
+                    rule_id="rule_x",
+                    category="perf",
+                    severity="low",
+                    feedback_type=FeedbackType.DISMISSED,
+                    repo_id="repo1",
+                )
+            )
         engine.train()
         patterns = engine.learned_patterns
         assert len(patterns) >= 1
         assert any("rule_x" in p.rule_id for p in patterns)
 
     def test_acceptance_rate(self):
-        from codeverify_core.self_learning_rules import SelfLearningRuleEngine, FindingFeedback, FeedbackType
+        from codeverify_core.self_learning_rules import (
+            FeedbackType,
+            FindingFeedback,
+            SelfLearningRuleEngine,
+        )
 
         engine = SelfLearningRuleEngine()
         engine.record_feedback(FindingFeedback(feedback_type=FeedbackType.ACCEPTED))
@@ -1026,12 +1194,18 @@ class TestSelfLearningRules:
         assert abs(engine.acceptance_rate - 2 / 3) < 0.01
 
     def test_rule_performance(self):
-        from codeverify_core.self_learning_rules import SelfLearningRuleEngine, FindingFeedback, FeedbackType
+        from codeverify_core.self_learning_rules import (
+            FeedbackType,
+            FindingFeedback,
+            SelfLearningRuleEngine,
+        )
 
         engine = SelfLearningRuleEngine()
         engine.record_feedback(FindingFeedback(rule_id="r1", feedback_type=FeedbackType.ACCEPTED))
         engine.record_feedback(FindingFeedback(rule_id="r1", feedback_type=FeedbackType.ACCEPTED))
-        engine.record_feedback(FindingFeedback(rule_id="r1", feedback_type=FeedbackType.FALSE_POSITIVE))
+        engine.record_feedback(
+            FindingFeedback(rule_id="r1", feedback_type=FeedbackType.FALSE_POSITIVE)
+        )
         engine.train()
         perfs = engine.rule_performances
         assert len(perfs) >= 1
@@ -1040,7 +1214,10 @@ class TestSelfLearningRules:
         assert r1_perf.false_positives == 1
 
     def test_singleton(self):
-        from codeverify_core.self_learning_rules import get_self_learning_engine, reset_self_learning_engine
+        from codeverify_core.self_learning_rules import (
+            get_self_learning_engine,
+            reset_self_learning_engine,
+        )
 
         reset_self_learning_engine()
         e1 = get_self_learning_engine()

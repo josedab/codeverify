@@ -19,6 +19,7 @@ Features:
 from __future__ import annotations
 
 import warnings as _warnings
+
 _warnings.warn(
     "codeverify_core.budget_marketplace is deprecated. Use codeverify_core.proof_artifact_marketplace instead.",
     DeprecationWarning,
@@ -28,7 +29,6 @@ _warnings.warn(
 
 import time
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -83,7 +83,9 @@ class VerificationCredit:
 
     @staticmethod
     def from_verification(
-        constraints: int, loc: int, base_rate: float = 1.0,
+        constraints: int,
+        loc: int,
+        base_rate: float = 1.0,
     ) -> VerificationCredit:
         """Calculate credits needed for a verification task."""
         complexity = (constraints / 10.0) * (loc / 50.0)
@@ -147,7 +149,9 @@ class Wallet:
         self.transactions.append(tx)
         return tx
 
-    def withdraw(self, amount: float, tx_type: TransactionType, **kwargs: Any) -> WalletTransaction | None:
+    def withdraw(
+        self, amount: float, tx_type: TransactionType, **kwargs: Any
+    ) -> WalletTransaction | None:
         if amount > self.available:
             return None
         tx = WalletTransaction(
@@ -347,8 +351,12 @@ class VerificationMarketplace:
         return tx is not None
 
     def place_order(
-        self, team_id: str, side: OrderSide, credits: float,
-        price_per_credit: float, ttl_seconds: float = 3600,
+        self,
+        team_id: str,
+        side: OrderSide,
+        credits: float,
+        price_per_credit: float,
+        ttl_seconds: float = 3600,
     ) -> MarketOrder:
         """Place a buy or sell order."""
         order = MarketOrder(
@@ -438,21 +446,26 @@ class VerificationMarketplace:
 
                 seller_wallet.release_reserve(trade_credits)
                 seller_wallet.withdraw(
-                    trade_credits, TransactionType.SALE,
+                    trade_credits,
+                    TransactionType.SALE,
                     counterparty=buy.team_id,
                     price_per_credit=trade_price,
                     description=f"Sold {trade_credits} credits",
                 )
                 buyer_wallet.deposit(
-                    trade_credits, TransactionType.PURCHASE,
+                    trade_credits,
+                    TransactionType.PURCHASE,
                     counterparty=sell.team_id,
                     price_per_credit=trade_price,
                     description=f"Bought {trade_credits} credits",
                 )
 
     def create_lease(
-        self, provider_id: str, consumer_id: str,
-        credits_per_hour: float, price_per_credit: float,
+        self,
+        provider_id: str,
+        consumer_id: str,
+        credits_per_hour: float,
+        price_per_credit: float,
     ) -> CapacityLease:
         """Create a capacity lease."""
         lease = CapacityLease(
@@ -476,12 +489,14 @@ class VerificationMarketplace:
                 consumer_wallet = self.get_or_create_wallet(lease.consumer_id)
 
                 provider_wallet.deposit(
-                    lease.total_credits, TransactionType.LEASE_INCOME,
+                    lease.total_credits,
+                    TransactionType.LEASE_INCOME,
                     counterparty=lease.consumer_id,
                     description=f"Lease income for {lease.duration_hours:.1f}h",
                 )
                 consumer_wallet.deposit(
-                    lease.total_credits, TransactionType.LEASE_EXPENSE,
+                    lease.total_credits,
+                    TransactionType.LEASE_EXPENSE,
                     counterparty=lease.provider_id,
                     description=f"Lease capacity for {lease.duration_hours:.1f}h",
                 )
@@ -492,12 +507,10 @@ class VerificationMarketplace:
     def get_market_stats(self) -> MarketStats:
         """Get current marketplace statistics."""
         open_buys = [
-            o for o in self._orders
-            if o.side == OrderSide.BUY and o.status == OrderStatus.OPEN
+            o for o in self._orders if o.side == OrderSide.BUY and o.status == OrderStatus.OPEN
         ]
         open_sells = [
-            o for o in self._orders
-            if o.side == OrderSide.SELL and o.status == OrderStatus.OPEN
+            o for o in self._orders if o.side == OrderSide.SELL and o.status == OrderStatus.OPEN
         ]
 
         bid_price = max((o.price_per_credit for o in open_buys), default=0.0)
@@ -506,7 +519,8 @@ class VerificationMarketplace:
         total_volume = sum(t.total_value for t in self._trades)
         avg_price = (
             sum(t.price_per_credit for t in self._trades) / len(self._trades)
-            if self._trades else 0.0
+            if self._trades
+            else 0.0
         )
 
         return MarketStats(
@@ -522,10 +536,7 @@ class VerificationMarketplace:
 
     def get_trades(self, team_id: str | None = None) -> list[Trade]:
         if team_id:
-            return [
-                t for t in self._trades
-                if t.buyer_id == team_id or t.seller_id == team_id
-            ]
+            return [t for t in self._trades if t.buyer_id == team_id or t.seller_id == team_id]
         return list(self._trades)
 
     def expire_orders(self) -> int:

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -86,7 +85,9 @@ class QualityGate:
     mode: GateMode = GateMode.ENFORCE
     thresholds: QualityThresholds = field(default_factory=QualityThresholds)
     block_merge: bool = True
-    required_checks: list[str] = field(default_factory=lambda: ["null_safety", "bounds", "overflow"])
+    required_checks: list[str] = field(
+        default_factory=lambda: ["null_safety", "bounds", "overflow"]
+    )
 
     @classmethod
     def strict(cls) -> QualityGate:
@@ -157,23 +158,53 @@ class QualityGateEvaluator:
     ) -> GateEvaluation:
         """Evaluate findings against a quality gate."""
         if gate.mode == GateMode.DISABLED:
-            return GateEvaluation(gate_name=gate.name, result=GateResult.SKIPPED, summary="Gate disabled")
+            return GateEvaluation(
+                gate_name=gate.name, result=GateResult.SKIPPED, summary="Gate disabled"
+            )
 
         evaluation = GateEvaluation(gate_name=gate.name)
         all_passed = True
 
         checks = [
-            ("critical_findings", critical <= gate.thresholds.max_critical, f"{critical} critical (max: {gate.thresholds.max_critical})"),
-            ("high_findings", high <= gate.thresholds.max_high, f"{high} high (max: {gate.thresholds.max_high})"),
-            ("medium_findings", medium <= gate.thresholds.max_medium, f"{medium} medium (max: {gate.thresholds.max_medium})"),
-            ("low_findings", low <= gate.thresholds.max_low, f"{low} low (max: {gate.thresholds.max_low})"),
+            (
+                "critical_findings",
+                critical <= gate.thresholds.max_critical,
+                f"{critical} critical (max: {gate.thresholds.max_critical})",
+            ),
+            (
+                "high_findings",
+                high <= gate.thresholds.max_high,
+                f"{high} high (max: {gate.thresholds.max_high})",
+            ),
+            (
+                "medium_findings",
+                medium <= gate.thresholds.max_medium,
+                f"{medium} medium (max: {gate.thresholds.max_medium})",
+            ),
+            (
+                "low_findings",
+                low <= gate.thresholds.max_low,
+                f"{low} low (max: {gate.thresholds.max_low})",
+            ),
         ]
 
         if gate.thresholds.min_trust_score > 0:
-            checks.append(("trust_score", trust_score >= gate.thresholds.min_trust_score, f"Score: {trust_score:.1f} (min: {gate.thresholds.min_trust_score})"))
+            checks.append(
+                (
+                    "trust_score",
+                    trust_score >= gate.thresholds.min_trust_score,
+                    f"Score: {trust_score:.1f} (min: {gate.thresholds.min_trust_score})",
+                )
+            )
 
         if gate.thresholds.min_coverage > 0:
-            checks.append(("coverage", coverage >= gate.thresholds.min_coverage, f"Coverage: {coverage:.0%} (min: {gate.thresholds.min_coverage:.0%})"))
+            checks.append(
+                (
+                    "coverage",
+                    coverage >= gate.thresholds.min_coverage,
+                    f"Coverage: {coverage:.0%} (min: {gate.thresholds.min_coverage:.0%})",
+                )
+            )
 
         for name, passed, message in checks:
             evaluation.add_check(name, passed, message)
@@ -208,7 +239,9 @@ class PipelineConfigGenerator:
         }
         gen = generators.get(platform)
         if gen is None:
-            return PipelineConfig(platform=platform, config_content="", instructions="Unsupported platform")
+            return PipelineConfig(
+                platform=platform, config_content="", instructions="Unsupported platform"
+            )
         return gen(gate)
 
     def _github_actions(self, gate: QualityGate | None) -> PipelineConfig:
@@ -354,7 +387,9 @@ class CICDOrchestrator:
     ) -> GateEvaluation:
         gate = self._gates.get(gate_name)
         if gate is None:
-            return GateEvaluation(gate_name=gate_name, result=GateResult.SKIPPED, summary="Gate not found")
+            return GateEvaluation(
+                gate_name=gate_name, result=GateResult.SKIPPED, summary="Gate not found"
+            )
         result = self._evaluator.evaluate(gate, critical, high, medium, low, trust_score, coverage)
         self._evaluations.append(result)
         logger.info("gate_evaluated", gate=gate_name, result=result.result.value)
@@ -365,9 +400,7 @@ class CICDOrchestrator:
         return self._config_gen.generate(platform, gate)
 
     def generate_status(self, evaluation: GateEvaluation) -> PipelineStatus:
-        if evaluation.result == GateResult.PASSED:
-            state = StatusState.SUCCESS
-        elif evaluation.result == GateResult.WARNING:
+        if evaluation.result == GateResult.PASSED or evaluation.result == GateResult.WARNING:
             state = StatusState.SUCCESS
         elif evaluation.result == GateResult.FAILED:
             state = StatusState.FAILURE

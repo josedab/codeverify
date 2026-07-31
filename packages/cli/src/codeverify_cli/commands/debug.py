@@ -86,9 +86,8 @@ def debug(ctx: click.Context, file: str, function: str | None, interactive: bool
         if step.get("model") and status == "failed":
             console.print(f"   [red]Counterexample: {step['model']}[/red]")
 
-        if interactive:
-            if not click.confirm("Continue?", default=True):
-                break
+        if interactive and not click.confirm("Continue?", default=True):
+            break
 
     # Show counterexample if verification failed
     if result.get("result") == "unverified" and result.get("counterexample"):

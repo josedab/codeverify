@@ -106,7 +106,7 @@ async def list_languages(
     """List all supported languages and their capabilities."""
     langs = list(SUPPORTED_LANGUAGES.values())
     if status_filter:
-        langs = [l for l in langs if l.status == status_filter]
+        langs = [lang for lang in langs if lang.status == status_filter]
     return langs
 
 

@@ -114,19 +114,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         implementation returns a default plan for development/testing.
         See: https://github.com/codeverify/codeverify/issues/TBD
         """
-        import hashlib
-
         # Hash the key for lookup (keys are stored hashed in DB)
         if api_key.startswith("cv_"):
             api_key = api_key[3:]
-        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
 
         # Production: Query database for plan
         # from codeverify_api.db import get_db
         # async with get_db() as db:
         #     result = await db.execute(
         #         "SELECT plan FROM api_keys WHERE key_hash = :hash AND revoked_at IS NULL",
-        #         {"hash": key_hash}
+        #         {"hash": hashlib.sha256(api_key.encode()).hexdigest()}
         #     )
         #     row = result.fetchone()
         #     return row.plan if row else "free"
@@ -184,18 +181,19 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
             )
 
         # Check scopes for write operations
-        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
-            if "write" not in key_data.get("scopes", []) and "admin" not in key_data.get(
-                "scopes", []
-            ):
-                return JSONResponse(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    content={
-                        "error": "insufficient_scope",
-                        "message": "API key lacks 'write' scope for this operation",
-                        "required_scope": "write",
-                    },
-                )
+        if (
+            request.method in ("POST", "PUT", "PATCH", "DELETE")
+            and "write" not in key_data.get("scopes", [])
+            and "admin" not in key_data.get("scopes", [])
+        ):
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={
+                    "error": "insufficient_scope",
+                    "message": "API key lacks 'write' scope for this operation",
+                    "required_scope": "write",
+                },
+            )
 
         # Attach key data to request state
         request.state.api_key = key_data

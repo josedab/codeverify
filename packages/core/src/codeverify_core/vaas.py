@@ -22,7 +22,7 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -133,7 +133,7 @@ class VaaSApiKey:
     name: str = ""
     tier: VerificationTier = VerificationTier.FREE
     owner_id: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     last_used_at: datetime | None = None
     is_active: bool = True
     usage_this_month: int = 0
@@ -151,7 +151,7 @@ class VerificationRequest:
     output_format: OutputFormat = OutputFormat.JSON
     webhook_url: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    submitted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    submitted_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -191,24 +191,30 @@ class VerificationResponse:
         """Convert to SARIF format."""
         results = []
         for f in self.findings:
-            results.append({
-                "ruleId": f.category,
-                "level": self._sarif_level(f.severity),
-                "message": {"text": f.message},
-                "locations": [{
-                    "physicalLocation": {
-                        "artifactLocation": {"uri": f.file_path},
-                        "region": {"startLine": f.line, "startColumn": f.column},
-                    }
-                }],
-            })
+            results.append(
+                {
+                    "ruleId": f.category,
+                    "level": self._sarif_level(f.severity),
+                    "message": {"text": f.message},
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {"uri": f.file_path},
+                                "region": {"startLine": f.line, "startColumn": f.column},
+                            }
+                        }
+                    ],
+                }
+            )
         return {
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
             "version": "2.1.0",
-            "runs": [{
-                "tool": {"driver": {"name": "CodeVerify VaaS", "version": "1.2.0"}},
-                "results": results,
-            }],
+            "runs": [
+                {
+                    "tool": {"driver": {"name": "CodeVerify VaaS", "version": "1.2.0"}},
+                    "results": results,
+                }
+            ],
         }
 
     @staticmethod
@@ -227,7 +233,7 @@ class WebhookConfig:
     events: list[WebhookEventType] = field(default_factory=list)
     secret: str = field(default_factory=lambda: secrets.token_hex(32))
     is_active: bool = True
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -239,7 +245,7 @@ class WebhookDelivery:
     event_type: WebhookEventType = WebhookEventType.VERIFICATION_COMPLETED
     payload: dict[str, Any] = field(default_factory=dict)
     status_code: int = 0
-    delivered_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    delivered_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     success: bool = False
 
 
@@ -270,7 +276,7 @@ class VerificationCache:
         if entry is None:
             return None
         response, cached_at = entry
-        if datetime.now(timezone.utc) - cached_at > self.ttl:
+        if datetime.now(UTC) - cached_at > self.ttl:
             del self._cache[content_hash]
             return None
         response.cached = True
@@ -281,7 +287,7 @@ class VerificationCache:
             # Evict oldest
             oldest_key = min(self._cache, key=lambda k: self._cache[k][1])
             del self._cache[oldest_key]
-        self._cache[content_hash] = (response, datetime.now(timezone.utc))
+        self._cache[content_hash] = (response, datetime.now(UTC))
 
     @staticmethod
     def compute_hash(files: list[dict[str, str]], checks: list[str]) -> str:
@@ -334,7 +340,7 @@ class VaaSService:
             return None
         api_key = self.api_keys.get(key_id)
         if api_key and api_key.is_active:
-            api_key.last_used_at = datetime.now(timezone.utc)
+            api_key.last_used_at = datetime.now(UTC)
             return api_key
         return None
 
@@ -375,15 +381,15 @@ class VaaSService:
         limits = TierLimits.for_tier(api_key.tier)
 
         # Check quota
-        if limits.verifications_per_month > 0:
-            if api_key.usage_this_month >= limits.verifications_per_month:
-                raise ValueError("Monthly quota exceeded")
+        if (
+            limits.verifications_per_month > 0
+            and api_key.usage_this_month >= limits.verifications_per_month
+        ):
+            raise ValueError("Monthly quota exceeded")
 
         # Check file count
         if len(files) > limits.max_files_per_request:
-            raise ValueError(
-                f"Too many files: {len(files)} > {limits.max_files_per_request}"
-            )
+            raise ValueError(f"Too many files: {len(files)} > {limits.max_files_per_request}")
 
         effective_checks = checks or ["null_safety", "array_bounds", "integer_overflow"]
 
@@ -409,7 +415,7 @@ class VaaSService:
         findings = self._run_verification(files, language, effective_checks)
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
-        severity_counts = defaultdict(int)
+        severity_counts: defaultdict[str, int] = defaultdict(int)
         for f in findings:
             severity_counts[f.severity] += 1
 
@@ -425,7 +431,7 @@ class VaaSService:
                 "checks": effective_checks,
             },
             verification_time_ms=elapsed_ms,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
             output_format=output_format,
         )
 
@@ -482,7 +488,7 @@ class VaaSService:
 
         return UsageStats(
             api_key_id=api_key_id,
-            period=datetime.now(timezone.utc).strftime("%Y-%m"),
+            period=datetime.now(UTC).strftime("%Y-%m"),
             total_verifications=api_key.usage_this_month,
             total_findings=total_findings,
             quota_used_percent=quota_pct,
@@ -491,7 +497,7 @@ class VaaSService:
     def _run_verification(
         self,
         files: list[dict[str, str]],
-        language: str,
+        _language: str,
         checks: list[str],
     ) -> list[VerificationFinding]:
         """Run verification pipeline on submitted files."""
@@ -505,28 +511,36 @@ class VaaSService:
             for i, line in enumerate(lines, 1):
                 stripped = line.strip()
 
-                if "null_safety" in checks:
-                    if "None" in stripped and "if" not in stripped and "is not" not in stripped:
-                        if "= None" not in stripped and "== None" not in stripped:
-                            findings.append(VerificationFinding(
-                                file_path=path,
-                                line=i,
-                                severity="medium",
-                                category="null_safety",
-                                message="Potential None usage without explicit null check",
-                                confidence=0.6,
-                            ))
+                if (
+                    "null_safety" in checks
+                    and "None" in stripped
+                    and "if" not in stripped
+                    and "is not" not in stripped
+                    and "= None" not in stripped
+                    and "== None" not in stripped
+                ):
+                    findings.append(
+                        VerificationFinding(
+                            file_path=path,
+                            line=i,
+                            severity="medium",
+                            category="null_safety",
+                            message="Potential None usage without explicit null check",
+                            confidence=0.6,
+                        )
+                    )
 
-                if "integer_overflow" in checks:
-                    if "**" in stripped or "pow(" in stripped:
-                        findings.append(VerificationFinding(
+                if "integer_overflow" in checks and ("**" in stripped or "pow(" in stripped):
+                    findings.append(
+                        VerificationFinding(
                             file_path=path,
                             line=i,
                             severity="low",
                             category="integer_overflow",
                             message="Potential integer overflow in exponentiation",
                             confidence=0.4,
-                        ))
+                        )
+                    )
 
         return findings
 

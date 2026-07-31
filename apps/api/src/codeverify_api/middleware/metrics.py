@@ -113,7 +113,7 @@ def record_analysis_started():
     ACTIVE_ANALYSES.inc()
 
 
-def record_analysis_completed(status: str, conclusion: str, duration_seconds: float):
+def record_analysis_completed(status: str, conclusion: str, _duration_seconds: float):
     """Record that an analysis has completed."""
     ACTIVE_ANALYSES.dec()
     ANALYSES_TOTAL.labels(status=status, conclusion=conclusion).inc()

@@ -437,13 +437,13 @@ class TestAgentFactoryIntegration:
             anthropic_response=mock_response,
         )
 
-        factory = AgentFactory(llm_provider=provider)
+        factory = AgentFactory(provider=provider)
 
         semantic = factory.create_semantic_agent()
         security = factory.create_security_agent()
 
-        assert semantic is not None
-        assert security is not None
+        assert isinstance(semantic, SemanticAgent)
+        assert isinstance(security, SecurityAgent)
         assert semantic._llm_provider is provider
         assert security._llm_provider is provider
 
@@ -460,7 +460,7 @@ class TestAgentFactoryIntegration:
         )
 
         provider = MockLLMClientProvider(openai_response=mock_response)
-        factory = AgentFactory(llm_provider=provider)
+        factory = AgentFactory(provider=provider)
 
         agent = factory.create_semantic_agent()
 
@@ -576,7 +576,7 @@ class TestCrossAgentWorkflow:
 
         provider = DualMockProvider(semantic_response, security_response)
 
-        factory = AgentFactory(llm_provider=provider)
+        factory = AgentFactory(provider=provider)
 
         code = """
 def query_db(user_input: str):
@@ -593,7 +593,12 @@ def query_db(user_input: str):
         assert "SQL injection risk" in semantic_result.data["functions"][0]["concerns"][0]
 
         # Run security analysis (uses Anthropic)
-        security_agent = factory.create_security_agent()
+        security_agent = factory.create_security_agent(
+            AgentConfig(
+                anthropic_api_key="test-key",
+                provider="anthropic",
+            )
+        )
         security_result = await security_agent.analyze(code, context)
 
         assert security_result.success is True

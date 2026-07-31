@@ -13,8 +13,6 @@ Features:
 
 from __future__ import annotations
 
-import re
-import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -99,11 +97,13 @@ class ExplainedFinding:
         if self.analogy:
             lines.extend([f"💡 **Analogy:** {self.analogy}", ""])
         if self.finding.counterexample:
-            lines.extend([
-                "**Counterexample:**",
-                self.finding.counterexample.format_table(),
-                "",
-            ])
+            lines.extend(
+                [
+                    "**Counterexample:**",
+                    self.finding.counterexample.format_table(),
+                    "",
+                ]
+            )
         if self.visual_diagram:
             lines.extend(["**Execution trace:**", "```mermaid", self.visual_diagram, "```", ""])
         if self.fix_suggestion:
@@ -399,8 +399,11 @@ class ExplainableReport:
         severity_order = ["critical", "high", "medium", "low", "info"]
         sorted_findings = sorted(
             self._explained,
-            key=lambda e: severity_order.index(e.finding.severity)
-            if e.finding.severity in severity_order else 99,
+            key=lambda e: (
+                severity_order.index(e.finding.severity)
+                if e.finding.severity in severity_order
+                else 99
+            ),
         )
 
         for explained in sorted_findings:

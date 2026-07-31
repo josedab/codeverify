@@ -26,6 +26,8 @@ dependencies = [
     "sentry-sdk[fastapi]>=1.40.0",
     "reportlab>=4.0.0",
     "codeverify-core",
+    "codeverify-verifier",
+    "codeverify-agents",
 ]
 
 [project.optional-dependencies]

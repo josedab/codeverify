@@ -1,9 +1,37 @@
 """Tests for Formal Specification Assistant API endpoints."""
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
 from codeverify_api.main import app
+from codeverify_api.routers import formal_specs
+
+
+@pytest.fixture(autouse=True)
+def mock_formal_spec_llm(monkeypatch):
+    """Keep router tests deterministic and prevent real LLM requests."""
+    assistant = formal_specs.FormalSpecAssistant()
+
+    async def fake_call_llm(system_prompt, user_prompt, json_mode=False):
+        del system_prompt, json_mode
+        variable = "index" if "index" in user_prompt.lower() else "x"
+        return {
+            "content": json.dumps(
+                {
+                    "z3_expr": f"{variable} >= 0",
+                    "smtlib": f"(assert (>= {variable} 0))",
+                    "python_assert": f"assert {variable} >= 0",
+                    "explanation": "The value must be non-negative.",
+                    "confidence": 0.95,
+                    "variables": {variable: "Int"},
+                }
+            )
+        }
+
+    monkeypatch.setattr(assistant, "_call_llm", fake_call_llm)
+    monkeypatch.setattr(formal_specs, "_formal_spec_assistant", assistant)
 
 
 @pytest.fixture

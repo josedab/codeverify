@@ -8,6 +8,7 @@ This module provides:
 """
 
 import asyncio
+import contextlib
 import importlib.util
 import multiprocessing
 import os
@@ -16,9 +17,11 @@ import sys
 import tempfile
 import time
 import traceback
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from types import ModuleType
+from typing import Any, cast
 
 import structlog
 
@@ -78,31 +81,23 @@ def _set_resource_limits(config: SandboxConfig) -> None:
     if sys.platform == "win32":
         return
 
-    # Memory limit
+    # Memory limit (may not be supported on all platforms)
     memory_bytes = config.max_memory_mb * 1024 * 1024
-    try:
+    with contextlib.suppress(OSError, ValueError):
         resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
-    except (OSError, ValueError):
-        pass  # May not be supported
 
     # CPU time limit
-    try:
+    with contextlib.suppress(OSError, ValueError):
         resource.setrlimit(resource.RLIMIT_CPU, (config.max_cpu_seconds, config.max_cpu_seconds))
-    except (OSError, ValueError):
-        pass
 
     # File size limit
     file_bytes = config.max_file_size_mb * 1024 * 1024
-    try:
+    with contextlib.suppress(OSError, ValueError):
         resource.setrlimit(resource.RLIMIT_FSIZE, (file_bytes, file_bytes))
-    except (OSError, ValueError):
-        pass
 
     # Open file limit
-    try:
+    with contextlib.suppress(OSError, ValueError):
         resource.setrlimit(resource.RLIMIT_NOFILE, (config.max_open_files, config.max_open_files))
-    except (OSError, ValueError):
-        pass
 
 
 def _create_restricted_builtins(config: SandboxConfig) -> dict[str, Any]:
@@ -194,7 +189,13 @@ def _create_restricted_builtins(config: SandboxConfig) -> dict[str, Any]:
     # Wrap __import__ to restrict imports
     original_import = builtins.__import__
 
-    def restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
+    def restricted_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] = (),
+        level: int = 0,
+    ) -> ModuleType:
         # Check blocked imports
         if config.blocked_imports:
             for blocked in config.blocked_imports:
@@ -266,10 +267,8 @@ class AgentSandbox:
         import shutil
 
         for temp_dir in self._temp_dirs:
-            try:
+            with contextlib.suppress(Exception):
                 shutil.rmtree(temp_dir)
-            except Exception:
-                pass
         self._temp_dirs.clear()
 
     def load_agent(
@@ -324,12 +323,14 @@ class AgentSandbox:
 
             # Instantiate agent
             agent = agent_class(manifest)
-            return agent
+            # agent_class is retrieved via getattr(), so mypy sees `Any`; the
+            # issubclass check above guarantees this is actually a BaseAgent.
+            return cast(BaseAgent, agent)
 
         except AgentLoadError:
             raise
         except Exception as e:
-            raise AgentLoadError(f"Failed to load agent: {e}")
+            raise AgentLoadError(f"Failed to load agent: {e}") from e
 
     def load_from_package(self, package_path: Path) -> BaseAgent:
         """Load an agent from a .cvagent package file."""
@@ -347,7 +348,7 @@ def _run_agent_in_process(
     source_files: dict[str, bytes],
     context_json: str,
     config_dict: dict[str, Any],
-    result_queue: multiprocessing.Queue,
+    result_queue: "multiprocessing.Queue[tuple[str, str]]",
 ) -> None:
     """Run agent analysis in a separate process (target for multiprocessing)."""
     try:
@@ -407,7 +408,7 @@ class IsolatedAgentRunner:
         )
 
         # Create result queue
-        result_queue = multiprocessing.Queue()
+        result_queue: multiprocessing.Queue[tuple[str, str]] = multiprocessing.Queue()
 
         # Start process
         process = multiprocessing.Process(

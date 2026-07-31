@@ -237,7 +237,11 @@ class TestFindingsIndex:
         results = index.search(keywords=["injection"])
 
         assert len(results) >= 1
-        assert any("injection" in r.get("title", "").lower() or "injection" in r.get("description", "").lower() for r in results)
+        assert any(
+            "injection" in r.get("title", "").lower()
+            or "injection" in r.get("description", "").lower()
+            for r in results
+        )
 
     def test_search_combined_filters(self, index):
         """Test searching with multiple filters."""

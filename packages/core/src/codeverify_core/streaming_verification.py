@@ -331,17 +331,21 @@ class StreamingVerificationSession:
         import re
 
         for i, line in enumerate(diff.new_code.splitlines(), 1):
-            if "/" in line and "import" not in line and "#" not in line.split("/")[0]:
-                if re.search(r"\b\w+\s*/\s*\w+", line):
-                    findings.append(
-                        {
-                            "line": i,
-                            "message": "Potential division by zero — formal verification required",
-                            "severity": "high",
-                            "stage": "formal",
-                            "file_path": diff.file_path,
-                        }
-                    )
+            if (
+                "/" in line
+                and "import" not in line
+                and "#" not in line.split("/")[0]
+                and re.search(r"\b\w+\s*/\s*\w+", line)
+            ):
+                findings.append(
+                    {
+                        "line": i,
+                        "message": "Potential division by zero — formal verification required",
+                        "severity": "high",
+                        "stage": "formal",
+                        "file_path": diff.file_path,
+                    }
+                )
         return findings
 
     def close(self) -> None:

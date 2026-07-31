@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -23,6 +23,7 @@ logger = structlog.get_logger()
 
 class PlanType(str, Enum):
     """Available pricing plan tiers."""
+
     FREE = "free"
     STARTER = "starter"
     TEAM = "team"
@@ -32,12 +33,14 @@ class PlanType(str, Enum):
 
 class BillingCycle(str, Enum):
     """Billing frequency."""
+
     MONTHLY = "monthly"
     ANNUAL = "annual"
 
 
 class PaymentStatus(str, Enum):
     """Status of a payment or invoice."""
+
     PENDING = "pending"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
@@ -47,6 +50,7 @@ class PaymentStatus(str, Enum):
 
 class SubscriptionStatus(str, Enum):
     """Lifecycle state of a subscription."""
+
     TRIALING = "trialing"
     ACTIVE = "active"
     PAST_DUE = "past_due"
@@ -56,6 +60,7 @@ class SubscriptionStatus(str, Enum):
 
 class SSOProvider(str, Enum):
     """Supported SSO / identity providers."""
+
     OKTA = "okta"
     AZURE_AD = "azure_ad"
     GOOGLE_WORKSPACE = "google_workspace"
@@ -65,6 +70,7 @@ class SSOProvider(str, Enum):
 
 class UsageMetric(str, Enum):
     """Metered resource dimensions."""
+
     VERIFICATIONS = "verifications"
     USERS = "users"
     REPOSITORIES = "repositories"
@@ -78,14 +84,18 @@ class UsageMetric(str, Enum):
 
 # Plan-type ordering for upgrade / downgrade validation
 _PLAN_ORDER: dict[PlanType, int] = {
-    PlanType.FREE: 0, PlanType.STARTER: 1, PlanType.TEAM: 2,
-    PlanType.ENTERPRISE: 3, PlanType.CUSTOM: 4,
+    PlanType.FREE: 0,
+    PlanType.STARTER: 1,
+    PlanType.TEAM: 2,
+    PlanType.ENTERPRISE: 3,
+    PlanType.CUSTOM: 4,
 }
 
 
 @dataclass
 class PricingPlan:
     """A pricing plan with included quotas and feature set."""
+
     id: str
     name: str
     plan_type: PlanType
@@ -104,7 +114,8 @@ class PricingPlan:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "name": self.name,
+            "id": self.id,
+            "name": self.name,
             "plan_type": self.plan_type.value,
             "price_monthly": self.price_monthly,
             "price_annual": self.price_annual,
@@ -119,6 +130,7 @@ class PricingPlan:
 @dataclass
 class Subscription:
     """A tenant's active subscription record."""
+
     id: str
     tenant_id: str
     plan: PricingPlan
@@ -132,7 +144,7 @@ class Subscription:
 
     @property
     def is_trialing(self) -> bool:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return (
             self.status == SubscriptionStatus.TRIALING
             and self.trial_end is not None
@@ -141,11 +153,12 @@ class Subscription:
 
     @property
     def days_remaining(self) -> int:
-        return max(0, (self.current_period_end - datetime.now(timezone.utc)).days)
+        return max(0, (self.current_period_end - datetime.now(UTC)).days)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "tenant_id": self.tenant_id,
+            "id": self.id,
+            "tenant_id": self.tenant_id,
             "plan": self.plan.to_dict(),
             "status": self.status.value,
             "billing_cycle": self.billing_cycle.value,
@@ -159,6 +172,7 @@ class Subscription:
 @dataclass
 class UsageRecord:
     """A single usage data-point for a tenant metric."""
+
     tenant_id: str
     metric: UsageMetric
     value: int
@@ -167,8 +181,10 @@ class UsageRecord:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "tenant_id": self.tenant_id, "metric": self.metric.value,
-            "value": self.value, "timestamp": self.timestamp.isoformat(),
+            "tenant_id": self.tenant_id,
+            "metric": self.metric.value,
+            "value": self.value,
+            "timestamp": self.timestamp.isoformat(),
             "period": self.period,
         }
 
@@ -176,23 +192,27 @@ class UsageRecord:
 @dataclass
 class Invoice:
     """An invoice generated for a billing period."""
+
     id: str
     tenant_id: str
     subscription_id: str
     amount: float
     currency: str = "usd"
     status: PaymentStatus = PaymentStatus.PENDING
-    line_items: list[dict] = field(default_factory=list)
-    issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    line_items: list[dict[str, Any]] = field(default_factory=list)
+    issued_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     due_at: datetime | None = None
     paid_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "tenant_id": self.tenant_id,
+            "id": self.id,
+            "tenant_id": self.tenant_id,
             "subscription_id": self.subscription_id,
-            "amount": round(self.amount, 2), "currency": self.currency,
-            "status": self.status.value, "line_items": self.line_items,
+            "amount": round(self.amount, 2),
+            "currency": self.currency,
+            "status": self.status.value,
+            "line_items": self.line_items,
             "issued_at": self.issued_at.isoformat(),
             "due_at": self.due_at.isoformat() if self.due_at else None,
             "paid_at": self.paid_at.isoformat() if self.paid_at else None,
@@ -202,6 +222,7 @@ class Invoice:
 @dataclass
 class SSOConfig:
     """SSO / SAML configuration for a tenant."""
+
     tenant_id: str
     provider: SSOProvider
     enabled: bool = False
@@ -213,9 +234,12 @@ class SSOConfig:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "tenant_id": self.tenant_id, "provider": self.provider.value,
-            "enabled": self.enabled, "client_id": self.client_id,
-            "issuer_url": self.issuer_url, "metadata_url": self.metadata_url,
+            "tenant_id": self.tenant_id,
+            "provider": self.provider.value,
+            "enabled": self.enabled,
+            "client_id": self.client_id,
+            "issuer_url": self.issuer_url,
+            "metadata_url": self.metadata_url,
             "domain_restriction": self.domain_restriction,
             "auto_provision": self.auto_provision,
         }
@@ -224,6 +248,7 @@ class SSOConfig:
 @dataclass
 class BillingReport:
     """Summary billing report for a tenant period."""
+
     tenant_id: str
     period: str
     plan_name: str
@@ -235,7 +260,8 @@ class BillingReport:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "tenant_id": self.tenant_id, "period": self.period,
+            "tenant_id": self.tenant_id,
+            "period": self.period,
             "plan_name": self.plan_name,
             "base_charge": round(self.base_charge, 2),
             "overage_charges": round(self.overage_charges, 2),
@@ -259,39 +285,75 @@ class PlanCatalog:
 
     def _init_default_plans(self) -> None:
         self._plans[PlanType.FREE] = PricingPlan(
-            id="plan_free", name="Free", plan_type=PlanType.FREE,
-            price_monthly=0.0, price_annual=0.0,
-            included_verifications=100, included_users=3, included_repos=2,
+            id="plan_free",
+            name="Free",
+            plan_type=PlanType.FREE,
+            price_monthly=0.0,
+            price_annual=0.0,
+            included_verifications=100,
+            included_users=3,
+            included_repos=2,
             features=["basic_scanning", "pattern_matching"],
-            overage_rate=0.0, trial_days=0,
+            overage_rate=0.0,
+            trial_days=0,
         )
         self._plans[PlanType.STARTER] = PricingPlan(
-            id="plan_starter", name="Starter", plan_type=PlanType.STARTER,
-            price_monthly=29.0, price_annual=290.0,
-            included_verifications=1000, included_users=10, included_repos=10,
+            id="plan_starter",
+            name="Starter",
+            plan_type=PlanType.STARTER,
+            price_monthly=29.0,
+            price_annual=290.0,
+            included_verifications=1000,
+            included_users=10,
+            included_repos=10,
             features=["basic_scanning", "pattern_matching", "ai_analysis", "api_access"],
-            overage_rate=0.03, trial_days=14,
+            overage_rate=0.03,
+            trial_days=14,
         )
         self._plans[PlanType.TEAM] = PricingPlan(
-            id="plan_team", name="Team", plan_type=PlanType.TEAM,
-            price_monthly=79.0, price_annual=790.0,
-            included_verifications=5000, included_users=50, included_repos=50,
+            id="plan_team",
+            name="Team",
+            plan_type=PlanType.TEAM,
+            price_monthly=79.0,
+            price_annual=790.0,
+            included_verifications=5000,
+            included_users=50,
+            included_repos=50,
             features=[
-                "basic_scanning", "pattern_matching", "ai_analysis",
-                "api_access", "custom_rules", "priority_support",
+                "basic_scanning",
+                "pattern_matching",
+                "ai_analysis",
+                "api_access",
+                "custom_rules",
+                "priority_support",
             ],
-            overage_rate=0.02, trial_days=14,
+            overage_rate=0.02,
+            trial_days=14,
         )
         self._plans[PlanType.ENTERPRISE] = PricingPlan(
-            id="plan_enterprise", name="Enterprise", plan_type=PlanType.ENTERPRISE,
-            price_monthly=249.0, price_annual=2490.0,
-            included_verifications=50000, included_users=999999, included_repos=999999,
+            id="plan_enterprise",
+            name="Enterprise",
+            plan_type=PlanType.ENTERPRISE,
+            price_monthly=249.0,
+            price_annual=2490.0,
+            included_verifications=50000,
+            included_users=999999,
+            included_repos=999999,
             features=[
-                "basic_scanning", "pattern_matching", "ai_analysis", "api_access",
-                "custom_rules", "priority_support", "formal_verification",
-                "sso", "audit_logs", "dedicated_support", "sla_guarantee",
+                "basic_scanning",
+                "pattern_matching",
+                "ai_analysis",
+                "api_access",
+                "custom_rules",
+                "priority_support",
+                "formal_verification",
+                "sso",
+                "audit_logs",
+                "dedicated_support",
+                "sla_guarantee",
             ],
-            overage_rate=0.01, trial_days=30,
+            overage_rate=0.01,
+            trial_days=30,
         )
 
     def get_plan(self, plan_type: PlanType) -> PricingPlan:
@@ -305,15 +367,19 @@ class PlanCatalog:
         """Return all available plans ordered by price."""
         return sorted(self._plans.values(), key=lambda p: p.price_monthly)
 
-    def compare_plans(self) -> list[dict]:
+    def compare_plans(self) -> list[dict[str, Any]]:
         """Return a comparison matrix of all plans."""
         return [
             {
-                "name": p.name, "plan_type": p.plan_type.value,
-                "price_monthly": p.price_monthly, "price_annual": p.price_annual,
+                "name": p.name,
+                "plan_type": p.plan_type.value,
+                "price_monthly": p.price_monthly,
+                "price_annual": p.price_annual,
                 "verifications": p.included_verifications,
-                "users": p.included_users, "repos": p.included_repos,
-                "features": p.features, "overage_rate": p.overage_rate,
+                "users": p.included_users,
+                "repos": p.included_repos,
+                "features": p.features,
+                "overage_rate": p.overage_rate,
             }
             for p in self.get_all_plans()
         ]
@@ -351,7 +417,9 @@ class SubscriptionManager:
         return round(period_price * (sub.days_remaining / total_days), 2)
 
     def create_subscription(
-        self, tenant_id: str, plan_type: PlanType = PlanType.FREE,
+        self,
+        tenant_id: str,
+        plan_type: PlanType = PlanType.FREE,
         billing_cycle: BillingCycle = BillingCycle.MONTHLY,
     ) -> Subscription:
         """Create a new subscription for a tenant."""
@@ -359,7 +427,7 @@ class SubscriptionManager:
             raise ValueError(f"Tenant '{tenant_id}' already has a subscription")
 
         plan = self._catalog.get_plan(plan_type)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub_id = f"sub_{uuid.uuid4().hex[:12]}"
 
         trial_end = None
@@ -369,44 +437,65 @@ class SubscriptionManager:
             status = SubscriptionStatus.TRIALING
 
         sub = Subscription(
-            id=sub_id, tenant_id=tenant_id, plan=plan, status=status,
-            billing_cycle=billing_cycle, current_period_start=now,
+            id=sub_id,
+            tenant_id=tenant_id,
+            plan=plan,
+            status=status,
+            billing_cycle=billing_cycle,
+            current_period_start=now,
             current_period_end=self._period_end(now, billing_cycle),
             trial_end=trial_end,
         )
         self._subscriptions[sub_id] = sub
         self._tenant_subs[tenant_id] = sub_id
-        logger.info("subscription_created", tenant_id=tenant_id, plan=plan_type.value,
-                     cycle=billing_cycle.value, subscription_id=sub_id)
+        logger.info(
+            "subscription_created",
+            tenant_id=tenant_id,
+            plan=plan_type.value,
+            cycle=billing_cycle.value,
+            subscription_id=sub_id,
+        )
         return sub
 
     def upgrade(self, subscription_id: str, new_plan_type: PlanType) -> Subscription:
         """Upgrade a subscription with proration credit applied."""
         sub = self._get_sub(subscription_id)
         if _PLAN_ORDER.get(new_plan_type, 0) <= _PLAN_ORDER.get(sub.plan.plan_type, 0):
-            raise ValueError(f"Cannot upgrade from {sub.plan.plan_type.value} to {new_plan_type.value}")
+            raise ValueError(
+                f"Cannot upgrade from {sub.plan.plan_type.value} to {new_plan_type.value}"
+            )
 
         credit = self._prorate_credit(sub)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub.plan = self._catalog.get_plan(new_plan_type)
         sub.current_period_start = now
         sub.current_period_end = self._period_end(now, sub.billing_cycle)
         sub.status = SubscriptionStatus.ACTIVE
         sub.trial_end = None
-        logger.info("subscription_upgraded", subscription_id=subscription_id,
-                     new_plan=new_plan_type.value, proration_credit=credit)
+        logger.info(
+            "subscription_upgraded",
+            subscription_id=subscription_id,
+            new_plan=new_plan_type.value,
+            proration_credit=credit,
+        )
         return sub
 
     def downgrade(self, subscription_id: str, new_plan_type: PlanType) -> Subscription:
         """Schedule a downgrade effective at the end of the current period."""
         sub = self._get_sub(subscription_id)
         if _PLAN_ORDER.get(new_plan_type, 0) >= _PLAN_ORDER.get(sub.plan.plan_type, 0):
-            raise ValueError(f"Cannot downgrade from {sub.plan.plan_type.value} to {new_plan_type.value}")
+            raise ValueError(
+                f"Cannot downgrade from {sub.plan.plan_type.value} to {new_plan_type.value}"
+            )
 
         sub.plan = self._catalog.get_plan(new_plan_type)
         sub.cancel_at_period_end = False
-        logger.info("subscription_downgraded", subscription_id=subscription_id,
-                     new_plan=new_plan_type.value, effective_at=sub.current_period_end.isoformat())
+        logger.info(
+            "subscription_downgraded",
+            subscription_id=subscription_id,
+            new_plan=new_plan_type.value,
+            effective_at=sub.current_period_end.isoformat(),
+        )
         return sub
 
     def cancel(self, subscription_id: str, at_period_end: bool = True) -> Subscription:
@@ -414,8 +503,11 @@ class SubscriptionManager:
         sub = self._get_sub(subscription_id)
         if at_period_end:
             sub.cancel_at_period_end = True
-            logger.info("subscription_cancel_scheduled", subscription_id=subscription_id,
-                         effective_at=sub.current_period_end.isoformat())
+            logger.info(
+                "subscription_cancel_scheduled",
+                subscription_id=subscription_id,
+                effective_at=sub.current_period_end.isoformat(),
+            )
         else:
             sub.status = SubscriptionStatus.CANCELED
             sub.cancel_at_period_end = False
@@ -426,12 +518,15 @@ class SubscriptionManager:
         """Renew a subscription for another period."""
         sub = self._get_sub(subscription_id)
         sub.cancel_at_period_end = False
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sub.current_period_start = now
         sub.current_period_end = self._period_end(now, sub.billing_cycle)
         sub.status = SubscriptionStatus.ACTIVE
-        logger.info("subscription_renewed", subscription_id=subscription_id,
-                     new_period_end=sub.current_period_end.isoformat())
+        logger.info(
+            "subscription_renewed",
+            subscription_id=subscription_id,
+            new_period_end=sub.current_period_end.isoformat(),
+        )
         return sub
 
     def check_limits(self, tenant_id: str, metric: UsageMetric) -> tuple[bool, int, int]:
@@ -474,21 +569,28 @@ class UsageMeter:
 
     @staticmethod
     def _current_period() -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return f"{now.year}-{now.month:02d}"
 
     def record_usage(self, tenant_id: str, metric: UsageMetric, amount: int = 1) -> UsageRecord:
         """Record *amount* units of *metric* for *tenant_id*."""
         period = self._current_period()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         period_usage = self._usage.setdefault(tenant_id, {}).setdefault(period, {})
         period_usage[metric] = period_usage.get(metric, 0) + amount
 
-        record = UsageRecord(tenant_id=tenant_id, metric=metric, value=amount,
-                             timestamp=now, period=period)
+        record = UsageRecord(
+            tenant_id=tenant_id, metric=metric, value=amount, timestamp=now, period=period
+        )
         self._records.append(record)
-        logger.debug("usage_recorded", tenant_id=tenant_id, metric=metric.value,
-                      amount=amount, period=period, new_total=period_usage[metric])
+        logger.debug(
+            "usage_recorded",
+            tenant_id=tenant_id,
+            metric=metric.value,
+            amount=amount,
+            period=period,
+            new_total=period_usage[metric],
+        )
         return record
 
     def get_usage(self, tenant_id: str, metric: UsageMetric, period: str | None = None) -> int:
@@ -534,23 +636,31 @@ class InvoiceGenerator:
         """Create an invoice for the current period."""
         plan = subscription.plan
         base = plan.effective_price(subscription.billing_cycle)
-        line_items: list[dict] = [
-            {"description": f"{plan.name} plan ({subscription.billing_cycle.value})", "amount": base},
+        line_items: list[dict[str, Any]] = [
+            {
+                "description": f"{plan.name} plan ({subscription.billing_cycle.value})",
+                "amount": base,
+            },
         ]
         overage = self.calculate_overages(plan, usage)
         if overage > 0:
             line_items.append({"description": "Overage charges", "amount": round(overage, 2)})
 
         total = round(base + overage, 2)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         inv = Invoice(
-            id=f"inv_{uuid.uuid4().hex[:12]}", tenant_id=subscription.tenant_id,
-            subscription_id=subscription.id, amount=total,
-            line_items=line_items, issued_at=now, due_at=now + timedelta(days=15),
+            id=f"inv_{uuid.uuid4().hex[:12]}",
+            tenant_id=subscription.tenant_id,
+            subscription_id=subscription.id,
+            amount=total,
+            line_items=line_items,
+            issued_at=now,
+            due_at=now + timedelta(days=15),
         )
         self._invoices[inv.id] = inv
-        logger.info("invoice_generated", invoice_id=inv.id,
-                     tenant_id=subscription.tenant_id, amount=total)
+        logger.info(
+            "invoice_generated", invoice_id=inv.id, tenant_id=subscription.tenant_id, amount=total
+        )
         return inv
 
     def calculate_overages(self, plan: PricingPlan, usage: dict[str, int]) -> float:
@@ -574,9 +684,13 @@ class InvoiceGenerator:
         usage_summary = self._usage_meter.get_usage_summary(tenant_id, period)
         overage = self.calculate_overages(plan, usage_summary)
         return BillingReport(
-            tenant_id=tenant_id, period=period, plan_name=plan.name,
-            base_charge=base, overage_charges=overage,
-            total=round(base + overage, 2), usage_summary=usage_summary,
+            tenant_id=tenant_id,
+            period=period,
+            plan_name=plan.name,
+            base_charge=base,
+            overage_charges=overage,
+            total=round(base + overage, 2),
+            usage_summary=usage_summary,
             projected_next_month=self.project_next_month(tenant_id),
         )
 
@@ -589,7 +703,7 @@ class InvoiceGenerator:
             return 0.0
         plan = sub.plan
         base = plan.effective_price(sub.billing_cycle)
-        day_of_month = max(datetime.now(timezone.utc).day, 1)
+        day_of_month = max(datetime.now(UTC).day, 1)
         verifications = self._usage_meter.get_usage(tenant_id, UsageMetric.VERIFICATIONS)
         projected = int(verifications * (30 / day_of_month))
         excess = max(0, projected - plan.included_verifications)
@@ -608,13 +722,20 @@ class SSOManager:
         self._configs: dict[str, SSOConfig] = {}
 
     def configure_sso(
-        self, tenant_id: str, provider: SSOProvider,
-        client_id: str, issuer_url: str, **kwargs: Any,
+        self,
+        tenant_id: str,
+        provider: SSOProvider,
+        client_id: str,
+        issuer_url: str,
+        **kwargs: Any,
     ) -> SSOConfig:
         """Create or update SSO configuration for a tenant."""
         config = SSOConfig(
-            tenant_id=tenant_id, provider=provider, enabled=True,
-            client_id=client_id, issuer_url=issuer_url,
+            tenant_id=tenant_id,
+            provider=provider,
+            enabled=True,
+            client_id=client_id,
+            issuer_url=issuer_url,
             metadata_url=kwargs.get("metadata_url", ""),
             domain_restriction=kwargs.get("domain_restriction"),
             auto_provision=kwargs.get("auto_provision", True),
@@ -623,7 +744,7 @@ class SSOManager:
         logger.info("sso_configured", tenant_id=tenant_id, provider=provider.value)
         return config
 
-    def validate_sso_token(self, tenant_id: str, token: str) -> dict | None:
+    def validate_sso_token(self, tenant_id: str, token: str) -> dict[str, Any] | None:
         """Validate an SSO token and return decoded claims.
 
         In production this would verify the JWT signature against the
@@ -639,15 +760,21 @@ class SSOManager:
 
         domain = config.domain_restriction or "example.com"
         claims: dict[str, Any] = {
-            "sub": f"user@{domain}", "iss": config.issuer_url,
-            "aud": config.client_id, "tenant_id": tenant_id,
+            "sub": f"user@{domain}",
+            "iss": config.issuer_url,
+            "aud": config.client_id,
+            "tenant_id": tenant_id,
             "provider": config.provider.value,
         }
         if config.domain_restriction:
             email_domain = claims["sub"].split("@")[-1]
             if email_domain != config.domain_restriction:
-                logger.warning("sso_domain_mismatch", tenant_id=tenant_id,
-                               expected=config.domain_restriction, got=email_domain)
+                logger.warning(
+                    "sso_domain_mismatch",
+                    tenant_id=tenant_id,
+                    expected=config.domain_restriction,
+                    got=email_domain,
+                )
                 return None
         logger.info("sso_token_validated", tenant_id=tenant_id)
         return claims
@@ -689,14 +816,16 @@ class SaaSBillingEngine:
         self.invoices.set_subscription_manager(self.subscriptions)
         self.invoices.set_usage_meter(self.usage)
 
-    def onboard_tenant(self, tenant_name: str, plan_type: PlanType = PlanType.FREE) -> dict:
+    def onboard_tenant(
+        self, tenant_name: str, plan_type: PlanType = PlanType.FREE
+    ) -> dict[str, Any]:
         """Provision a new tenant with a subscription."""
         tenant_id = f"tenant_{uuid.uuid4().hex[:12]}"
         sub = self.subscriptions.create_subscription(tenant_id, plan_type)
-        logger.info("tenant_onboarded", tenant_id=tenant_id,
-                     tenant_name=tenant_name, plan=plan_type.value)
-        return {"tenant_id": tenant_id, "tenant_name": tenant_name,
-                "subscription": sub.to_dict()}
+        logger.info(
+            "tenant_onboarded", tenant_id=tenant_id, tenant_name=tenant_name, plan=plan_type.value
+        )
+        return {"tenant_id": tenant_id, "tenant_name": tenant_name, "subscription": sub.to_dict()}
 
     def process_verification(self, tenant_id: str) -> tuple[bool, str]:
         """Check quota and record a verification. Returns (allowed, reason)."""
@@ -710,7 +839,7 @@ class SaaSBillingEngine:
         self.usage.record_usage(tenant_id, UsageMetric.VERIFICATIONS)
         return True, f"OK: {used + 1}/{limit} verifications used"
 
-    def get_dashboard_data(self, tenant_id: str) -> dict:
+    def get_dashboard_data(self, tenant_id: str) -> dict[str, Any]:
         """Return a summary dashboard payload for the tenant."""
         sub = self.subscriptions.get_subscription_for_tenant(tenant_id)
         if sub is None:
@@ -720,13 +849,16 @@ class SaaSBillingEngine:
         for metric in [UsageMetric.VERIFICATIONS, UsageMetric.USERS, UsageMetric.REPOSITORIES]:
             within, used, limit = self.usage.check_quota(tenant_id, metric)
             quotas[metric.value] = {
-                "used": used, "limit": limit, "within_limit": within,
+                "used": used,
+                "limit": limit,
+                "within_limit": within,
                 "percent_used": round(used / limit * 100, 1) if limit > 0 else 0.0,
             }
 
         sso_config = self.sso.get_sso_config(tenant_id)
         return {
-            "tenant_id": tenant_id, "subscription": sub.to_dict(),
+            "tenant_id": tenant_id,
+            "subscription": sub.to_dict(),
             "usage": self.usage.get_usage_summary(tenant_id),
             "quotas": quotas,
             "projected_cost": self.invoices.project_next_month(tenant_id),

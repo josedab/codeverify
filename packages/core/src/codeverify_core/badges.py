@@ -168,7 +168,9 @@ class VerificationAttestation(BaseModel):
     parent_attestation_id: UUID | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @computed_field
+    # mypy cannot type-check a decorator stacked on @property (python/mypy#14461);
+    # this is pydantic's documented pattern for a computed, read-only serialized field.
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def attestation_hash(self) -> str:
         """Compute hash of attestation content for verification."""
@@ -287,25 +289,33 @@ class Badge(BaseModel):
     config: BadgeConfig = Field(default_factory=BadgeConfig)
     token: str = Field(default_factory=lambda: secrets.token_urlsafe(16))
 
-    @computed_field
+    # mypy cannot type-check a decorator stacked on @property (python/mypy#14461);
+    # this is pydantic's documented pattern for a computed, read-only serialized field.
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def embed_url(self) -> str:
         """URL to embed badge in markdown/HTML."""
         return f"https://codeverify.dev/badge/{self.token}.svg"
 
-    @computed_field
+    # mypy cannot type-check a decorator stacked on @property (python/mypy#14461);
+    # this is pydantic's documented pattern for a computed, read-only serialized field.
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def verify_url(self) -> str:
         """URL to verify badge authenticity."""
         return f"https://codeverify.dev/verify/{self.token}"
 
-    @computed_field
+    # mypy cannot type-check a decorator stacked on @property (python/mypy#14461);
+    # this is pydantic's documented pattern for a computed, read-only serialized field.
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def markdown(self) -> str:
         """Markdown snippet for embedding."""
         return f"[![CodeVerify]({self.embed_url})]({self.verify_url})"
 
-    @computed_field
+    # mypy cannot type-check a decorator stacked on @property (python/mypy#14461);
+    # this is pydantic's documented pattern for a computed, read-only serialized field.
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def html(self) -> str:
         """HTML snippet for embedding."""

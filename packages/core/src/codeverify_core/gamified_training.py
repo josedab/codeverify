@@ -14,11 +14,10 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -53,6 +52,7 @@ class BadgeType(str, Enum):
 @dataclass
 class WeaknessArea:
     """A developer's weakness area based on finding history."""
+
     category: str = ""
     finding_count: int = 0
     last_occurrence: datetime | None = None
@@ -62,6 +62,7 @@ class WeaknessArea:
 @dataclass
 class TrainingLesson:
     """A micro-lesson for a specific weakness."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     category: str = ""
     title: str = ""
@@ -74,6 +75,7 @@ class TrainingLesson:
 @dataclass
 class FixChallenge:
     """An interactive fix-it challenge."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     category: str = ""
     title: str = ""
@@ -89,6 +91,7 @@ class FixChallenge:
 @dataclass
 class DeveloperProgress:
     """Progress tracking for a developer."""
+
     developer_id: str = ""
     developer_name: str = ""
     lessons_completed: int = 0
@@ -105,6 +108,7 @@ class DeveloperProgress:
 @dataclass
 class TeamLeaderboard:
     """Team leaderboard data."""
+
     team_name: str = ""
     entries: list[dict[str, Any]] = field(default_factory=list)
     total_challenges_completed: int = 0
@@ -179,7 +183,7 @@ CHALLENGE_TEMPLATES: dict[str, FixChallenge] = {
         category="injection",
         title="Fix the SQL Injection",
         description="This query is vulnerable to SQL injection.",
-        buggy_code='def get_user(name):\n    query = f"SELECT * FROM users WHERE name = \'{name}\'"',
+        buggy_code="def get_user(name):\n    query = f\"SELECT * FROM users WHERE name = '{name}'\"",
         expected_fix_pattern="parameterized",
         hint="Never use f-strings in SQL queries",
         points=20,
@@ -191,7 +195,7 @@ class CurriculumGenerator:
     """Generates personalized training curricula."""
 
     def generate(
-        self, weakness_areas: list[WeaknessArea], skill_level: SkillLevel
+        self, weakness_areas: list[WeaknessArea], _skill_level: SkillLevel
     ) -> list[TrainingLesson]:
         """Generate lessons targeting weakness areas."""
         lessons: list[TrainingLesson] = []
@@ -204,19 +208,20 @@ class CurriculumGenerator:
 
         return lessons
 
-    def generate_challenges(
-        self, weakness_areas: list[WeaknessArea]
-    ) -> list[FixChallenge]:
+    def generate_challenges(self, weakness_areas: list[WeaknessArea]) -> list[FixChallenge]:
         """Generate fix-it challenges for weakness areas."""
         challenges: list[FixChallenge] = []
         for area in weakness_areas[:3]:
             template = CHALLENGE_TEMPLATES.get(area.category)
             if template:
                 challenge = FixChallenge(
-                    category=template.category, title=template.title,
-                    description=template.description, buggy_code=template.buggy_code,
+                    category=template.category,
+                    title=template.title,
+                    description=template.description,
+                    buggy_code=template.buggy_code,
                     expected_fix_pattern=template.expected_fix_pattern,
-                    hint=template.hint, points=template.points,
+                    hint=template.hint,
+                    points=template.points,
                     difficulty=template.difficulty,
                 )
                 challenges.append(challenge)
@@ -270,7 +275,7 @@ class GamifiedTrainingService:
         challenge = next((c for c in challenges if c.id == challenge_id), None)
         if not challenge:
             # Check templates by category match
-            for cat, template in CHALLENGE_TEMPLATES.items():
+            for _cat, template in CHALLENGE_TEMPLATES.items():
                 if template.expected_fix_pattern in submitted_code:
                     challenge = template
                     break
@@ -280,7 +285,7 @@ class GamifiedTrainingService:
             progress.total_points += challenge.points
             progress.current_streak += 1
             progress.longest_streak = max(progress.longest_streak, progress.current_streak)
-            progress.last_activity = datetime.now(timezone.utc)
+            progress.last_activity = datetime.now(UTC)
 
             if progress.challenges_completed == 1 and BadgeType.FIRST_FIX not in progress.badges:
                 progress.badges.append(BadgeType.FIRST_FIX)
@@ -297,21 +302,29 @@ class GamifiedTrainingService:
         return self._developers.get(developer_id)
 
     def get_leaderboard(self, team_name: str = "default") -> TeamLeaderboard:
+        unsorted_entries: list[dict[str, Any]] = [
+            {
+                "name": p.developer_name or p.developer_id,
+                "points": p.total_points,
+                "challenges": p.challenges_completed,
+                "streak": p.current_streak,
+                "badges": len(p.badges),
+            }
+            for p in self._developers.values()
+        ]
         entries = sorted(
-            [{"name": p.developer_name or p.developer_id,
-              "points": p.total_points,
-              "challenges": p.challenges_completed,
-              "streak": p.current_streak,
-              "badges": len(p.badges)}
-             for p in self._developers.values()],
-            key=lambda x: x["points"], reverse=True,
+            unsorted_entries,
+            key=lambda x: x["points"],
+            reverse=True,
         )
         total = sum(e["challenges"] for e in entries)
         avg = sum(e["points"] for e in entries) / len(entries) if entries else 0
 
         return TeamLeaderboard(
-            team_name=team_name, entries=entries,
-            total_challenges_completed=total, avg_points=round(avg, 1),
+            team_name=team_name,
+            entries=entries,
+            total_challenges_completed=total,
+            avg_points=round(avg, 1),
         )
 
     def _get_or_create(self, developer_id: str) -> DeveloperProgress:
@@ -332,11 +345,13 @@ class GamifiedTrainingService:
 
 _training_instance: GamifiedTrainingService | None = None
 
+
 def get_gamified_training_service() -> GamifiedTrainingService:
     global _training_instance
     if _training_instance is None:
         _training_instance = GamifiedTrainingService()
     return _training_instance
+
 
 def reset_gamified_training_service() -> None:
     global _training_instance

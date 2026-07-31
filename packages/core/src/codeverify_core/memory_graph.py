@@ -9,6 +9,7 @@ This module provides:
 """
 
 import hashlib
+import math
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -157,9 +158,11 @@ class PatternFingerprint(BaseModel):
             return 0.0
 
         # Cosine similarity
-        dot_product = sum(a * b for a, b in zip(self.similarity_vector, other.similarity_vector))
-        norm_a = sum(a * a for a in self.similarity_vector) ** 0.5
-        norm_b = sum(b * b for b in other.similarity_vector) ** 0.5
+        dot_product = sum(
+            a * b for a, b in zip(self.similarity_vector, other.similarity_vector, strict=True)
+        )
+        norm_a = math.sqrt(sum(a * a for a in self.similarity_vector))
+        norm_b = math.sqrt(sum(b * b for b in other.similarity_vector))
 
         if norm_a == 0 or norm_b == 0:
             return 0.0
@@ -479,7 +482,7 @@ class VerificationKnowledgeGraph:
     async def invalidate_proofs_for_file(self, file_path: str) -> int:
         """Invalidate all proofs for a file that changed."""
         count = 0
-        for node_id, node in list(self._nodes.items()):
+        for _node_id, node in list(self._nodes.items()):
             if node.node_type == GraphNodeType.PROOF:
                 proof_id = UUID(node.data.get("proof_id", ""))
                 proof = await self.storage.get(proof_id)
@@ -510,7 +513,6 @@ class VerificationKnowledgeGraph:
 
         # Calculate confidence from proof statistics
         verified_count = 0
-        total_uses = 0
         invalidations = 0
 
         for proof_node in proof_nodes:
@@ -568,8 +570,8 @@ class VerificationKnowledgeGraph:
 
     def get_statistics(self) -> dict[str, Any]:
         """Get graph statistics."""
-        node_counts = defaultdict(int)
-        edge_counts = defaultdict(int)
+        node_counts: defaultdict[str, int] = defaultdict(int)
+        edge_counts: defaultdict[str, int] = defaultdict(int)
 
         for node in self._nodes.values():
             node_counts[node.node_type.value] += 1
@@ -669,7 +671,7 @@ class CrossProjectLearner:
                         suggestions.append((p, confidence, True))
 
         # Add global high-confidence patterns
-        for p, (successes, failures) in self._pattern_success_rate.items():
+        for p, (_successes, _failures) in self._pattern_success_rate.items():
             if p != pattern_hash and p not in [s[0] for s in suggestions]:
                 confidence = self.get_pattern_confidence(p)
                 if confidence > 0.8:
@@ -721,7 +723,7 @@ def compute_pattern_hash(
     return hashlib.md5(pattern_str.encode()).hexdigest()
 
 
-def extract_pattern_fingerprint(code: str, language: str) -> PatternFingerprint:
+def extract_pattern_fingerprint(code: str, _language: str) -> PatternFingerprint:
     """Extract pattern fingerprint from code.
 
     This is a simplified version - production would use proper AST analysis.

@@ -15,13 +15,11 @@ Features:
 from __future__ import annotations
 
 import math
-import statistics
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -46,6 +44,7 @@ class PredictionOutcome(str, Enum):
 @dataclass
 class FindingFeedback:
     """Feedback on a specific finding."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     org_id: str = ""
     finding_category: str = ""
@@ -53,12 +52,13 @@ class FindingFeedback:
     rule_id: str = ""
     file_path: str = ""
     feedback_type: FeedbackType = FeedbackType.ACCEPTED
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class RulePerformance:
     """Performance metrics for a single rule."""
+
     rule_id: str = ""
     total_findings: int = 0
     accepted: int = 0
@@ -82,6 +82,7 @@ class RulePerformance:
 @dataclass
 class SeverityCalibration:
     """Calibrated severity for a rule based on feedback."""
+
     rule_id: str = ""
     original_severity: str = ""
     calibrated_severity: str = ""
@@ -92,6 +93,7 @@ class SeverityCalibration:
 @dataclass
 class QualityPrediction:
     """Predicted quality outcome for a code change."""
+
     file_path: str = ""
     outcome: PredictionOutcome = PredictionOutcome.MEDIUM_RISK
     risk_score: float = 0.5
@@ -103,6 +105,7 @@ class QualityPrediction:
 @dataclass
 class OrgLearningProfile:
     """Learned profile for an organization."""
+
     org_id: str = ""
     total_feedback: int = 0
     rule_performance: dict[str, RulePerformance] = field(default_factory=dict)
@@ -162,12 +165,19 @@ class SeverityCalibrator:
         """Calibrate severity based on feedback patterns."""
         if not feedback_history:
             return SeverityCalibration(
-                rule_id=rule_id, original_severity=original,
-                calibrated_severity=original, confidence=0.0, sample_size=0,
+                rule_id=rule_id,
+                original_severity=original,
+                calibrated_severity=original,
+                confidence=0.0,
+                sample_size=0,
             )
 
-        fp_count = sum(1 for f in feedback_history if f.feedback_type == FeedbackType.FALSE_POSITIVE)
-        dismiss_count = sum(1 for f in feedback_history if f.feedback_type == FeedbackType.DISMISSED)
+        fp_count = sum(
+            1 for f in feedback_history if f.feedback_type == FeedbackType.FALSE_POSITIVE
+        )
+        dismiss_count = sum(
+            1 for f in feedback_history if f.feedback_type == FeedbackType.DISMISSED
+        )
         total = len(feedback_history)
         noise_rate = (fp_count + dismiss_count) / total
 
@@ -180,7 +190,8 @@ class SeverityCalibrator:
             calibrated = original
 
         return SeverityCalibration(
-            rule_id=rule_id, original_severity=original,
+            rule_id=rule_id,
+            original_severity=original,
             calibrated_severity=calibrated,
             confidence=round(1.0 - noise_rate, 3),
             sample_size=total,
@@ -218,10 +229,12 @@ class QualityPredictor:
         predicted_findings = int(risk_score * 10 * (change_size / 100))
 
         return QualityPrediction(
-            file_path=file_path, outcome=outcome,
+            file_path=file_path,
+            outcome=outcome,
             risk_score=round(risk_score, 3),
             predicted_findings=predicted_findings,
-            confidence=0.6, factors=factors,
+            confidence=0.6,
+            factors=factors,
         )
 
 
@@ -277,12 +290,16 @@ class OrgLearningService:
         # Identify noisy rules
         noisy = [r_id for r_id, rp in profile.rule_performance.items() if rp.fp_rate > 0.5]
         profile.noisy_categories = noisy
-        profile.suppressed_rules = [r_id for r_id, rp in profile.rule_performance.items() if rp.fp_rate > 0.8]
-        profile.last_trained = datetime.now(timezone.utc)
+        profile.suppressed_rules = [
+            r_id for r_id, rp in profile.rule_performance.items() if rp.fp_rate > 0.8
+        ]
+        profile.last_trained = datetime.now(UTC)
 
         return profile
 
-    def should_suppress(self, org_id: str, rule_id: str, features: dict[str, float] | None = None) -> bool:
+    def should_suppress(
+        self, org_id: str, rule_id: str, features: dict[str, float] | None = None
+    ) -> bool:
         """Check if a finding should be suppressed based on learning."""
         profile = self._profiles.get(org_id)
         if profile and rule_id in profile.suppressed_rules:
@@ -292,7 +309,7 @@ class OrgLearningService:
         return False
 
     def predict_quality(
-        self, file_path: str, change_size: int, org_id: str = ""
+        self, file_path: str, change_size: int, _org_id: str = ""
     ) -> QualityPrediction:
         return self._predictor.predict(file_path, change_size)
 

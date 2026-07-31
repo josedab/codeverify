@@ -125,7 +125,7 @@ class MockCompletions:
     def __init__(self, response: str) -> None:
         self._response = response
 
-    def create(self, **kwargs) -> MockChatCompletion:
+    def create(self, **_kwargs) -> MockChatCompletion:
         return MockChatCompletion(content=self._response)
 
 
@@ -157,7 +157,7 @@ class MockMessages:
     def __init__(self, response: str) -> None:
         self._response = response
 
-    def create(self, **kwargs) -> MockAnthropicResponse:
+    def create(self, **_kwargs) -> MockAnthropicResponse:
         return MockAnthropicResponse(content=[type("Content", (), {"text": self._response})()])
 
 

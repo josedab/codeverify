@@ -50,6 +50,7 @@ class VerificationScope(str, Enum):
     EVENT_PAYLOAD = "event_payload"
     DATABASE_SCHEMA = "database_schema"
 
+
 # =============================================================================
 # Data Classes
 # =============================================================================
@@ -69,8 +70,10 @@ class UniversalType:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "name": self.name, "language": self.language.value,
-            "native_type": self.native_type, "nullable": self.nullable,
+            "name": self.name,
+            "language": self.language.value,
+            "native_type": self.native_type,
+            "nullable": self.nullable,
             "generic_params": [p.to_dict() for p in self.generic_params],
             "properties": {k: v.to_dict() for k, v in self.properties.items()},
             "constraints": self.constraints,
@@ -92,11 +95,14 @@ class ContractEndpoint:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "name": self.name, "language": self.language.value,
-            "file_path": self.file_path, "line": self.line,
+            "name": self.name,
+            "language": self.language.value,
+            "file_path": self.file_path,
+            "line": self.line,
             "parameters": {k: v.to_dict() for k, v in self.parameters.items()},
             "return_type": self.return_type.to_dict() if self.return_type else None,
-            "preconditions": self.preconditions, "postconditions": self.postconditions,
+            "preconditions": self.preconditions,
+            "postconditions": self.postconditions,
         }
 
 
@@ -118,8 +124,10 @@ class ContractViolation:
             "violation_type": self.violation_type.value,
             "source_endpoint": self.source_endpoint.name,
             "target_endpoint": self.target_endpoint.name,
-            "description": self.description, "severity": self.severity,
-            "source_type": self.source_type, "target_type": self.target_type,
+            "description": self.description,
+            "severity": self.severity,
+            "source_type": self.source_type,
+            "target_type": self.target_type,
             "fix_suggestion": self.fix_suggestion,
         }
 
@@ -138,10 +146,13 @@ class TypeMapping:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "source_lang": self.source_lang.value, "target_lang": self.target_lang.value,
-            "source_type": self.source_type, "target_type": self.target_type,
+            "source_lang": self.source_lang.value,
+            "target_lang": self.target_lang.value,
+            "source_type": self.source_type,
+            "target_type": self.target_type,
             "compatibility": self.compatibility.value,
-            "coercion_needed": self.coercion_needed, "coercion_code": self.coercion_code,
+            "coercion_needed": self.coercion_needed,
+            "coercion_code": self.coercion_code,
         }
 
 
@@ -166,8 +177,10 @@ class CrossLanguageContractReport:
             "type_mappings": [m.to_dict() for m in self.type_mappings],
             "compatible_endpoints": self.compatible_endpoints,
             "total_endpoints": self.total_endpoints,
-            "risk_score": self.risk_score, "recommendations": self.recommendations,
+            "risk_score": self.risk_score,
+            "recommendations": self.recommendations,
         }
+
 
 # =============================================================================
 # Type Equivalence Tables
@@ -181,40 +194,49 @@ _RS = ContractLanguage.RUST
 
 _TYPE_EQUIVALENTS: dict[ContractLanguage, dict[str, list[str]]] = {
     _PY: {
-        "str": ["string", "String"], "int": ["number", "i32", "i64", "Integer"],
+        "str": ["string", "String"],
+        "int": ["number", "i32", "i64", "Integer"],
         "float": ["number", "f32", "f64", "double", "Double"],
-        "bool": ["boolean", "Bool"], "list": ["Array", "Vec", "List", "ArrayList"],
+        "bool": ["boolean", "Bool"],
+        "list": ["Array", "Vec", "List", "ArrayList"],
         "dict": ["Record", "object", "Map", "HashMap"],
         "None": ["void", "undefined", "null", "()", "Void"],
         "bytes": ["Buffer", "Uint8Array", "[]byte", "Vec<u8>"],
         "Any": ["any", "unknown", "interface{}", "Object"],
     },
     _TS: {
-        "string": ["str", "String"], "number": ["int", "float", "i32", "i64", "f64"],
-        "boolean": ["bool", "Bool"], "Array": ["list", "Vec", "List", "ArrayList"],
+        "string": ["str", "String"],
+        "number": ["int", "float", "i32", "i64", "f64"],
+        "boolean": ["bool", "Bool"],
+        "Array": ["list", "Vec", "List", "ArrayList"],
         "Record": ["dict", "Map", "HashMap", "object"],
         "void": ["None", "null", "()", "Void"],
         "any": ["Any", "unknown", "interface{}", "Object"],
         "Buffer": ["bytes", "[]byte", "Vec<u8>", "Uint8Array"],
     },
     _GO: {
-        "string": ["str", "String"], "int": ["int", "number", "Integer"],
+        "string": ["str", "String"],
+        "int": ["int", "number", "Integer"],
         "float64": ["float", "number", "f64", "Double"],
         "bool": ["bool", "boolean", "Bool"],
         "[]byte": ["bytes", "Buffer", "Uint8Array"],
         "interface{}": ["Any", "any", "unknown", "Object"],
     },
     _JV: {
-        "String": ["str", "string"], "int": ["int", "number", "i32"],
-        "long": ["int", "number", "i64"], "double": ["float", "number", "f64"],
+        "String": ["str", "string"],
+        "int": ["int", "number", "i32"],
+        "long": ["int", "number", "i64"],
+        "double": ["float", "number", "f64"],
         "boolean": ["bool", "boolean", "Bool"],
         "List": ["list", "Array", "Vec", "ArrayList"],
         "Map": ["dict", "Record", "HashMap", "object"],
         "void": ["None", "void", "undefined", "()"],
     },
     _RS: {
-        "String": ["str", "string"], "i32": ["int", "number", "Integer"],
-        "i64": ["int", "number", "long"], "f64": ["float", "number", "double"],
+        "String": ["str", "string"],
+        "i32": ["int", "number", "Integer"],
+        "i64": ["int", "number", "long"],
+        "f64": ["float", "number", "double"],
         "bool": ["bool", "boolean", "Bool"],
         "Vec": ["list", "Array", "List", "ArrayList"],
         "HashMap": ["dict", "Record", "Map", "object"],
@@ -223,8 +245,13 @@ _TYPE_EQUIVALENTS: dict[ContractLanguage, dict[str, list[str]]] = {
 }
 
 _COERCIBLE_PAIRS: list[tuple[str, str]] = [
-    ("int", "float"), ("int", "number"), ("float", "number"),
-    ("i32", "f64"), ("i64", "f64"), ("int", "string"), ("str", "bytes"),
+    ("int", "float"),
+    ("int", "number"),
+    ("float", "number"),
+    ("i32", "f64"),
+    ("i64", "f64"),
+    ("int", "string"),
+    ("str", "bytes"),
 ]
 
 # =============================================================================
@@ -245,8 +272,10 @@ class TypeMapper:
         for target_native, aliases in target_equivs.items():
             if source_type.native_type in aliases or source_type.native_type == target_native:
                 return TypeMapping(
-                    source_lang=source_type.language, target_lang=target_lang,
-                    source_type=source_type.native_type, target_type=target_native,
+                    source_lang=source_type.language,
+                    target_lang=target_lang,
+                    source_type=source_type.native_type,
+                    target_type=target_native,
                     compatibility=TypeCompatibility.COMPATIBLE,
                 )
         # Check coercible pairs
@@ -256,22 +285,31 @@ class TypeMapper:
                 for tn, ta in target_equivs.items():
                     if tn == tgt or tgt in ta:
                         return TypeMapping(
-                            source_lang=source_type.language, target_lang=target_lang,
-                            source_type=source_type.native_type, target_type=tn,
-                            compatibility=TypeCompatibility.COERCIBLE, coercion_needed=True,
+                            source_lang=source_type.language,
+                            target_lang=target_lang,
+                            source_type=source_type.native_type,
+                            target_type=tn,
+                            compatibility=TypeCompatibility.COERCIBLE,
+                            coercion_needed=True,
                             coercion_code=f"Convert {source_type.native_type} to {tn}",
                         )
         logger.warning(
-            "no_type_mapping", source_type=source_type.native_type,
-            source_lang=source_type.language.value, target_lang=target_lang.value,
+            "no_type_mapping",
+            source_type=source_type.native_type,
+            source_lang=source_type.language.value,
+            target_lang=target_lang.value,
         )
         return TypeMapping(
-            source_lang=source_type.language, target_lang=target_lang,
-            source_type=source_type.native_type, target_type="unknown",
+            source_lang=source_type.language,
+            target_lang=target_lang,
+            source_type=source_type.native_type,
+            target_type="unknown",
             compatibility=TypeCompatibility.UNKNOWN,
         )
 
-    def check_compatibility(self, source: UniversalType, target: UniversalType) -> TypeCompatibility:
+    def check_compatibility(
+        self, source: UniversalType, target: UniversalType
+    ) -> TypeCompatibility:
         """Check whether two universal types are compatible."""
         if source.native_type == target.native_type:
             if not self._check_nullability_compat(source, target):
@@ -290,7 +328,9 @@ class TypeMapper:
             return TypeCompatibility.COMPATIBLE
 
         for src, tgt in self._coercible:
-            if (source.native_type == src or src in src_eq) and (target.native_type == tgt or tgt in tgt_eq):
+            if (source.native_type == src or src in src_eq) and (
+                target.native_type == tgt or tgt in tgt_eq
+            ):
                 return TypeCompatibility.COERCIBLE
         return TypeCompatibility.INCOMPATIBLE
 
@@ -313,8 +353,9 @@ class TypeMapper:
             return False
         return all(
             self.check_compatibility(sp, tp) != TypeCompatibility.INCOMPATIBLE
-            for sp, tp in zip(source.generic_params, target.generic_params)
+            for sp, tp in zip(source.generic_params, target.generic_params, strict=True)
         )
+
 
 # =============================================================================
 # Contract Extractor
@@ -328,7 +369,10 @@ class ContractExtractor:
         self._type_mapper = TypeMapper()
 
     def extract_contracts(
-        self, code: str, language: ContractLanguage, file_path: str,
+        self,
+        code: str,
+        language: ContractLanguage,
+        file_path: str,
     ) -> list[ContractEndpoint]:
         """Extract contract endpoints from source code."""
         if language == ContractLanguage.PYTHON:
@@ -342,7 +386,8 @@ class ContractExtractor:
         endpoints: list[ContractEndpoint] = []
         pattern = re.compile(
             r"^(?P<indent>[ \t]*)(?:async\s+)?def\s+(?P<name>\w+)\s*\("
-            r"(?P<params>[^)]*)\)(?:\s*->\s*(?P<ret>[^:]+))?\s*:", re.MULTILINE,
+            r"(?P<params>[^)]*)\)(?:\s*->\s*(?P<ret>[^:]+))?\s*:",
+            re.MULTILINE,
         )
         for m in pattern.finditer(code):
             name = m.group("name")
@@ -363,13 +408,18 @@ class ContractExtractor:
                     params[part] = UniversalType(name=part, language=_PY, native_type="Any")
             ret_str = (m.group("ret") or "").strip()
             return_type = (
-                self._parse_type_annotation(ret_str, _PY)
-                if ret_str and ret_str != "None" else None
+                self._parse_type_annotation(ret_str, _PY) if ret_str and ret_str != "None" else None
             )
-            endpoints.append(ContractEndpoint(
-                name=name, language=_PY, file_path=file_path, line=line,
-                parameters=params, return_type=return_type,
-            ))
+            endpoints.append(
+                ContractEndpoint(
+                    name=name,
+                    language=_PY,
+                    file_path=file_path,
+                    line=line,
+                    parameters=params,
+                    return_type=return_type,
+                )
+            )
         logger.debug("python_contracts_extracted", file_path=file_path, count=len(endpoints))
         return endpoints
 
@@ -399,17 +449,27 @@ class ContractExtractor:
                     params[pn.strip()] = ut
                 else:
                     params[part.strip()] = UniversalType(
-                        name=part.strip(), language=_TS, native_type="any", nullable=optional,
+                        name=part.strip(),
+                        language=_TS,
+                        native_type="any",
+                        nullable=optional,
                     )
             ret_str = (m.group("ret") or "").strip()
             return_type = (
                 self._parse_type_annotation(ret_str, _TS)
-                if ret_str and ret_str not in ("void", "") else None
+                if ret_str and ret_str not in ("void", "")
+                else None
             )
-            endpoints.append(ContractEndpoint(
-                name=name, language=_TS, file_path=file_path, line=line,
-                parameters=params, return_type=return_type,
-            ))
+            endpoints.append(
+                ContractEndpoint(
+                    name=name,
+                    language=_TS,
+                    file_path=file_path,
+                    line=line,
+                    parameters=params,
+                    return_type=return_type,
+                )
+            )
         logger.debug("typescript_contracts_extracted", file_path=file_path, count=len(endpoints))
         return endpoints
 
@@ -426,13 +486,20 @@ class ContractExtractor:
         generic_match = re.match(r"(\w+)[\[<](.+)[\]>]$", annotation)
         if generic_match:
             base = generic_match.group(1)
-            gp = [self._parse_type_annotation(p.strip(), language)
-                  for p in self._split_params(generic_match.group(2))]
+            gp = [
+                self._parse_type_annotation(p.strip(), language)
+                for p in self._split_params(generic_match.group(2))
+            ]
             return UniversalType(
-                name=base, language=language, native_type=base,
-                nullable=nullable, generic_params=gp,
+                name=base,
+                language=language,
+                native_type=base,
+                nullable=nullable,
+                generic_params=gp,
             )
-        return UniversalType(name=annotation, language=language, native_type=annotation, nullable=nullable)
+        return UniversalType(
+            name=annotation, language=language, native_type=annotation, nullable=nullable
+        )
 
     def _split_params(self, params_str: str) -> list[str]:
         """Split parameter string respecting nested brackets."""
@@ -452,6 +519,7 @@ class ContractExtractor:
         if current.strip():
             parts.append(current)
         return parts
+
 
 # =============================================================================
 # Cross-Language Verifier
@@ -488,21 +556,27 @@ class CrossLanguageVerifier:
         med = sum(1 for v in all_violations if v.severity == "medium")
         risk = min(10.0, (crit * 3.0 + high * 2.0 + med) / max(checked, 1))
         report = CrossLanguageContractReport(
-            contracts_checked=checked, violations_found=len(all_violations),
-            violations=all_violations, type_mappings=all_mappings,
+            contracts_checked=checked,
+            violations_found=len(all_violations),
+            violations=all_violations,
+            type_mappings=all_mappings,
             compatible_endpoints=compatible_count,
             total_endpoints=len(source_contracts) + len(target_contracts),
             risk_score=round(risk, 2),
             recommendations=self._build_recommendations(all_violations, risk),
         )
         logger.info(
-            "contract_verification_complete", contracts_checked=checked,
-            violations_found=len(all_violations), risk_score=report.risk_score,
+            "contract_verification_complete",
+            contracts_checked=checked,
+            violations_found=len(all_violations),
+            risk_score=report.risk_score,
         )
         return report
 
     def verify_endpoint_pair(
-        self, source: ContractEndpoint, target: ContractEndpoint,
+        self,
+        source: ContractEndpoint,
+        target: ContractEndpoint,
     ) -> list[ContractViolation]:
         """Verify compatibility of a single source/target endpoint pair."""
         violations: list[ContractViolation] = []
@@ -511,7 +585,9 @@ class CrossLanguageVerifier:
         return violations
 
     def _match_endpoints(
-        self, sources: list[ContractEndpoint], targets: list[ContractEndpoint],
+        self,
+        sources: list[ContractEndpoint],
+        targets: list[ContractEndpoint],
     ) -> list[tuple[ContractEndpoint, ContractEndpoint]]:
         tmap = {ep.name: ep for ep in targets}
         pairs: list[tuple[ContractEndpoint, ContractEndpoint]] = []
@@ -524,90 +600,127 @@ class CrossLanguageVerifier:
         return pairs
 
     def _check_parameter_compatibility(
-        self, source: ContractEndpoint, target: ContractEndpoint,
+        self,
+        source: ContractEndpoint,
+        target: ContractEndpoint,
     ) -> list[ContractViolation]:
         violations: list[ContractViolation] = []
         sl, tl = source.language.value, target.language.value
 
         for pname, stype in source.parameters.items():
             if pname not in target.parameters:
-                violations.append(ContractViolation(
-                    violation_type=ContractViolationType.MISSING_FIELD,
-                    source_endpoint=source, target_endpoint=target,
-                    description=f"Parameter '{pname}' in {sl} '{source.name}' missing in {tl} '{target.name}'.",
-                    severity="high", source_type=stype.native_type, target_type="<missing>",
-                    fix_suggestion=f"Add parameter '{pname}: {stype.native_type}' to {target.name}.",
-                ))
+                violations.append(
+                    ContractViolation(
+                        violation_type=ContractViolationType.MISSING_FIELD,
+                        source_endpoint=source,
+                        target_endpoint=target,
+                        description=f"Parameter '{pname}' in {sl} '{source.name}' missing in {tl} '{target.name}'.",
+                        severity="high",
+                        source_type=stype.native_type,
+                        target_type="<missing>",
+                        fix_suggestion=f"Add parameter '{pname}: {stype.native_type}' to {target.name}.",
+                    )
+                )
                 continue
             ttype = target.parameters[pname]
             compat = self._type_mapper.check_compatibility(stype, ttype)
             if compat == TypeCompatibility.INCOMPATIBLE:
-                violations.append(ContractViolation(
-                    violation_type=ContractViolationType.TYPE_MISMATCH,
-                    source_endpoint=source, target_endpoint=target,
-                    description=f"Parameter '{pname}' type mismatch: {stype.native_type} ({sl}) vs {ttype.native_type} ({tl}).",
-                    severity="critical", source_type=stype.native_type, target_type=ttype.native_type,
-                    fix_suggestion=f"Change '{pname}' in {target.name} to match {stype.native_type}.",
-                ))
+                violations.append(
+                    ContractViolation(
+                        violation_type=ContractViolationType.TYPE_MISMATCH,
+                        source_endpoint=source,
+                        target_endpoint=target,
+                        description=f"Parameter '{pname}' type mismatch: {stype.native_type} ({sl}) vs {ttype.native_type} ({tl}).",
+                        severity="critical",
+                        source_type=stype.native_type,
+                        target_type=ttype.native_type,
+                        fix_suggestion=f"Change '{pname}' in {target.name} to match {stype.native_type}.",
+                    )
+                )
             if stype.nullable and not ttype.nullable:
-                violations.append(ContractViolation(
-                    violation_type=ContractViolationType.NULLABILITY,
-                    source_endpoint=source, target_endpoint=target,
-                    description=f"Parameter '{pname}' is nullable in {sl} but non-nullable in {tl}.",
-                    severity="high",
-                    source_type=f"{stype.native_type} (nullable)",
-                    target_type=f"{ttype.native_type} (non-nullable)",
-                    fix_suggestion=f"Mark '{pname}' as nullable/optional in {target.name}.",
-                ))
+                violations.append(
+                    ContractViolation(
+                        violation_type=ContractViolationType.NULLABILITY,
+                        source_endpoint=source,
+                        target_endpoint=target,
+                        description=f"Parameter '{pname}' is nullable in {sl} but non-nullable in {tl}.",
+                        severity="high",
+                        source_type=f"{stype.native_type} (nullable)",
+                        target_type=f"{ttype.native_type} (non-nullable)",
+                        fix_suggestion=f"Mark '{pname}' as nullable/optional in {target.name}.",
+                    )
+                )
         return violations
 
     def _check_return_type_compatibility(
-        self, source: ContractEndpoint, target: ContractEndpoint,
+        self,
+        source: ContractEndpoint,
+        target: ContractEndpoint,
     ) -> list[ContractViolation]:
         violations: list[ContractViolation] = []
         sr, tr = source.return_type, target.return_type
         if sr is None and tr is None:
             return violations
         if sr is not None and tr is None:
-            violations.append(ContractViolation(
-                violation_type=ContractViolationType.TYPE_MISMATCH,
-                source_endpoint=source, target_endpoint=target,
-                description=f"{source.name} returns {sr.native_type} but {target.name} returns void.",
-                severity="critical", source_type=sr.native_type, target_type="void",
-            ))
+            violations.append(
+                ContractViolation(
+                    violation_type=ContractViolationType.TYPE_MISMATCH,
+                    source_endpoint=source,
+                    target_endpoint=target,
+                    description=f"{source.name} returns {sr.native_type} but {target.name} returns void.",
+                    severity="critical",
+                    source_type=sr.native_type,
+                    target_type="void",
+                )
+            )
             return violations
         if sr is None and tr is not None:
-            violations.append(ContractViolation(
-                violation_type=ContractViolationType.TYPE_MISMATCH,
-                source_endpoint=source, target_endpoint=target,
-                description=f"{source.name} returns void but {target.name} returns {tr.native_type}.",
-                severity="high", source_type="void", target_type=tr.native_type,
-            ))
+            violations.append(
+                ContractViolation(
+                    violation_type=ContractViolationType.TYPE_MISMATCH,
+                    source_endpoint=source,
+                    target_endpoint=target,
+                    description=f"{source.name} returns void but {target.name} returns {tr.native_type}.",
+                    severity="high",
+                    source_type="void",
+                    target_type=tr.native_type,
+                )
+            )
             return violations
 
         assert sr is not None and tr is not None
         compat = self._type_mapper.check_compatibility(sr, tr)
         if compat == TypeCompatibility.INCOMPATIBLE:
-            violations.append(ContractViolation(
-                violation_type=ContractViolationType.TYPE_MISMATCH,
-                source_endpoint=source, target_endpoint=target,
-                description=f"Return type mismatch: {sr.native_type} ({source.language.value}) vs {tr.native_type} ({target.language.value}).",
-                severity="critical", source_type=sr.native_type, target_type=tr.native_type,
-                fix_suggestion=f"Align return type of {target.name} with {sr.native_type}.",
-            ))
+            violations.append(
+                ContractViolation(
+                    violation_type=ContractViolationType.TYPE_MISMATCH,
+                    source_endpoint=source,
+                    target_endpoint=target,
+                    description=f"Return type mismatch: {sr.native_type} ({source.language.value}) vs {tr.native_type} ({target.language.value}).",
+                    severity="critical",
+                    source_type=sr.native_type,
+                    target_type=tr.native_type,
+                    fix_suggestion=f"Align return type of {target.name} with {sr.native_type}.",
+                )
+            )
         if sr.nullable and not tr.nullable:
-            violations.append(ContractViolation(
-                violation_type=ContractViolationType.NULLABILITY,
-                source_endpoint=source, target_endpoint=target,
-                description=f"Return nullable in {source.language.value} but not in {target.language.value}.",
-                severity="medium",
-                source_type=f"{sr.native_type} (nullable)",
-                target_type=f"{tr.native_type} (non-nullable)",
-            ))
+            violations.append(
+                ContractViolation(
+                    violation_type=ContractViolationType.NULLABILITY,
+                    source_endpoint=source,
+                    target_endpoint=target,
+                    description=f"Return nullable in {source.language.value} but not in {target.language.value}.",
+                    severity="medium",
+                    source_type=f"{sr.native_type} (nullable)",
+                    target_type=f"{tr.native_type} (non-nullable)",
+                )
+            )
         return violations
 
     def generate_interface_stubs(
-        self, contracts: list[ContractEndpoint], target_lang: ContractLanguage,
+        self,
+        contracts: list[ContractEndpoint],
+        target_lang: ContractLanguage,
     ) -> str:
         """Generate interface stub code for contracts in the target language."""
         lines: list[str] = []
@@ -615,22 +728,28 @@ class CrossLanguageVerifier:
         if target_lang == _TS:
             lines.append("// Auto-generated interface stubs\n")
             for ep in contracts:
-                ps = [f"{n}{'?' if t.nullable else ''}: {mt(t, target_lang).target_type}"
-                      for n, t in ep.parameters.items()]
+                ps = [
+                    f"{n}{'?' if t.nullable else ''}: {mt(t, target_lang).target_type}"
+                    for n, t in ep.parameters.items()
+                ]
                 r = mt(ep.return_type, target_lang).target_type if ep.return_type else "void"
                 lines.append(f"export function {ep.name}({', '.join(ps)}): {r};")
         elif target_lang == _PY:
             lines.append("# Auto-generated interface stubs\n")
             for ep in contracts:
-                ps = [f"{n}: {mt(t, target_lang).target_type + ' | None' if t.nullable else mt(t, target_lang).target_type}"
-                      for n, t in ep.parameters.items()]
+                ps = [
+                    f"{n}: {mt(t, target_lang).target_type + ' | None' if t.nullable else mt(t, target_lang).target_type}"
+                    for n, t in ep.parameters.items()
+                ]
                 r = mt(ep.return_type, target_lang).target_type if ep.return_type else "None"
                 lines.append(f"def {ep.name}({', '.join(ps)}) -> {r}: ...")
         elif target_lang == _GO:
             lines.append("// Auto-generated interface stubs\npackage stubs\n")
             for ep in contracts:
-                ps = [f"{n} {'*' + mt(t, target_lang).target_type if t.nullable else mt(t, target_lang).target_type}"
-                      for n, t in ep.parameters.items()]
+                ps = [
+                    f"{n} {'*' + mt(t, target_lang).target_type if t.nullable else mt(t, target_lang).target_type}"
+                    for n, t in ep.parameters.items()
+                ]
                 r = f" {mt(ep.return_type, target_lang).target_type}" if ep.return_type else ""
                 lines.append(f"func {ep.name[0].upper() + ep.name[1:]}({', '.join(ps)}){r} {{}}")
         else:
@@ -639,19 +758,25 @@ class CrossLanguageVerifier:
         return "\n".join(lines)
 
     def _build_recommendations(
-        self, violations: list[ContractViolation], risk_score: float,
+        self,
+        violations: list[ContractViolation],
+        risk_score: float,
     ) -> list[str]:
         recs: list[str] = []
-        counts = {}
+        counts: dict[ContractViolationType, int] = {}
         for v in violations:
             counts[v.violation_type] = counts.get(v.violation_type, 0) + 1
         tm = counts.get(ContractViolationType.TYPE_MISMATCH, 0)
         ni = counts.get(ContractViolationType.NULLABILITY, 0)
         mf = counts.get(ContractViolationType.MISSING_FIELD, 0)
         if tm:
-            recs.append(f"Resolve {tm} type mismatch(es). Consider shared schemas (OpenAPI, protobuf).")
+            recs.append(
+                f"Resolve {tm} type mismatch(es). Consider shared schemas (OpenAPI, protobuf)."
+            )
         if ni:
-            recs.append(f"Fix {ni} nullability inconsistency(ies). Annotate nullable types on both sides.")
+            recs.append(
+                f"Fix {ni} nullability inconsistency(ies). Annotate nullable types on both sides."
+            )
         if mf:
             recs.append(f"Add {mf} missing field(s) to target contracts.")
         if risk_score >= 7.0:

@@ -128,9 +128,8 @@ class ProofQuery:
             return False
 
         # Check file pattern
-        if self.file_pattern:
-            if not re.search(self.file_pattern, function.location.file_path):
-                return False
+        if self.file_pattern and not re.search(self.file_pattern, function.location.file_path):
+            return False
 
         # Check properties with operators
         if not self.properties:
@@ -479,7 +478,7 @@ class CodebaseIndexer:
         self,
         code: str,
         language: str,
-        file_path: str,
+        _file_path: str,
     ) -> list[dict[str, Any]]:
         """Extract function definitions from code."""
         functions = []
@@ -643,14 +642,17 @@ class CodebaseIndexer:
             properties.add(PropertyType.CAN_THROW_EXCEPTION)
 
         # Array/bounds
-        if "[" in code and "]" in code:
-            if "len(" not in code_lower and "length" not in code_lower:
-                properties.add(PropertyType.HAS_BOUNDS_ISSUE)
+        if "[" in code and "]" in code and "len(" not in code_lower and "length" not in code_lower:
+            properties.add(PropertyType.HAS_BOUNDS_ISSUE)
 
         # Division
-        if "/" in code or "%" in code:
-            if "zero" not in code_lower and "!= 0" not in code and "!== 0" not in code:
-                properties.add(PropertyType.HAS_DIVISION_BY_ZERO)
+        if (
+            ("/" in code or "%" in code)
+            and "zero" not in code_lower
+            and "!= 0" not in code
+            and "!== 0" not in code
+        ):
+            properties.add(PropertyType.HAS_DIVISION_BY_ZERO)
 
         # Overflow checks
         if any(op in code for op in ["**", "pow(", "<<", ">>"]):
@@ -674,9 +676,8 @@ class CodebaseIndexer:
             properties.add(PropertyType.HAS_SECURITY_ISSUE)
 
         # Resource management
-        if language == "python":
-            if "open(" in code and "with " not in code_lower:
-                properties.add(PropertyType.HAS_RESOURCE_LEAK)
+        if language == "python" and "open(" in code and "with " not in code_lower:
+            properties.add(PropertyType.HAS_RESOURCE_LEAK)
 
         # Thread safety
         if any(kw in code_lower for kw in ["lock", "mutex", "synchronized", "atomic"]):
@@ -684,7 +685,7 @@ class CodebaseIndexer:
 
         return properties
 
-    def _extract_z3_constraints(self, code: str, language: str) -> list[str]:
+    def _extract_z3_constraints(self, code: str, _language: str) -> list[str]:
         """Extract Z3 constraints from code comments or annotations."""
         constraints = []
 

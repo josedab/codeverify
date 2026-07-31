@@ -13,6 +13,7 @@ Features:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import re
 import time
@@ -170,26 +171,34 @@ _COMPLIANCE_TEMPLATES: dict[str, PolicyModule] = {
         description="SOC 2 Type II compliance requirements",
         rules=[
             PolicyRule(
-                id="soc2-auth", name="Authentication required",
-                check="null_safety", severity=PolicySeverity.BLOCK,
+                id="soc2-auth",
+                name="Authentication required",
+                check="null_safety",
+                severity=PolicySeverity.BLOCK,
                 message="All authentication paths must be null-safe",
                 tags=["security", "soc2"],
             ),
             PolicyRule(
-                id="soc2-audit", name="Audit logging",
-                check="audit_logging", severity=PolicySeverity.BLOCK,
+                id="soc2-audit",
+                name="Audit logging",
+                check="audit_logging",
+                severity=PolicySeverity.BLOCK,
                 message="Sensitive operations must have audit logging",
                 tags=["compliance", "soc2"],
             ),
             PolicyRule(
-                id="soc2-crypto", name="Strong cryptography",
-                check="crypto_strength", severity=PolicySeverity.BLOCK,
+                id="soc2-crypto",
+                name="Strong cryptography",
+                check="crypto_strength",
+                severity=PolicySeverity.BLOCK,
                 message="Use AES-256 or stronger encryption",
                 tags=["security", "soc2"],
             ),
             PolicyRule(
-                id="soc2-access", name="Access control",
-                check="access_control", severity=PolicySeverity.WARN,
+                id="soc2-access",
+                name="Access control",
+                check="access_control",
+                severity=PolicySeverity.WARN,
                 message="Implement principle of least privilege",
                 tags=["security", "soc2"],
             ),
@@ -202,20 +211,26 @@ _COMPLIANCE_TEMPLATES: dict[str, PolicyModule] = {
         description="HIPAA security requirements for healthcare",
         rules=[
             PolicyRule(
-                id="hipaa-phi", name="PHI protection",
-                check="data_classification", severity=PolicySeverity.BLOCK,
+                id="hipaa-phi",
+                name="PHI protection",
+                check="data_classification",
+                severity=PolicySeverity.BLOCK,
                 message="Protected Health Information must be encrypted at rest and in transit",
                 tags=["healthcare", "hipaa"],
             ),
             PolicyRule(
-                id="hipaa-access-log", name="Access logging",
-                check="audit_logging", severity=PolicySeverity.BLOCK,
+                id="hipaa-access-log",
+                name="Access logging",
+                check="audit_logging",
+                severity=PolicySeverity.BLOCK,
                 message="All PHI access must be logged with user identity",
                 tags=["compliance", "hipaa"],
             ),
             PolicyRule(
-                id="hipaa-retention", name="Data retention",
-                check="data_retention", severity=PolicySeverity.WARN,
+                id="hipaa-retention",
+                name="Data retention",
+                check="data_retention",
+                severity=PolicySeverity.WARN,
                 message="PHI retention must comply with 6-year minimum",
                 tags=["compliance", "hipaa"],
             ),
@@ -228,20 +243,26 @@ _COMPLIANCE_TEMPLATES: dict[str, PolicyModule] = {
         description="PCI DSS requirements for payment processing",
         rules=[
             PolicyRule(
-                id="pci-card-data", name="Card data protection",
-                check="sensitive_data", severity=PolicySeverity.BLOCK,
+                id="pci-card-data",
+                name="Card data protection",
+                check="sensitive_data",
+                severity=PolicySeverity.BLOCK,
                 message="Card numbers must never be stored in plaintext",
                 tags=["payment", "pci"],
             ),
             PolicyRule(
-                id="pci-input-val", name="Input validation",
-                check="input_validation", severity=PolicySeverity.BLOCK,
+                id="pci-input-val",
+                name="Input validation",
+                check="input_validation",
+                severity=PolicySeverity.BLOCK,
                 message="All payment inputs must be validated and sanitized",
                 tags=["security", "pci"],
             ),
             PolicyRule(
-                id="pci-crypto", name="Strong cryptography",
-                check="crypto_strength", severity=PolicySeverity.BLOCK,
+                id="pci-crypto",
+                name="Strong cryptography",
+                check="crypto_strength",
+                severity=PolicySeverity.BLOCK,
                 message="Use industry-standard encryption for card data",
                 tags=["security", "pci"],
             ),
@@ -299,10 +320,8 @@ class PolicyDSLParser:
 
         scope_match = re.search(r'scope\s*=\s*"([^"]+)"', body)
         if scope_match:
-            try:
+            with contextlib.suppress(ValueError):
                 module.scope = PolicyScope(scope_match.group(1))
-            except ValueError:
-                pass
 
         desc_match = re.search(r'description\s*=\s*"([^"]+)"', body)
         if desc_match:
@@ -328,16 +347,14 @@ class PolicyDSLParser:
         for var_match in var_blocks:
             var_name = var_match.group(1)
             var_body = var_match.group(2)
-            default_match = re.search(r'default\s*=\s*(\S+)', var_body)
+            default_match = re.search(r"default\s*=\s*(\S+)", var_body)
             if default_match:
                 val = default_match.group(1).strip('"')
                 try:
                     val = int(val)
                 except (ValueError, TypeError):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         val = float(val)
-                    except (ValueError, TypeError):
-                        pass
                 module.variables[var_name] = val
 
         return module
@@ -351,10 +368,8 @@ class PolicyDSLParser:
 
         severity_match = re.search(r'severity\s*=\s*"([^"]+)"', body)
         if severity_match:
-            try:
+            with contextlib.suppress(ValueError):
                 rule.severity = PolicySeverity(severity_match.group(1))
-            except ValueError:
-                pass
 
         msg_match = re.search(r'message\s*=\s*"([^"]+)"', body)
         if msg_match:
@@ -364,7 +379,7 @@ class PolicyDSLParser:
         if name_match:
             rule.name = name_match.group(1)
 
-        tags_match = re.search(r'tags\s*=\s*\[([^\]]*)\]', body)
+        tags_match = re.search(r"tags\s*=\s*\[([^\]]*)\]", body)
         if tags_match:
             rule.tags = [t.strip().strip('"') for t in tags_match.group(1).split(",") if t.strip()]
 
@@ -430,7 +445,7 @@ class PolicyEngine:
     def _check_rule(
         self,
         rule: PolicyRule,
-        source: str,
+        _source: str,
         lines: list[str],
         file_path: str,
         repository: str,
@@ -466,15 +481,17 @@ class PolicyEngine:
                     continue
                 try:
                     if re.search(pattern, line):
-                        violations.append(PolicyViolation(
-                            rule_id=rule.id,
-                            rule_name=rule.name,
-                            severity=rule.severity,
-                            file_path=file_path,
-                            line=i,
-                            message=f"{rule.message}: {desc}",
-                            repository=repository,
-                        ))
+                        violations.append(
+                            PolicyViolation(
+                                rule_id=rule.id,
+                                rule_name=rule.name,
+                                severity=rule.severity,
+                                file_path=file_path,
+                                line=i,
+                                message=f"{rule.message}: {desc}",
+                                repository=repository,
+                            )
+                        )
                 except re.error:
                     continue
 
@@ -506,34 +523,42 @@ class PolicyEngine:
 
         for rule_id, central_rule in central_rules.items():
             if rule_id not in local_rules:
-                differences.append({
-                    "type": "rule_missing_locally",
-                    "rule_id": rule_id,
-                    "central_severity": central_rule.severity.value,
-                })
+                differences.append(
+                    {
+                        "type": "rule_missing_locally",
+                        "rule_id": rule_id,
+                        "central_severity": central_rule.severity.value,
+                    }
+                )
             else:
                 local_rule = local_rules[rule_id]
                 if central_rule.severity != local_rule.severity:
-                    differences.append({
-                        "type": "severity_changed",
-                        "rule_id": rule_id,
-                        "central": central_rule.severity.value,
-                        "local": local_rule.severity.value,
-                    })
+                    differences.append(
+                        {
+                            "type": "severity_changed",
+                            "rule_id": rule_id,
+                            "central": central_rule.severity.value,
+                            "local": local_rule.severity.value,
+                        }
+                    )
                 if central_rule.enabled != local_rule.enabled:
-                    differences.append({
-                        "type": "enabled_changed",
-                        "rule_id": rule_id,
-                        "central": central_rule.enabled,
-                        "local": local_rule.enabled,
-                    })
+                    differences.append(
+                        {
+                            "type": "enabled_changed",
+                            "rule_id": rule_id,
+                            "central": central_rule.enabled,
+                            "local": local_rule.enabled,
+                        }
+                    )
 
         for rule_id in local_rules:
             if rule_id not in central_rules:
-                differences.append({
-                    "type": "rule_added_locally",
-                    "rule_id": rule_id,
-                })
+                differences.append(
+                    {
+                        "type": "rule_added_locally",
+                        "rule_id": rule_id,
+                    }
+                )
 
         return DriftReport(
             repository=repository,

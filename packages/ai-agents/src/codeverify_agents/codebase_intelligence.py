@@ -252,7 +252,7 @@ class PatternDetector:
         """Detect patterns in code."""
         found_patterns = []
 
-        for pattern_id, pattern in self.patterns.items():
+        for _pattern_id, pattern in self.patterns.items():
             if pattern.regex:
                 matches = re.findall(pattern.regex, code, re.MULTILINE | re.IGNORECASE)
                 if matches:
@@ -434,7 +434,7 @@ class CodebaseIntelligenceEngine:
         self,
         file_path: str,
         content: str,
-        commit_hash: str | None = None,
+        _commit_hash: str | None = None,
     ) -> ComponentInfo:
         """Index a file and extract intelligence."""
         # Generate component ID
@@ -484,7 +484,7 @@ class CodebaseIntelligenceEngine:
     def index_repository(
         self,
         files: dict[str, str],
-        repo_root: str | None = None,
+        _repo_root: str | None = None,
     ) -> dict[str, Any]:
         """Index an entire repository."""
         indexed_count = 0
@@ -620,7 +620,7 @@ class CodebaseIntelligenceEngine:
             return []
 
         similarities: list[tuple[str, float]] = []
-        for component_id, component in self.components.items():
+        for _component_id, component in self.components.items():
             component_patterns = set(component.patterns)
             if component_patterns:
                 # Jaccard similarity

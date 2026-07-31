@@ -14,13 +14,10 @@ Features:
 
 from __future__ import annotations
 
-import re
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -100,9 +97,7 @@ class Evidence:
     code_snippet: str = ""
     description: str = ""
     strength: EvidenceStrength = EvidenceStrength.MODERATE
-    collected_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    collected_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -129,9 +124,7 @@ class ComplianceReport:
     results: list[CheckResult] = field(default_factory=list)
     overall_status: CheckStatus = CheckStatus.MANUAL_REVIEW
     pass_rate: float = 0.0
-    generated_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     summary_markdown: str = ""
 
     @property
@@ -156,10 +149,24 @@ class NLQueryParser:
 
     INTENT_KEYWORDS: dict[QueryIntent, list[str]] = {
         QueryIntent.ENCRYPTION: ["encrypt", "aes", "tls", "ssl", "hash", "cipher", "crypto"],
-        QueryIntent.AUTHENTICATION: ["auth", "login", "password", "credential", "mfa", "2fa", "jwt"],
+        QueryIntent.AUTHENTICATION: [
+            "auth",
+            "login",
+            "password",
+            "credential",
+            "mfa",
+            "2fa",
+            "jwt",
+        ],
         QueryIntent.AUTHORIZATION: ["permission", "role", "rbac", "acl", "access control"],
         QueryIntent.AUDIT_LOGGING: ["audit", "log", "trail", "track", "monitor", "record"],
-        QueryIntent.DATA_PROTECTION: ["pii", "personal data", "sensitive", "data protection", "anonymize"],
+        QueryIntent.DATA_PROTECTION: [
+            "pii",
+            "personal data",
+            "sensitive",
+            "data protection",
+            "anonymize",
+        ],
         QueryIntent.INPUT_VALIDATION: ["input", "sanitize", "validate", "injection", "xss"],
         QueryIntent.ERROR_HANDLING: ["error", "exception", "catch", "handle", "fault"],
         QueryIntent.ACCESS_CONTROL: ["access", "restrict", "deny", "allow", "firewall"],
@@ -221,7 +228,8 @@ class ComplianceCheckLibrary:
             }
             keywords = intent_map.get(intent, [intent.value])
             results = [
-                c for c in results
+                c
+                for c in results
                 if any(kw in c.title.lower() or kw in c.description.lower() for kw in keywords)
             ]
         return results
@@ -291,7 +299,7 @@ class ComplianceCheckLibrary:
                 title="Input Validation",
                 description="Address common coding vulnerabilities",
                 code_patterns=["sanitize", "validate_input", "escape_html", "parameterized"],
-                anti_patterns=["f\"SELECT", "string concatenation SQL"],
+                anti_patterns=['f"SELECT', "string concatenation SQL"],
                 severity="high",
             ),
             # GDPR
@@ -339,7 +347,6 @@ class CodebaseScanner:
         gaps: list[str] = []
 
         pattern_found = False
-        anti_pattern_found = False
 
         for file_path, content in file_contents.items():
             lines = content.split("\n")
@@ -347,21 +354,20 @@ class CodebaseScanner:
                 for pattern in check.code_patterns:
                     if pattern.lower() in line.lower():
                         pattern_found = True
-                        evidence_items.append(Evidence(
-                            check_id=check.id,
-                            file_path=file_path,
-                            line_number=i,
-                            code_snippet=line.strip()[:200],
-                            description=f"Found compliance pattern: {pattern}",
-                            strength=EvidenceStrength.MODERATE,
-                        ))
+                        evidence_items.append(
+                            Evidence(
+                                check_id=check.id,
+                                file_path=file_path,
+                                line_number=i,
+                                code_snippet=line.strip()[:200],
+                                description=f"Found compliance pattern: {pattern}",
+                                strength=EvidenceStrength.MODERATE,
+                            )
+                        )
 
                 for anti in check.anti_patterns:
                     if anti.lower() in line.lower():
-                        anti_pattern_found = True
-                        gaps.append(
-                            f"{file_path}:{i} - Anti-pattern found: {anti}"
-                        )
+                        gaps.append(f"{file_path}:{i} - Anti-pattern found: {anti}")
 
         if not pattern_found:
             gaps.append(f"No evidence of {check.title} implementation found")
@@ -378,9 +384,7 @@ class CodebaseScanner:
         if status in (CheckStatus.FAIL, CheckStatus.PARTIAL):
             remediation.append(f"Implement {check.title}: {check.description}")
             if check.code_patterns:
-                remediation.append(
-                    f"Expected patterns: {', '.join(check.code_patterns[:3])}"
-                )
+                remediation.append(f"Expected patterns: {', '.join(check.code_patterns[:3])}")
 
         confidence = 0.9 if evidence_items and not gaps else 0.5 if evidence_items else 0.3
 
@@ -451,14 +455,14 @@ class ComplianceAsCodeService:
         pass_rate = passed / total if total > 0 else 0.0
 
         overall = (
-            CheckStatus.PASS if pass_rate >= 0.9
-            else CheckStatus.PARTIAL if pass_rate >= 0.5
+            CheckStatus.PASS
+            if pass_rate >= 0.9
+            else CheckStatus.PARTIAL
+            if pass_rate >= 0.5
             else CheckStatus.FAIL
         )
 
-        summary = self._generate_report_markdown(
-            framework, repo_name, results, pass_rate
-        )
+        summary = self._generate_report_markdown(framework, repo_name, results, pass_rate)
 
         report = ComplianceReport(
             framework=framework,
@@ -471,9 +475,7 @@ class ComplianceAsCodeService:
         self._reports.append(report)
         return report
 
-    def get_reports(
-        self, framework: ComplianceFramework | None = None
-    ) -> list[ComplianceReport]:
+    def get_reports(self, framework: ComplianceFramework | None = None) -> list[ComplianceReport]:
         if framework:
             return [r for r in self._reports if r.framework == framework]
         return list(self._reports)
@@ -494,7 +496,13 @@ class ComplianceAsCodeService:
             f"**Query**: {query}\n\n"
         )
         for r in results:
-            icon = "✅" if r.status == CheckStatus.PASS else "❌" if r.status == CheckStatus.FAIL else "⚠️"
+            icon = (
+                "✅"
+                if r.status == CheckStatus.PASS
+                else "❌"
+                if r.status == CheckStatus.FAIL
+                else "⚠️"
+            )
             answer += f"- {icon} [{r.control_id}] {r.title}: {r.status.value}\n"
 
         if any(r.gaps for r in results):

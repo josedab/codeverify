@@ -159,6 +159,43 @@ def divide(a: int, b: int) -> float:
         assert len(steps) > 0
 
     @pytest.mark.asyncio
+    async def test_trace_never_reports_false_assertion_as_verified(self, debugger):
+        """A statically-false assertion must never be reported as ``verified``.
+
+        ``trace()`` only walks the AST; it does not run a full Z3 verification, so it
+        must not claim mathematical verification succeeded just because the code
+        happened to parse. ``assert False`` is a concrete violation that can be judged
+        without a solver, so it must be flagged rather than silently marked verified.
+        """
+        code = """
+def always_fails() -> None:
+    assert False
+"""
+        result = await debugger.trace(code)
+
+        assert result.get("result") != "verified"
+        assert result.get("result") == "unverified"
+
+        failed_steps = [s for s in result.get("steps", []) if s.get("status") == "failed"]
+        assert failed_steps, "Expected a failed step for the always-false assertion"
+
+    @pytest.mark.asyncio
+    async def test_trace_parse_only_never_reports_verified(self, debugger):
+        """Successfully parsing code is not the same as mathematically verifying it.
+
+        Without running a real solver, ``trace()`` cannot honestly claim the code was
+        verified -- even when nothing in it fails -- so it must report ``unknown``.
+        """
+        code = """
+def add(a: int, b: int) -> int:
+    return a + b
+"""
+        result = await debugger.trace(code)
+
+        assert result.get("result") != "verified"
+        assert result.get("result") == "unknown"
+
+    @pytest.mark.asyncio
     async def test_trace_with_loop(self, debugger):
         """Debugger traces code with loops."""
         code = """
@@ -259,7 +296,7 @@ class TestDebuggerConstraintExtraction:
         code = """
 def process(items: list) -> int:
     '''Process items.
-    
+
     Requires: len(items) > 0
     '''
     return items[0]

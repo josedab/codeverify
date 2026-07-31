@@ -186,7 +186,6 @@ class TestSummary:
         )
 
         summary.observe(100.0)
-        collected1 = summary.collect()
 
         # Wait for expiry
         time.sleep(1.5)
@@ -373,7 +372,7 @@ class TestObserveSpecCheckDecorator:
         metrics = RuntimeProbeMetrics()
 
         @observe_spec_check(metrics, "test_spec", "assertion")
-        def check_raises(x):
+        def check_raises(_x):
             raise ValueError("Test error")
 
         with pytest.raises(ValueError):

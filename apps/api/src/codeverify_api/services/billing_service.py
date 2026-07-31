@@ -6,7 +6,6 @@ subscription lifecycle, metered billing, and invoice handling.
 
 from __future__ import annotations
 
-import hashlib
 import uuid
 from datetime import datetime, timedelta
 from enum import Enum
@@ -65,10 +64,10 @@ class MeteredUsageRecord(BaseModel):
 
 # Pricing for pay-as-you-go (private repos on free tier)
 PAYG_UNIT_PRICES: dict[str, int] = {
-    "verification": 5,     # $0.05 per verification
-    "analysis": 10,        # $0.10 per analysis
-    "api_call": 1,         # $0.01 per API call
-    "storage_mb": 2,       # $0.02 per MB/month
+    "verification": 5,  # $0.05 per verification
+    "analysis": 10,  # $0.10 per analysis
+    "api_call": 1,  # $0.01 per API call
+    "storage_mb": 2,  # $0.02 per MB/month
 }
 
 
@@ -86,9 +85,7 @@ class BillingService:
 
     # -- Customer management ------------------------------------------------
 
-    def create_customer(
-        self, organization_id: str, email: str, name: str
-    ) -> BillingCustomer:
+    def create_customer(self, organization_id: str, email: str, name: str) -> BillingCustomer:
         """Create a billing customer (would call stripe.Customer.create)."""
         customer = BillingCustomer(
             organization_id=organization_id,
@@ -104,9 +101,7 @@ class BillingService:
 
     # -- Subscription management --------------------------------------------
 
-    def create_subscription(
-        self, organization_id: str, tier: str
-    ) -> Subscription:
+    def create_subscription(self, organization_id: str, tier: str) -> Subscription:
         """Create a subscription (would call stripe.Subscription.create)."""
         sub = Subscription(
             organization_id=organization_id,
@@ -126,9 +121,7 @@ class BillingService:
             sub.cancel_at_period_end = True
         return sub
 
-    def update_subscription_tier(
-        self, organization_id: str, new_tier: str
-    ) -> Subscription | None:
+    def update_subscription_tier(self, organization_id: str, new_tier: str) -> Subscription | None:
         """Upgrade/downgrade subscription tier."""
         sub = self._subscriptions.get(organization_id)
         if sub:

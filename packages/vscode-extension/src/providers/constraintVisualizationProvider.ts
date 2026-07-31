@@ -510,7 +510,7 @@ export class HeatMapProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.onDidReceiveMessage(message => {
             switch (message.type) {
-                case 'toggleHeatMap':
+                case 'toggleHeatMap': {
                     const editor = vscode.window.activeTextEditor;
                     if (editor) {
                         if (message.enabled) {
@@ -520,6 +520,7 @@ export class HeatMapProvider implements vscode.WebviewViewProvider {
                         }
                     }
                     break;
+                }
                 case 'goToLine':
                     this.goToLine(message.line);
                     break;

@@ -90,11 +90,11 @@ async def generate_compliance_report(
 
     try:
         framework = ComplianceFramework(request.framework)
-    except ValueError:
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid framework: {request.framework}. Valid options: soc2, hipaa, pci_dss, gdpr, iso_27001",
-        )
+        ) from e
 
     engine = ComplianceAttestationEngine()
 
@@ -146,11 +146,11 @@ async def generate_multi_framework_report(
     for f in request.frameworks:
         try:
             frameworks.append(ComplianceFramework(f))
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid framework: {f}",
-            )
+            ) from e
 
     engine = ComplianceAttestationEngine()
 
@@ -243,11 +243,11 @@ async def get_framework_controls(framework: str) -> dict[str, list[dict[str, str
 
     try:
         fw = ComplianceFramework(framework)
-    except ValueError:
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid framework: {framework}",
-        )
+        ) from e
 
     engine = ComplianceAttestationEngine()
     controls = engine.get_framework_controls(fw)

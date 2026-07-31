@@ -9,10 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -23,6 +21,7 @@ logger = structlog.get_logger()
 
 class PluginType(str, Enum):
     """Type of plugin."""
+
     RULE = "rule"
     LANGUAGE_ADAPTER = "language_adapter"
     AGENT = "agent"
@@ -32,6 +31,7 @@ class PluginType(str, Enum):
 
 class PluginStatus(str, Enum):
     """Publication status of a plugin."""
+
     DRAFT = "draft"
     PUBLISHED = "published"
     DEPRECATED = "deprecated"
@@ -41,6 +41,7 @@ class PluginStatus(str, Enum):
 @dataclass
 class PluginManifest:
     """Manifest describing a plugin."""
+
     name: str
     version: str
     description: str
@@ -77,12 +78,13 @@ class PluginManifest:
 @dataclass
 class PluginEntry:
     """A plugin in the registry."""
+
     manifest: PluginManifest
     status: PluginStatus = PluginStatus.PUBLISHED
     downloads: int = 0
     rating: float = 0.0
     rating_count: int = 0
-    published_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    published_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     checksum: str = ""
 
     @property
@@ -97,16 +99,18 @@ class PluginEntry:
 @dataclass
 class PluginReview:
     """A review of a plugin."""
+
     plugin_name: str
     reviewer: str = ""
     rating: int = 5
     comment: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class PluginSearchResult:
     """Search result from the plugin registry."""
+
     plugins: list[PluginEntry] = field(default_factory=list)
     total_count: int = 0
     query: str = ""
@@ -182,7 +186,11 @@ class PluginRegistry:
         if version:
             return self._plugins.get(f"{name}@{version}")
         # Return latest version
-        matching = [e for e in self._plugins.values() if e.name == name and e.status == PluginStatus.PUBLISHED]
+        matching = [
+            e
+            for e in self._plugins.values()
+            if e.name == name and e.status == PluginStatus.PUBLISHED
+        ]
         if not matching:
             return None
         return max(matching, key=lambda e: e.version)
@@ -200,7 +208,8 @@ class PluginRegistry:
         if query:
             q = query.lower()
             results = [
-                p for p in results
+                p
+                for p in results
                 if q in p.name.lower()
                 or q in p.manifest.description.lower()
                 or any(q in kw.lower() for kw in p.manifest.keywords)
@@ -240,7 +249,8 @@ class PluginRegistry:
 
     def list_by_type(self, plugin_type: PluginType) -> list[PluginEntry]:
         return [
-            p for p in self._plugins.values()
+            p
+            for p in self._plugins.values()
             if p.manifest.plugin_type == plugin_type and p.status == PluginStatus.PUBLISHED
         ]
 

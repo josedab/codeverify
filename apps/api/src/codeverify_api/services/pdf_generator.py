@@ -11,8 +11,8 @@ from typing import Any
 
 try:
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-    from reportlab.lib.pagesizes import A4, letter
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import letter
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import inch
     from reportlab.platypus import (
@@ -192,7 +192,7 @@ class PDFReportGenerator:
 
         # Disclaimer
         disclaimer = """
-        This report contains confidential security analysis data. 
+        This report contains confidential security analysis data.
         Distribution should be limited to authorized personnel only.
         """
         elements.append(Paragraph(disclaimer, self.styles["Normal"]))

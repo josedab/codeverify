@@ -270,15 +270,14 @@ class ConfigValidator:
                 )
 
         # Allowed values
-        if "allowed" in spec and isinstance(value, str):
-            if value not in spec["allowed"]:
-                issues.append(
-                    ValidationIssue(
-                        path=path,
-                        message=f"Value '{value}' not in allowed values: {spec['allowed']}",
-                        severity=ValidationSeverity.ERROR,
-                    )
+        if "allowed" in spec and isinstance(value, str) and value not in spec["allowed"]:
+            issues.append(
+                ValidationIssue(
+                    path=path,
+                    message=f"Value '{value}' not in allowed values: {spec['allowed']}",
+                    severity=ValidationSeverity.ERROR,
                 )
+            )
 
         # List item validation
         if expected_type == "list" and isinstance(value, list):

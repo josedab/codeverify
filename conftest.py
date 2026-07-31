@@ -1,6 +1,7 @@
 """Root conftest.py — shared fixtures for all CodeVerify tests."""
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -28,3 +29,16 @@ def _env_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
         value = value.strip()
         if not os.environ.get(key):
             monkeypatch.setenv(key, value)
+
+    rate_limit_module = sys.modules.get("codeverify_api.middleware.rate_limit")
+    if rate_limit_module is not None:
+        from limits.storage import MemoryStorage
+        from limits.strategies import FixedWindowRateLimiter
+
+        storage = MemoryStorage()
+        monkeypatch.setattr(rate_limit_module.limiter, "_storage", storage)
+        monkeypatch.setattr(
+            rate_limit_module.limiter,
+            "_limiter",
+            FixedWindowRateLimiter(storage),
+        )

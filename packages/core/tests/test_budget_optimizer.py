@@ -280,8 +280,10 @@ class TestOutcomeLearner:
             false_positives=5,
         )
 
-        # Weights should have changed
-        assert learner._feature_weights != initial_weights or True  # May not change much
+        # Weights should have changed, but a single outcome may not shift them
+        # enough to reliably assert inequality; verify the weight dict is
+        # still well-formed (same keys as before) instead of a flaky diff.
+        assert set(learner._feature_weights.keys()) == set(initial_weights.keys())
 
 
 class TestVerificationBudgetOptimizer:

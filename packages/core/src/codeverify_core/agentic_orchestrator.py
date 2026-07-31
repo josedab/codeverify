@@ -20,7 +20,7 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -106,9 +106,15 @@ class PRContext:
     def languages(self) -> list[str]:
         exts: set[str] = set()
         ext_map = {
-            ".py": "python", ".ts": "typescript", ".tsx": "typescript",
-            ".js": "javascript", ".go": "go", ".java": "java",
-            ".rs": "rust", ".c": "c", ".cpp": "cpp",
+            ".py": "python",
+            ".ts": "typescript",
+            ".tsx": "typescript",
+            ".js": "javascript",
+            ".go": "go",
+            ".java": "java",
+            ".rs": "rust",
+            ".c": "c",
+            ".cpp": "cpp",
         }
         for f in self.changed_files:
             path = f.get("path", "")
@@ -131,7 +137,7 @@ class VerificationTask:
     estimated_cost_cents: float = 0.0
     estimated_duration_ms: int = 5000
     result: TaskResult | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
@@ -198,7 +204,7 @@ class ReviewPlan:
     total_estimated_cost_cents: float = 0.0
     total_estimated_duration_ms: int = 0
     budget_limit_cents: float = 50.0
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def task_count(self) -> int:
@@ -280,9 +286,7 @@ class PlannerAgent:
         tasks = self._prioritize(tasks, pr_context)
 
         total_cost = sum(t.estimated_cost_cents for t in tasks)
-        total_duration = max(
-            (t.estimated_duration_ms for t in tasks), default=0
-        )
+        total_duration = max((t.estimated_duration_ms for t in tasks), default=0)
 
         plan = ReviewPlan(
             pr_context=pr_context,
@@ -305,84 +309,116 @@ class PlannerAgent:
         tasks: list[VerificationTask] = []
         file_paths = [f.get("path", "") for f in ctx.changed_files]
 
-        code_files = [p for p in file_paths if any(
-            p.endswith(e) for e in (".py", ".ts", ".tsx", ".js", ".go", ".java", ".rs", ".c", ".cpp")
-        )]
+        code_files = [
+            p
+            for p in file_paths
+            if any(
+                p.endswith(e)
+                for e in (".py", ".ts", ".tsx", ".js", ".go", ".java", ".rs", ".c", ".cpp")
+            )
+        ]
 
         if not code_files:
             return tasks
 
         # Always run semantic + security on code files
-        tasks.append(VerificationTask(
-            task_type=TaskType.SEMANTIC_ANALYSIS,
-            priority=TaskPriority.HIGH,
-            target_files=code_files,
-            estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.SEMANTIC_ANALYSIS] * len(code_files),
-            estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.SEMANTIC_ANALYSIS],
-        ))
-        tasks.append(VerificationTask(
-            task_type=TaskType.SECURITY_SCAN,
-            priority=TaskPriority.HIGH,
-            target_files=code_files,
-            estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.SECURITY_SCAN] * len(code_files),
-            estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.SECURITY_SCAN],
-        ))
+        tasks.append(
+            VerificationTask(
+                task_type=TaskType.SEMANTIC_ANALYSIS,
+                priority=TaskPriority.HIGH,
+                target_files=code_files,
+                estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.SEMANTIC_ANALYSIS]
+                * len(code_files),
+                estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.SEMANTIC_ANALYSIS],
+            )
+        )
+        tasks.append(
+            VerificationTask(
+                task_type=TaskType.SECURITY_SCAN,
+                priority=TaskPriority.HIGH,
+                target_files=code_files,
+                estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.SECURITY_SCAN]
+                * len(code_files),
+                estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.SECURITY_SCAN],
+            )
+        )
 
         # Formal verification for verifiable languages
-        verifiable = [p for p in code_files if any(
-            p.endswith(e) for e in (".py", ".ts", ".go", ".rs", ".c", ".cpp")
-        )]
+        verifiable = [
+            p
+            for p in code_files
+            if any(p.endswith(e) for e in (".py", ".ts", ".go", ".rs", ".c", ".cpp"))
+        ]
         if verifiable:
-            tasks.append(VerificationTask(
-                task_type=TaskType.FORMAL_VERIFICATION,
-                priority=TaskPriority.MEDIUM,
-                target_files=verifiable,
-                estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.FORMAL_VERIFICATION] * len(verifiable),
-                estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.FORMAL_VERIFICATION],
-            ))
+            tasks.append(
+                VerificationTask(
+                    task_type=TaskType.FORMAL_VERIFICATION,
+                    priority=TaskPriority.MEDIUM,
+                    target_files=verifiable,
+                    estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.FORMAL_VERIFICATION]
+                    * len(verifiable),
+                    estimated_duration_ms=self.TASK_DURATION_ESTIMATES[
+                        TaskType.FORMAL_VERIFICATION
+                    ],
+                )
+            )
 
         # Trust score for AI-heavy repos
         if "copilot" in " ".join(ctx.labels).lower() or len(code_files) > 5:
-            tasks.append(VerificationTask(
-                task_type=TaskType.TRUST_SCORE,
-                priority=TaskPriority.MEDIUM,
-                target_files=code_files,
-                estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.TRUST_SCORE] * len(code_files),
-                estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.TRUST_SCORE],
-            ))
+            tasks.append(
+                VerificationTask(
+                    task_type=TaskType.TRUST_SCORE,
+                    priority=TaskPriority.MEDIUM,
+                    target_files=code_files,
+                    estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.TRUST_SCORE]
+                    * len(code_files),
+                    estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.TRUST_SCORE],
+                )
+            )
 
         # Complexity analysis for large PRs
         if len(code_files) > 3:
-            tasks.append(VerificationTask(
-                task_type=TaskType.COMPLEXITY_ANALYSIS,
-                priority=TaskPriority.LOW,
-                target_files=code_files,
-                estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.COMPLEXITY_ANALYSIS],
-                estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.COMPLEXITY_ANALYSIS],
-            ))
+            tasks.append(
+                VerificationTask(
+                    task_type=TaskType.COMPLEXITY_ANALYSIS,
+                    priority=TaskPriority.LOW,
+                    target_files=code_files,
+                    estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.COMPLEXITY_ANALYSIS],
+                    estimated_duration_ms=self.TASK_DURATION_ESTIMATES[
+                        TaskType.COMPLEXITY_ANALYSIS
+                    ],
+                )
+            )
 
         # Dependency scan if lockfiles changed
-        dep_files = [p for p in file_paths if any(
-            p.endswith(n) for n in ("requirements.txt", "package-lock.json", "go.sum", "Cargo.lock")
-        )]
+        dep_files = [
+            p
+            for p in file_paths
+            if any(
+                p.endswith(n)
+                for n in ("requirements.txt", "package-lock.json", "go.sum", "Cargo.lock")
+            )
+        ]
         if dep_files:
-            tasks.append(VerificationTask(
-                task_type=TaskType.DEPENDENCY_SCAN,
-                priority=TaskPriority.HIGH,
-                target_files=dep_files,
-                estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.DEPENDENCY_SCAN],
-                estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.DEPENDENCY_SCAN],
-            ))
+            tasks.append(
+                VerificationTask(
+                    task_type=TaskType.DEPENDENCY_SCAN,
+                    priority=TaskPriority.HIGH,
+                    target_files=dep_files,
+                    estimated_cost_cents=self.TASK_COST_ESTIMATES[TaskType.DEPENDENCY_SCAN],
+                    estimated_duration_ms=self.TASK_DURATION_ESTIMATES[TaskType.DEPENDENCY_SCAN],
+                )
+            )
 
         return tasks
 
-    def _apply_budget(
-        self, tasks: list[VerificationTask], budget: float
-    ) -> list[VerificationTask]:
+    def _apply_budget(self, tasks: list[VerificationTask], budget: float) -> list[VerificationTask]:
         """Trim low-priority tasks to stay within budget."""
         priority_order = {
-            TaskPriority.CRITICAL: 0, TaskPriority.HIGH: 1,
-            TaskPriority.MEDIUM: 2, TaskPriority.LOW: 3,
+            TaskPriority.CRITICAL: 0,
+            TaskPriority.HIGH: 1,
+            TaskPriority.MEDIUM: 2,
+            TaskPriority.LOW: 3,
         }
         tasks.sort(key=lambda t: priority_order.get(t.priority, 99))
 
@@ -397,12 +433,10 @@ class PlannerAgent:
                 selected.append(task)
         return selected
 
-    def _prioritize(
-        self, tasks: list[VerificationTask], ctx: PRContext
-    ) -> list[VerificationTask]:
+    def _prioritize(self, tasks: list[VerificationTask], ctx: PRContext) -> list[VerificationTask]:
         """Boost priority for security-labeled PRs."""
         security_labels = {"security", "vulnerability", "cve", "hotfix"}
-        if any(l.lower() in security_labels for l in ctx.labels):
+        if any(label.lower() in security_labels for label in ctx.labels):
             for task in tasks:
                 if task.task_type == TaskType.SECURITY_SCAN:
                     task.priority = TaskPriority.CRITICAL
@@ -440,7 +474,7 @@ class SubAgentExecutor:
         """Execute a verification task and return results."""
         start = time.time()
         task.status = TaskStatus.RUNNING
-        task.started_at = datetime.now(timezone.utc)
+        task.started_at = datetime.now(UTC)
 
         findings: list[AgentFinding] = []
         patterns = self.CHECK_PATTERNS.get(task.task_type, [])
@@ -449,18 +483,20 @@ class SubAgentExecutor:
             content = file_info if isinstance(file_info, str) else ""
             for pattern, category, severity, message in patterns:
                 if pattern.lower() in content.lower():
-                    findings.append(AgentFinding(
-                        agent_type=task.task_type,
-                        file_path=content[:50] if "/" in content else content,
-                        severity=severity,
-                        category=category,
-                        message=message,
-                        confidence=0.85,
-                    ))
+                    findings.append(
+                        AgentFinding(
+                            agent_type=task.task_type,
+                            file_path=content[:50] if "/" in content else content,
+                            severity=severity,
+                            category=category,
+                            message=message,
+                            confidence=0.85,
+                        )
+                    )
 
         elapsed = int((time.time() - start) * 1000)
         task.status = TaskStatus.COMPLETED
-        task.completed_at = datetime.now(timezone.utc)
+        task.completed_at = datetime.now(UTC)
 
         result = TaskResult(
             task_id=task.id,
@@ -517,17 +553,19 @@ class ConflictResolver:
                 winner.confidence = min(1.0, winner.confidence + 0.1 * (len(agreeing) - 1))
 
             resolved_findings.append(winner)
-            resolutions.append(ConflictResolution(
-                finding_fingerprint=fingerprint,
-                competing_findings=group,
-                resolved_finding=winner,
-                strategy_used=strategy,
-                resolution_reason=(
-                    f"Selected from {len(group)} agents "
-                    f"({', '.join(f.agent_type.value for f in group)}) "
-                    f"using {strategy.value}"
-                ),
-            ))
+            resolutions.append(
+                ConflictResolution(
+                    finding_fingerprint=fingerprint,
+                    competing_findings=group,
+                    resolved_finding=winner,
+                    strategy_used=strategy,
+                    resolution_reason=(
+                        f"Selected from {len(group)} agents "
+                        f"({', '.join(f.agent_type.value for f in group)}) "
+                        f"using {strategy.value}"
+                    ),
+                )
+            )
 
         return resolved_findings, resolutions
 
@@ -551,7 +589,7 @@ class CircuitBreaker:
             return True
         if state.state == CircuitState.OPEN:
             if state.last_failure_at:
-                elapsed = (datetime.now(timezone.utc) - state.last_failure_at).total_seconds()
+                elapsed = (datetime.now(UTC) - state.last_failure_at).total_seconds()
                 if elapsed >= state.cooldown_seconds:
                     state.state = CircuitState.HALF_OPEN
                     return True
@@ -573,7 +611,7 @@ class CircuitBreaker:
             )
         state = self._states[agent_type]
         state.failure_count += 1
-        state.last_failure_at = datetime.now(timezone.utc)
+        state.last_failure_at = datetime.now(UTC)
         if state.failure_count >= state.failure_threshold:
             state.state = CircuitState.OPEN
 
@@ -613,8 +651,13 @@ class AgenticReviewOrchestrator:
 
         # Phase 1: Plan
         plan = self._planner.create_plan(pr_context, self._budget_cents)
-        trace.append({"phase": "plan", "tasks": plan.task_count,
-                       "estimated_cost": plan.total_estimated_cost_cents})
+        trace.append(
+            {
+                "phase": "plan",
+                "tasks": plan.task_count,
+                "estimated_cost": plan.total_estimated_cost_cents,
+            }
+        )
 
         # Phase 2: Dispatch and execute
         all_findings: list[AgentFinding] = []
@@ -633,7 +676,9 @@ class AgenticReviewOrchestrator:
             if not self._circuit_breaker.is_available(task.task_type):
                 task.status = TaskStatus.SKIPPED
                 skipped += 1
-                trace.append({"phase": "skip", "task": task.task_type.value, "reason": "circuit_open"})
+                trace.append(
+                    {"phase": "skip", "task": task.task_type.value, "reason": "circuit_open"}
+                )
                 continue
 
             try:
@@ -643,10 +688,14 @@ class AgenticReviewOrchestrator:
                 total_cost += result.cost_cents
                 total_tokens += result.tokens_used
                 completed += 1
-                trace.append({
-                    "phase": "execute", "task": task.task_type.value,
-                    "findings": len(result.findings), "latency_ms": result.latency_ms,
-                })
+                trace.append(
+                    {
+                        "phase": "execute",
+                        "task": task.task_type.value,
+                        "findings": len(result.findings),
+                        "latency_ms": result.latency_ms,
+                    }
+                )
             except Exception as exc:
                 self._circuit_breaker.record_failure(task.task_type)
                 task.status = TaskStatus.FAILED
@@ -655,18 +704,22 @@ class AgenticReviewOrchestrator:
 
         # Phase 3: Resolve conflicts
         resolved, conflicts = self._resolver.resolve(all_findings, self._conflict_strategy)
-        trace.append({"phase": "resolve", "input": len(all_findings),
-                       "output": len(resolved), "conflicts": len(conflicts)})
+        trace.append(
+            {
+                "phase": "resolve",
+                "input": len(all_findings),
+                "output": len(resolved),
+                "conflicts": len(conflicts),
+            }
+        )
 
         # Phase 4: Sort by severity
         sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         resolved.sort(key=lambda f: sev_order.get(f.severity, 99))
 
-        total_latency = sum(
-            t.elapsed_ms for t in plan.tasks if t.status == TaskStatus.COMPLETED
-        )
+        total_latency = sum(t.elapsed_ms for t in plan.tasks if t.status == TaskStatus.COMPLETED)
 
-        result = OrchestratorResult(
+        orchestrator_result = OrchestratorResult(
             plan_id=plan.id,
             findings=resolved,
             conflicts_resolved=conflicts,
@@ -678,8 +731,8 @@ class AgenticReviewOrchestrator:
             total_latency_ms=total_latency,
             execution_trace=trace,
         )
-        self._execution_history.append(result)
-        return result
+        self._execution_history.append(orchestrator_result)
+        return orchestrator_result
 
     def get_history(self) -> list[OrchestratorResult]:
         return list(self._execution_history)

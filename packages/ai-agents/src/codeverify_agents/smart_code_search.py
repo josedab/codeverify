@@ -434,7 +434,7 @@ Focus on what the code does, not implementation details."""
         processed = set()
 
         # Exact duplicates (same structural hash)
-        for hash_key, unit_ids in self._structural_index.items():
+        for _hash_key, unit_ids in self._structural_index.items():
             if len(unit_ids) > 1:
                 units = [self._code_units[uid] for uid in unit_ids if uid in self._code_units]
                 if len(units) > 1:
@@ -457,7 +457,7 @@ Focus on what the code does, not implementation details."""
 
             similar = [id1]
 
-            for j, (id2, emb2) in enumerate(embedding_items[i + 1 :], i + 1):
+            for _j, (id2, emb2) in enumerate(embedding_items[i + 1 :], i + 1):
                 if id2 in processed:
                     continue
 
@@ -712,7 +712,7 @@ Focus on what the code does, not implementation details."""
         if len(vec1) != len(vec2):
             return 0.0
 
-        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        dot_product = sum(a * b for a, b in zip(vec1, vec2, strict=True))
         norm1 = math.sqrt(sum(a * a for a in vec1))
         norm2 = math.sqrt(sum(b * b for b in vec2))
 
@@ -727,7 +727,7 @@ Focus on what the code does, not implementation details."""
         if hash1 == hash2:
             return 1.0
 
-        matches = sum(c1 == c2 for c1, c2 in zip(hash1, hash2))
+        matches = sum(c1 == c2 for c1, c2 in zip(hash1, hash2, strict=False))
         return matches / max(len(hash1), len(hash2))
 
     def _merge_results(self, results: list[SearchResult]) -> list[SearchResult]:
@@ -766,9 +766,12 @@ Focus on what the code does, not implementation details."""
                 continue
 
             # File pattern filter
-            if query.file_pattern and unit.file_path:
-                if not re.search(query.file_pattern, unit.file_path):
-                    continue
+            if (
+                query.file_pattern
+                and unit.file_path
+                and not re.search(query.file_pattern, unit.file_path)
+            ):
+                continue
 
             # Similarity filter
             if result.similarity_score < query.min_similarity:

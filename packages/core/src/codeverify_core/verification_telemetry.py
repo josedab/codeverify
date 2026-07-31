@@ -17,7 +17,7 @@ import statistics
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -46,16 +46,18 @@ class BenchmarkTier(str, Enum):
 @dataclass
 class OrgTelemetry:
     """Telemetry data for an organization."""
+
     org_id_hash: str = ""
     metrics: dict[str, float] = field(default_factory=dict)
     period: str = ""
     opted_in: bool = True
-    collected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    collected_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class BenchmarkResult:
     """Benchmarking result for an org against industry."""
+
     org_id_hash: str = ""
     metric: MetricType = MetricType.FALSE_POSITIVE_RATE
     org_value: float = 0.0
@@ -69,6 +71,7 @@ class BenchmarkResult:
 @dataclass
 class QuarterlyReport:
     """Quarterly State of Code Verification report data."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     period: str = ""
     participating_orgs: int = 0
@@ -76,7 +79,7 @@ class QuarterlyReport:
     industry_averages: dict[str, float] = field(default_factory=dict)
     trends: dict[str, str] = field(default_factory=dict)
     top_findings: list[dict[str, Any]] = field(default_factory=list)
-    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class TelemetryAggregator:
@@ -114,7 +117,9 @@ class VerificationTelemetryService:
         self._aggregator = TelemetryAggregator()
         self._reports: list[QuarterlyReport] = []
 
-    def submit_telemetry(self, org_id: str, metrics: dict[str, float], period: str = "") -> OrgTelemetry:
+    def submit_telemetry(
+        self, org_id: str, metrics: dict[str, float], period: str = ""
+    ) -> OrgTelemetry:
         org_hash = hashlib.sha256(org_id.encode()).hexdigest()[:10]
         t = OrgTelemetry(org_id_hash=org_hash, metrics=metrics, period=period)
         self._telemetry.append(t)
@@ -132,20 +137,36 @@ class VerificationTelemetryService:
             stats = agg.get(metric_name)
             if not stats:
                 continue
-            all_vals = sorted([t.metrics.get(metric_name, 0) for t in self._telemetry if metric_name in t.metrics])
+            all_vals = sorted(
+                [t.metrics.get(metric_name, 0) for t in self._telemetry if metric_name in t.metrics]
+            )
             rank = sum(1 for v in all_vals if v <= org_value)
             percentile = round(rank / len(all_vals) * 100, 1) if all_vals else 50.0
-            tier = (BenchmarkTier.TOP_10 if percentile >= 90 else BenchmarkTier.TOP_25 if percentile >= 75
-                    else BenchmarkTier.MEDIAN if percentile >= 50 else BenchmarkTier.BELOW_MEDIAN)
+            tier = (
+                BenchmarkTier.TOP_10
+                if percentile >= 90
+                else BenchmarkTier.TOP_25
+                if percentile >= 75
+                else BenchmarkTier.MEDIAN
+                if percentile >= 50
+                else BenchmarkTier.BELOW_MEDIAN
+            )
             try:
                 mt = MetricType(metric_name)
             except ValueError:
                 continue
-            results.append(BenchmarkResult(
-                org_id_hash=org_hash, metric=mt, org_value=org_value,
-                industry_median=stats["median"], industry_p25=stats["p25"],
-                industry_p75=stats["p75"], percentile=percentile, tier=tier,
-            ))
+            results.append(
+                BenchmarkResult(
+                    org_id_hash=org_hash,
+                    metric=mt,
+                    org_value=org_value,
+                    industry_median=stats["median"],
+                    industry_p25=stats["p25"],
+                    industry_p75=stats["p75"],
+                    percentile=percentile,
+                    tier=tier,
+                )
+            )
         return results
 
     def generate_report(self, period: str = "Q1-2026") -> QuarterlyReport:
@@ -155,9 +176,13 @@ class VerificationTelemetryService:
         for k in averages:
             trends[k] = "stable"
         report = QuarterlyReport(
-            period=period, participating_orgs=len(set(t.org_id_hash for t in self._telemetry)),
-            total_verifications=int(sum(t.metrics.get("total_verifications", 0) for t in self._telemetry)),
-            industry_averages=averages, trends=trends,
+            period=period,
+            participating_orgs=len({t.org_id_hash for t in self._telemetry}),
+            total_verifications=int(
+                sum(t.metrics.get("total_verifications", 0) for t in self._telemetry)
+            ),
+            industry_averages=averages,
+            trends=trends,
         )
         self._reports.append(report)
         return report
@@ -167,10 +192,15 @@ class VerificationTelemetryService:
 
 
 _telemetry_bench_instance: VerificationTelemetryService | None = None
+
+
 def get_telemetry_benchmark_service() -> VerificationTelemetryService:
     global _telemetry_bench_instance
-    if _telemetry_bench_instance is None: _telemetry_bench_instance = VerificationTelemetryService()
+    if _telemetry_bench_instance is None:
+        _telemetry_bench_instance = VerificationTelemetryService()
     return _telemetry_bench_instance
+
+
 def reset_telemetry_benchmark_service() -> None:
     global _telemetry_bench_instance
     _telemetry_bench_instance = None

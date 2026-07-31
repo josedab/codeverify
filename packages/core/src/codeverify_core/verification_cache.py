@@ -20,7 +20,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol
 
 import structlog
 
@@ -243,7 +243,11 @@ class RedisCacheBackend:
             try:
                 import redis
 
-                self._client = redis.from_url(self._redis_url, decode_responses=True)
+                # redis-py's from_url() (and Redis.from_url) leave **kwargs unannotated,
+                # so mypy treats the whole call as untyped even though it returns Redis.
+                self._client = redis.from_url(  # type: ignore[no-untyped-call]
+                    self._redis_url, decode_responses=True
+                )
             except ImportError:
                 logger.warning("redis package not installed, falling back to memory cache")
                 raise
@@ -470,6 +474,37 @@ class VerificationCache:
         }
 
 
+class Z3VerifierProtocol(Protocol):
+    """Structural type for the Z3Verifier methods used by the cache wrappers below.
+
+    Defined locally instead of importing codeverify_verifier.Z3Verifier because the
+    verifier package depends on codeverify_core, not the other way around.
+    """
+
+    def check_null_dereference(
+        self, var_name: str, can_be_null: bool, null_check_exists: bool
+    ) -> dict[str, Any]: ...
+
+    def check_array_bounds(
+        self, index_var: str, index_range: tuple[int, int] | None, array_length: int
+    ) -> dict[str, Any]: ...
+
+    def check_integer_overflow(
+        self,
+        var_name: str,
+        operation: str,
+        operand1_range: tuple[int, int],
+        operand2_range: tuple[int, int] | None = None,
+        bit_width: int = 32,
+    ) -> dict[str, Any]: ...
+
+    def check_division_by_zero(
+        self, divisor_var: str, divisor_range: tuple[int, int] | None
+    ) -> dict[str, Any]: ...
+
+    def verify_condition(self, condition: str, description: str = "") -> dict[str, Any]: ...
+
+
 class CachedVerifier:
     """Wraps Z3Verifier with transparent caching.
 
@@ -482,7 +517,7 @@ class CachedVerifier:
 
     def __init__(
         self,
-        verifier: Any,
+        verifier: Z3VerifierProtocol,
         cache: VerificationCache | None = None,
     ) -> None:
         self._verifier = verifier
@@ -683,7 +718,7 @@ class BatchCachedVerifier:
 
     def __init__(
         self,
-        verifier: Any,
+        verifier: Z3VerifierProtocol,
         cache: VerificationCache | None = None,
     ) -> None:
         self._verifier = verifier
@@ -868,7 +903,7 @@ class DependencyAwareCacheInvalidator:
         )
         return count
 
-    def on_file_changed(self, file_path: str, changed_functions: list[str]) -> int:
+    def on_file_changed(self, _file_path: str, changed_functions: list[str]) -> int:
         """Handle a file change by invalidating affected functions and their dependents."""
         count = 0
         for func in changed_functions:

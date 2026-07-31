@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -53,6 +53,7 @@ class DiagnosisType(str, Enum):
 @dataclass
 class RuntimeIncident:
     """A runtime incident detected by monitoring."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     function_name: str = ""
     file_path: str = ""
@@ -61,13 +62,14 @@ class RuntimeIncident:
     stack_trace: str = ""
     variable_state: dict[str, Any] = field(default_factory=dict)
     occurrence_count: int = 1
-    first_seen: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_seen: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    first_seen: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_seen: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class Diagnosis:
     """Root cause diagnosis for an incident."""
+
     incident_id: str = ""
     diagnosis_type: DiagnosisType = DiagnosisType.UNKNOWN
     root_cause: str = ""
@@ -79,6 +81,7 @@ class Diagnosis:
 @dataclass
 class HealingAction:
     """A healing action taken by the agent."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     incident_id: str = ""
     diagnosis: Diagnosis | None = None
@@ -89,13 +92,14 @@ class HealingAction:
     pr_url: str = ""
     confidence: float = 0.0
     autonomy_level: AutonomyLevel = AutonomyLevel.SUGGEST
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
 
 @dataclass
 class HealingConfig:
     """Configuration for the self-healing agent."""
+
     autonomy: AutonomyLevel = AutonomyLevel.SUGGEST
     min_confidence: float = 0.8
     auto_merge_confidence: float = 0.95
@@ -126,9 +130,13 @@ class IncidentDiagnoser:
         }.get(diag_type, f"Unknown error in {incident.function_name}")
 
         return Diagnosis(
-            incident_id=incident.id, diagnosis_type=diag_type,
-            root_cause=root_cause, confidence=confidence,
-            z3_correlation=f"(assert (not (= {incident.function_name}_input null)))" if diag_type == DiagnosisType.NULL_DEREF else "",
+            incident_id=incident.id,
+            diagnosis_type=diag_type,
+            root_cause=root_cause,
+            confidence=confidence,
+            z3_correlation=f"(assert (not (= {incident.function_name}_input null)))"
+            if diag_type == DiagnosisType.NULL_DEREF
+            else "",
         )
 
 
@@ -168,9 +176,12 @@ class SelfHealingService:
         original, fixed = self._fix_gen.generate(incident, diagnosis)
 
         action = HealingAction(
-            incident_id=incident.id, diagnosis=diagnosis,
-            original_code=original, fixed_code=fixed,
-            confidence=diagnosis.confidence, autonomy_level=self._config.autonomy,
+            incident_id=incident.id,
+            diagnosis=diagnosis,
+            original_code=original,
+            fixed_code=fixed,
+            confidence=diagnosis.confidence,
+            autonomy_level=self._config.autonomy,
         )
 
         if not fixed:
@@ -178,7 +189,10 @@ class SelfHealingService:
         elif diagnosis.confidence >= self._config.min_confidence:
             action.status = HealingStatus.VERIFYING_FIX
             action.proof_verified = True  # simplified
-            if self._config.autonomy == AutonomyLevel.AUTO_FIX and self._auto_fixes_today < self._config.max_auto_fixes_per_day:
+            if (
+                self._config.autonomy == AutonomyLevel.AUTO_FIX
+                and self._auto_fixes_today < self._config.max_auto_fixes_per_day
+            ):
                 if diagnosis.confidence >= self._config.auto_merge_confidence:
                     action.status = HealingStatus.APPLIED
                     self._auto_fixes_today += 1
@@ -191,7 +205,7 @@ class SelfHealingService:
         else:
             action.status = HealingStatus.GENERATING_FIX
 
-        action.completed_at = datetime.now(timezone.utc)
+        action.completed_at = datetime.now(UTC)
         self._actions.append(action)
         return action
 
@@ -211,10 +225,15 @@ class SelfHealingService:
 
 
 _self_healing_instance: SelfHealingService | None = None
+
+
 def get_self_healing_service() -> SelfHealingService:
     global _self_healing_instance
-    if _self_healing_instance is None: _self_healing_instance = SelfHealingService()
+    if _self_healing_instance is None:
+        _self_healing_instance = SelfHealingService()
     return _self_healing_instance
+
+
 def reset_self_healing_service() -> None:
     global _self_healing_instance
     _self_healing_instance = None

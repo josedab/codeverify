@@ -19,7 +19,6 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -60,6 +59,7 @@ class BadgeStatus(str, Enum):
 @dataclass
 class WidgetConfig:
     """Configuration for a widget instance."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     widget_type: WidgetType = WidgetType.BADGE
     theme: WidgetTheme = WidgetTheme.LIGHT
@@ -70,13 +70,13 @@ class WidgetConfig:
     show_details: bool = False
     auto_refresh_seconds: int = 300
     custom_css: str = ""
-    token: str = field(default_factory=lambda: hashlib.sha256(
-        uuid.uuid4().bytes).hexdigest()[:16])
+    token: str = field(default_factory=lambda: hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:16])
 
 
 @dataclass
 class BadgeData:
     """Data for rendering a status badge."""
+
     label: str = "CodeVerify"
     status: BadgeStatus = BadgeStatus.UNKNOWN
     message: str = ""
@@ -98,6 +98,7 @@ class BadgeData:
 @dataclass
 class TrustScoreData:
     """Data for rendering a trust score widget."""
+
     score: float = 0.0
     risk_level: str = "unknown"
     trend: str = "stable"
@@ -108,6 +109,7 @@ class TrustScoreData:
 @dataclass
 class FindingSummaryData:
     """Data for rendering a finding summary widget."""
+
     total: int = 0
     critical: int = 0
     high: int = 0
@@ -120,6 +122,7 @@ class FindingSummaryData:
 @dataclass
 class WidgetRenderResult:
     """Result of rendering a widget."""
+
     widget_id: str = ""
     format: EmbedFormat = EmbedFormat.IFRAME
     html: str = ""
@@ -144,14 +147,14 @@ class BadgeRenderer:
             f'font-family="sans-serif" font-size="11">{data.label}</text>'
             f'<text x="{label_width + msg_width // 2}" y="14" fill="#fff" text-anchor="middle" '
             f'font-family="sans-serif" font-size="11">{msg}</text>'
-            f'</svg>'
+            f"</svg>"
         )
 
     def render_html(self, data: BadgeData) -> str:
         return (
             f'<span style="display:inline-flex;font-family:sans-serif;font-size:12px;">'
             f'<span style="background:#555;color:#fff;padding:2px 6px;border-radius:3px 0 0 3px;">'
-            f'{data.label}</span>'
+            f"{data.label}</span>"
             f'<span style="background:{data.status_color};color:#fff;padding:2px 6px;'
             f'border-radius:0 3px 3px 0;">{data.message or data.status.value}</span></span>'
         )
@@ -175,28 +178,28 @@ class EmbedCodeGenerator:
         if fmt == EmbedFormat.REACT:
             return (
                 f'import {{ CodeVerifyWidget }} from "@codeverify/widget";\n\n'
-                f'<CodeVerifyWidget\n'
+                f"<CodeVerifyWidget\n"
                 f'  widgetId="{config.id}"\n'
                 f'  token="{config.token}"\n'
                 f'  theme="{config.theme.value}"\n'
                 f'  type="{config.widget_type.value}"\n'
-                f'/>'
+                f"/>"
             )
 
         if fmt == EmbedFormat.WEB_COMPONENT:
             return (
                 f'<script src="https://cdn.codeverify.dev/widget.js"></script>\n'
-                f'<codeverify-widget\n'
+                f"<codeverify-widget\n"
                 f'  widget-id="{config.id}"\n'
                 f'  token="{config.token}"\n'
                 f'  theme="{config.theme.value}"\n'
                 f'  type="{config.widget_type.value}">\n'
-                f'</codeverify-widget>'
+                f"</codeverify-widget>"
             )
 
         if fmt == EmbedFormat.MARKDOWN:
             badge_url = f"{self.BASE_URL}/{config.id}/badge.svg?token={config.token}"
-            return f'[![CodeVerify]({badge_url})](https://codeverify.dev)'
+            return f"[![CodeVerify]({badge_url})](https://codeverify.dev)"
 
         if fmt == EmbedFormat.SVG:
             return f"{self.BASE_URL}/{config.id}/badge.svg?token={config.token}"
@@ -222,15 +225,15 @@ class EmbeddableWidgetService:
     ) -> WidgetConfig:
         """Create a new widget configuration."""
         config = WidgetConfig(
-            widget_type=widget_type, repo=repo, theme=theme,
+            widget_type=widget_type,
+            repo=repo,
+            theme=theme,
             **{k: v for k, v in kwargs.items() if k in WidgetConfig.__dataclass_fields__},
         )
         self._configs[config.id] = config
         return config
 
-    def set_badge_data(
-        self, widget_id: str, status: BadgeStatus, message: str = ""
-    ) -> BadgeData:
+    def set_badge_data(self, widget_id: str, status: BadgeStatus, message: str = "") -> BadgeData:
         """Set badge data for a widget."""
         data = BadgeData(status=status, message=message)
         self._widget_data[widget_id] = {"badge": data}
@@ -244,12 +247,19 @@ class EmbeddableWidgetService:
         return data
 
     def set_finding_data(
-        self, widget_id: str, critical: int = 0, high: int = 0,
-        medium: int = 0, low: int = 0,
+        self,
+        widget_id: str,
+        critical: int = 0,
+        high: int = 0,
+        medium: int = 0,
+        low: int = 0,
     ) -> FindingSummaryData:
         data = FindingSummaryData(
             total=critical + high + medium + low,
-            critical=critical, high=high, medium=medium, low=low,
+            critical=critical,
+            high=high,
+            medium=medium,
+            low=low,
         )
         self._widget_data[widget_id] = {"findings": data}
         return data
@@ -268,9 +278,7 @@ class EmbeddableWidgetService:
             data = BadgeData(status=BadgeStatus.UNKNOWN, message="no data")
         return self._badge_renderer.render_html(data)
 
-    def get_embed_code(
-        self, widget_id: str, fmt: EmbedFormat = EmbedFormat.IFRAME
-    ) -> str:
+    def get_embed_code(self, widget_id: str, fmt: EmbedFormat = EmbedFormat.IFRAME) -> str:
         """Get embed code for a widget."""
         config = self._configs.get(widget_id)
         if not config:
@@ -282,7 +290,7 @@ class EmbeddableWidgetService:
         data = self._widget_data.get(widget_id, {})
         serializable: dict[str, Any] = {}
         for key, val in data.items():
-            if hasattr(val, '__dataclass_fields__'):
+            if hasattr(val, "__dataclass_fields__"):
                 serializable[key] = {k: getattr(val, k) for k in val.__dataclass_fields__}
             else:
                 serializable[key] = val

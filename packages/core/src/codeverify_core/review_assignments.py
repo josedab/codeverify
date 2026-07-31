@@ -16,9 +16,8 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -47,6 +46,7 @@ class ExpertiseArea(str, Enum):
 @dataclass
 class Reviewer:
     """A potential code reviewer."""
+
     id: str = ""
     name: str = ""
     expertise: list[ExpertiseArea] = field(default_factory=list)
@@ -63,6 +63,7 @@ class Reviewer:
 @dataclass
 class PRRiskProfile:
     """Risk profile of a pull request."""
+
     pr_id: str = ""
     risk_level: PRRiskLevel = PRRiskLevel.MEDIUM
     finding_categories: list[str] = field(default_factory=list)
@@ -78,6 +79,7 @@ class PRRiskProfile:
 @dataclass
 class ReviewAssignment:
     """A review assignment decision."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     pr_id: str = ""
     reviewer_id: str = ""
@@ -85,12 +87,13 @@ class ReviewAssignment:
     risk_level: PRRiskLevel = PRRiskLevel.MEDIUM
     match_reason: str = ""
     match_score: float = 0.0
-    assigned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    assigned_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
 class AssignmentStats:
     """Statistics for review assignments."""
+
     total_assignments: int = 0
     avg_match_score: float = 0.0
     load_distribution: dict[str, int] = field(default_factory=dict)
@@ -101,8 +104,12 @@ class RiskClassifier:
     """Classifies PR risk from verification findings."""
 
     def classify(
-        self, critical: int = 0, high: int = 0, medium: int = 0,
-        has_security: bool = False, has_formal_failures: bool = False,
+        self,
+        critical: int = 0,
+        high: int = 0,
+        medium: int = 0,
+        has_security: bool = False,
+        has_formal_failures: bool = False,
         changed_files: int = 0,
     ) -> PRRiskProfile:
         if critical > 0 or (has_security and has_formal_failures):
@@ -125,10 +132,14 @@ class RiskClassifier:
             categories.append("formal_verification")
 
         return PRRiskProfile(
-            risk_level=level, risk_score=score,
-            critical_findings=critical, high_findings=high,
-            has_security_issues=has_security, has_formal_failures=has_formal_failures,
-            changed_files=changed_files, finding_categories=categories,
+            risk_level=level,
+            risk_score=score,
+            critical_findings=critical,
+            high_findings=high,
+            has_security_issues=has_security,
+            has_formal_failures=has_formal_failures,
+            changed_files=changed_files,
+            finding_categories=categories,
         )
 
 
@@ -212,9 +223,15 @@ class ReviewAssignmentService:
         self._reviewers[reviewer.id] = reviewer
 
     def assign_reviewer(
-        self, pr_id: str, critical: int = 0, high: int = 0, medium: int = 0,
-        has_security: bool = False, has_formal_failures: bool = False,
-        changed_files: int = 0, max_reviewers: int = 2,
+        self,
+        pr_id: str,
+        critical: int = 0,
+        high: int = 0,
+        medium: int = 0,
+        has_security: bool = False,
+        has_formal_failures: bool = False,
+        changed_files: int = 0,
+        max_reviewers: int = 2,
     ) -> list[ReviewAssignment]:
         """Assign reviewers to a PR based on verification results."""
         profile = self._classifier.classify(
@@ -227,10 +244,12 @@ class ReviewAssignmentService:
 
         for reviewer, score, reason in matches[:max_reviewers]:
             assignment = ReviewAssignment(
-                pr_id=pr_id, reviewer_id=reviewer.id,
+                pr_id=pr_id,
+                reviewer_id=reviewer.id,
                 reviewer_name=reviewer.name,
                 risk_level=profile.risk_level,
-                match_reason=reason, match_score=score,
+                match_reason=reason,
+                match_score=score,
             )
             assignments.append(assignment)
             self._assignments.append(assignment)
@@ -266,11 +285,13 @@ class ReviewAssignmentService:
 
 _review_assign_instance: ReviewAssignmentService | None = None
 
+
 def get_review_assignment_service() -> ReviewAssignmentService:
     global _review_assign_instance
     if _review_assign_instance is None:
         _review_assign_instance = ReviewAssignmentService()
     return _review_assign_instance
+
 
 def reset_review_assignment_service() -> None:
     global _review_assign_instance

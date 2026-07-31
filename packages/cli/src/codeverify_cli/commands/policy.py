@@ -52,7 +52,6 @@ def policy_evaluate(policy_file: str, file_path: str, output_format: str) -> Non
 
     context = {"file_path": file_path}
     results = engine.evaluate(policy_set, context)
-    matched = [r for r in results if r.matched]
 
     if output_format == "json":
         click.echo(

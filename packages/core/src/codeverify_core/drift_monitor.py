@@ -17,11 +17,9 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -53,6 +51,7 @@ class MonitorStatus(str, Enum):
 @dataclass
 class BehavioralFingerprint:
     """Behavioral signature of a function."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     function_name: str = ""
     file_path: str = ""
@@ -63,7 +62,7 @@ class BehavioralFingerprint:
     calls: list[str] = field(default_factory=list)
     complexity: int = 0
     content_hash: str = ""
-    recorded_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    recorded_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def compute_hash(self, content: str) -> str:
         self.content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
@@ -75,18 +74,20 @@ class BehavioralFingerprint:
 @dataclass
 class VerifiedInvariant:
     """A previously-verified invariant to monitor."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     function_name: str = ""
     file_path: str = ""
     invariant_text: str = ""
     z3_assertion: str = ""
-    verified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    verified_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     is_active: bool = True
 
 
 @dataclass
 class DriftAlert:
     """An alert for detected drift."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     drift_type: DriftType = DriftType.BEHAVIOR_CHANGE
     severity: DriftSeverity = DriftSeverity.MEDIUM
@@ -96,13 +97,14 @@ class DriftAlert:
     old_fingerprint: str = ""
     new_fingerprint: str = ""
     commit_sha: str = ""
-    detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    detected_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     acknowledged: bool = False
 
 
 @dataclass
 class DriftReport:
     """Summary report of drift detection results."""
+
     repo: str = ""
     commit_sha: str = ""
     alerts: list[DriftAlert] = field(default_factory=list)
@@ -122,30 +124,38 @@ class DriftReport:
 class FingerprintExtractor:
     """Extracts behavioral fingerprints from source code."""
 
-    def extract(self, file_path: str, content: str, language: str = "python") -> list[BehavioralFingerprint]:
+    def extract(
+        self, file_path: str, content: str, language: str = "python"
+    ) -> list[BehavioralFingerprint]:
         """Extract fingerprints for all functions in a file."""
         fingerprints: list[BehavioralFingerprint] = []
         lines = content.split("\n")
-        func_pattern = "def " if language == "python" else "function " if language in ("typescript", "javascript") else "func "
+        func_pattern = (
+            "def "
+            if language == "python"
+            else "function "
+            if language in ("typescript", "javascript")
+            else "func "
+        )
 
         current_func: str | None = None
         func_lines: list[str] = []
-        func_start = 0
         params: list[str] = []
 
-        for i, line in enumerate(lines):
+        for line in lines:
             stripped = line.lstrip()
             if stripped.startswith(func_pattern):
                 if current_func and func_lines:
                     fp = self._create_fingerprint(file_path, current_func, params, func_lines)
                     fingerprints.append(fp)
 
-                name_part = stripped[len(func_pattern):].split("(")[0].strip()
+                name_part = stripped[len(func_pattern) :].split("(")[0].strip()
                 current_func = name_part
-                func_start = i
                 func_lines = [line]
                 param_str = stripped.split("(")[1].split(")")[0] if "(" in stripped else ""
-                params = [p.strip().split(":")[0].strip() for p in param_str.split(",") if p.strip()]
+                params = [
+                    p.strip().split(":")[0].strip() for p in param_str.split(",") if p.strip()
+                ]
             elif current_func:
                 func_lines.append(line)
 
@@ -159,11 +169,15 @@ class FingerprintExtractor:
         self, file_path: str, name: str, params: list[str], lines: list[str]
     ) -> BehavioralFingerprint:
         content = "\n".join(lines)
-        raises = [l.strip().split("raise ")[1].split("(")[0] for l in lines if "raise " in l]
+        raises = [
+            line.strip().split("raise ")[1].split("(")[0] for line in lines if "raise " in line
+        ]
         calls = []
-        for l in lines:
-            stripped = l.strip()
-            if "(" in stripped and not stripped.startswith(("def ", "class ", "#", "if ", "for ", "while ")):
+        for line in lines:
+            stripped = line.strip()
+            if "(" in stripped and not stripped.startswith(
+                ("def ", "class ", "#", "if ", "for ", "while ")
+            ):
                 call_name = stripped.split("(")[0].strip().split(".")[-1]
                 if call_name and call_name[0].islower():
                     calls.append(call_name)
@@ -204,44 +218,53 @@ class DriftDetector:
 
             # Signature change
             if old_fp.signature_hash != new_fp.signature_hash:
-                alerts.append(DriftAlert(
-                    drift_type=DriftType.SIGNATURE_CHANGE,
-                    severity=DriftSeverity.HIGH,
-                    function_name=new_fp.function_name,
-                    file_path=new_fp.file_path,
-                    message=f"Function signature changed: params {old_fp.parameters} → {new_fp.parameters}",
-                    old_fingerprint=old_fp.signature_hash,
-                    new_fingerprint=new_fp.signature_hash,
-                    commit_sha=commit_sha,
-                ))
+                alerts.append(
+                    DriftAlert(
+                        drift_type=DriftType.SIGNATURE_CHANGE,
+                        severity=DriftSeverity.HIGH,
+                        function_name=new_fp.function_name,
+                        file_path=new_fp.file_path,
+                        message=f"Function signature changed: params {old_fp.parameters} → {new_fp.parameters}",
+                        old_fingerprint=old_fp.signature_hash,
+                        new_fingerprint=new_fp.signature_hash,
+                        commit_sha=commit_sha,
+                    )
+                )
 
             # Exception change
             if set(old_fp.raises) != set(new_fp.raises):
                 added = set(new_fp.raises) - set(old_fp.raises)
                 removed = set(old_fp.raises) - set(new_fp.raises)
-                alerts.append(DriftAlert(
-                    drift_type=DriftType.EXCEPTION_CHANGE,
-                    severity=DriftSeverity.MEDIUM,
-                    function_name=new_fp.function_name,
-                    file_path=new_fp.file_path,
-                    message=f"Exception behavior changed. Added: {added or 'none'}, Removed: {removed or 'none'}",
-                    commit_sha=commit_sha,
-                ))
+                alerts.append(
+                    DriftAlert(
+                        drift_type=DriftType.EXCEPTION_CHANGE,
+                        severity=DriftSeverity.MEDIUM,
+                        function_name=new_fp.function_name,
+                        file_path=new_fp.file_path,
+                        message=f"Exception behavior changed. Added: {added or 'none'}, Removed: {removed or 'none'}",
+                        commit_sha=commit_sha,
+                    )
+                )
 
             # Behavioral change (content differs but signature same)
-            if old_fp.content_hash != new_fp.content_hash and old_fp.signature_hash == new_fp.signature_hash:
+            if (
+                old_fp.content_hash != new_fp.content_hash
+                and old_fp.signature_hash == new_fp.signature_hash
+            ):
                 complexity_delta = abs(new_fp.complexity - old_fp.complexity)
                 severity = DriftSeverity.LOW if complexity_delta < 5 else DriftSeverity.MEDIUM
-                alerts.append(DriftAlert(
-                    drift_type=DriftType.BEHAVIOR_CHANGE,
-                    severity=severity,
-                    function_name=new_fp.function_name,
-                    file_path=new_fp.file_path,
-                    message=f"Function behavior changed (complexity delta: {complexity_delta})",
-                    old_fingerprint=old_fp.content_hash,
-                    new_fingerprint=new_fp.content_hash,
-                    commit_sha=commit_sha,
-                ))
+                alerts.append(
+                    DriftAlert(
+                        drift_type=DriftType.BEHAVIOR_CHANGE,
+                        severity=severity,
+                        function_name=new_fp.function_name,
+                        file_path=new_fp.file_path,
+                        message=f"Function behavior changed (complexity delta: {complexity_delta})",
+                        old_fingerprint=old_fp.content_hash,
+                        new_fingerprint=new_fp.content_hash,
+                        commit_sha=commit_sha,
+                    )
+                )
 
         return alerts
 
@@ -263,13 +286,15 @@ class InvariantMonitor:
             if not code:
                 continue
             if inv.function_name not in code:
-                alerts.append(DriftAlert(
-                    drift_type=DriftType.INVARIANT_VIOLATION,
-                    severity=DriftSeverity.CRITICAL,
-                    function_name=inv.function_name,
-                    file_path=inv.file_path,
-                    message=f"Function '{inv.function_name}' removed — invariant '{inv.invariant_text}' can no longer be verified",
-                ))
+                alerts.append(
+                    DriftAlert(
+                        drift_type=DriftType.INVARIANT_VIOLATION,
+                        severity=DriftSeverity.CRITICAL,
+                        function_name=inv.function_name,
+                        file_path=inv.file_path,
+                        message=f"Function '{inv.function_name}' removed — invariant '{inv.invariant_text}' can no longer be verified",
+                    )
+                )
         return alerts
 
 
@@ -308,6 +333,7 @@ class DriftMonitorService:
     ) -> DriftReport:
         """Scan for drift against baseline."""
         import time
+
         start = time.time()
 
         new_fps: list[BehavioralFingerprint] = []
@@ -326,7 +352,9 @@ class DriftMonitorService:
         self._alerts.extend(alerts)
         elapsed = int((time.time() - start) * 1000)
 
-        drifted = len(set(a.function_name for a in alerts if a.drift_type != DriftType.INVARIANT_VIOLATION))
+        drifted = len(
+            {a.function_name for a in alerts if a.drift_type != DriftType.INVARIANT_VIOLATION}
+        )
         inv_violated = sum(1 for a in alerts if a.drift_type == DriftType.INVARIANT_VIOLATION)
 
         return DriftReport(
@@ -354,7 +382,7 @@ class DriftMonitorService:
     def get_alerts(self, repo: str | None = None) -> list[DriftAlert]:
         if repo:
             baselines = self._baselines.get(repo, [])
-            paths = set(fp.file_path for fp in baselines)
+            paths = {fp.file_path for fp in baselines}
             return [a for a in self._alerts if a.file_path in paths]
         return list(self._alerts)
 

@@ -109,14 +109,14 @@ class PlaygroundSession:
     counterexample: Counterexample
     current_step: int = 0
     modified_values: dict[str, Any] = field(default_factory=dict)
-    exploration_history: list[dict] = field(default_factory=list)
+    exploration_history: list[dict[str, Any]] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
 
 
 class Z3ModelParser:
     """Parse Z3 solver model output into structured counterexamples."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.type_patterns = {
             VariableType.INTEGER: re.compile(r"^-?\d+$"),
             VariableType.BOOLEAN: re.compile(r"^(true|false|True|False)$"),
@@ -211,17 +211,16 @@ class Z3ModelParser:
         return value_str
 
     def _generate_trace(
-        self, variables: dict[str, Variable], source_code: str | None
+        self, variables: dict[str, Variable], _source_code: str | None
     ) -> ExecutionTrace:
         """Generate execution trace from variables and source code."""
         steps = []
-        step_id = 0
 
         # Create initial state from variables
         initial_state = dict(variables)
 
         # Add assignment step for each variable
-        for name, var in variables.items():
+        for step_id, (name, var) in enumerate(variables.items()):
             step = ExecutionStep(
                 step_id=step_id,
                 step_type=StepType.ASSIGNMENT,
@@ -229,7 +228,6 @@ class Z3ModelParser:
                 variables_after={name: var},
             )
             steps.append(step)
-            step_id += 1
 
         trace_id = hashlib.sha256(str(variables).encode()).hexdigest()[:8]
 
@@ -256,7 +254,7 @@ class Z3ModelParser:
 class TraceGenerator:
     """Generate detailed execution traces from counterexamples."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.step_counter = 0
 
     def generate_trace_from_code(
@@ -379,7 +377,7 @@ class TraceGenerator:
                     return True  # The counterexample was generated to satisfy this
         return None
 
-    def _check_assertion_violation(self, assertion: str, state: dict[str, Variable]) -> bool:
+    def _check_assertion_violation(self, _assertion: str, _state: dict[str, Variable]) -> bool:
         """Check if assertion would be violated with counterexample values."""
         # Counterexamples are generated for violated assertions
         return True
@@ -388,7 +386,7 @@ class TraceGenerator:
 class CounterexampleVisualizer:
     """Generate visual representations of counterexamples."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.theme = {
             "bg_color": "#1e1e1e",
             "text_color": "#d4d4d4",
@@ -420,36 +418,36 @@ class CounterexampleVisualizer:
             <h1>🔍 Counterexample Playground</h1>
             <p class="session-info">Session: {session.session_id} | Created: {session.created_at.isoformat()}</p>
         </header>
-        
+
         <div class="main-content">
             <div class="panel variables-panel">
                 <h2>📊 Variables</h2>
                 {self._render_variables(ce.variables, session.modified_values)}
             </div>
-            
+
             <div class="panel trace-panel">
                 <h2>📜 Execution Trace</h2>
                 {self._render_trace(trace, session.current_step)}
             </div>
-            
+
             <div class="panel constraints-panel">
                 <h2>⚙️ Constraints</h2>
                 {self._render_constraints(ce.constraint_path)}
             </div>
         </div>
-        
+
         <div class="controls">
             <button onclick="stepBack()">⏮️ Back</button>
             <button onclick="stepForward()">⏭️ Forward</button>
             <button onclick="resetTrace()">🔄 Reset</button>
             <button onclick="shareSession()">🔗 Share</button>
         </div>
-        
+
         <footer>
             <p>CodeVerify Interactive Counterexample Playground v1.0</p>
         </footer>
     </div>
-    
+
     <script>
         {self._generate_javascript(session)}
     </script>
@@ -614,39 +612,39 @@ class CounterexampleVisualizer:
         let currentStep = {session.current_step};
         const totalSteps = {len(session.counterexample.trace.steps)};
         const sessionId = '{session.session_id}';
-        
+
         function updateHighlight() {{
             document.querySelectorAll('.trace-step').forEach((el, i) => {{
                 el.classList.toggle('current', i === currentStep);
             }});
         }}
-        
+
         function stepBack() {{
             if (currentStep > 0) {{
                 currentStep--;
                 updateHighlight();
             }}
         }}
-        
+
         function stepForward() {{
             if (currentStep < totalSteps - 1) {{
                 currentStep++;
                 updateHighlight();
             }}
         }}
-        
+
         function resetTrace() {{
             currentStep = 0;
             updateHighlight();
         }}
-        
+
         function shareSession() {{
             const url = window.location.origin + '/playground/' + sessionId;
             navigator.clipboard.writeText(url).then(() => {{
                 alert('Session URL copied to clipboard!');
             }});
         }}
-        
+
         document.querySelectorAll('.trace-step').forEach((el, i) => {{
             el.addEventListener('click', () => {{
                 currentStep = i;
@@ -882,7 +880,7 @@ class PlaygroundAPI:
     def __init__(self, engine: PlaygroundEngine):
         self.engine = engine
 
-    def create_session_endpoint(self, request_data: dict) -> dict:
+    def create_session_endpoint(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """POST /api/playground/sessions - Create new session."""
         z3_output = request_data.get("z3_output", "")
         source_code = request_data.get("source_code")
@@ -905,7 +903,7 @@ class PlaygroundAPI:
             "status": 201,
         }
 
-    def get_session_endpoint(self, session_id: str) -> dict:
+    def get_session_endpoint(self, session_id: str) -> dict[str, Any]:
         """GET /api/playground/sessions/{id} - Get session details."""
         session = self.engine.get_session(session_id)
         if not session:
@@ -922,7 +920,9 @@ class PlaygroundAPI:
             "status": 200,
         }
 
-    def modify_value_endpoint(self, session_id: str, request_data: dict) -> dict:
+    def modify_value_endpoint(
+        self, session_id: str, request_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """POST /api/playground/sessions/{id}/modify - Modify variable value."""
         variable = request_data.get("variable")
         value = request_data.get("value")
@@ -936,7 +936,7 @@ class PlaygroundAPI:
 
         return {"success": True, "status": 200}
 
-    def navigate_endpoint(self, session_id: str, action: str) -> dict:
+    def navigate_endpoint(self, session_id: str, action: str) -> dict[str, Any]:
         """POST /api/playground/sessions/{id}/navigate - Navigate trace."""
         if action == "forward":
             success = self.engine.step_forward(session_id)
@@ -954,7 +954,7 @@ class PlaygroundAPI:
             "status": 200,
         }
 
-    def export_endpoint(self, session_id: str, format: str) -> dict:
+    def export_endpoint(self, session_id: str, format: str) -> dict[str, Any]:
         """GET /api/playground/sessions/{id}/export?format={html|mermaid}."""
         if format == "html":
             content = self.engine.export_html(session_id)

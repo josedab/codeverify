@@ -10,6 +10,7 @@ author reputation and leaderboards, licensing, and revenue sharing.
 """
 
 import warnings as _warnings
+
 _warnings.warn(
     "codeverify_core.proof_marketplace is deprecated. Use codeverify_core.proof_artifact_marketplace instead.",
     DeprecationWarning,
@@ -19,7 +20,7 @@ _warnings.warn(
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -75,7 +76,7 @@ class AuthorProfile:
     badges: list[BadgeType] = field(default_factory=list)
     revenue_earned: float = 0.0
     revenue_share_percent: float = 70.0  # Author gets 70%
-    joined_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    joined_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def rank(self) -> BadgeType:
@@ -125,8 +126,8 @@ class MarketplaceProof:
     downloads: int = 0
     verified: bool = False  # Staff-verified correctness
     tags: list[str] = field(default_factory=list)
-    published_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    published_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: str = "1.0.0"
 
     @property
@@ -171,7 +172,7 @@ class Purchase:
     price: float
     author_revenue: float
     platform_fee: float
-    purchased_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    purchased_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -228,9 +229,7 @@ class ProofMarketplace:
         self._user_purchases: dict[str, set[str]] = {}  # buyer_id -> set of proof_ids
         self._platform_fee_percent = platform_fee_percent
 
-    def register_author(
-        self, username: str, display_name: str
-    ) -> AuthorProfile:
+    def register_author(self, username: str, display_name: str) -> AuthorProfile:
         """Register a new author on the marketplace."""
         author = AuthorProfile(
             id=str(uuid.uuid4()),
@@ -284,9 +283,7 @@ class ProofMarketplace:
         logger.info("Proof published", proof_id=proof.id, author=author.username)
         return proof
 
-    def vote(
-        self, proof_id: str, voter_id: str, vote: str
-    ) -> bool:
+    def vote(self, proof_id: str, _voter_id: str, vote: str) -> bool:
         """Vote on a proof (up/down)."""
         proof = self._proofs.get(proof_id)
         if not proof:
@@ -326,9 +323,7 @@ class ProofMarketplace:
 
         return proof.proof_content
 
-    def purchase(
-        self, proof_id: str, buyer_id: str
-    ) -> Purchase | None:
+    def purchase(self, proof_id: str, buyer_id: str) -> Purchase | None:
         """Purchase a paid proof."""
         proof = self._proofs.get(proof_id)
         if not proof or proof.price <= 0:
@@ -383,7 +378,8 @@ class ProofMarketplace:
         if query:
             lower_query = query.lower()
             results = [
-                p for p in results
+                p
+                for p in results
                 if lower_query in p.title.lower()
                 or lower_query in p.description.lower()
                 or any(lower_query in t.lower() for t in p.tags)
@@ -448,11 +444,7 @@ class ProofMarketplace:
             "free_proofs": sum(
                 1 for p in self._proofs.values() if p.pricing_tier == PricingTier.FREE
             ),
-            "paid_proofs": sum(
-                1 for p in self._proofs.values() if p.price > 0
-            ),
-            "verified_proofs": sum(
-                1 for p in self._proofs.values() if p.verified
-            ),
+            "paid_proofs": sum(1 for p in self._proofs.values() if p.price > 0),
+            "verified_proofs": sum(1 for p in self._proofs.values() if p.verified),
             "categories": list({p.category for p in self._proofs.values()}),
         }

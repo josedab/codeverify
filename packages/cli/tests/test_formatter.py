@@ -5,10 +5,8 @@ from __future__ import annotations
 from io import StringIO
 from unittest.mock import MagicMock
 
-import pytest
-from rich.console import Console
-
 from codeverify_cli.formatter import format_diff, format_findings, format_summary
+from rich.console import Console
 
 
 def _console() -> Console:

@@ -109,12 +109,12 @@ async def infer_contract(request: InferContractRequest) -> InferContractResponse
     from codeverify_agents import CrossLanguageVerificationBridge, Language
 
     try:
-        language = Language(request.language)
-    except ValueError:
+        Language(request.language)
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported language: {request.language}. Supported: python, typescript",
-        )
+        ) from e
 
     bridge = CrossLanguageVerificationBridge()
 
@@ -155,12 +155,12 @@ async def verify_against_contract(
     from codeverify_agents import CrossLanguageVerificationBridge, Language
 
     try:
-        language = Language(request.language)
-    except ValueError:
+        Language(request.language)
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported language: {request.language}",
-        )
+        ) from e
 
     bridge = CrossLanguageVerificationBridge()
 
@@ -199,11 +199,11 @@ async def generate_stub(request: GenerateStubRequest) -> dict[str, Any]:
 
     try:
         language = Language(request.target_language)
-    except ValueError:
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported target language: {request.target_language}",
-        )
+        ) from e
 
     bridge = CrossLanguageVerificationBridge()
 
@@ -236,7 +236,7 @@ async def get_type_mapping(request: TypeMappingRequest) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported language: {e}",
-        )
+        ) from e
 
     bridge = CrossLanguageVerificationBridge()
 

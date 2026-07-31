@@ -19,23 +19,23 @@ from codeverify_core.verification_cache import (
 class FakeVerifier:
     """Minimal fake verifier for testing."""
 
-    def check_null_dereference(self, var_name, can_be_null, null_check_exists):
+    def check_null_dereference(self, _var_name, can_be_null, null_check_exists):
         return {
             "check": "null_safety",
             "satisfiable": can_be_null and not null_check_exists,
             "proof_time_ms": 42.0,
         }
 
-    def check_array_bounds(self, index_var, index_range, array_length):
+    def check_array_bounds(self, _index_var, _index_range, _array_length):
         return {"check": "array_bounds", "satisfiable": False, "proof_time_ms": 30.0}
 
-    def check_integer_overflow(self, var_name, op, r1, r2, bw):
+    def check_integer_overflow(self, _var_name, _op, _r1, _r2, _bw):
         return {"check": "integer_overflow", "satisfiable": False, "proof_time_ms": 55.0}
 
-    def check_division_by_zero(self, divisor_var, divisor_range):
+    def check_division_by_zero(self, _divisor_var, _divisor_range):
         return {"check": "division_by_zero", "satisfiable": True, "proof_time_ms": 20.0}
 
-    def verify_condition(self, condition, description=""):
+    def verify_condition(self, _condition, _description=""):
         return {"check": "custom", "satisfiable": False, "proof_time_ms": 10.0}
 
 

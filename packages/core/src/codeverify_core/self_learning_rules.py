@@ -14,14 +14,12 @@ Features:
 
 from __future__ import annotations
 
-import hashlib
 import math
 import uuid
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 
 import structlog
 
@@ -73,7 +71,7 @@ class FindingFeedback:
     user_id: str = ""
     repo_id: str = ""
     file_path: str = ""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def is_positive(self) -> bool:
@@ -81,7 +79,11 @@ class FindingFeedback:
 
     @property
     def is_negative(self) -> bool:
-        return self.feedback_type in (FeedbackType.DISMISSED, FeedbackType.FALSE_POSITIVE, FeedbackType.NOT_HELPFUL)
+        return self.feedback_type in (
+            FeedbackType.DISMISSED,
+            FeedbackType.FALSE_POSITIVE,
+            FeedbackType.NOT_HELPFUL,
+        )
 
 
 @dataclass
@@ -190,13 +192,19 @@ class FalsePositiveClassifier:
         self._bias: float = 0.0
         self._trained = False
 
-    def train(self, features: list[FeatureVector], labels: list[bool], learning_rate: float = 0.1, epochs: int = 100) -> None:
+    def train(
+        self,
+        features: list[FeatureVector],
+        labels: list[bool],
+        learning_rate: float = 0.1,
+        epochs: int = 100,
+    ) -> None:
         """Train the classifier on feedback data."""
         if not features or not labels:
             return
 
         for _ in range(epochs):
-            for fv, label in zip(features, labels):
+            for fv, label in zip(features, labels, strict=True):
                 x = fv.to_list()
                 y = 1.0 if label else 0.0
                 prediction = self._sigmoid(self._dot(x))
@@ -213,7 +221,8 @@ class FalsePositiveClassifier:
         """Predict whether a finding is likely a false positive."""
         if not self._trained:
             return ClassificationResult(
-                is_likely_fp=False, confidence=0.0,
+                is_likely_fp=False,
+                confidence=0.0,
                 suggested_action=SeverityAdjustment.KEEP,
                 explanation="Classifier not yet trained",
             )
@@ -260,7 +269,9 @@ class SeverityCalibrator:
         self._rule_performance: dict[str, RulePerformance] = {}
 
     def update_from_feedback(self, feedback: list[FindingFeedback]) -> None:
-        counters: dict[str, dict[str, int]] = defaultdict(lambda: {"accepted": 0, "dismissed": 0, "fp": 0, "total": 0})
+        counters: dict[str, dict[str, int]] = defaultdict(
+            lambda: {"accepted": 0, "dismissed": 0, "fp": 0, "total": 0}
+        )
 
         for f in feedback:
             c = counters[f.rule_id]
@@ -321,18 +332,22 @@ class PatternLearner:
             if len(dismissals) >= 3:
                 repos = list({d.repo_id for d in dismissals if d.repo_id})
                 freq = len(dismissals)
-                patterns.append(LearnedPattern(
-                    pattern_type="frequently_dismissed",
-                    rule_id=rule_id,
-                    description=f"Rule '{rule_id}' is frequently dismissed ({freq} times)",
-                    frequency=freq,
-                    confidence=min(freq / 10.0, 1.0),
-                    repos_affected=repos,
-                    suggestion=f"Consider lowering severity or suppressing rule '{rule_id}'",
-                ))
+                patterns.append(
+                    LearnedPattern(
+                        pattern_type="frequently_dismissed",
+                        rule_id=rule_id,
+                        description=f"Rule '{rule_id}' is frequently dismissed ({freq} times)",
+                        frequency=freq,
+                        confidence=min(freq / 10.0, 1.0),
+                        repos_affected=repos,
+                        suggestion=f"Consider lowering severity or suppressing rule '{rule_id}'",
+                    )
+                )
 
         # Find category-specific patterns
-        category_counts: dict[str, dict[str, int]] = defaultdict(lambda: {"positive": 0, "negative": 0})
+        category_counts: dict[str, dict[str, int]] = defaultdict(
+            lambda: {"positive": 0, "negative": 0}
+        )
         for f in feedback:
             if f.is_positive:
                 category_counts[f.category]["positive"] += 1
@@ -342,14 +357,16 @@ class PatternLearner:
         for category, counts in category_counts.items():
             total = counts["positive"] + counts["negative"]
             if total >= 5 and counts["negative"] / total > 0.5:
-                patterns.append(LearnedPattern(
-                    pattern_type="noisy_category",
-                    category=category,
-                    description=f"Category '{category}' has high false positive rate ({counts['negative']}/{total})",
-                    frequency=total,
-                    confidence=counts["negative"] / total,
-                    suggestion=f"Review rules in category '{category}' for relevance",
-                ))
+                patterns.append(
+                    LearnedPattern(
+                        pattern_type="noisy_category",
+                        category=category,
+                        description=f"Category '{category}' has high false positive rate ({counts['negative']}/{total})",
+                        frequency=total,
+                        confidence=counts["negative"] / total,
+                        suggestion=f"Review rules in category '{category}' for relevance",
+                    )
+                )
 
         return patterns
 
@@ -382,7 +399,11 @@ class SelfLearningRuleEngine:
                 rule_id_hash=hash(f.rule_id) % 100 / 100.0,
                 category_hash=hash(f.category) % 100 / 100.0,
                 severity_numeric=severity_map.get(f.severity, 0) / 4.0,
-                file_extension_hash=hash(f.file_path.rsplit(".", 1)[-1] if "." in f.file_path else "") % 100 / 100.0,
+                file_extension_hash=hash(
+                    f.file_path.rsplit(".", 1)[-1] if "." in f.file_path else ""
+                )
+                % 100
+                / 100.0,
             )
             features.append(fv)
             labels.append(f.feedback_type == FeedbackType.FALSE_POSITIVE)
@@ -391,7 +412,9 @@ class SelfLearningRuleEngine:
         self._calibrator.update_from_feedback(all_feedback)
         self._patterns = self._learner.learn(all_feedback)
 
-        logger.info("self_learning_trained", feedback_count=len(all_feedback), patterns=len(self._patterns))
+        logger.info(
+            "self_learning_trained", feedback_count=len(all_feedback), patterns=len(self._patterns)
+        )
 
     def predict_false_positive(
         self,
@@ -406,7 +429,9 @@ class SelfLearningRuleEngine:
             rule_id_hash=hash(rule_id) % 100 / 100.0,
             category_hash=hash(category) % 100 / 100.0,
             severity_numeric=severity_map.get(severity, 0) / 4.0,
-            file_extension_hash=hash(file_path.rsplit(".", 1)[-1] if "." in file_path else "") % 100 / 100.0,
+            file_extension_hash=hash(file_path.rsplit(".", 1)[-1] if "." in file_path else "")
+            % 100
+            / 100.0,
         )
         return self._classifier.predict(fv)
 

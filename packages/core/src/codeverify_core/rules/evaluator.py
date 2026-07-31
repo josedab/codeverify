@@ -107,21 +107,21 @@ class RuleEvaluator:
             True if the rule should be evaluated for this file
         """
         # Check language
-        if rule.languages and language:
-            if language.lower() not in [l.lower() for l in rule.languages]:
-                return False
+        if (
+            rule.languages
+            and language
+            and language.lower() not in [lang.lower() for lang in rule.languages]
+        ):
+            return False
 
         # Check file patterns
-        if rule.file_patterns:
-            if not any(fnmatch(file_path, p) for p in rule.file_patterns):
-                return False
+        if rule.file_patterns and not any(fnmatch(file_path, p) for p in rule.file_patterns):
+            return False
 
         # Check exclusions
-        if rule.exclude_patterns:
-            if any(fnmatch(file_path, p) for p in rule.exclude_patterns):
-                return False
-
-        return True
+        return not (
+            rule.exclude_patterns and any(fnmatch(file_path, p) for p in rule.exclude_patterns)
+        )
 
     def _evaluate_rule(
         self,
@@ -196,9 +196,9 @@ class RuleEvaluator:
         elif condition.operator == ConditionOperator.NOT_MATCHES:
             return not bool(re.search(str(value), str(field_value)))
         elif condition.operator == ConditionOperator.EQUALS:
-            return field_value == value
+            return bool(field_value == value)
         elif condition.operator == ConditionOperator.NOT_EQUALS:
-            return field_value != value
+            return bool(field_value != value)
         elif condition.operator == ConditionOperator.EXISTS:
             return bool(field_value)
         elif condition.operator == ConditionOperator.NOT_EXISTS:

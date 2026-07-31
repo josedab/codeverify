@@ -76,10 +76,12 @@ class TestProtocolClient:
         from codeverify_core.protocol_client import VerificationClient
 
         client = VerificationClient()
-        result = client.verify_files({
-            "a.py": "def safe(): return 1",
-            "b.py": "x = eval('bad')",
-        })
+        result = client.verify_files(
+            {
+                "a.py": "def safe(): return 1",
+                "b.py": "x = eval('bad')",
+            }
+        )
         assert result.finding_count >= 1
 
 

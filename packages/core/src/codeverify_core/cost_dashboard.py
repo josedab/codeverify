@@ -162,11 +162,11 @@ class CostMetricsCollector:
         """Record a cache hit."""
         self._cache_hits += 1
 
-    def record_cache_miss(self, analysis_id: str = "") -> None:
+    def record_cache_miss(self, _analysis_id: str = "") -> None:
         """Record a cache miss."""
         self._cache_misses += 1
 
-    def record_analysis_start(self, analysis_id: str = "") -> None:
+    def record_analysis_start(self, _analysis_id: str = "") -> None:
         """Record the start of an analysis."""
         self._analyses_total += 1
 
@@ -288,7 +288,6 @@ class CostPrometheusMetrics:
 
         # Per-model costs
         for model, cost in s["cost_by_model"].items():
-            safe_model = model.replace("-", "_").replace(".", "_")
             lines.append(f'{ns}_model_cost_usd{{model="{model}"}} {cost}')
 
         lines.append("")

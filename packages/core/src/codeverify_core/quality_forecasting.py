@@ -14,11 +14,10 @@ Features:
 from __future__ import annotations
 
 import math
-import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -68,7 +67,7 @@ class ForecastConfidence(str, Enum):
 class QualityDataPoint:
     """A single quality measurement at a point in time."""
 
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     metric: MetricType = MetricType.FINDINGS
     value: float = 0.0
     repo_id: str = ""
@@ -121,7 +120,7 @@ class QualityAlert:
     current_value: float = 0.0
     threshold: float = 0.0
     triggered_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -164,7 +163,7 @@ class QualityForecast:
     scenarios: list[ScenarioResult] = field(default_factory=list)
     executive_summary: str = ""
     generated_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -196,18 +195,15 @@ class TrendCalculator:
         x_mean = sum(x_vals) / n
         y_mean = sum(values) / n
 
-        ss_xy = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_vals, values))
+        ss_xy = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_vals, values, strict=True))
         ss_xx = sum((x - x_mean) ** 2 for x in x_vals)
         ss_yy = sum((y - y_mean) ** 2 for y in values)
 
-        if ss_xx == 0:
-            slope = 0.0
-        else:
-            slope = ss_xy / ss_xx
+        slope = 0.0 if ss_xx == 0 else ss_xy / ss_xx
 
         r_squared = 0.0
         if ss_xx > 0 and ss_yy > 0:
-            r_squared = (ss_xy ** 2) / (ss_xx * ss_yy)
+            r_squared = (ss_xy**2) / (ss_xx * ss_yy)
 
         # Forecast
         last_val = values[-1]
@@ -219,14 +215,22 @@ class TrendCalculator:
             direction = TrendDirection.STABLE
         elif slope > 0:
             # For findings/incidents, increasing is declining quality
-            if metric in (MetricType.FINDINGS, MetricType.CRITICAL_FINDINGS,
-                          MetricType.INCIDENT_COUNT, MetricType.CODE_CHURN):
+            if metric in (
+                MetricType.FINDINGS,
+                MetricType.CRITICAL_FINDINGS,
+                MetricType.INCIDENT_COUNT,
+                MetricType.CODE_CHURN,
+            ):
                 direction = TrendDirection.DECLINING
             else:
                 direction = TrendDirection.IMPROVING
         else:
-            if metric in (MetricType.FINDINGS, MetricType.CRITICAL_FINDINGS,
-                          MetricType.INCIDENT_COUNT, MetricType.CODE_CHURN):
+            if metric in (
+                MetricType.FINDINGS,
+                MetricType.CRITICAL_FINDINGS,
+                MetricType.INCIDENT_COUNT,
+                MetricType.CODE_CHURN,
+            ):
                 direction = TrendDirection.IMPROVING
             else:
                 direction = TrendDirection.DECLINING
@@ -238,8 +242,10 @@ class TrendCalculator:
             if avg_diff > abs(y_mean) * 0.3:
                 direction = TrendDirection.VOLATILE
 
-        confidence = ForecastConfidence.HIGH if r_squared > 0.7 else (
-            ForecastConfidence.MEDIUM if r_squared > 0.3 else ForecastConfidence.LOW
+        confidence = (
+            ForecastConfidence.HIGH
+            if r_squared > 0.7
+            else (ForecastConfidence.MEDIUM if r_squared > 0.3 else ForecastConfidence.LOW)
         )
 
         return TrendAnalysis(
@@ -281,13 +287,15 @@ class AnomalyDetector:
         if abs(z_score) > z_threshold:
             severity = AlertSeverity.CRITICAL if abs(z_score) > 3.0 else AlertSeverity.WARNING
             direction = "above" if z_score > 0 else "below"
-            alerts.append(QualityAlert(
-                severity=severity,
-                metric=metric,
-                message=f"{metric.value} is {abs(z_score):.1f} std devs {direction} average.",
-                current_value=latest,
-                threshold=mean + z_threshold * std,
-            ))
+            alerts.append(
+                QualityAlert(
+                    severity=severity,
+                    metric=metric,
+                    message=f"{metric.value} is {abs(z_score):.1f} std devs {direction} average.",
+                    current_value=latest,
+                    threshold=mean + z_threshold * std,
+                )
+            )
 
         return alerts
 
@@ -363,37 +371,45 @@ class QualityForecaster:
         declining = [t for t in trends if t.direction == TrendDirection.DECLINING]
         if declining:
             impact = {t.metric.value: t.forecast_next_90d for t in declining}
-            scenarios.append(ScenarioResult(
-                scenario_name="status_quo",
-                description="Continue current trajectory without intervention.",
-                predicted_impact=impact,
-                confidence=ForecastConfidence.HIGH,
-            ))
+            scenarios.append(
+                ScenarioResult(
+                    scenario_name="status_quo",
+                    description="Continue current trajectory without intervention.",
+                    predicted_impact=impact,
+                    confidence=ForecastConfidence.HIGH,
+                )
+            )
 
-        scenarios.append(ScenarioResult(
-            scenario_name="increase_verification",
-            description="Increase verification coverage by 20%.",
-            predicted_impact={
-                "findings_reduction": 0.30,
-                "trust_score_improvement": 15.0,
-            },
-            confidence=ForecastConfidence.MEDIUM,
-        ))
+        scenarios.append(
+            ScenarioResult(
+                scenario_name="increase_verification",
+                description="Increase verification coverage by 20%.",
+                predicted_impact={
+                    "findings_reduction": 0.30,
+                    "trust_score_improvement": 15.0,
+                },
+                confidence=ForecastConfidence.MEDIUM,
+            )
+        )
 
-        scenarios.append(ScenarioResult(
-            scenario_name="add_team_members",
-            description="Add 2 developers focused on quality.",
-            predicted_impact={
-                "review_coverage_improvement": 0.25,
-                "time_to_fix_reduction": 0.40,
-            },
-            confidence=ForecastConfidence.LOW,
-        ))
+        scenarios.append(
+            ScenarioResult(
+                scenario_name="add_team_members",
+                description="Add 2 developers focused on quality.",
+                predicted_impact={
+                    "review_coverage_improvement": 0.25,
+                    "time_to_fix_reduction": 0.40,
+                },
+                confidence=ForecastConfidence.LOW,
+            )
+        )
 
         return scenarios
 
     def _generate_summary(
-        self, trends: list[TrendAnalysis], alerts: list[QualityAlert],
+        self,
+        trends: list[TrendAnalysis],
+        alerts: list[QualityAlert],
     ) -> str:
         """Generate executive summary text."""
         parts: list[str] = []

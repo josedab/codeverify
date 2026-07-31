@@ -20,6 +20,7 @@ Key components:
 from __future__ import annotations
 
 import warnings as _warnings
+
 _warnings.warn(
     "codeverify_core.autofix_validation is deprecated. Use codeverify_core.autofix_verified_patches instead.",
     DeprecationWarning,
@@ -208,9 +209,17 @@ _SUSPICIOUS_PATTERNS: list[dict[str, Any]] = [
     {"name": "eval_call", "pattern": re.compile(r"\beval\s*\("), "severity": "critical"},
     {"name": "exec_call", "pattern": re.compile(r"\bexec\s*\("), "severity": "critical"},
     {"name": "os_system", "pattern": re.compile(r"\bos\.system\s*\("), "severity": "high"},
-    {"name": "subprocess_shell", "pattern": re.compile(r"\bsubprocess\.\w+\(.*shell\s*=\s*True"), "severity": "high"},
+    {
+        "name": "subprocess_shell",
+        "pattern": re.compile(r"\bsubprocess\.\w+\(.*shell\s*=\s*True"),
+        "severity": "high",
+    },
     {"name": "bare_except", "pattern": re.compile(r"\bexcept\s*:"), "severity": "medium"},
-    {"name": "wildcard_import", "pattern": re.compile(r"from\s+\S+\s+import\s+\*"), "severity": "low"},
+    {
+        "name": "wildcard_import",
+        "pattern": re.compile(r"from\s+\S+\s+import\s+\*"),
+        "severity": "low",
+    },
 ]
 
 
@@ -246,7 +255,12 @@ class FixValidator:
         best: FixValidationResult | None = None
         for attempt in range(1, self._config.max_validation_attempts + 1):
             result = self._run_single_attempt(
-                fix_id, original_code, fixed_code, issue, language, attempt,
+                fix_id,
+                original_code,
+                fixed_code,
+                issue,
+                language,
+                attempt,
             )
             if result.status == FixValidationStatus.PASSED:
                 result.validation_time_ms = (time.monotonic() - start) * 1000
@@ -260,22 +274,33 @@ class FixValidator:
             return best
 
         return FixValidationResult(
-            fix_id=fix_id, status=FixValidationStatus.FAILED,
-            issue_resolved=False, validation_time_ms=elapsed_ms,
+            fix_id=fix_id,
+            status=FixValidationStatus.FAILED,
+            issue_resolved=False,
+            validation_time_ms=elapsed_ms,
             attempt_count=self._config.max_validation_attempts,
-            original_code=original_code, fixed_code=fixed_code,
+            original_code=original_code,
+            fixed_code=fixed_code,
         )
 
     def _run_single_attempt(
-        self, fix_id: str, original_code: str, fixed_code: str,
-        issue: str, language: str, attempt: int,
+        self,
+        fix_id: str,
+        original_code: str,
+        fixed_code: str,
+        issue: str,
+        language: str,
+        attempt: int,
     ) -> FixValidationResult:
         """Execute one full validation pass."""
         if not self._check_syntax(fixed_code, language):
             return FixValidationResult(
-                fix_id=fix_id, status=FixValidationStatus.FAILED,
-                issue_resolved=False, attempt_count=attempt,
-                original_code=original_code, fixed_code=fixed_code,
+                fix_id=fix_id,
+                status=FixValidationStatus.FAILED,
+                issue_resolved=False,
+                attempt_count=attempt,
+                original_code=original_code,
+                fixed_code=fixed_code,
             )
 
         resolved = self._check_issue_resolved(original_code, fixed_code, issue)
@@ -295,9 +320,13 @@ class FixValidator:
         proof = self._generate_proof(original_code, fixed_code) if resolved else None
 
         return FixValidationResult(
-            fix_id=fix_id, status=status, issue_resolved=resolved,
-            regressions=regressions, attempt_count=attempt,
-            original_code=original_code, fixed_code=fixed_code,
+            fix_id=fix_id,
+            status=status,
+            issue_resolved=resolved,
+            regressions=regressions,
+            attempt_count=attempt,
+            original_code=original_code,
+            fixed_code=fixed_code,
             proof_of_correctness=proof,
         )
 
@@ -343,23 +372,30 @@ class FixValidator:
         return True
 
     def _run_regression_check(
-        self, original_code: str, fixed_code: str, language: str,
+        self,
+        original_code: str,
+        fixed_code: str,
+        _language: str,
     ) -> list[RegressionResult]:
         """Delegate to :class:`RegressionChecker`."""
         return self._regression_checker.check_regressions(original_code, fixed_code)
 
     def _generate_proof(self, original_code: str, fixed_code: str) -> str | None:
         """Build a human-readable proof using :mod:`difflib` unified diff."""
-        diff = list(difflib.unified_diff(
-            original_code.splitlines(keepends=True),
-            fixed_code.splitlines(keepends=True),
-            fromfile="original", tofile="fixed", lineterm="",
-        ))
+        diff = list(
+            difflib.unified_diff(
+                original_code.splitlines(keepends=True),
+                fixed_code.splitlines(keepends=True),
+                fromfile="original",
+                tofile="fixed",
+                lineterm="",
+            )
+        )
         if not diff:
             return None
 
-        added = sum(1 for l in diff if l.startswith("+") and not l.startswith("+++"))
-        removed = sum(1 for l in diff if l.startswith("-") and not l.startswith("---"))
+        added = sum(1 for line in diff if line.startswith("+") and not line.startswith("+++"))
+        removed = sum(1 for line in diff if line.startswith("-") and not line.startswith("---"))
         return f"Verified fix: {added} line(s) added, {removed} line(s) removed.\n" + "".join(diff)
 
 
@@ -378,7 +414,10 @@ class RegressionChecker:
         self._similarity_threshold: float = 0.55
 
     def check_regressions(
-        self, original: str, fixed: str, test_suite: list[str] | None = None,
+        self,
+        original: str,
+        fixed: str,
+        test_suite: list[str] | None = None,
     ) -> list[RegressionResult]:
         """Run all regression checks and return any findings."""
         results: list[RegressionResult] = []
@@ -395,15 +434,17 @@ class RegressionChecker:
         ratio = difflib.SequenceMatcher(None, original, fixed).ratio()
 
         if ratio < self._similarity_threshold:
-            return [RegressionResult(
-                regression_type=RegressionType.BEHAVIOR_CHANGE,
-                description=(
-                    f"Structural similarity {ratio:.2%} below "
-                    f"threshold {self._similarity_threshold:.0%}."
-                ),
-                severity="high",
-                rollback_recommended=ratio < 0.35,
-            )]
+            return [
+                RegressionResult(
+                    regression_type=RegressionType.BEHAVIOR_CHANGE,
+                    description=(
+                        f"Structural similarity {ratio:.2%} below "
+                        f"threshold {self._similarity_threshold:.0%}."
+                    ),
+                    severity="high",
+                    rollback_recommended=ratio < 0.35,
+                )
+            ]
 
         # Check for removed definitions
         orig_defs = set(re.findall(r"(?:def|class)\s+(\w+)", original))
@@ -411,13 +452,15 @@ class RegressionChecker:
         removed = orig_defs - fixed_defs
 
         if removed:
-            return [RegressionResult(
-                regression_type=RegressionType.BEHAVIOR_CHANGE,
-                description=f"Definitions removed: {', '.join(sorted(removed))}.",
-                affected_tests=[f"test_{n}" for n in removed],
-                severity="critical",
-                rollback_recommended=True,
-            )]
+            return [
+                RegressionResult(
+                    regression_type=RegressionType.BEHAVIOR_CHANGE,
+                    description=f"Definitions removed: {', '.join(sorted(removed))}.",
+                    affected_tests=[f"test_{n}" for n in removed],
+                    severity="critical",
+                    rollback_recommended=True,
+                )
+            ]
         return []
 
     def _check_performance_regression(self, original: str, fixed: str) -> list[RegressionResult]:
@@ -426,12 +469,14 @@ class RegressionChecker:
         fixed_c = _estimate_complexity(fixed)
 
         if fixed_c > orig_c * 1.5 and fixed_c - orig_c >= 3:
-            return [RegressionResult(
-                regression_type=RegressionType.PERFORMANCE_DEGRADATION,
-                description=f"Complexity rose from {orig_c} to {fixed_c}.",
-                severity="medium",
-                rollback_recommended=False,
-            )]
+            return [
+                RegressionResult(
+                    regression_type=RegressionType.PERFORMANCE_DEGRADATION,
+                    description=f"Complexity rose from {orig_c} to {fixed_c}.",
+                    severity="medium",
+                    rollback_recommended=False,
+                )
+            ]
         return []
 
     def _detect_new_issues(self, fixed: str, original: str = "") -> list[RegressionResult]:
@@ -441,16 +486,21 @@ class RegressionChecker:
             orig_hits = len(entry["pattern"].findall(original)) if original else 0
             fixed_hits = len(entry["pattern"].findall(fixed))
             if fixed_hits > orig_hits:
-                results.append(RegressionResult(
-                    regression_type=RegressionType.NEW_ISSUE_INTRODUCED,
-                    description=f"Pattern '{entry['name']}' appears {fixed_hits - orig_hits} new time(s).",
-                    severity=entry["severity"],
-                    rollback_recommended=entry["severity"] in ("critical", "high"),
-                ))
+                results.append(
+                    RegressionResult(
+                        regression_type=RegressionType.NEW_ISSUE_INTRODUCED,
+                        description=f"Pattern '{entry['name']}' appears {fixed_hits - orig_hits} new time(s).",
+                        severity=entry["severity"],
+                        rollback_recommended=entry["severity"] in ("critical", "high"),
+                    )
+                )
         return results
 
     def _check_test_impacts(
-        self, original: str, fixed: str, test_suite: list[str],
+        self,
+        original: str,
+        fixed: str,
+        test_suite: list[str],
     ) -> list[RegressionResult]:
         """Cross-reference changed symbols with test names."""
         orig_defs = set(re.findall(r"(?:def|class)\s+(\w+)", original))
@@ -463,13 +513,15 @@ class RegressionChecker:
 
         affected = [t for t in test_suite if any(s.lower() in t.lower() for s in changed)]
         if affected:
-            return [RegressionResult(
-                regression_type=RegressionType.TEST_FAILURE,
-                description=f"{len(affected)} test(s) affected by changes to: {', '.join(sorted(changed))}.",
-                affected_tests=affected,
-                severity="high",
-                rollback_recommended=len(affected) > 3,
-            )]
+            return [
+                RegressionResult(
+                    regression_type=RegressionType.TEST_FAILURE,
+                    description=f"{len(affected)} test(s) affected by changes to: {', '.join(sorted(changed))}.",
+                    affected_tests=affected,
+                    severity="high",
+                    rollback_recommended=len(affected) > 3,
+                )
+            ]
         return []
 
 
@@ -514,7 +566,10 @@ class BatchFixProcessor:
                 language=fix_dict.get("language", "python"),
             )
             # Auto-rollback on regression
-            if result.status == FixValidationStatus.REGRESSION_DETECTED and self._config.auto_rollback:
+            if (
+                result.status == FixValidationStatus.REGRESSION_DETECTED
+                and self._config.auto_rollback
+            ):
                 logger.warning("batch_fix.auto_rollback", fix_id=result.fix_id)
                 result.fixed_code = result.original_code
                 result.status = FixValidationStatus.FAILED
@@ -525,14 +580,21 @@ class BatchFixProcessor:
         regression = sum(1 for r in results if r.status == FixValidationStatus.REGRESSION_DETECTED)
 
         batch_result = BatchFixResult(
-            batch_id=batch_id, strategy=strategy, total_fixes=len(results),
-            successful_fixes=successful, failed_fixes=len(results) - successful - regression,
-            regression_fixes=regression, fixes=results, total_time_ms=elapsed_ms,
+            batch_id=batch_id,
+            strategy=strategy,
+            total_fixes=len(results),
+            successful_fixes=successful,
+            failed_fixes=len(results) - successful - regression,
+            regression_fixes=regression,
+            fixes=results,
+            total_time_ms=elapsed_ms,
         )
         logger.info("batch_fix.complete", batch_id=batch_id, successful=successful)
         return batch_result
 
-    def _apply_strategy(self, fixes: list[dict[str, Any]], strategy: BatchFixStrategy) -> list[dict[str, Any]]:
+    def _apply_strategy(
+        self, fixes: list[dict[str, Any]], strategy: BatchFixStrategy
+    ) -> list[dict[str, Any]]:
         if strategy == BatchFixStrategy.DEPENDENCY_ORDERED:
             return self._order_by_dependency(fixes)
         if strategy == BatchFixStrategy.PRIORITY_FIRST:
@@ -547,7 +609,7 @@ class BatchFixProcessor:
             fix["_fix_id"] = fid
             id_map[fid] = fix
 
-        in_degree: dict[str, int] = {fid: 0 for fid in id_map}
+        in_degree: dict[str, int] = dict.fromkeys(id_map, 0)
         adj: dict[str, list[str]] = {fid: [] for fid in id_map}
         for fix in fixes:
             fid = fix["_fix_id"]
@@ -599,13 +661,16 @@ class PRDescriptionGenerator:
         pass
 
     def generate(
-        self, batch_result: BatchFixResult, repo_context: dict[str, Any] | None = None,
+        self,
+        batch_result: BatchFixResult,
+        repo_context: dict[str, Any] | None = None,
     ) -> PRDescription:
         """Build a complete PR description from *batch_result*."""
         ctx = repo_context or {}
         fixes_summary = [self._format_fix_summary(f) for f in batch_result.fixes]
         before_after = [
-            self._generate_before_after(f) for f in batch_result.fixes
+            self._generate_before_after(f)
+            for f in batch_result.fixes
             if f.status == FixValidationStatus.PASSED
         ]
 
@@ -615,7 +680,9 @@ class PRDescriptionGenerator:
         body = self._build_body(batch_result, fixes_summary, before_after, proof, ctx)
 
         return PRDescription(
-            title=title, body=body, labels=labels,
+            title=title,
+            body=body,
+            labels=labels,
             reviewers=ctx.get("reviewers", []),
             fixes_summary=fixes_summary,
             before_after_snippets=before_after,
@@ -650,8 +717,12 @@ class PRDescriptionGenerator:
         return f"{prefix}fix: apply {n}/{total} verified autofix patches"
 
     def _build_body(
-        self, batch: BatchFixResult, summaries: list[dict[str, Any]],
-        snippets: list[dict[str, str]], proof: str, ctx: dict[str, Any],
+        self,
+        batch: BatchFixResult,
+        summaries: list[dict[str, Any]],
+        snippets: list[dict[str, str]],
+        proof: str,
+        _ctx: dict[str, Any],
     ) -> str:
         parts: list[str] = []
 
@@ -676,7 +747,9 @@ class PRDescriptionGenerator:
             parts.append("### Fix Details\n")
             for s in summaries:
                 icon = "✅" if s["status"] == "passed" else "❌"
-                parts.append(f"- {icon} `{s['fix_id'][:12]}` — {s['status']} ({s['attempts']} attempt(s))")
+                parts.append(
+                    f"- {icon} `{s['fix_id'][:12]}` — {s['status']} ({s['attempts']} attempt(s))"
+                )
             parts.append("")
 
         # Before/After
@@ -754,14 +827,15 @@ def _estimate_complexity(code: str) -> int:
 def _extract_symbol_body(source: str, symbol: str) -> str:
     """Extract the indented body of a ``def``/``class`` from *source*."""
     pattern = re.compile(
-        rf"^([ \t]*)(def|class)\s+{re.escape(symbol)}\b[^\n]*:\s*\n", re.MULTILINE,
+        rf"^([ \t]*)(def|class)\s+{re.escape(symbol)}\b[^\n]*:\s*\n",
+        re.MULTILINE,
     )
     match = pattern.search(source)
     if not match:
         return ""
 
     indent = match.group(1)
-    lines = source[match.end():].splitlines(keepends=True)
+    lines = source[match.end() :].splitlines(keepends=True)
     body: list[str] = []
     for line in lines:
         stripped = line.rstrip("\n\r")

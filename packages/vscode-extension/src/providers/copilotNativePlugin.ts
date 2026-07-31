@@ -157,10 +157,8 @@ const badgeDecorations: Record<VerificationBadge, vscode.DecorationRenderOptions
             color: '#4CAF50',
             backgroundColor: 'rgba(76, 175, 80, 0.15)',
             border: '1px solid rgba(76, 175, 80, 0.3)',
-            borderRadius: '3px',
             margin: '0 0 0 8px',
             fontWeight: 'normal',
-            fontSize: '11px',
         },
         isWholeLine: false,
     },
@@ -170,10 +168,8 @@ const badgeDecorations: Record<VerificationBadge, vscode.DecorationRenderOptions
             color: '#2196F3',
             backgroundColor: 'rgba(33, 150, 243, 0.15)',
             border: '1px solid rgba(33, 150, 243, 0.3)',
-            borderRadius: '3px',
             margin: '0 0 0 8px',
             fontWeight: 'normal',
-            fontSize: '11px',
         },
         isWholeLine: false,
     },
@@ -183,10 +179,8 @@ const badgeDecorations: Record<VerificationBadge, vscode.DecorationRenderOptions
             color: '#FF9800',
             backgroundColor: 'rgba(255, 152, 0, 0.15)',
             border: '1px solid rgba(255, 152, 0, 0.3)',
-            borderRadius: '3px',
             margin: '0 0 0 8px',
             fontWeight: 'normal',
-            fontSize: '11px',
         },
         isWholeLine: false,
     },
@@ -196,10 +190,8 @@ const badgeDecorations: Record<VerificationBadge, vscode.DecorationRenderOptions
             color: '#F44336',
             backgroundColor: 'rgba(244, 67, 54, 0.15)',
             border: '1px solid rgba(244, 67, 54, 0.3)',
-            borderRadius: '3px',
             margin: '0 0 0 8px',
             fontWeight: 'normal',
-            fontSize: '11px',
         },
         isWholeLine: false,
     },
@@ -208,10 +200,8 @@ const badgeDecorations: Record<VerificationBadge, vscode.DecorationRenderOptions
             contentText: ' ⏳ Verifying...',
             color: '#9E9E9E',
             backgroundColor: 'rgba(158, 158, 158, 0.1)',
-            borderRadius: '3px',
             margin: '0 0 0 8px',
             fontWeight: 'normal',
-            fontSize: '11px',
         },
         isWholeLine: false,
     },
@@ -221,7 +211,6 @@ const badgeDecorations: Record<VerificationBadge, vscode.DecorationRenderOptions
             color: '#757575',
             margin: '0 0 0 8px',
             fontWeight: 'normal',
-            fontSize: '11px',
         },
         isWholeLine: false,
     },
@@ -309,7 +298,7 @@ class OneClickFixProvider implements vscode.CodeActionProvider {
                 arguments: [document.uri, range, fix],
             };
             action.isPreferred = index === 0;
-            action.diagnostics = context.diagnostics;
+            action.diagnostics = [...context.diagnostics];
             return action;
         });
     }

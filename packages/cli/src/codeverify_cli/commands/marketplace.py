@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import click
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table

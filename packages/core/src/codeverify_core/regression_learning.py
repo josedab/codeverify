@@ -19,7 +19,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TypedDict
 
 # =============================================================================
 # Data Models
@@ -302,7 +302,7 @@ class CodeFeatureExtractor:
 class PatternLearner:
     """Learns bug patterns from historical data."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.bug_patterns: dict[str, BugPattern] = {}
         self.revert_patterns: dict[str, RevertPattern] = {}
         self.feature_extractor = CodeFeatureExtractor()
@@ -575,7 +575,7 @@ class RegressionPredictor:
     def _match_pattern(
         self,
         code: str,
-        features: dict[str, Any],
+        _features: dict[str, Any],
         pattern: BugPattern,
         file_path: str,
     ) -> float:
@@ -583,9 +583,8 @@ class RegressionPredictor:
         scores: list[float] = []
 
         # Code pattern match
-        if pattern.code_pattern:
-            if re.search(pattern.code_pattern, code):
-                scores.append(0.8)
+        if pattern.code_pattern and re.search(pattern.code_pattern, code):
+            scores.append(0.8)
 
         # File path similarity
         if pattern.file_patterns:
@@ -721,6 +720,15 @@ class ModelStorage:
 # =============================================================================
 
 
+class TrainingStats(TypedDict):
+    """Training statistics tracked for an organization's model."""
+
+    total_bugs_learned: int
+    total_reverts_learned: int
+    last_training: float | None
+    accuracy_history: list[float]
+
+
 class OrganizationModel:
     """Model customized for a specific organization."""
 
@@ -731,7 +739,7 @@ class OrganizationModel:
         self.storage = ModelStorage()
 
         # Training statistics
-        self.training_stats = {
+        self.training_stats: TrainingStats = {
             "total_bugs_learned": 0,
             "total_reverts_learned": 0,
             "last_training": None,

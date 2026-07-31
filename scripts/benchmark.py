@@ -121,11 +121,11 @@ from typing import Optional, List, Dict, Any
 
 class DataProcessor:
     """Process data with various transformations."""
-    
+
     def __init__(self, config: Dict[str, Any]) -> None:
         self.config = config
         self.cache: Dict[str, Any] = {}
-    
+
     def process(self, data: List[int]) -> List[int]:
         """Process the data."""
         result = []
@@ -137,7 +137,7 @@ class DataProcessor:
                 self.cache[item] = processed
                 result.append(processed)
         return result
-    
+
     def _transform(self, value: int) -> int:
         """Transform a single value."""
         if value < 0:

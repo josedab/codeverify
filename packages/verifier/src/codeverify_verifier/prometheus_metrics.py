@@ -17,6 +17,7 @@ Compatible with:
 
 import http.server
 import json
+import socket
 import socketserver
 import threading
 import time
@@ -26,6 +27,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from functools import wraps
+from http.client import HTTPResponse
+from types import TracebackType
+from typing import Any, Literal, TypedDict, TypeVar, cast
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 class MetricType(Enum):
@@ -79,14 +85,14 @@ class MetricValue:
 class Counter:
     """Prometheus-style counter metric."""
 
-    def __init__(self, name: str, description: str, labels: list[str] = None):
+    def __init__(self, name: str, description: str, labels: list[str] | None = None) -> None:
         self.name = name
         self.description = description
         self.label_names = labels or []
-        self._values: dict[tuple, float] = defaultdict(float)
+        self._values: dict[tuple[str, ...], float] = defaultdict(float)
         self._lock = threading.Lock()
 
-    def inc(self, value: float = 1.0, **labels) -> None:
+    def inc(self, value: float = 1.0, **labels: str) -> None:
         """Increment counter."""
         if value < 0:
             raise ValueError("Counter can only increase")
@@ -95,21 +101,21 @@ class Counter:
         with self._lock:
             self._values[label_key] += value
 
-    def _label_key(self, labels: dict) -> tuple:
+    def _label_key(self, labels: dict[str, str]) -> tuple[str, ...]:
         """Create hashable key from labels."""
-        return tuple(labels.get(l, "") for l in self.label_names)
+        return tuple(labels.get(label_name, "") for label_name in self.label_names)
 
-    def get(self, **labels) -> float:
+    def get(self, **labels: str) -> float:
         """Get current counter value."""
         label_key = self._label_key(labels)
         return self._values.get(label_key, 0.0)
 
-    def collect(self) -> list[dict]:
+    def collect(self) -> list[dict[str, Any]]:
         """Collect all metric values for export."""
-        results = []
+        results: list[dict[str, Any]] = []
         with self._lock:
             for label_key, value in self._values.items():
-                label_dict = dict(zip(self.label_names, label_key))
+                label_dict = dict(zip(self.label_names, label_key, strict=True))
                 results.append(
                     {"name": self.name, "type": "counter", "value": value, "labels": label_dict}
                 )
@@ -119,47 +125,55 @@ class Counter:
 class Gauge:
     """Prometheus-style gauge metric."""
 
-    def __init__(self, name: str, description: str, labels: list[str] = None):
+    def __init__(self, name: str, description: str, labels: list[str] | None = None) -> None:
         self.name = name
         self.description = description
         self.label_names = labels or []
-        self._values: dict[tuple, float] = defaultdict(float)
+        self._values: dict[tuple[str, ...], float] = defaultdict(float)
         self._lock = threading.Lock()
 
-    def set(self, value: float, **labels) -> None:
+    def set(self, value: float, **labels: str) -> None:
         """Set gauge value."""
         label_key = self._label_key(labels)
         with self._lock:
             self._values[label_key] = value
 
-    def inc(self, value: float = 1.0, **labels) -> None:
+    def inc(self, value: float = 1.0, **labels: str) -> None:
         """Increment gauge."""
         label_key = self._label_key(labels)
         with self._lock:
             self._values[label_key] += value
 
-    def dec(self, value: float = 1.0, **labels) -> None:
+    def dec(self, value: float = 1.0, **labels: str) -> None:
         """Decrement gauge."""
         label_key = self._label_key(labels)
         with self._lock:
             self._values[label_key] -= value
 
-    def _label_key(self, labels: dict) -> tuple:
-        return tuple(labels.get(l, "") for l in self.label_names)
+    def _label_key(self, labels: dict[str, str]) -> tuple[str, ...]:
+        return tuple(labels.get(label_name, "") for label_name in self.label_names)
 
-    def get(self, **labels) -> float:
+    def get(self, **labels: str) -> float:
         label_key = self._label_key(labels)
         return self._values.get(label_key, 0.0)
 
-    def collect(self) -> list[dict]:
-        results = []
+    def collect(self) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
         with self._lock:
             for label_key, value in self._values.items():
-                label_dict = dict(zip(self.label_names, label_key))
+                label_dict = dict(zip(self.label_names, label_key, strict=True))
                 results.append(
                     {"name": self.name, "type": "gauge", "value": value, "labels": label_dict}
                 )
         return results
+
+
+class _HistogramData(TypedDict):
+    """Internal accumulator for a single label combination of a Histogram."""
+
+    buckets: dict[float, int]
+    sum: float
+    count: int
 
 
 class Histogram:
@@ -171,17 +185,17 @@ class Histogram:
         self,
         name: str,
         description: str,
-        labels: list[str] = None,
-        buckets: tuple[float, ...] = None,
-    ):
+        labels: list[str] | None = None,
+        buckets: tuple[float, ...] | None = None,
+    ) -> None:
         self.name = name
         self.description = description
         self.label_names = labels or []
         self.buckets = buckets or self.DEFAULT_BUCKETS
-        self._values: dict[tuple, dict] = {}
+        self._values: dict[tuple[str, ...], _HistogramData] = {}
         self._lock = threading.Lock()
 
-    def observe(self, value: float, **labels) -> None:
+    def observe(self, value: float, **labels: str) -> None:
         """Observe a value."""
         label_key = self._label_key(labels)
 
@@ -201,28 +215,26 @@ class Histogram:
                 if value <= bucket:
                     data["buckets"][bucket] += 1
 
-    def _label_key(self, labels: dict) -> tuple:
-        return tuple(labels.get(l, "") for l in self.label_names)
+    def _label_key(self, labels: dict[str, str]) -> tuple[str, ...]:
+        return tuple(labels.get(label_name, "") for label_name in self.label_names)
 
-    def time(self, **labels):
+    def time(self, **labels: str) -> "_HistogramTimer":
         """Context manager for timing operations."""
         return _HistogramTimer(self, labels)
 
-    def collect(self) -> list[dict]:
-        results = []
+    def collect(self) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
         with self._lock:
             for label_key, data in self._values.items():
-                label_dict = dict(zip(self.label_names, label_key))
+                label_dict = dict(zip(self.label_names, label_key, strict=True))
 
                 # Bucket metrics
-                cumulative = 0
                 for bucket, count in sorted(data["buckets"].items()):
-                    cumulative += count
                     results.append(
                         {
                             "name": f"{self.name}_bucket",
                             "type": "histogram",
-                            "value": cumulative,
+                            "value": count,
                             "labels": {**label_dict, "le": str(bucket)},
                         }
                     )
@@ -261,16 +273,22 @@ class Histogram:
 class _HistogramTimer:
     """Context manager for histogram timing."""
 
-    def __init__(self, histogram: Histogram, labels: dict):
+    def __init__(self, histogram: Histogram, labels: dict[str, str]) -> None:
         self.histogram = histogram
         self.labels = labels
-        self.start_time = None
+        self.start_time: float | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "_HistogramTimer":
         self.start_time = time.perf_counter()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> Literal[False]:
+        assert self.start_time is not None, "__exit__ called without a matching __enter__"
         elapsed = time.perf_counter() - self.start_time
         self.histogram.observe(elapsed, **self.labels)
         return False
@@ -283,19 +301,19 @@ class Summary:
         self,
         name: str,
         description: str,
-        labels: list[str] = None,
+        labels: list[str] | None = None,
         max_age_seconds: int = 600,
         quantiles: tuple[float, ...] = (0.5, 0.9, 0.99),
-    ):
+    ) -> None:
         self.name = name
         self.description = description
         self.label_names = labels or []
         self.max_age_seconds = max_age_seconds
         self.quantiles = quantiles
-        self._values: dict[tuple, list[tuple[float, float]]] = defaultdict(list)
+        self._values: dict[tuple[str, ...], list[tuple[float, float]]] = defaultdict(list)
         self._lock = threading.Lock()
 
-    def observe(self, value: float, **labels) -> None:
+    def observe(self, value: float, **labels: str) -> None:
         """Observe a value."""
         label_key = self._label_key(labels)
         now = time.time()
@@ -308,8 +326,8 @@ class Summary:
             cutoff = now - self.max_age_seconds
             self._values[label_key] = [(t, v) for t, v in self._values[label_key] if t > cutoff]
 
-    def _label_key(self, labels: dict) -> tuple:
-        return tuple(labels.get(l, "") for l in self.label_names)
+    def _label_key(self, labels: dict[str, str]) -> tuple[str, ...]:
+        return tuple(labels.get(label_name, "") for label_name in self.label_names)
 
     def _calculate_quantile(self, values: list[float], q: float) -> float:
         """Calculate quantile value."""
@@ -321,12 +339,12 @@ class Summary:
         idx = min(idx, len(sorted_values) - 1)
         return sorted_values[idx]
 
-    def collect(self) -> list[dict]:
-        results = []
+    def collect(self) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
 
         with self._lock:
             for label_key, observations in self._values.items():
-                label_dict = dict(zip(self.label_names, label_key))
+                label_dict = dict(zip(self.label_names, label_key, strict=True))
                 values = [v for _, v in observations]
 
                 if values:
@@ -461,9 +479,9 @@ class RuntimeProbeMetrics:
         """Set the number of pending violations."""
         self.pending_violations.set(count, severity=severity)
 
-    def collect_all(self) -> list[dict]:
+    def collect_all(self) -> list[dict[str, Any]]:
         """Collect all metrics for export."""
-        metrics = []
+        metrics: list[dict[str, Any]] = []
         metrics.extend(self.spec_checks_total.collect())
         metrics.extend(self.spec_violations_total.collect())
         metrics.extend(self.spec_check_duration_seconds.collect())
@@ -476,7 +494,7 @@ class RuntimeProbeMetrics:
         return metrics
 
 
-def format_prometheus(metrics: list[dict]) -> str:
+def format_prometheus(metrics: list[dict[str, Any]]) -> str:
     """
     Format metrics in Prometheus exposition format.
 
@@ -486,7 +504,7 @@ def format_prometheus(metrics: list[dict]) -> str:
     codeverify_spec_checks_total{spec_id="auth_check",probe_type="precondition",result="pass"} 1234
     """
     lines = []
-    seen_help = set()
+    seen_help: set[str] = set()
 
     for metric in metrics:
         name = metric["name"]
@@ -508,7 +526,7 @@ def format_prometheus(metrics: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def format_json(metrics: list[dict]) -> str:
+def format_json(metrics: list[dict[str, Any]]) -> str:
     """Format metrics as JSON for easier parsing."""
     return json.dumps(metrics, indent=2, default=str)
 
@@ -516,7 +534,7 @@ def format_json(metrics: list[dict]) -> str:
 class MetricsExporter:
     """Export metrics to various destinations."""
 
-    def __init__(self, metrics: RuntimeProbeMetrics):
+    def __init__(self, metrics: RuntimeProbeMetrics) -> None:
         self.metrics = metrics
 
     def to_prometheus(self) -> str:
@@ -528,7 +546,7 @@ class MetricsExporter:
         return format_json(self.metrics.collect_all())
 
     def push_to_pushgateway(
-        self, gateway_url: str, job: str = "codeverify", grouping_key: dict = None
+        self, gateway_url: str, job: str = "codeverify", grouping_key: dict[str, str] | None = None
     ) -> bool:
         """
         Push metrics to Prometheus Pushgateway.
@@ -558,7 +576,9 @@ class MetricsExporter:
             req.add_header("Content-Type", "text/plain")
 
             with urllib.request.urlopen(req, timeout=10) as response:
-                return response.status == 200
+                # urlopen's return type is aliased to `Any` in typeshed; for
+                # http(s) requests it is always an HTTPResponse exposing `.status`.
+                return cast(HTTPResponse, response).status == 200
 
         except urllib.error.URLError as e:
             print(f"Failed to push to pushgateway: {e}")
@@ -568,9 +588,9 @@ class MetricsExporter:
 class MetricsHTTPHandler(http.server.BaseHTTPRequestHandler):
     """HTTP handler for metrics endpoint."""
 
-    metrics_instance: RuntimeProbeMetrics = None
+    metrics_instance: RuntimeProbeMetrics | None = None
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         if self.path == "/metrics":
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -605,7 +625,7 @@ class MetricsHTTPHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-    def log_message(self, format, *args):
+    def log_message(self, format: str, *args: Any) -> None:
         pass  # Suppress logging
 
 
@@ -621,24 +641,26 @@ class MetricsServer:
         server.stop()
     """
 
-    def __init__(self, metrics: RuntimeProbeMetrics, port: int = 8000, host: str = "0.0.0.0"):
+    def __init__(
+        self, metrics: RuntimeProbeMetrics, port: int = 8000, host: str = "0.0.0.0"
+    ) -> None:
         self.metrics = metrics
         self.port = port
         self.host = host
-        self._server = None
-        self._thread = None
+        self._server: socketserver.TCPServer | None = None
+        self._thread: threading.Thread | None = None
 
     def start(self) -> None:
         """Start the metrics server in a background thread."""
         MetricsHTTPHandler.metrics_instance = self.metrics
 
-        self._server = socketserver.TCPServer((self.host, self.port), MetricsHTTPHandler)
-        self._server.socket.setsockopt(
-            socketserver.socket.SOL_SOCKET, socketserver.socket.SO_REUSEADDR, 1
-        )
+        server = socketserver.TCPServer((self.host, self.port), MetricsHTTPHandler)
+        server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._server = server
 
-        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
-        self._thread.start()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self._thread = thread
         print(f"Metrics server started on http://{self.host}:{self.port}/metrics")
 
     def stop(self) -> None:
@@ -653,7 +675,7 @@ class MetricsServer:
 
 def observe_spec_check(
     metrics: RuntimeProbeMetrics, spec_id: str, probe_type: str = "assertion"
-) -> Callable[[Callable], Callable]:
+) -> Callable[[F], F]:
     """
     Decorator to observe specification check metrics.
 
@@ -663,9 +685,9 @@ def observe_spec_check(
             return user.is_authenticated
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             start = time.perf_counter()
             try:
                 result = func(*args, **kwargs)
@@ -685,7 +707,7 @@ def observe_spec_check(
                 metrics.record_error(type(e).__name__)
                 raise
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator
 
@@ -716,19 +738,23 @@ class MetricsIntegration:
     Automatically records metrics for all spec checks.
     """
 
-    def __init__(self, metrics: RuntimeProbeMetrics = None):
+    def __init__(self, metrics: RuntimeProbeMetrics | None = None) -> None:
         self.metrics = metrics or get_global_metrics()
         self._violation_counts: dict[str, int] = defaultdict(int)
         self._last_rate_update = time.time()
 
     def on_spec_registered(self, spec_id: str, probe_type: str) -> None:
         """Called when a spec is registered."""
+        del spec_id
+
         # Increment active specs gauge
         current = self.metrics.active_specs.get(probe_type=probe_type)
         self.metrics.active_specs.set(current + 1, probe_type=probe_type)
 
     def on_spec_unregistered(self, spec_id: str, probe_type: str) -> None:
         """Called when a spec is unregistered."""
+        del spec_id
+
         current = self.metrics.active_specs.get(probe_type=probe_type)
         self.metrics.active_specs.set(max(0, current - 1), probe_type=probe_type)
 
