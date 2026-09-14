@@ -170,7 +170,7 @@ jobs:
           echo "Production smoke tests passed"
 
       - name: Notify success
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@v4.0.0
         if: success()
         with:
           payload: |
@@ -181,7 +181,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Notify failure
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@v4.0.0
         if: failure()
         with:
           payload: |
